@@ -1,0 +1,27 @@
+A custom PCB board was developed that plugs into a Raspberry Pi Zero W and acts as an interface for the Derby Net system, mainly for recording when individual cars cross the finish line. 
+
+All boards will have a serial ID starting with DT_54siv_#### where #### is a sequential number between 0 and 9 (first batch only. Other batches will have a different starting value and restarted sequences)
+
+The device has the following features:
+- 18650 Battery Management for charging and discharging and works for about 5-6 hours.
+- Can measure battery capacity through an ADC (voltage sensor)
+- 4 pin DIP switch allows for user-programmable settings such as lane selector or special cases
+- header for a RGB LED for status indication 
+- header for a 4-digit 7-segment display (for pinny number, etc.)
+- header for a toggle (on/off) to capture finish timing
+- onboard led battery soc indicators (green/yellow/red)
+
+Files:
+- telemetry.py      Gathers data about the device and sends to MQTT (including toggle state)
+- derbynet.py       Receives data from DerbyNet from MQTT (mainly LED colour, Pinny ID, and Lane ID)
+- setup.sh          Shell script to perform inital setup configurations 
+
+setup.sh contains 
+- installs the python files as a system service
+- installs the dependencies and libraries 
+- checks if the hostname matches the boot/derbyid.txt file, if not set the hostname and restart 
+
+
+
+
+

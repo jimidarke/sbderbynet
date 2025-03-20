@@ -40,3 +40,6 @@ dist/
 adapter-webrtc/
 .idea
 *.iml
+
+SECURE/
+.vscode/
