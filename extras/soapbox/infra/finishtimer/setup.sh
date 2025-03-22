@@ -103,25 +103,16 @@ fi
 # downloads the derbynet files from the server with rsync
 sudo rsync -avz --delete ${RSYNC_SERVER} ${LOCAL_DIR}
 
-# checks if the derbynet and telemetry services are installed and running, if not installs and starts them
-if [ ! -f /etc/systemd/system/derbynet.service ]; then
-    echo "Derbynet service not found. Installing and starting the service."
-    sudo cp ${LOCAL_DIR}files/derbynet.service /etc/systemd/system/
-    sudo systemctl enable derbynet
-    sudo systemctl start derbynet
+# checks if the finishtimer service is installed and running, if not installs and starts them
+if [ ! -f /etc/systemd/system/finishtimer.service ]; then
+    echo "DerbyNet Finishtimer service not found. Installing and starting the service."
+    sudo cp ${LOCAL_DIR}files/finishtimer.service /etc/systemd/system/
+    sudo systemctl enable finishtimer
+    sudo systemctl start finishtimer
+    TOREBOOT=1
 else
-    echo "Derbynet service found. Starting."
-    sudo systemctl restart derbynet
-fi
-
-if [ ! -f /etc/systemd/system/telemetry.service ]; then
-    echo "Telemetry service not found. Installing and starting the service."
-    sudo cp ${LOCAL_DIR}files/telemetry.service /etc/systemd/system/
-    sudo systemctl enable telemetry
-    sudo systemctl start telemetry
-else
-    echo "Telemetry service found. Starting."
-    sudo systemctl restart telemetry
+    echo "DerbyNet Finishtimer service found. Starting."
+    sudo systemctl restart finishtimer
 fi
 
 # reboots if TOREBOOT is set to 1

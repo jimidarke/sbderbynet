@@ -20,19 +20,26 @@ api = DerbyNetClient("localhost")
 # MQTT setup
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
+MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
+MQTT_TOPIC_TELEMETRY    = "derbynet/device/+/telemetry"
+MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 
-# Logging setup
-logging.basicConfig( level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')#, filename='derbyRace.log')
+LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
+LOG_FILE        = '/var/log/derbynet.log'
+
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
 
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
-        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbyupdater" + str(random.randint(1000,9999)))
-        self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
-        # subscribe to the derbynet topics for finish timer heartbeats and toggle states
-        self.client.subscribe("derbynet/lane/+/telemetry", qos=1)
-        self.client.subscribe("derbynet/lane/+/state", qos=1)
+        logging.info("Initializing DerbyRace")
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr" + str(random.randint(1000,9999)))
+        self.client.on_log = self.on_log
+        self.client.will_set("derbynet/status", payload="offline", qos=1, retain=True)
         self.client.on_message = self.on_message
+        self.client.on_connect = self.on_connect
+        self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
         self.client.loop_start()
+        
         self.start_time = 0
         self.lane_times = {}
         self.lanesFinished = 0
@@ -40,19 +47,41 @@ class derbyRace:
         self.roundid = 0
         self.heatid = 0
         self.class_name = ""
+        self.led = "red"
+        self.lanePinny = {}
         self.race_state = "STOPPED" # STOPPED, RACING, STAGING
         self.timer_heartbeat = {} 
         self.firstupdated = False
         self.updateFromDerbyAPI()
-        logging.info("Initialized")
         
+    def on_log(self, client, userdata, level, buf): # callback for mqtt logging
+        logging.debug(f"MQTT Log: {buf}")
+
+    def on_connect(self, client, userdata, flags, rc, properties=None): # callback for mqtt connection
+        logging.info(f"Connected with result code {rc}")        
+        client.subscribe(MQTT_TOPIC_TELEMETRY)
+        logging.info(f"Subscribed to {MQTT_TOPIC_TELEMETRY}")
+        client.subscribe(MQTT_TOPIC_STATE)
+        logging.info(f"Subscribed to {MQTT_TOPIC_STATE}")
+    
     def on_message(self, client, userdata, message): # callback for mqtt messages
         topic = message.topic
-        lane = int(topic.split("/")[2])
         payload = message.payload.decode("utf-8")
-        logging.info(f"Received message on {topic}: {payload}")
-        logging.info(f"RaceState: {self.race_state}")
+        logging.info(f"Received message on {topic} {payload}") 
+        # Received message on derbynet/device/DT54SIV0002/state: {"toggle": true, "time": 1742533387, "hwid": "DT54SIV0002", "dip": "1001"}
+        #logging.info(f"RaceState: {self.race_state}")
         # check for finish toggle if race is active to indicate someone has crossed the finish line
+        dip = json.loads(payload).get("dip","")
+        if dip == "1000": #lane1 
+            lane = 1
+        elif dip == "1001": #lane2
+            lane = 2
+        elif dip == "1002": #lane3
+            lane = 3
+        elif dip == "1003": #lane4
+            lane = 4
+        else: 
+            lane = 0
         if "state" in topic and self.race_state == "RACING": # this can only happen if the individual finish is triggered 
             logging.info(f"Received state message on {topic}: {payload}")
             self.laneFinish(lane)
@@ -60,11 +89,11 @@ class derbyRace:
         if "telemetry" in topic:
             self.timerHeartbeat(lane)
 
-    def updateFromDerbyAPI(self): # called frequently once a second to update the finish timers and led colours
+    def updateFromDerbyAPI(self): 
+        # sets online
+        self.client.publish("derbynet/status", payload="online", qos=1, retain=True)
+        # called frequently once a second to update the finish timers and led colours
         racestats = api.get_race_status()
-        if not self.firstupdated:
-            self.setLEDFromRaceStat(racestats)
-            self.firstupdated = True
         self.roundid = racestats.get("roundid",0)
         self.heatid = racestats.get("heat",0)
         self.class_name = racestats.get("class","")
@@ -72,38 +101,52 @@ class derbyRace:
         self.setLEDFromRaceStat(racestats)
         for lane in lanes:
             self.setLanePinny(lane["lane"],lane["racerid"])
+        # publish racestate
+        result = self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1)
+        if result.rc != 0:
+            logging.error(f"Error publishing to {MQTT_TOPIC_RACESTATE} with rc {result.rc} and error {result.error_string}")
 
     def setLanePinny(self, lane, pinny):
         pinny = str(pinny).zfill(4)
+        if self.lanePinny.get(str(lane),None) == pinny:
+            return
+        self.lanePinny[str(lane)] = pinny
         topic = f"derbynet/lane/{lane}/pinny"
-        self.client.publish(topic, pinny, qos=1)
-        #logging.info(f"Set Lane {lane} to Pinny {pinny}")
+        result = self.client.publish(topic, pinny, qos=2, retain=True)
+        if result.rc != 0:
+            logging.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+        logging.info(f"Set Lane {lane} to Pinny {pinny}")
 
     def setLEDFromRaceStat(self,racestats): # checks the api for the led to use and sends thusly 
         #racestats = api.get_race_status()
-        #print(racestats)
         led = None
         if racestats.get("active",False) and self.race_state == "STOPPED":
             led = "blue"
             self.race_state = "STAGING"
         if racestats.get("timer-state-string",) == "Race running":
-           self.race_state == "RACING"
+           self.race_state = "RACING"
            led = "green"
         if not racestats.get("active",False):
             led = "red"
             self.race_state = "STOPPED"
-        if led: 
+        if led and led != self.led:
+            self.led = led
             self.updateLED(led)
-            #logging.info(f"Set LED to {led}")
+            logging.info(f"Set LED to {led}")
 
-    def updateLED(self,led,lane=all):
-        if lane == all:
+    def updateLED(self,led,lane="all"):
+        if lane == "all":
             for i in range(1,self.lane_count+1):
                 topic = f"derbynet/lane/{i}/led"
-                self.client.publish(topic, led, qos=1)
+                result = self.client.publish(topic, led, qos=2, retain=True)
+                if result.rc != 0:
+                    logging.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
         else:
             topic = f"derbynet/lane/{lane}/led"
-            self.client.publish(topic, led, qos=1)
+            result = self.client.publish(topic, led, qos=2, retain=True)
+            if result.rc != 0:
+                logging.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+        #logging.info(f"Set LED to {led} for lane {lane}")
     
     def getRaceStatus(self):
         payload = {
@@ -134,7 +177,6 @@ class derbyRace:
             logging.info("All Lanes Finished")
             self.race_state = "STOPPED"
             logging.info(self.lane_times)
-            print(self.lane_times)
             self.updateLED("red")
             api.send_finish(self.roundid,self.heatid,self.lane_times)
             self.lanesFinished = 0
@@ -149,14 +191,40 @@ class derbyRace:
         if all(time.time() - self.timer_heartbeat[lane] < 90 for lane in self.timer_heartbeat):
             api.send_timer_heartbeat()
             logging.info("Sent Timer Heartbeat")
- 
+
+    def close(self,graceful = False):
+        self.client.loop_stop()
+        self.client.disconnect()
+        GPIO.cleanup()
+        logging.info("DerbyRace Closed")
+        if not graceful:
+            exit(1)
+        else:
+            exit(0)
+
 if __name__ == "__main__":
-    derby = derbyRace()
-    stime = time.time()
+    logging.info("DerbyRace Started")
+    try:
+        derby = derbyRace()
+    except Exception as e:
+        logging.error(f"Error in DerbyRace: {e}")
+        exit(1)
     while True:
-        derby.updateFromDerbyAPI() # polls the api and updates the led and pinny data
         if GPIO.input(PIN_START_BUTTON) == 0:
             logging.info("Start Button Pressed")
-            derby.startRace()
+            try:
+                derby.startRace()
+            except Exception as e:
+                logging.error(f"Error in DerbyRace Start Trigger: {e}")
+                derby.close()
+                exit(1)
+        try:
+            derby.updateFromDerbyAPI()
+        except KeyboardInterrupt:
+            derby.close()
+        except Exception as e:
+            logging.error(f"Error in DerbyRace: {e}")
+            derby.close()
+            exit(1)
         time.sleep(1)
-        
+    

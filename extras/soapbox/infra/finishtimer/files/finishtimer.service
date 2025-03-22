@@ -1,0 +1,11 @@
+[Unit]
+Description=Manages the Finish Timer for DerbyNet
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/derbynet/files/finishtimer.py
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

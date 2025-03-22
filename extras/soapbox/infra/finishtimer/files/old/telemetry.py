@@ -78,16 +78,20 @@ MCP3421_ADDR = 0x68
 
 # Constants
 TELEMETRY_INTERVAL = 10 # seconds
+
 TOGGLE_TOPIC = "derbynet/device/{}/state"
 TELEMETRY_TOPIC = "derbynet/device/{}/telemetry"
-
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f"{HWID}-{random.randint(1000, 9999)}")
-client.connect("192.168.100.10", 1883, 150)
-client.loop_start()
+STATUS_TOPIC = "derbynet/device/{}/status" #online/offline with will message
 
 # Setup logging
-logging.basicConfig(filename='/opt/derbynet/telemetry.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename='/var/log/derbytelemetry.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.info(f"Starting DerbyNet Telemetry for {HWID}")
 
+clientid = f"{HWID}-{random.randint(1000, 9999)}"
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, clientid)
+
+
+logging.info(f"MQTT Client ID: {clientid}")
 
 ### GPIO SETUP ###
 GPIO.setmode(GPIO.BCM)
@@ -106,10 +110,9 @@ def get_dip_switches():
 
 # thread to monitor the toggle switch
 def toggle_thread():
-    toggle = None
+    toggle = not GPIO.input(PIN_TOGGLE)
     while True:
         if GPIO.input(PIN_TOGGLE) != toggle: # change of state
-            print(f"Toggle: {toggle}")
             logging.info(f"Toggle: {toggle}")
             d1 = str(int(not GPIO.input(PIN_DIP1)))
             d2 = str(int(not GPIO.input(PIN_DIP2)))
@@ -122,15 +125,14 @@ def toggle_thread():
                 "hwid": HWID,
                 "dip": dips
             }
-            logging.debug(json.dumps(payload))
             try:
-                client.publish(TOGGLE_TOPIC.format(HWID), json.dumps(payload), qos=1)
+                client.publish(TOGGLE_TOPIC.format(HWID), json.dumps(payload), qos=2, retain=True)
                 toggle = not toggle
             except Exception as e:
-                print("Error sending toggle state:", e)
+                logging.error(f"Error publishing toggle state: {e}")
                 client.reconnect()
                 time.sleep(0.5)
-                client.publish(TOGGLE_TOPIC.format(HWID), json.dumps(payload), qos=1)
+                client.publish(TOGGLE_TOPIC.format(HWID), json.dumps(payload), qos=2, retain=True)
         time.sleep(0.1)
 
 t = threading.Thread(target=toggle_thread, args=(), daemon=True)
@@ -183,7 +185,7 @@ def prepPayload(): # returns the json to be sent
         "cpu_usage": get_cpu_usage(),
         "battery_level": get_battery_percentage(),
         "battery_raw": read_mcp3421(),
-        "dip_switch": get_dip_switches(),
+        "dip": get_dip_switches(),
         "toggle": not GPIO.input(PIN_TOGGLE),
         "hwid": HWID,
         "time": int(time.time())
@@ -215,7 +217,7 @@ def read_mcp3421():
         return raw_value # Return the raw ADC value which is unitless
 
     except Exception as e:
-        print("Error reading MCP3421:", e)
+        logging.error(f"Error reading MCP3421: {e}")
         return None
 
 # Helper function to convert raw ADC value to voltage
@@ -251,6 +253,11 @@ def get_battery_percentage(delay=1):
     voltage = adc_to_voltage(raw_value)
     return voltage_to_battery(voltage) 
 
+def on_connect(client, userdata, flags, reason_code, properties = None):
+    if reason_code == 0:
+        logging.info(f"Connected to MQTT broker")
+    else:
+        logging.error(f"Failed to connect to MQTT broker: {reason_code}")
 
 def main(): # main function
     while True:
@@ -258,22 +265,28 @@ def main(): # main function
             client.reconnect()
         payload = prepPayload()
         client.publish(TELEMETRY_TOPIC.format(HWID), payload, qos=1)    
-        print(payload)
+        logging.info(f"Telemetry: {payload}")
         time.sleep(TELEMETRY_INTERVAL)
 
 if __name__ == "__main__":
+    client.will_set(STATUS_TOPIC.format(HWID), payload="offline", qos=1, retain=True)
+    client.on_connect = on_connect
+    client.connect("192.168.100.10", 1883, 120)
+    client.loop_start()
+    client.publish(STATUS_TOPIC.format(HWID), payload="online", qos=1, retain=True)
     t.start()
     time_start = time.time()
+    logging.info(f"Starting Main Loop")
     try:
         main()
     except Exception as e:
-        print("Error in main loop:", e)
+        logging.error(f"Error in Main Loop: {e}")
         client.reconnect()
         main()
     finally:
-        GPIO.cleanup()
         client.disconnect()
         client.loop_stop()
         t.join()
         exit(0)
+        logging.info(f"Exiting DerbyNet Telemetry for {HWID}")
         
