@@ -40,3 +40,9 @@ dist/
 adapter-webrtc/
 .idea
 *.iml
+
+# As of 24-March-2025
+*.jar
+Data
+Data/*
+UniServerZ/*

@@ -58,19 +58,29 @@ function insert_new_racer($values) {
   }
 
 
-  $stmt = $db->prepare('INSERT INTO RegistrationInfo (carnumber, lastname, firstname, carname,'
-                       .'                             note, partitionid, rankid, classid, exclude)'
-                       .' VALUES(:carnumber, :lastname, :firstname, :carname,'
-                       .'        :note, :partitionid, :rankid, :classid, :exclude)');
-  $stmt->execute(array(':carnumber' => trim($values['carnumber']),
-                       ':carname' => trim($values['carname']),
-                       ':note' => trim($values['note_from']),
-                       ':firstname' => trim($values['firstname']),
-                       ':lastname' => trim($values['lastname']),
-                       ':partitionid' => $values['partitionid'],
-                       ':rankid' => $values['rankid'],
-                       ':classid' => $values['classid'],
-                       ':exclude' => (isset($values['exclude']) && $values['exclude']) ? 1 : 0));
+  $stmt = $db->prepare('INSERT INTO RegistrationInfo (carnumber, lastname, firstname, carname, note, partitionid, rankid, classid, exclude, carweight)
+                       VALUES(:carnumber, :lastname, :firstname, :carname, :note, :partitionid, :rankid, :classid, :exclude, :carweight)');
+
+  $values['carweight'] = isset($values['carweight']) ? $values['carweight'] : '0';  // Set default if missing
+
+  try {
+      $stmt->execute(array(
+          ':carnumber' => trim($values['carnumber']),
+//          ':carname' => trim($values['carname']),
+//          ':note' => trim($values['note']), // Ensure 'note' exists
+          ':firstname' => trim($values['firstname']),
+          ':lastname' => trim($values['lastname']),
+          ':partitionid' => $values['partitionid'],
+          ':rankid' => $values['rankid'],
+          ':classid' => $values['classid'],
+          ':exclude' => (isset($values['exclude']) && $values['exclude']) ? 1 : 0,
+          ':carweight' => $values['carweight']
+      ));
+  } catch (PDOException $e) {
+      error_log("PDO Exception while inserting new racer" . $e->getMessage() . " at " . date('Y-m-d H:i:s') . " in " . __FILE__ . " on line " . __LINE__);
+      die("Error inserting racer: " . $e->getMessage());
+  }
+
 
   $racerid = 0;
   try {
@@ -96,7 +106,8 @@ function insert_new_racer($values) {
                       'firstname' => trim($values['firstname']),
                       'lastname' => trim($values['lastname']),
                       'carnumber' => trim($values['carnumber']),
-                      'carname' => trim($values['carname']),
+  //                    'carname' => trim($values['carname']),
+                      'carweight' => trim($values['carweight']),
                       'partitionid' => $values['partitionid'],
                       'rankid' => $values['rankid'],
                       'classid' => $values['classid']));

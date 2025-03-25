@@ -58,7 +58,7 @@ if (schema_version() < 7) {
 }
 
 if (schema_version() < 8) {
-  $updates - array_merge($updates,
+  $updates = array_merge($updates,
                          @include(sql_file_path('partitions')));
   $updates[] = "ALTER TABLE RegistrationInfo ADD COLUMN partitionid INTEGER";
   $updates[] = "ALTER TABLE RegistrationInfo ADD COLUMN note VARCHAR(255)";
@@ -79,6 +79,17 @@ if (schema_version() < 9) {
   $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
   $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '9')";
 }
+
+if (schema_version() < 11) {
+    error_log("Updating to schema version 11...");
+
+    // Add carweight column only if it's missing
+    $updates[] = "ALTER TABLE RegistrationInfo ADD COLUMN carweight VARCHAR(255)";
+
+    $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+    $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '11')";
+}
+
 
 // For each new schema version, copy the DELETE and INSERT for schema version
 

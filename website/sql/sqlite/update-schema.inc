@@ -119,6 +119,25 @@ if (schema_version() < 10) {
   $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '10')";
 }
 
+// debuggin schema version
+error_log("Running schema update... Current schema version: " . schema_version());
+
+
+
+if (schema_version() < 11) {
+    error_log("Updating to schema version 11...");
+
+    // Check if column already exists before adding
+    $column_exists = read_single_value("SELECT COUNT(*) FROM pragma_table_info('RegistrationInfo') WHERE name='carweight'");
+    if (!$column_exists) {
+        $updates[] = "ALTER TABLE RegistrationInfo ADD COLUMN carweight VARCHAR(255)";
+    }
+
+    $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+    $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '11')";
+}
+
+
 // For each new schema version, copy the DELETE and INSERT for schema version
 
 return $updates;
