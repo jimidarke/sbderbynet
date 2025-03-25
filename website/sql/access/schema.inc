@@ -214,6 +214,7 @@ array(
 .'	RacerID          COUNTER,'
 .'	CarNumber        INTEGER,'
 .'	CarName          VARCHAR (30),'
+.'	CarWeight        VARCHAR (30),'
 .'	LastName         VARCHAR (30),'
 .'	FirstName        VARCHAR (30),'
 .'	ClassID          INTEGER,'

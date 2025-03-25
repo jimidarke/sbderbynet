@@ -170,7 +170,7 @@ function show_edit_racer_form(racerid) {
   $("#edit_carno").removeAttr('data-updatable').val(car_no);
   // $("#edit_carname").val(car_name);
   // $("#edit_note_from").val(note_from);
-  // console.log(car_weight);
+  console.log(car_weight);
   $("#edit_car_weight").val(car_weight);
 
   var partitionid = $('#div-' + racerid).attr('data-partitionid');

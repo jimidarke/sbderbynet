@@ -45,4 +45,5 @@ adapter-webrtc/
 *.jar
 Data
 Data/*
+UniServerZ
 UniServerZ/*
