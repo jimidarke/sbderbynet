@@ -83,6 +83,10 @@ if (have_permission(SET_UP_PERMISSION)) {
     'video-dir' => array('setting' => 'video-directory'),
     'warn-no-timer' => array('setting' => 'warn-no-timer', 'type' => 'checkbox'),
     'xbs-award' => array('setting' => 'xbs-award'),
+
+    // As of 26-03-2025
+    'weight-units' => array('setting' => 'weight-units'),
+
   );
 
   if ($ok) {

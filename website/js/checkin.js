@@ -229,10 +229,12 @@ function handle_edit_racer() {
   // var new_carname = $("#edit_carname").val().trim();
   // var new_note_from = $("#edit_note_from").val().trim();
   var new_car_weight = $("#edit_car_weight").val().trim();
-
-  // Convert input weight from lbs to kg before saving
-  carWeight = convertWeight(new_car_weight, "kg");
-  new_car_weight_in_kg = carWeight.kg;
+  
+  // User might enter in their preferred unit
+  var inputUnit = getSelectedWeightUnit();
+  // Always save in kg
+  var carWeight = convertWeight(new_car_weight, inputUnit, "kg");
+  var new_car_weight_in_kg = carWeight.kg;
 
   var new_div_id = $("#edit_partition").val();
   var new_div_name = $('[value="' + new_div_id + '"]', $("#edit_partition")).text();
@@ -781,13 +783,17 @@ function make_table_row(racer, xbs) {
 
   // console.log(racer.carweight);
 
-  var weightData = convertWeight(racer.carweight, "lbs");
+  // Convert weight for display based on user preference
+  // Get the user's preferred unit
+  let userPreferredUnit = getSelectedWeightUnit(); 
+  var weightData = convertWeight(racer.carweight, "kg", userPreferredUnit);
+  
 
   tr.append($('<td class="sort-carweight"/>')
     .attr('id', 'carweight-' + racer.racerid)
     .attr('data-weight-kg', weightData.kg)
     .attr('data-weight-lbs', weightData.lbs)
-    .text(weightData.lbs + ' lbs'));
+    .text(weightData[userPreferredUnit] + ' ' + userPreferredUnit));
 
   var checkin = $('<td class="checkin-status"/>').appendTo(tr);
   checkin.append('<br/>');
@@ -857,27 +863,41 @@ function validateFloat(input) {
 }
 
 // 24-03-2025 Saving Weight in Kgs while allowing users to input in lbs
-function convertWeight(weight, toUnit) {
+function convertWeight(weight, fromUnit, toUnit) {
   if (!weight || isNaN(weight)) return null;
 
-  weight = parseFloat(weight).toFixed(2);
+  let conversionFactor = 2.2046226218; // 1 kg = 2.2046 lbs
+  let weightFloat = parseFloat(weight);
 
-  let carweightKg, carweightLbs;
-  const conversionFactor = 2.2046226218;
+  let weightInKg;
 
-  if (toUnit === "kg") {
-    carweightKg = weight / conversionFactor;
-    carweightLbs = weight;
-  } else if (toUnit === "lbs") {
-    carweightKg = weight;
-    carweightLbs = weight * conversionFactor;
+  // Convert input to kg first
+  if (fromUnit === "lbs") {
+    weightInKg = weightFloat / conversionFactor;
   } else {
-    return null; // Invalid unit case
+    weightInKg = weightFloat;
   }
 
-  return {
-    kg: parseFloat(carweightKg).toFixed(2),
-    lbs: parseFloat(carweightLbs).toFixed(2)
-
-  };
+  // Convert to preferred unit for display
+  if (toUnit === "lbs") {
+    return {
+      kg: weightInKg.toFixed(2),
+      lbs: (weightInKg * conversionFactor).toFixed(2),
+    };
+  } else {
+    return {
+      kg: weightInKg.toFixed(2),
+      lbs: (weightInKg * conversionFactor).toFixed(2),
+    };
+  }
 }
+
+// 24-03-2025 Get selected unit from user settings
+function getSelectedWeightUnit() {
+  return localStorage.getItem("weightUnit") || "kg";
+  // return "lbs";
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  $(".preferred-Unit").text(' ('+getSelectedWeightUnit()+')');
+});

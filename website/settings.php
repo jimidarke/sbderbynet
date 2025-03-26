@@ -362,6 +362,26 @@ function photo_settings($purpose, $photo_dir_id, $photo_dir_value) {
 
     </div>
   </div>
+
+  <!-- As of 26-03-2025 Weight Management Settings for Display -->
+  <div class="settings_group">
+    <div class="settings_group_image">
+        <img src="img/miscellaneous.png"/>
+    </div>
+    <div class="settings_group_settings">
+    <p>
+        <input class="not-mobile use-weight-units" id="weight-kgs" name="weight-units" type="radio" value="kg"/>
+        <label for="weight-kgs">Display Car/Cart Weight in Kilograms (kgs)</label>
+    </p>
+    <p>
+        <input class="not-mobile use-weight-units" id="weight-lbs" name="weight-units" type="radio" value="lbs"/>
+        <label for="weight-lbs">Display Car/Cart Weight in Pounds (lbs)</label>
+    </p>
+    <p><i><strong>Note: </strong>Weight is stored in Database as Kilograms (Kgs)</i></p>
+</div>
+
+</div>
+
 </form>
 </div>
 

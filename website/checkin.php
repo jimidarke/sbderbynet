@@ -135,7 +135,7 @@ function column_header($text, $o)
           <th><?php echo column_header('Last Name', 'name'); ?></th>
           <th>First Name</th>
           <!-- <th>Car Name &amp; From</th> -->
-          <th>Car Weight (lbs)</th>
+          <th>Car Weight <span class="preferred-Unit"></span></th>
           <th>Passed?</th>
           <?php if ($xbs) {
             echo '<th>' . $xbs_award_name . '</th>';
@@ -273,7 +273,7 @@ function column_header($text, $o)
         <!-- <label for="edit_note_from">From (if desired):</label>
         <input id="edit_note_from" type="text" name="edit_note_from" value="" /> -->
 
-        <label for="edit_car_weight">Car weight (lbs)</label>
+        <label for="edit_car_weight">Car weight <span class="preferred-Unit"></span></label>
         <input id="edit_car_weight" type="text" name="edit_car_weight" oninput="validateFloat(this)" value="" />
 
         <label for="eligible">Trophy eligibility:</label>
