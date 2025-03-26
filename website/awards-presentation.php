@@ -194,7 +194,7 @@ foreach ($awards as &$row) {
         .' data-awardname="'.htmlspecialchars($row['awardname'], ENT_QUOTES, 'UTF-8').'"'
         .' data-recipient="'.htmlspecialchars(mangled_name($row, $name_style), ENT_QUOTES, 'UTF-8').'"'
         .' data-carnumber="'.$row['carnumber'].'"'
-        .' data-carname="'.htmlspecialchars($row['carname'], ENT_QUOTES, 'UTF-8').'"'
+        .' data-carname="'.htmlspecialchars((string)$row['carname'], ENT_QUOTES, 'UTF-8').'"'
         .($classid == 0 ? '' :
           ' data-class="'.htmlspecialchars($classes[$classid]['class'], ENT_QUOTES, 'UTF-8').'"')
         .($rankid == 0 ? '' :
