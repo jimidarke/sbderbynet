@@ -66,3 +66,19 @@ p.photo_dir_status_message {
     color: red;
     font-size: 20px;
 }
+
+/* As of 27-03-2025 */
+.d-flex {
+  display: flex;
+  justify-content: space-between;
+}
+
+.weight-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.weight-container .mselect {
+  width: 150px;
+}

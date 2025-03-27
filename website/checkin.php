@@ -20,7 +20,7 @@ require_permission(CHECK_IN_RACERS_PERMISSION);
 // un-check-in) that racer.  See checkin.js.
 
 // In addition to the actual check-in, it's possible to change a
-// racer's car number from this form, or mark the racer for our
+// racer's Pinny from this form, or mark the racer for our
 // "exclusively by scout" award.
 
 // Here on the server side, a GET request sends HTML for the whole
@@ -130,7 +130,7 @@ function column_header($text, $o)
           <th><?php
               echo column_header(htmlspecialchars(partition_label(), ENT_QUOTES, 'UTF-8'), 'partition');
               ?></th>
-          <th><?php echo column_header('Car Number', 'car'); ?></th>
+          <th><?php echo column_header('Pinny', 'car'); ?></th>
           <th>Photo</th>
           <th><?php echo column_header('Last Name', 'name'); ?></th>
           <th>First Name</th>
@@ -256,7 +256,7 @@ function column_header($text, $o)
         <label for="edit_lastname">Last name:</label>
         <input id="edit_lastname" type="text" name="edit_lastname" value="" />
 
-        <label for="edit_carno">Car number:</label>
+        <label for="edit_carno">Pinny:</label>
         <input id="edit_carno" type="text" name="edit_carno" value="" />
 
         <!-- <label for="edit_carname">Car name:</label>
@@ -370,7 +370,7 @@ function column_header($text, $o)
     <form id="bulk_details">
       <h2 id="bulk_details_title"></h2>
 
-      <label id="who_label" for="bulk_who">Assign car numbers to</label>
+      <label id="who_label" for="bulk_who">Assign Pinnys to</label>
       <select id="bulk_who">
         <option value="all">All</option>
         <!-- Replaced by javascript -->
@@ -394,7 +394,7 @@ function column_header($text, $o)
             value="<?php echo $car_numbering_smallest; ?>" />
         </div>
         <div id="bulk_numbering_explanation">
-          <p>Car numbers start at <?php echo $car_numbering_smallest; ?><?php
+          <p>Pinnys start at <?php echo $car_numbering_smallest; ?><?php
                                                                         if ($car_numbering_mult != 0) { ?><br />
             and the hundreds place increments for each <?php echo partition_label_lc(); ?>.
           <?php } else {

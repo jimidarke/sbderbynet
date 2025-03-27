@@ -41,7 +41,7 @@ function on_choose_award(list_item) {
          });
   $("#awardname").text(item.data('awardname'));
   $("#recipient").text(item.data('recipient'));
-  $("#carnumber").text('Car number ' + item.data('carnumber'));
+  $("#carnumber").text('Pinny ' + item.data('carnumber'));
   $("#carname").text(item.data('carname'));
   $("#classname").text(item.data('class'));
   $("#rankname").text(item.data('rank'));
@@ -118,7 +118,7 @@ function initialize_award_controls() {
             }
             $("#awardname").text(award.awardname);
             $("#recipient").text(award.recipient);
-            $("#carnumber").text(award.carnumber ? 'Car number ' + award.carnumber : '');
+            $("#carnumber").text(award.carnumber ? 'Pinny ' + award.carnumber : '');
             $("#carname").text(award.carname);
             $("#classname").text(award.classname);
             if (award.hasOwnProperty('subgroup') && award.subgroup.length > 0) {

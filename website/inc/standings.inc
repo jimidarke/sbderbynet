@@ -440,7 +440,7 @@ class StandingsOracle {
   private function write_standings_table_headers() {
     echo "<tr class='headers'>";
     echo "<th>Place</th>";
-    echo "<th>Car Number</th>";
+    echo "<th>Pinny</th>";
     echo "<th>Name</th>";
     if (show_car_name_in_standings()) {
       echo "<th>Car Name</th>";

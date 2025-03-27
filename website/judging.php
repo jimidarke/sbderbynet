@@ -91,7 +91,7 @@ foreach ($db->query($sql) as $rs) {
     Sort racers by:<br/>
     <?php link_for_ordering('name', "name,"); ?>
     <?php link_for_ordering('class', group_label_lc().","); ?> or
-    <?php link_for_ordering('car', "car number"); ?>.
+    <?php link_for_ordering('car', "pinny"); ?>.
   </div>
   <a class="button_link" href="awards-editor.php">Edit Awards</a>
 </div>

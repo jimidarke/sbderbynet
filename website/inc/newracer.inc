@@ -45,7 +45,7 @@ function insert_new_racer($values) {
   if (read_single_value('SELECT COUNT(*) FROM RegistrationInfo'
                         .' WHERE carnumber = :carnumber',
                         array(':carnumber' => $values['carnumber'])) > 0) {
-    json_out('warnings', array("Duplicate car number $values[carnumber]"));
+    json_out('warnings', array("Duplicate pinny $values[carnumber]"));
   }
 
   if (!isset($values['classid'])) {

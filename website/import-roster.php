@@ -88,7 +88,7 @@ function all_partitions() {
                                                             'required' => true),
                                        'partition' => array('name' => partition_label(),
                                                            'required' => false),
-                                       'carnumber' => array('name' => "Car Number",
+                                       'carnumber' => array('name' => "Pinny",
                                                             'required' => false),
                                        'carname' => array('name' => "Car Name",
                                                           'required' => false),

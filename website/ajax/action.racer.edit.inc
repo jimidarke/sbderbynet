@@ -68,7 +68,7 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
                           .' AND racerid <> :racerid',
                           array(':carnumber' => $values[':carnumber'],
                                 ':racerid' => $racerid)) > 0) {
-      json_out('warning', array("Duplicate car number $values[carnumber]"));
+      json_out('warning', array("Duplicate pinny $values[carnumber]"));
     }
   }
   // if (isset($_POST['carname'])) {

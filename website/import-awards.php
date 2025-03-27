@@ -56,7 +56,7 @@ class ImportAwards extends ImportCsvGenerator {
                                                           'required' => false),
                                      'subgroup' => array('name' => subgroup_label(),
                                                          'required' => false),
-                                     'carnumber' => array('name' => "Winning Car Number",
+                                     'carnumber' => array('name' => "Winning Pinny",
                                                           'required' => false)));
   require_once('inc/ajax-pending.inc');
 ?>

@@ -18,7 +18,7 @@ function export_results(callable $out) {
   } else {
     $headings[] = "Name";
   }
-  $headings[] = "CarNumber";
+  $headings[] = "Pinny";
   $headings[] = "CarName";
   $headings[] = "FinishTime";
   $headings[] = "Scale MPH";
@@ -86,7 +86,7 @@ function export_results_csv($output, $name_style = FULL_NAME) {
   } else {
     $headings[] = "Name";
   }
-  $headings[] = "CarNumber";
+  $headings[] = "Pinny";
   $headings[] = "CarName";
   $headings[] = "FinishTime";
   $headings[] = "FinishPlace";

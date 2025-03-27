@@ -30,7 +30,7 @@ function export_standings(callable $out, $key, $presentation,
              : ($scoring == 2 ? "Using each racer's fastest time only"
              : "Unknown scoring method")))));
 
-  $headers = array("Place", "Car Number", "Name");
+  $headers = array("Place", "Pinny", "Name");
   if (show_car_name_in_standings()) {
     $headers[] = "Car Name";
   }

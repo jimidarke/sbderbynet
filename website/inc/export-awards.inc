@@ -27,7 +27,7 @@ function export_awards(callable $out) {
   } else {
     $headings[] = "Name";
   }
-  $headings[] = "Car Number";
+  $headings[] = "Pinny";
   $headings[] = "Car Name";
 
   $out($headings);

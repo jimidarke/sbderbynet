@@ -31,7 +31,7 @@ class ImportResults extends ImportCsvGenerator {
       <td>Lane</td>
       <td>FirstName</td>
       <td>LastName</td>
-      <td>CarNumber</td>
+      <td>Pinny</td>
       <td>CarName</td>
       <td>FinishTime</td>
       <td>Scale MPH (Ignored)</td>

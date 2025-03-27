@@ -287,3 +287,8 @@ tbody {
   visibility: hidden;
   display: none;
 }
+
+/* 27-03-2025 */
+.double {
+  display: flex !important;
+}

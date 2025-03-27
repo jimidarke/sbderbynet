@@ -371,7 +371,7 @@ $(function () {
 function bulk_numbering() {
   close_modal_leave_background("#bulk_modal");
   $("#bulk_details_title").text("Bulk Renumbering");
-  $("#who_label").text("Assign car numbers to");
+  $("#who_label").text("Assign pinny's to");
   $("#bulk_details div.hidable").addClass("hidden");
   $("#numbering_controls").removeClass("hidden");
 
