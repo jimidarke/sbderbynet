@@ -229,7 +229,7 @@ function handle_edit_racer() {
   // var new_carname = $("#edit_carname").val().trim();
   // var new_note_from = $("#edit_note_from").val().trim();
   var new_car_weight = $("#edit_car_weight").val().trim();
-  
+
   // User might enter in their preferred unit
   var inputUnit = getSelectedWeightUnit();
   // Always save in kg
@@ -785,9 +785,9 @@ function make_table_row(racer, xbs) {
 
   // Convert weight for display based on user preference
   // Get the user's preferred unit
-  let userPreferredUnit = getSelectedWeightUnit(); 
+  let userPreferredUnit = getSelectedWeightUnit();
   var weightData = convertWeight(racer.carweight, "kg", userPreferredUnit);
-  
+
 
   tr.append($('<td class="sort-carweight"/>')
     .attr('id', 'carweight-' + racer.racerid)
@@ -866,7 +866,7 @@ function validateFloat(input) {
 function convertWeight(weight, fromUnit, toUnit) {
   if (!weight || isNaN(weight)) return null;
 
-  let conversionFactor = 2.2046226218; // 1 kg = 2.2046 lbs
+  const conversionFactor = 2.2046226218; // 1 kg = 2.2046226218 lbs
   let weightFloat = parseFloat(weight);
 
   let weightInKg;
@@ -899,5 +899,5 @@ function getSelectedWeightUnit() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  $(".preferred-Unit").text(' ('+getSelectedWeightUnit()+')');
+  $(".preferred-Unit").text(' (' + getSelectedWeightUnit() + ')');
 });
