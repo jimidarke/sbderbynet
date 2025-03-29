@@ -71,7 +71,11 @@ class derbyRace:
         # Received message on derbynet/device/DT54SIV0002/state: {"toggle": true, "time": 1742533387, "hwid": "DT54SIV0002", "dip": "1001"}
         #logging.info(f"RaceState: {self.race_state}")
         # check for finish toggle if race is active to indicate someone has crossed the finish line
-        dip = json.loads(payload).get("dip","")
+        try:
+            dip = json.loads(payload).get("dip","")
+        except Exception as e:
+            dip = ""
+            logging.error(f"Error parsing dip from payload: {e}")
         if dip == "1000": #lane1 
             lane = 1
         elif dip == "1001": #lane2

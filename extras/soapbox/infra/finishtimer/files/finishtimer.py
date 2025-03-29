@@ -23,7 +23,7 @@ pcb = derbyPCBv1()
 MQTT_BROKER = "192.168.100.10"
 MQTT_PORT = 1883
 MQTT_KEEPALIVE = 120
-TELEMETRY_INTERVAL = 10 # seconds
+TELEMETRY_INTERVAL = 5 # seconds
 
 # Topics to publish to
 TOGGLE_TOPIC    = "derbynet/device/{}/state"        # toggle state and timestamp
