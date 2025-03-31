@@ -91,6 +91,8 @@ if (have_permission(SET_UP_PERMISSION)) {
     'heat-counts' => array('setting' => 'heat-counts'),
     'avoid-consecutive' => array('setting' => 'avoid-consecutive'),
     'avoid-same-lane' => array('setting' => 'avoid-same-lane'),
+    'group-weighted-cars' => array('setting' => 'group-weighted-cars'),
+    
 
   );
 
@@ -122,8 +124,8 @@ if (have_permission(SET_UP_PERMISSION)) {
           }
         }
         // Validate heat ordering values
-        if (in_array($post_key, ['heat-counts', 'avoid-consecutive', 'avoid-same-lane'])) {
-            $validValues = ['zero', 'low', 'medium', 'high'];
+        if (in_array($post_key, ['heat-counts', 'avoid-consecutive','group-weighted-cars', 'avoid-same-lane'])) {
+            $validValues = ['0', '50', '300', '1000'];
             if (!in_array($itemvalue, $validValues)) {
                 json_failure('invalid-value', "Invalid value for $post_key.");
                 $ok = false;

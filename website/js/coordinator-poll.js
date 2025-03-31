@@ -149,7 +149,7 @@ function update_for_current_round(current) {
 }
 
 function generate_timer_state_group(tstate) {
-  console.log(tstate);
+  // console.log(tstate);
 
   $("#timer_status_text").text(tstate.message);
   $("#timer_status_icon").attr('src', tstate.icon);
@@ -704,7 +704,8 @@ function process_coordinator_poll_json(json) {
 
   generate_timer_state_group(json['timer-state']);
 
-  var lanesCount = json['timer-state'].lanes || 0; // Get the number of lanes
+  // Get the number of lanes
+  var lanesCount = json['timer-state'].lanes || 0;
   var lastHeartBeat = json['timer-state']['last-contact'] || 0;
   var currentTime = Date.now(); 
 
@@ -713,13 +714,15 @@ function process_coordinator_poll_json(json) {
 
   // Check if a race is currently running
   var nowRacing = json["current-heat"]["now_racing"] || false;
-
+  
   // Determine each lane's status
   var tstate = [];
 
   for (let i = 1; i <= lanesCount; i++) {
-      let isOnline = (currentTime - timestamp) <= 5000; // Online if last contact < 5 sec
-      let status = isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY"; // Change Ready to Running if race is active
+    // Online if last contact < 5 sec
+      let isOnline = (currentTime - timestamp) <= 5000;
+      // Change Ready to Running if race is active
+      let status = isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY";
 
       tstate.push({
           label: `Lane ${i} Timer`,
@@ -755,7 +758,7 @@ function process_coordinator_poll_json(json) {
 
   // Function to generate the status table dynamically
   function generate_timer_capture_status_table(tstate) {
-      console.log(tstate); // Debugging output
+      // console.log(tstate); // Debugging output
 
       let tbody = document.getElementById("timer-statuses");
       tbody.innerHTML = ""; // Clear existing rows before adding new ones

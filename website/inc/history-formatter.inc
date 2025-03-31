@@ -448,7 +448,7 @@ class HistoryActionFormatter {
                                          'firstname' => $this->_action['firstname'],
                                          'lastname' => $this->_action['lastname'],
                                          'carnumber' => $this->_action['carnumber'],
-                                         'carname' => $this->_action['carname'],
+                                         'carname' => @$this->_action['carname'],
                                          'partitionid' => $this->_action['partitionid'],
                                          'rankid' => $this->_action['rankid'],
                                          'classid' => $this->_action['classid']));
