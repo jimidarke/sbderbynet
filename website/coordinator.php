@@ -27,6 +27,10 @@ $warn_no_timer = warn_no_timer();
 <script type="text/javascript" src="js/modal.js"></script>
 <script type="text/javascript" src="js/coordinator-controls.js"></script>
 <script type="text/javascript" src="js/coordinator-poll.js"></script>
+
+<!-- As of 28-03-2025 -->
+<!-- <script type="text/javascript" src="js/fake-timer.js"></script> -->
+
 <script type="text/javascript" src="js/timer-alive.js"></script>
 <script type="text/javascript">
     var g_use_subgroups = <?php echo use_subgroups() ? "true" : "false"; ?>;
@@ -129,6 +133,49 @@ input.lane-time::-webkit-outer-spin-button {
     <h3>Timer Status</h3>
     <p><b id="timer_status_text">Timer status not yet updated</b></p>
     <p>The track has <span id="lane_count">an unknown number of</span> lane(s).</p>
+
+    <div id='lane-timers' class="lane-timers">
+    <!-- <table border="1" cellpadding="10" style="width:fit-content">
+      <tbody>
+        <?= print_r(read_raceinfo('tt-lane1')); ?>
+        <tr>
+          <td class="timer-label">Start Timer</td>
+          <td class="timer-online">Online</td>
+          <td class="timer-ready">Ready</td>
+        </tr>
+        <tr>
+          <td class="timer-label">Lane 1 Timer</td>
+          <td class="timer-online">Online</td>
+          <td class="timer-ready">Ready</td>
+        </tr>
+        <tr>
+          <td class="timer-label">Lane 2 Timer</td>
+          <td class="timer-online">Online</td>
+          <td class="timer-not-ready">NOT READY</td>
+        </tr>
+        <tr>
+          <td class="timer-label">Lane 3 Timer</td>
+          <td class="timer-offline">OFFLINE</td>
+          <td class="timer-not-ready">NOT READY</td>
+        </tr>
+      </tbody>
+    </table> -->
+
+
+    <table border="1" cellpadding="10" style="width: fit-content">
+      <thead>
+        <tr>
+          <td class="timer-label">Start Timer</td>
+          <td class="timer-heading-status">Online</td>
+          <td class="timer-heading-ready">Ready</td>
+        </tr>
+      </thead>
+      <tbody id="timer-statuses">
+        <!-- Dynamic rows will be added here -->
+      </tbody>
+    </table>
+
+    </div>
    <?php } ?>
   </div>
 
