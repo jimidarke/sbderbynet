@@ -178,20 +178,30 @@ function column_header($text, $o)
   $stmt->execute(array(':xbs_award_name' => xbs_award()));
   ?>
 
-  <script>
+<script>
+    
     function addrow0(racer) {
       return add_table_row('#main_tbody', racer,
         <?php echo $xbs ? json_encode($xbs_award_name) : "false"; ?>);
     }
 
     <?php
+    // Initialize Racers array (EMPTY)
+    $racers = [];  
+    
     $n = 1;
     foreach ($stmt as $rs) {
-      // TODO
+      // Add missing rankseq
       $rs['rankseq'] = $ranks[$rs['rankid']]['seq'];
+      
+      // Ensure 'note' is not null
       if (is_null($rs['note'])) {
         $rs['note'] = '';
       }
+
+      $racers[] = $rs;
+      
+      // Add racer row to the table
       echo "addrow0(" . json_encode(
         json_table_row($rs, $n),
         JSON_NUMERIC_CHECK | JSON_UNESCAPED_SLASHES |
@@ -199,6 +209,10 @@ function column_header($text, $o)
       ) . ");\n";
       ++$n;
     }
+    // Output JSON for JavaScript
+    // echo "populateMutualInclusionExclusion(" . json_encode($racers, JSON_UNESCAPED_SLASHES) . ");";
+
+    echo "updateRacersData(" . json_encode($racers, JSON_UNESCAPED_SLASHES) . ");";
     ?>
 
     $(function() {
@@ -261,6 +275,16 @@ function column_header($text, $o)
 
         <!-- <label for="edit_carname">Car name:</label>
         <input id="edit_carname" type="text" name="edit_carname" value="" /> -->
+
+        <!-- As of 01-04-2025 Task: Add Mutual inclusion/exclusion factors for heat scheduling -->
+        <div class="mutual-inclusion-exclusion">
+           <br>
+           <br>
+           <label for="Inclusion">Mutual Inclusion:</label>
+           <br>
+           <br>
+           <label for="Exclusion">Mutual Exclusion:</label>
+         </div>
       </div>
 
       <div id="right-edit">
@@ -282,20 +306,27 @@ function column_header($text, $o)
           data-off-text="Excluded"
           data-on-text="Eligible" />
         <br />
+        <div class="mutual-inclusion-exclusion">
+          <select name="grouped_with" id="grouped_with">
+            <option value=""> Any </option>
+          
+          </select>
+          <select name="avoid_with" id="avoid_with">
+            <option value=""> Any </option>
+          
+          </select>
+        </div>
       </div>
 
-      <div class="buttons-container">
-        <div class="submit-cancel-btns">
+        <div class="buttons-container">
           <input type="submit" />
           <input type="button" value="Cancel"
             onclick='close_modal("#edit_racer_modal");' />
-        </div>
-
-        <div id="delete_racer_extension">
-          <input type="button" value="Delete Racer"
-            class="delete_button"
-            onclick="handle_delete_racer();" />
-        </div>
+          <div id="delete_racer_extension">
+            <input type="button" value="Delete Racer"
+              class="delete_button"
+              onclick="handle_delete_racer();" />
+          </div>
       </div>
 
       <input id="edit_racer" type="hidden" name="racer" value="" />

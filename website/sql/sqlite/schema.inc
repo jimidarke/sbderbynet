@@ -194,6 +194,8 @@ make_index("Rounds", "round"),
 
 @include(sql_file_path('action-history')),
 
+@include(sql_file_path('mutual-preferences')),
+
 array(
 "INSERT INTO RaceInfo (itemkey, itemvalue) VALUES ('schema', ".expected_schema_version().")",
 "INSERT INTO RaceInfo (itemkey, itemvalue) VALUES ('photos-on-now-racing', 'head')",

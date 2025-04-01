@@ -843,7 +843,7 @@ function coordinator_poll() {
             heat: g_current_heat.heat
           },
           success: function (json) {
-            console.log(json);
+            // console.log(json);
 
             if (json["cease"]) {
               clearInterval(g_polling_interval);

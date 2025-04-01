@@ -340,6 +340,8 @@ array(
 
 @include(sql_file_path('event-lane-details')),
 
+@include(sql_file_path('mutual-preferences')),
+
 array(
 
 // --- Populate basic data
