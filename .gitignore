@@ -41,6 +41,8 @@ adapter-webrtc/
 .idea
 *.iml
 
+SECURE/
+.vscode/
 # As of 24-March-2025
 *.jar
 Data
