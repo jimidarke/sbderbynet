@@ -37,36 +37,20 @@ require_once('inc/xbs.inc');
 
 // UPDATE: As of 01-04-2025
 function checkin_table_SELECT_FROM_sql() {
-  $schema_version = schema_version();
   return
-    'SELECT ri.racerid, ri.carnumber, ri.lastname, ri.firstname, ri.carname, ri.carweight, ri.imagefile,'
-    .($schema_version < 2 ? " '' AS carphoto," : " ri.carphoto,")
-    .($schema_version < PARTITION_SCHEMA
-      ? " 1 AS partitionid, 1 AS partition_sortorder, '".DEFAULT_PARTITION_NAME."' AS partition_name,"
-      ." '' AS note,"
-      : " p.partitionid AS partitionid,"
-        ." p.sortorder AS partition_sortorder,"
-        ." p.name AS partition_name, ri.note,")
-    .' ri.classid, class, ri.rankid, rank, ri.passedinspection, ri.exclude,'
-    .' EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.racerid = ri.racerid) AS scheduled,'
-    .' EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.classid = ri.classid) AS denscheduled,'
-    .' EXISTS(SELECT 1 FROM Awards WHERE Awards.awardname = :xbs_award_name AND'
-    .'                                   Awards.racerid = ri.racerid) AS xbs,'
-    .' rp1.related_racerid AS grouped_with,'
-    .' rp2.related_racerid AS avoid_with'
-    .' FROM '.($schema_version < PARTITION_SCHEMA 
-               ? inner_join('RegistrationInfo AS ri', 'Classes',
-                            'ri.classid = Classes.classid',
-                            'Ranks',
-                            'ri.rankid = Ranks.rankid')
-               : inner_join('RegistrationInfo AS ri', 'Classes',
-                            'ri.classid = Classes.classid',
-                            'Ranks',
-                            'ri.rankid = Ranks.rankid',
-                            'Partitions AS p',
-                            'ri.partitionid = p.partitionid'))
-    .' LEFT JOIN mutual_preferences AS rp1 ON rp1.racerid = ri.racerid AND rp1.preference_type = "include"'
-    .' LEFT JOIN mutual_preferences AS rp2 ON rp2.racerid = ri.racerid AND rp2.preference_type = "exclude"';
+      'SELECT ri.racerid, ri.carnumber, ri.lastname, ri.firstname, ri.carname, ri.carweight, ri.imagefile, '
+      . 'ri.carphoto, p.partitionid AS partitionid, p.sortorder AS partition_sortorder, '
+      . 'p.name AS partition_name, ri.note, ri.classid, c.class, ri.rankid, r.rank, ri.passedinspection, ri.exclude, '
+      . 'EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.racerid = ri.racerid) AS scheduled, '
+      . 'EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.classid = ri.classid) AS denscheduled, '
+      . 'EXISTS(SELECT 1 FROM Awards WHERE Awards.awardname = :xbs_award_name AND Awards.racerid = ri.racerid) AS xbs, '
+      . 'inc.related_racerid AS grouped_with, exc.related_racerid AS avoid_with '
+      . 'FROM RegistrationInfo AS ri '
+      . 'INNER JOIN Classes AS c ON ri.classid = c.classid '
+      . 'INNER JOIN Ranks AS r ON ri.rankid = r.rankid '
+      . 'LEFT JOIN Partitions AS p ON ri.partitionid = p.partitionid '
+      . 'LEFT JOIN (SELECT racerid, related_racerid FROM mutual_preferences WHERE preference_type = "include") AS inc ON inc.racerid = ri.racerid '
+      . 'LEFT JOIN (SELECT racerid, related_racerid FROM mutual_preferences WHERE preference_type = "exclude") AS exc ON exc.racerid = ri.racerid';
 }
 
 

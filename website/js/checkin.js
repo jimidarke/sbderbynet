@@ -198,7 +198,6 @@ function show_edit_racer_form(racerid) {
   // As of 01-04-2025  
   if (isEditForm === true) {
     console.log(isEditForm);
-    
     $('.mutual-inclusion-exclusion').css('display', 'block');
   }
   
@@ -996,52 +995,69 @@ function populateMutualInclusionExclusion(racers, currentRacerId) {
 
   // Find existing preferences for current racer
   const currentRacer = racers.find(r => r.racerid == currentRacerId);
-  const groupedWith = currentRacer?.grouped_with;
-  const avoidWith = currentRacer?.avoid_with;
+  let groupedWith = currentRacer?.grouped_with;
+  let avoidWith = currentRacer?.avoid_with;
 
-  // Generate options with proper selection
-  racers.forEach(racer => {
-    if (racer.racerid == currentRacerId) return; // Skip current racer
+  console.log(racers, groupedWith, avoidWith);
 
-    // Inclusion dropdown
-    const includeSelected = groupedWith == racer.racerid ? 'selected' : '';
-    includeSelect.append(
-      `<option value="${racer.racerid}" ${includeSelected}>
-        ${racer.firstname} ${racer.lastname}
-      </option>`
-    );
+  // Function to update the options in a select element
+  function updateOptions(selectElement, racers, isIncludeList) {
+    selectElement.empty().append('<option value="">Any</option>'); // Re-add the 'Any' option
 
-    // Exclusion dropdown
-    const excludeSelected = avoidWith == racer.racerid ? 'selected' : '';
-    excludeSelect.append(
-      `<option value="${racer.racerid}" ${excludeSelected}>
-        ${racer.firstname} ${racer.lastname}
-      </option>`
-    );
-  });
+    racers.forEach(racer => {
+      if (racer.racerid == currentRacerId) return; // Skip current racer
+
+      let isExcluded;
+      let selected;
+      if (isIncludeList) {
+        isExcluded = avoidWith == racer.racerid;
+        selected = groupedWith == racer.racerid ? 'selected' : '';
+      } else {
+        isExcluded = groupedWith == racer.racerid;
+        selected = avoidWith == racer.racerid ? 'selected' : '';
+      }
+
+      if (!isExcluded) {
+        selectElement.append(
+          `<option value="${racer.racerid}" ${selected}>
+            ${racer.firstname} ${racer.lastname}
+          </option>`
+        );
+      }
+    });
+  }
+
+  // Initial population of options
+  updateOptions(includeSelect, racers, true);
+  updateOptions(excludeSelect, racers, false);
+
+
+  // Function to update span content based on selected option
+  function updateSpanContent(selectElement, selectId) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const spanElement = $(selectElement).closest('.mselect-inner').find('span');
+
+    if (selectedOption.value) {
+      spanElement.text(selectedOption.text);
+    } else {
+      spanElement.text('Any');
+    }
+  }
 
   // Update span content based on initial selections
   updateSpanContent(includeSelect[0], 'grouped_with');
   updateSpanContent(excludeSelect[0], 'avoid_with');
 
-  // Add event listeners to update span content on change
-  includeSelect.on('change', function() {
+  // Add event listeners to update on change
+  includeSelect.off('change').on('change', function() { // Remove previous event handlers
+    groupedWith = $(this).val(); // Update groupedWith with selected value
+    updateOptions(excludeSelect, racers, false); // Rebuild the other list
     updateSpanContent(this, 'grouped_with');
   });
 
-  excludeSelect.on('change', function() {
+  excludeSelect.off('change').on('change', function() { // Remove previous event handlers
+    avoidWith = $(this).val(); // Update avoidWith with selected value
+    updateOptions(includeSelect, racers, true); // Rebuild the other list
     updateSpanContent(this, 'avoid_with');
   });
-}
-
-// Function to update span content based on selected option
-function updateSpanContent(selectElement, selectId) {
-  const selectedOption = selectElement.options[selectElement.selectedIndex];
-  const spanElement = $(selectElement).closest('.mselect-inner').find('span');
-  
-  if (selectedOption.value) {
-    spanElement.text(selectedOption.text);
-  } else {
-    // spanElement.text('Any'); // Reset to placeholder if no selection
-  }
 }

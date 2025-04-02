@@ -112,14 +112,14 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
 
     // First insertion (A → B)
     $ok = take_action_silently(
-      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
        VALUES (:racer_a, :racer_b, "include")',
       [':racer_a' => $racerid, ':racer_b' => $grouped_with]
     );
 
     // Reciprocal insertion (B → A)
     $ok &= take_action_silently(
-      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
        VALUES (:racer_b, :racer_a, "include")',
       [':racer_a' => $racerid, ':racer_b' => $grouped_with]
     );
@@ -131,19 +131,18 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
 
     // First insertion (A → B)
     $ok = take_action_silently(
-      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
     VALUES (:racer_a, :racer_b, "exclude")',
       [':racer_a' => $racerid, ':racer_b' => $avoid_with]
     );
 
     // Reciprocal insertion (B → A)
     $ok &= take_action_silently(
-      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
     VALUES (:racer_b, :racer_a, "exclude")',
       [':racer_a' => $racerid, ':racer_b' => $avoid_with]
     );
   }
-
 
   if ($ok) {
     $old_classid = read_single_value(
