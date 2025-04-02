@@ -277,13 +277,13 @@ function column_header($text, $o)
         <input id="edit_carname" type="text" name="edit_carname" value="" /> -->
 
         <!-- As of 01-04-2025 Task: Add Mutual inclusion/exclusion factors for heat scheduling -->
-        <div class="mutual-inclusion-exclusion">
-           <br>
-           <br>
-           <label for="Inclusion">Mutual Inclusion:</label>
-           <br>
-           <br>
-           <label for="Exclusion">Mutual Exclusion:</label>
+        <p></p>
+        <span for="optional" style="font-size:small"><hr></span>
+        <div class="mutual-inclusion-exclusion" style="margin-top: 20px;">           
+           <label class="mutual-inclusion" for="Inclusion" style="margin-top: 5px;">Mutual Inclusion <span style="font-size:20px; color:#023882;">(Optional)</span>:</label>
+           <p></p>
+           <p></p>
+           <label class="mutual-Exclusion" for="Exclusion">Mutual Exclusion <span style="font-size:20px; color:#023882;">(Optional)</span>:</label>
          </div>
       </div>
 
@@ -306,6 +306,7 @@ function column_header($text, $o)
           data-off-text="Excluded"
           data-on-text="Eligible" />
         <br />
+        <label for="optional" style="font-size:small"><hr></label>
         <div class="mutual-inclusion-exclusion">
           <select name="grouped_with" id="grouped_with">
             <option value=""> Any </option>
