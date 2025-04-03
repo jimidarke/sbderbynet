@@ -129,7 +129,7 @@ function read_roster($roundid, $by_car_number = false) {
       return $a['carweight'] <=> $b['carweight'];
     });
   }
-
+// error_log(print_r($roster, true));
   return array_column($roster, 'racerid');  // Return only racer IDs
 }
 
@@ -190,7 +190,7 @@ function schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace,
   }
 
   if (!$rotation_schedule) {
-    $sched = make_ordered_schedule($nlanes, count($roster), $n_times_per_lane,
+    $sched = make_ordered_schedule($roundid, $nlanes, count($roster), $n_times_per_lane,
                                    $max_runs_per_car, $trace, $group_weighted_cars,
                                    $avoid_consecutive, $avoid_same_lane);
   } else {

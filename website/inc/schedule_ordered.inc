@@ -179,29 +179,30 @@ function rate_next_heat(&$prev_heat, $n_prev_heats, &$next_heat, &$appearances) 
     return $rating;
 }
 
-$roundid = $_POST['roundid'];
-
 // Sorts racers by weight with adjustable intensity
-function sort_roster_by_weight(&$roster) {
-    global $weight_group_weight;
-    if ($weight_group_weight > 0) {
-        usort($roster, function($a, $b) {
-            return ($b['carweight'] - $a['carweight']) * ($weight_group_weight / 1000);
-        });
-    }
-}
+// function sort_roster_by_weight(&$roster) {
+//     global $weight_group_weight;
+//     if ($weight_group_weight > 0) {
+//         error_log('Roster type: ' . gettype($roster));
+//         error_log(print_r($roster, true));
+//         usort($roster, function($a, $b) use($weight_group_weight) {
+//             error_log('  Weight Group Weight: '. $weight_group_weight. '  Carweight A: '. $a['carweight']. ' Carweight B: '. $b['carweight']);
+//             return ($b['carweight'] <=> $a['carweight']) * ($weight_group_weight / 1000);
+//         });
+//     }
+// }
 
 // Generates the ordered race schedule
-function make_ordered_schedule($nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace) {
+function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace) {
     $rough = make_rough_schedule($nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace);
     if (empty($rough)) {
         return $rough;
     }
 
-    $roundid = $_POST['roundid'];
-    // Read and sort the roster if weight grouping is enabled
-    $roster = read_roster($roundid);
-    sort_roster_by_weight($roster);
+    // $roundid = $roundid;
+    // // Read and sort the roster if weight grouping is enabled
+    // $roster = read_roster($roundid);
+    // sort_roster_by_weight($roster);
 
     // Track the number of times each car appears
     $appearances = array_fill(0, $ncars, 0);

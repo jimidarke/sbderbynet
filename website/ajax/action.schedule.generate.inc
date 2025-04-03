@@ -71,6 +71,8 @@ $n_times_per_lane = isset($_POST['n_times_per_lane']) ? $_POST['n_times_per_lane
 
 $trace = !isset($_POST['trace']) ? false : array('trace');
 
+//  error_log("roundid: $roundid, n_times_per_lane: $n_times_per_lane, trace: $trace");
+
 require_once('inc/data.inc');
 require_once('inc/masterheat.inc');
 require_once('inc/autoadvance.inc');
@@ -91,6 +93,8 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
     $group_weighted_cars = intval(read_raceinfo('group-weighted-cars', 0));
     $avoid_consecutive = intval(read_raceinfo('avoid-consecutive', 0));
     $avoid_same_lane = intval(read_raceinfo('avoid-same-lane', 0));
+
+    // error_log("group_weighted_cars: $group_weighted_cars, avoid_consecutive: $avoid_consecutive, avoid_same_lane: $avoid_same_lane");
 
     // Generate schedule with additional constraints
     if (schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace, 

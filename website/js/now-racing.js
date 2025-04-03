@@ -152,12 +152,12 @@ var Lineup = {
             );
           }
 
-          if (r.hasOwnProperty('carname') && r.carname != '') {
-            $('[data-lane="' + lane + '"] .name').append($("<div class='carname'/>").text(r.carname));
-          }
-          if (r.hasOwnProperty('note') && r.note != '') {
-            $('[data-lane="' + lane + '"] .name').append($("<div class='subtitle'/>").text(r.note));
-          }
+          // if (r.hasOwnProperty('carname') && r.carname != '') {
+          //   $('[data-lane="' + lane + '"] .name').append($("<div class='carname'/>").text(r.carname));
+          // }
+          // if (r.hasOwnProperty('note') && r.note != '') {
+          //   $('[data-lane="' + lane + '"] .name').append($("<div class='subtitle'/>").text(r.note));
+          // }
 
           $('[data-lane="' + lane + '"] .carnumber').text(r.carnumber);
         }
