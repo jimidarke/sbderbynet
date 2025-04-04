@@ -19,6 +19,166 @@ function handle_photo_click(img) {
 var g_img_max_width_px;
 var g_img_max_height_px;
 
+// function repopulate_schedule(json) {
+//   var nlanes = g_nlanes;
+//   var interleaved = json['current-heat']['use_master_sched'];
+
+//   var th0_width_vw, th_width_vw;
+//   if (interleaved) {
+//     th0_width_vw = 5;
+//     th_width_vw = 10;
+//   } else {
+//     th0_width_vw = 0;
+//     th_width_vw = 4;
+//   }
+//   var td_width_vw = (100 - (th0_width_vw + th_width_vw) - 5 /* border */) / (nlanes || 1);
+//   // CSS specifies td padding 0.5vw, so max width for each car photo is td_width_vw - 1 (vw).
+//   g_img_max_width_px = window.innerWidth * ((td_width_vw - 1) / 100);
+//   // Don't let any super-tall, thin image screw things up completely; limit to
+//   // 25% of viewport height.
+//   g_img_max_height_px = window.innerHeight * 25 / 100;
+
+//   var rounds_map = {};
+//   for (var i = 0; i < json['rounds'].length; ++i) {
+//     rounds_map[json['rounds'][i]['roundid']] = json['rounds'][i];
+//   }
+
+//   function add_byes(row, nbyes) {
+//     while (nbyes > 0) {
+//       $("<td class='bye'/>").text("Bye").appendTo(row).css({'width': td_width_vw + 'vw'});
+//       --nbyes;
+//     }
+//   }
+
+//   function car_photo_url(render, elements) {
+//     return 'photo.php/car/file/' + render + '/' +
+//       elements['basename'] + '/' + elements['cache-breaker'];
+//   }
+
+//   $("table#schedule tr").remove();
+
+//   {
+//     // The first row sets the column widths, at least on some browsers, so we
+//     // need an invisible sizing row before the divider
+//     var sizer = $("<tr style='height: 0; border: none;'/>").appendTo('table#schedule');
+//     if (interleaved) {
+//       sizer.append($('<th/>').css({'width': th0_width_vw + 'vw', 'height': 0}));
+//     }
+//     sizer.append($('<th/>').css({'width': th_width_vw + 'vw', 'height': 0}));
+//     for (var lane = 0; lane < nlanes; ++lane) {
+//       sizer.append($('<td/>').css({'width': td_width_vw + 'vw',
+//                                    'height': 0,
+//                                    'padding': 0,
+//                                    'border': 'none'}));
+//     }
+//   }
+
+//   var rendername = '400x400';  // RENDER_ONDECK
+
+//   // roundid and heat of the tr currently under construction
+//   var roundid = 0;
+//   var heat = 0;
+//   var lane = 0;
+//   var row;
+//   var rowno = 0;
+//   var row_has_photos = false;
+//   var racerids = Array(nlanes).fill(null);
+//   var prev_racerids = Array(nlanes).fill(null);
+//   for (var c = 0; c < json['ondeck']['chart'].length; ++c) {
+//     var cell = json['ondeck']['chart'][c];
+//     if (cell['roundid'] != roundid || cell['heat'] != heat) {
+//       if (cell['roundid'] != roundid && !interleaved) {
+//         $("<tr/>").appendTo('table#schedule')
+//           .append($("<th class='divider'/>")
+//                   .attr('colspan', nlanes + 1)
+//                   .text(rounds_map[cell['roundid']]['name']));
+//       }
+//       if (row) {
+//         add_byes(row, nlanes - lane);
+//         row.toggleClass('populated', row_has_photos);
+//       }
+//       row = $("<tr/>").appendTo("table#schedule");
+//       ++rowno;
+// 	  //new heat reset lane count to zero to ensure correct byes are populated
+// 	  lane = 0;
+//       row_has_photos = false;
+//       prev_racerids = racerids;
+//       racerids = Array(nlanes).fill(null);
+//       row.addClass('heat_row')
+//          .addClass('d' + (rowno % 2))
+//         .attr('id', 'heat_' + cell['roundid'] + '_' + cell['heat']);
+//       var row_label = "Heat " + cell['heat'];
+//       if (interleaved) {
+//         row_label = rounds_map[cell['roundid']]['name'] + ', ' + row_label;
+//         $("<th class='masterheat'/>").text(cell['masterheat'])
+//           .css({'width': th0_width_vw + 'vw'})
+//           .appendTo(row);
+//       }
+//       $("<th/>").text(row_label)
+//         .css({'width': th_width_vw + 'vw'})
+//         .appendTo(row);
+//       roundid = cell['roundid'];
+//       heat = cell['heat'];
+//     } 
+//     add_byes(row, cell['lane'] - 1 - lane);
+
+//     var td = $("<td class='chart'/>").appendTo(row).css({'width': td_width_vw + 'vw'});
+//     td.addClass('lane_' + cell['lane'])
+//       .addClass('resultid_' + cell['resultid']);
+//     if (prev_racerids.indexOf(cell['racerid']) >= 0) {
+//       td.addClass('in_prev');
+//     }
+//     racerids[cell['lane']] = cell['racerid'];
+//     td.append($('<div/>').addClass('car').text(cell['carnumber']))
+//       .append($('<div/>').addClass('racer').text(cell['name']))
+//       .append($('<div/>').addClass('time').text(cell['result'].substring(1))
+//               .css('display', cell['result'] ? 'block' : 'none'));
+
+//     var photo_div = $("<div/>").addClass('ondeck_photo').appendTo(td);
+//     if (g_show_car_photos && cell['carphoto']) {
+//       photo_div
+//         .append($("<img/>")
+//                 .attr('src', car_photo_url(rendername, cell['carphoto']))
+//                 .attr('data-img', car_photo_url('work', cell['carphoto']))
+//                 .on('click', function() { handle_photo_click(this); })
+//                 .on('load', function() {
+//                   var row_photo_divs = $(this).closest('tr').find('div.ondeck_photo');
+//                   // On load, adjust all the div.ondeck_photo in the row to be
+//                   // the same height.  These are only intended for visible
+//                   // images; animate_next_heat will cancel these handlers to
+//                   // avoid the risk they'll screw up the animation (even though
+//                   // images loaded from cache typically don't fire the load
+//                   // handler).
+//                   var max_height = 0;
+//                   row_photo_divs.each(function() {
+//                     max_height = Math.max(max_height, $(this).height());
+//                   });
+//                   row_photo_divs.css({height: max_height});
+//                 })
+//                 .css({'max-width': g_img_max_width_px + 'px',
+//                       'max-height' : g_img_max_height_px + 'px'}));
+//       row_has_photos = true;
+//     }
+//     lane = cell['lane'];
+//   }
+
+//   if (row) {
+//     add_byes(row, nlanes - lane);
+//     row.toggleClass('populated', row_has_photos);
+//   }
+
+//   $("table#schedule tr#heat_" + json['current-heat']['roundid'] +
+//     '_' + json['current-heat']['heat']).addClass('curheat');
+
+//   if (json['ondeck']['next'] && g_set_nextheat) {
+//     $("table#schedule tr#heat_" + json['ondeck']['next']['roundid'] +
+//       '_' + json['ondeck']['next']['heat']).addClass('nextheat');
+//   }
+// }
+
+
+// UPDATE: As on 04-04-2025  // For Excluding Finished heats and extending On-deck display to show Next Five heats and Staged heats
+
 function repopulate_schedule(json) {
   var nlanes = g_nlanes;
   var interleaved = json['current-heat']['use_master_sched'];
@@ -32,10 +192,7 @@ function repopulate_schedule(json) {
     th_width_vw = 4;
   }
   var td_width_vw = (100 - (th0_width_vw + th_width_vw) - 5 /* border */) / (nlanes || 1);
-  // CSS specifies td padding 0.5vw, so max width for each car photo is td_width_vw - 1 (vw).
   g_img_max_width_px = window.innerWidth * ((td_width_vw - 1) / 100);
-  // Don't let any super-tall, thin image screw things up completely; limit to
-  // 25% of viewport height.
   g_img_max_height_px = window.innerHeight * 25 / 100;
 
   var rounds_map = {};
@@ -51,120 +208,129 @@ function repopulate_schedule(json) {
   }
 
   function car_photo_url(render, elements) {
-    return 'photo.php/car/file/' + render + '/' +
-      elements['basename'] + '/' + elements['cache-breaker'];
+    return 'photo.php/car/file/' + render + '/' + elements['basename'] + '/' + elements['cache-breaker'];
+  }
+
+  function is_heat_finished(heat_cells) {
+    return heat_cells.every(cell => cell.result && cell.result.trim() !== "");
   }
 
   $("table#schedule tr").remove();
 
   {
-    // The first row sets the column widths, at least on some browsers, so we
-    // need an invisible sizing row before the divider
     var sizer = $("<tr style='height: 0; border: none;'/>").appendTo('table#schedule');
     if (interleaved) {
       sizer.append($('<th/>').css({'width': th0_width_vw + 'vw', 'height': 0}));
     }
     sizer.append($('<th/>').css({'width': th_width_vw + 'vw', 'height': 0}));
     for (var lane = 0; lane < nlanes; ++lane) {
-      sizer.append($('<td/>').css({'width': td_width_vw + 'vw',
-                                   'height': 0,
-                                   'padding': 0,
-                                   'border': 'none'}));
+      sizer.append($('<td/>').css({'width': td_width_vw + 'vw', 'height': 0, 'padding': 0, 'border': 'none'}));
     }
   }
 
-  var rendername = '400x400';  // RENDER_ONDECK
+  var rendername = '400x400';
+  var chart = json['ondeck']['chart'];
 
-  // roundid and heat of the tr currently under construction
-  var roundid = 0;
-  var heat = 0;
-  var lane = 0;
-  var row;
+  // MODIFIED START — Group heats
+  var heats = {};
+  for (let i = 0; i < chart.length; ++i) {
+    const cell = chart[i];
+    const key = cell.roundid + '_' + cell.heat;
+    if (!heats[key]) heats[key] = [];
+    heats[key].push(cell);
+  }
+
+  const heat_keys = Object.keys(heats);
+  const current_key = json['current-heat']['roundid'] + '_' + json['current-heat']['heat'];
+  let current_index = heat_keys.indexOf(current_key);
+  if (current_index < 0) current_index = 0;
+  const display_limit = 6;  // current + next 5 heats
+
+  let visible_heats = [];
+
+  for (let i = current_index; i < heat_keys.length && visible_heats.length < display_limit; ++i) {
+    const key = heat_keys[i];
+    const cells = heats[key];
+    if (!is_heat_finished(cells)) {
+      visible_heats.push(cells);
+    }
+  }
+  // MODIFIED END
+
   var rowno = 0;
-  var row_has_photos = false;
-  var racerids = Array(nlanes).fill(null);
   var prev_racerids = Array(nlanes).fill(null);
-  for (var c = 0; c < json['ondeck']['chart'].length; ++c) {
-    var cell = json['ondeck']['chart'][c];
-    if (cell['roundid'] != roundid || cell['heat'] != heat) {
-      if (cell['roundid'] != roundid && !interleaved) {
-        $("<tr/>").appendTo('table#schedule')
-          .append($("<th class='divider'/>")
-                  .attr('colspan', nlanes + 1)
-                  .text(rounds_map[cell['roundid']]['name']));
-      }
-      if (row) {
-        add_byes(row, nlanes - lane);
-        row.toggleClass('populated', row_has_photos);
-      }
-      row = $("<tr/>").appendTo("table#schedule");
-      ++rowno;
-	  //new heat reset lane count to zero to ensure correct byes are populated
-	  lane = 0;
-      row_has_photos = false;
-      prev_racerids = racerids;
-      racerids = Array(nlanes).fill(null);
-      row.addClass('heat_row')
-         .addClass('d' + (rowno % 2))
-        .attr('id', 'heat_' + cell['roundid'] + '_' + cell['heat']);
-      var row_label = "Heat " + cell['heat'];
-      if (interleaved) {
-        row_label = rounds_map[cell['roundid']]['name'] + ', ' + row_label;
-        $("<th class='masterheat'/>").text(cell['masterheat'])
-          .css({'width': th0_width_vw + 'vw'})
-          .appendTo(row);
-      }
-      $("<th/>").text(row_label)
-        .css({'width': th_width_vw + 'vw'})
-        .appendTo(row);
-      roundid = cell['roundid'];
-      heat = cell['heat'];
-    } 
-    add_byes(row, cell['lane'] - 1 - lane);
 
-    var td = $("<td class='chart'/>").appendTo(row).css({'width': td_width_vw + 'vw'});
-    td.addClass('lane_' + cell['lane'])
-      .addClass('resultid_' + cell['resultid']);
-    if (prev_racerids.indexOf(cell['racerid']) >= 0) {
-      td.addClass('in_prev');
+  for (const heat_cells of visible_heats) {
+    const cell0 = heat_cells[0];
+    const roundid = cell0.roundid;
+    const heat = cell0.heat;
+
+    if (!interleaved && rowno === 0) {
+      $("<tr/>").appendTo('table#schedule')
+        .append($("<th class='divider'/>")
+        .attr('colspan', nlanes + 1)
+        .text(rounds_map[roundid]['name']));
     }
-    racerids[cell['lane']] = cell['racerid'];
-    td.append($('<div/>').addClass('car').text(cell['carnumber']))
-      .append($('<div/>').addClass('racer').text(cell['name']))
-      .append($('<div/>').addClass('time').text(cell['result'].substring(1))
-              .css('display', cell['result'] ? 'block' : 'none'));
 
-    var photo_div = $("<div/>").addClass('ondeck_photo').appendTo(td);
-    if (g_show_car_photos && cell['carphoto']) {
-      photo_div
-        .append($("<img/>")
-                .attr('src', car_photo_url(rendername, cell['carphoto']))
-                .attr('data-img', car_photo_url('work', cell['carphoto']))
-                .on('click', function() { handle_photo_click(this); })
-                .on('load', function() {
-                  var row_photo_divs = $(this).closest('tr').find('div.ondeck_photo');
-                  // On load, adjust all the div.ondeck_photo in the row to be
-                  // the same height.  These are only intended for visible
-                  // images; animate_next_heat will cancel these handlers to
-                  // avoid the risk they'll screw up the animation (even though
-                  // images loaded from cache typically don't fire the load
-                  // handler).
-                  var max_height = 0;
-                  row_photo_divs.each(function() {
-                    max_height = Math.max(max_height, $(this).height());
-                  });
-                  row_photo_divs.css({height: max_height});
-                })
-                .css({'max-width': g_img_max_width_px + 'px',
-                      'max-height' : g_img_max_height_px + 'px'}));
-      row_has_photos = true;
+    var row = $("<tr/>").appendTo("table#schedule");
+    ++rowno;
+    row.addClass('heat_row')
+      .addClass('d' + (rowno % 2))
+      .attr('id', 'heat_' + roundid + '_' + heat);
+
+    var row_label = "Heat " + heat;
+    if (interleaved) {
+      row_label = rounds_map[roundid]['name'] + ', ' + row_label;
+      $("<th class='masterheat'/>").text(cell0['masterheat'])
+        .css({'width': th0_width_vw + 'vw'}).appendTo(row);
     }
-    lane = cell['lane'];
-  }
+    $("<th/>").text(row_label)
+      .css({'width': th_width_vw + 'vw'})
+      .appendTo(row);
 
-  if (row) {
+    let lane = 0;
+    let row_has_photos = false;
+    let racerids = Array(nlanes).fill(null);
+
+    for (const cell of heat_cells) {
+      add_byes(row, cell['lane'] - 1 - lane);
+
+      var td = $("<td class='chart'/>").appendTo(row).css({'width': td_width_vw + 'vw'});
+      td.addClass('lane_' + cell['lane'])
+        .addClass('resultid_' + cell['resultid']);
+      if (prev_racerids.indexOf(cell['racerid']) >= 0) {
+        td.addClass('in_prev');
+      }
+      racerids[cell['lane']] = cell['racerid'];
+      td.append($('<div/>').addClass('car').text(cell['carnumber']))
+        .append($('<div/>').addClass('racer').text(cell['name']))
+        .append($('<div/>').addClass('time').text(cell['result'].substring(1))
+                .css('display', cell['result'] ? 'block' : 'none'));
+
+      var photo_div = $("<div/>").addClass('ondeck_photo').appendTo(td);
+      if (g_show_car_photos && cell['carphoto']) {
+        photo_div.append($("<img/>")
+            .attr('src', car_photo_url(rendername, cell['carphoto']))
+            .attr('data-img', car_photo_url('work', cell['carphoto']))
+            .on('click', function () { handle_photo_click(this); })
+            .on('load', function () {
+              var row_photo_divs = $(this).closest('tr').find('div.ondeck_photo');
+              var max_height = 0;
+              row_photo_divs.each(function () {
+                max_height = Math.max(max_height, $(this).height());
+              });
+              row_photo_divs.css({ height: max_height });
+            })
+            .css({ 'max-width': g_img_max_width_px + 'px', 'max-height': g_img_max_height_px + 'px' }));
+        row_has_photos = true;
+      }
+
+      lane = cell['lane'];
+    }
+
     add_byes(row, nlanes - lane);
     row.toggleClass('populated', row_has_photos);
+    prev_racerids = racerids;
   }
 
   $("table#schedule tr#heat_" + json['current-heat']['roundid'] +
@@ -174,6 +340,29 @@ function repopulate_schedule(json) {
     $("table#schedule tr#heat_" + json['ondeck']['next']['roundid'] +
       '_' + json['ondeck']['next']['heat']).addClass('nextheat');
   }
+
+  
+}
+
+function create_heat_row(heat, rowClass) {
+  let $row = $("<tr/>").addClass("heat").addClass(rowClass);
+  
+  // Example layout: edit as needed
+  for (let lane = 0; lane < heat['cars']; lane++) {
+    let car = heat['cars'][lane];
+    let $cell = $("<td/>").addClass("lane").html(`
+      <div class="ondeck_photo"><img src="${car.photo_url}" /></div>
+      <div class="name">${car.name}</div>
+      <div class="time"></div>
+    `);
+    $row.append($cell);
+  }
+  return $row;
+}
+
+function is_heat_finished(heat) {
+  if (!heat.cars || heat.cars.length === 0) return false;
+  return heat.cars.every(car => car.result && car.result.trim() !== "");
 }
 
 function preload_images_for_tallest_aspect(imgs_jquery, ondone) {
