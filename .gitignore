@@ -43,3 +43,13 @@ adapter-webrtc/
 
 SECURE/
 .vscode/
+# As of 24-March-2025
+*.jar
+Data
+Data/*
+UniServerZ
+UniServerZ/*
+.htaccess
+*.zip
+SECURE/
+.vscode/

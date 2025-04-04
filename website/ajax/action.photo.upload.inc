@@ -161,7 +161,7 @@ if (!have_permission(PHOTO_UPLOAD_PERMISSION)) {
                                      .' WHERE carnumber = :carno',
                                      array(':carno' => $_POST['carnumber']));
         if (!$racerid) {
-          json_failure('no-such-car', "No car numbered ".$_POST['carnumber']." found.");
+          json_failure('no-such-car', "Pinny ".$_POST['carnumber']." found.");
           $success = false;
         }
       } else if (isset($_POST['barcode'])) {

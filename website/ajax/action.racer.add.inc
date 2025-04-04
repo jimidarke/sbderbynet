@@ -14,8 +14,7 @@ if (have_permission(REGISTER_NEW_RACER_PERMISSION)) {
   $options = array('firstname' => $firstname,
                    'lastname' => $lastname,
                    'carnumber' => $_POST['carno'],
-                   'carname' => $_POST['carname'],
-                   'note_from' => $_POST['note_from'],
+                   'carweight' => $_POST['carweight'],
                    'partitionid' => $partitionid,
                    'exclude' => @$_POST['exclude'] ? true : false);
   if (isset($_POST['partitionid']) && $_POST['partitionid'] > 0) {
@@ -24,7 +23,7 @@ if (have_permission(REGISTER_NEW_RACER_PERMISSION)) {
   
   $racer_id = insert_new_racer($options);
 
-
+  
   json_success();
 
   json_out('new-row', json_table_row_for_id($racer_id));

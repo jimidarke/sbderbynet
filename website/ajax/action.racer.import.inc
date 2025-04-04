@@ -26,8 +26,9 @@ if (have_permission(SET_UP_PERMISSION)) {
                   'firstname' => true,
                   'partition' => false,
                   'carnumber' => false,
-                  'carname' => false,
-                  'note_from' => false,
+//                  'carname' => false,
+//                  'note_from' => false,
+                  'carweight' => false,
                   'exclude' => false);
 
   // An alternative to separate lastname and firstname parameters is a single
@@ -74,14 +75,16 @@ if (have_permission(SET_UP_PERMISSION)) {
 if ($ok) {
   $carnumber = isset($_POST['carnumber']) ? $_POST['carnumber'] : '';
   $carname = isset($_POST['carname']) ? $_POST['carname'] : '';
+  $carweight = isset($_POST['carweight']) ? $_POST['carweight'] : '';
 
   $exclude = isset($_POST['exclude']) ? as_boolean($_POST['exclude']) : false;
 
   $options = array('firstname' => $_POST['firstname'],
                    'lastname' => $_POST['lastname'],
                    'carnumber' => $carnumber,
-                   'carname' => $carname,
-                   'note_from' => $_POST['note_from'],
+  //                 'carname' => $carname,
+  //                 'note_from' => $_POST['note_from'],
+                   'carweight' => $carweight,
                    'exclude' => $exclude);
   if (isset($_POST['partition'])) {
     $options['partition'] = trim(@$_POST['partition']);

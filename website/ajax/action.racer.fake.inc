@@ -37,11 +37,18 @@ if (have_permission(SET_UP_PERMISSION)) {
     for ($r = 0; $r < $group_size; ++$r) {
       $index = mt_rand(0, count($fake_names) - 1);
       $racer = $fake_names[$index];
-      $racerid = insert_new_racer(array('firstname' => $racer['firstname'],
-                                        'lastname' => $racer['lastname'],
-                                        'carname' => '',
-                                        'carnumber' => ($g - 1) * 100 + $r + 1,
-                                        'partition' => $group_name));
+
+      // Generate a random weight between 0.1kg and 0.2kg
+      $random_weight = round(mt_rand(25000, 50000) / 1000.0, 2); // Converts to kg (e.g., 0.25 - 0.50 kg) 
+
+      $racerid = insert_new_racer(array(
+            'firstname' => $racer['firstname'],
+            'lastname' => $racer['lastname'],
+            'carname' => '',
+            'carnumber' => ($g - 1) * 100 + $r + 1,
+            'partition' => $group_name,
+            'carweight' => $random_weight // Assign Generated Weight
+        ));
 
       $racer_photo = photo_directory().DIRECTORY_SEPARATOR."fake_".$racerid.".svg";
       copy(FAKE_RACER_IMAGES.DIRECTORY_SEPARATOR.$racer_photos[mt_rand(0, count($racer_photos) - 1)],

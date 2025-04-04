@@ -83,6 +83,15 @@ if (have_permission(SET_UP_PERMISSION)) {
     'video-dir' => array('setting' => 'video-directory'),
     'warn-no-timer' => array('setting' => 'warn-no-timer', 'type' => 'checkbox'),
     'xbs-award' => array('setting' => 'xbs-award'),
+
+    // As of 26-03-2025
+    'weight-units' => array('setting' => 'weight-units'),
+
+    // New Heat Ordering Settings
+    'heat-counts' => array('setting' => 'heat-counts'),
+    'avoid-consecutive' => array('setting' => 'avoid-consecutive'),
+    'avoid-same-lane' => array('setting' => 'avoid-same-lane'),
+
   );
 
   if ($ok) {
@@ -111,6 +120,15 @@ if (have_permission(SET_UP_PERMISSION)) {
           if (!is_numeric($itemvalue)) {
             $itemvalue = '0.0';
           }
+        }
+        // Validate heat ordering values
+        if (in_array($post_key, ['heat-counts', 'avoid-consecutive', 'avoid-same-lane'])) {
+            $validValues = ['zero', 'low', 'medium', 'high'];
+            if (!in_array($itemvalue, $validValues)) {
+                json_failure('invalid-value', "Invalid value for $post_key.");
+                $ok = false;
+                continue;
+            }
         }
         write_raceinfo($itemkey, $itemvalue);
         // Check that the value didn't get truncated or something

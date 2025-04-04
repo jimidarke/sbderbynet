@@ -14,7 +14,7 @@ function on_lane_count_change() {
   // In case the lane count decreased, clear any higher-order bits as they're no
   // longer meaningful
   $("#unused-lane-mask").val(mask & ~(-1 << nlanes));
-  
+
   $("#lanes-in-use img").on('click', on_lane_click);
 }
 
@@ -66,31 +66,34 @@ function on_car_numbering_change(event) {
 
 function render_directory_status_icon(photo_dir_selector) {
   $.ajax('action.php',
-         {type: 'GET',
-          data: {query: 'file.stat',
-                 path: $(photo_dir_selector).val()},
-          success: function(data) {
-            console.log(data);
-            var icon_span = $(photo_dir_selector + '_icon');
-            var msg_para = $(photo_dir_selector + '_message');
-            if (data.hasOwnProperty('stat')) {
-              var stat = data.stat;
-              if (!stat.isdir || !stat.readable) {
-                icon_span.html('<img src="img/status/trouble.png"/>');
-                msg_para.text('Directory does not exist or is not readable.');
-              } else if (!stat.writable) {
-                icon_span.html('<img src="img/status/readonly.png"/>');
-                msg_para.text('Directory is not writable.');
-              } else {
-                icon_span.html('<img src="img/status/ok.png"/>');
-                msg_para.text('');
-              }
-            } else {
-              icon_span.html("");
-              msg_para.text('');
-            }
+    {
+      type: 'GET',
+      data: {
+        query: 'file.stat',
+        path: $(photo_dir_selector).val()
+      },
+      success: function (data) {
+        console.log(data);
+        var icon_span = $(photo_dir_selector + '_icon');
+        var msg_para = $(photo_dir_selector + '_message');
+        if (data.hasOwnProperty('stat')) {
+          var stat = data.stat;
+          if (!stat.isdir || !stat.readable) {
+            icon_span.html('<img src="img/status/trouble.png"/>');
+            msg_para.text('Directory does not exist or is not readable.');
+          } else if (!stat.writable) {
+            icon_span.html('<img src="img/status/readonly.png"/>');
+            msg_para.text('Directory is not writable.');
+          } else {
+            icon_span.html('<img src="img/status/ok.png"/>');
+            msg_para.text('');
           }
-         });
+        } else {
+          icon_span.html("");
+          msg_para.text('');
+        }
+      }
+    });
 }
 
 function browse_for_photo_directory(photo_dir_selector) {
@@ -99,7 +102,7 @@ function browse_for_photo_directory(photo_dir_selector) {
   if (val == '') {
     val = photo_directory_base();  // Defined in settings.php
   }
-  show_choose_directory_modal(val, function(path) {
+  show_choose_directory_modal(val, function (path) {
     photo_dir.val(path);
     photo_dir.change();
   });
@@ -112,43 +115,80 @@ function on_partition_label_change() {
   $("span.partition-label").text($("#partition-label").val().toLowerCase());
 }
 
+
+// As of 26-03-2025
+// ////////////////////////////////////
+// Weight Display Settings Starts here
+// ////////////////////////////////////
+
+document.addEventListener("DOMContentLoaded", function () {
+  function getSelectedWeightUnit() {
+    return document.querySelector("input[name='weight-units']:checked")?.value || "kg";
+  }
+
+  function onWeightUnitChange() {
+    let selectedUnit = getSelectedWeightUnit();
+    localStorage.setItem("weightUnit", selectedUnit);
+    console.log("Selected weight unit:", selectedUnit);
+  }
+
+  function applySavedWeightUnit() {
+    let savedUnit = localStorage.getItem("weightUnit") || onWeightUnitChange();
+    document.querySelector(`input[name='weight-units'][value='${savedUnit}']`).checked = true;
+    PostSettingChange($("input[name='weight-units']:checked"));
+  }
+
+  document.querySelectorAll("input[name='weight-units']").forEach(radio => {
+    radio.addEventListener("change", onWeightUnitChange);
+  });
+  // applySavedWeightUnit();
+});
+
+
+
+// ////////////////////////////////////
+// Weight Display Settings Ends here
+// ////////////////////////////////////
+
+
 // PostSettingChange(input) responds to a change in an <input> element by
 // sending an ajax POST request with the input element's current value.  Handles
 // checkboxes, too.
 
 var PostSettingChange;
 
-(function() {
+(function () {
   var next_train = 0;
-  var values = {action: 'settings.write'};
+  var values = { action: 'settings.write' };
 
   function maybe_post() {
     if (next_train == 0) {
-      next_train = setTimeout(function() {
+      next_train = setTimeout(function () {
         next_train = 0;
         var d = values;
-        values = {action: 'settings.write'};
+        values = { action: 'settings.write' };
 
         console.log('POSTing ' + JSON.stringify(d));
 
         $.ajax('action.php',
-               {type: 'POST',
-                data: d,
-                success: function(data) {
-                  if (data.outcome.summary == 'failure') {
-                    console.log(data);
-                    alert("Action failed: " + data.outcome.description);
-                  }
-                },
-                error: function(jqXHR, ajaxSettings, thrownError) {
-                  alert('Ajax error: ' + thrownError);
-                }
-               });
+          {
+            type: 'POST',
+            data: d,
+            success: function (data) {
+              if (data.outcome.summary == 'failure') {
+                console.log(data);
+                alert("Action failed: " + data.outcome.description);
+              }
+            },
+            error: function (jqXHR, ajaxSettings, thrownError) {
+              alert('Ajax error: ' + thrownError);
+            }
+          });
       }, 200);
     }
   }
 
-  PostSettingChange = function(input) {
+  PostSettingChange = function (input) {
     if ($(input).hasClass('do-not-post')) {
       return;
     }
@@ -164,6 +204,11 @@ var PostSettingChange;
       } else {
         delete values[name];
       }
+
+    } else if (input.attr('type') == 'radio') {
+      if (input.is(':checked')) {
+        values[name] = input.val();
+      }
     } else if (input.attr('type') == 'number') {
       // It's possible to get an empty value from a number control, but that
       // causes problems in the database.
@@ -178,7 +223,7 @@ var PostSettingChange;
 
 })();
 
-$(function() {
+$(function () {
 
   $("#n-lanes").on("keyup mouseup", on_lane_count_change);
   on_lane_count_change();
@@ -193,10 +238,10 @@ $(function() {
     "#number-by-segment, label[for='number-by-segment']")
     .on("keyup mouseup", on_car_numbering_change);
 
-  $('#settings_form input, #settings_form select').on('change', function(e) {
+  $('#settings_form input, #settings_form select').on('change', function (e) {
     PostSettingChange($(this));
   });
-  $('#settings_form input[type!="checkbox"]').on('input', function(e) {
+  $('#settings_form input[type!="checkbox"]').on('input', function (e) {
     PostSettingChange($(this));
   });
 
@@ -206,8 +251,8 @@ $(function() {
     render_directory_status_icon("#video-dir");
   }
 
-  $("#photo-dir").on("change", function() { render_directory_status_icon("#photo-dir"); });
-  $("#car-photo-dir").on("change", function() { render_directory_status_icon("#car-photo-dir"); });
-  $("#video-dir").on("change", function() { render_directory_status_icon("#video-dir"); });
+  $("#photo-dir").on("change", function () { render_directory_status_icon("#photo-dir"); });
+  $("#car-photo-dir").on("change", function () { render_directory_status_icon("#car-photo-dir"); });
+  $("#video-dir").on("change", function () { render_directory_status_icon("#video-dir"); });
 
 });

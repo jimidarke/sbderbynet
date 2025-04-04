@@ -174,7 +174,7 @@ foreach ($doc_classes as $c => $details) {
       if (use_subgroups()) {
         echo "<option value='rank'>".htmlspecialchars(subgroup_label(), ENT_QUOTES, 'UTF-8')."</option>";
       } ?>
-          <option value="car" selected="selected">Car Number</option>
+          <option value="car" selected="selected">Pinny</option>
         </select>
       </p>
     </div>

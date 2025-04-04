@@ -188,7 +188,8 @@ input.white-button {
   line-height: 1.0;
 }
 #delete_racer_extension {
-  padding-top: 30px;
+  /* padding-top: 30px; */
+  padding-top: 10px;
 }
 
 
@@ -302,3 +303,13 @@ p.warning a.ui-link {
 div.delete-extension {
   margin-top: 40px;
 }
+
+/* As of 24-03-2025 */
+
+/* .buttons-container {
+  display: flex;
+  justify-content: space-between;
+}
+.buttons-container input[type="button"] {
+  height: 53px;
+} */

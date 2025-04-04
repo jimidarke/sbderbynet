@@ -21,7 +21,7 @@ function export_roster(callable $out) {
   } else {
     $headings[] = "Name";
   }
-  $headings[] = "Car Number";
+  $headings[] = "Pinny";
   $headings[] = "Car Name";
   if ($use_groups) {
     $headings[] = group_label();

@@ -24,6 +24,7 @@ function json_ondeck(&$now_running) {
     $params[':round'] = $now_running['round'];
     $order = 'masterheat';
   } else {
+     $where = '';
     // $where = 'roundid = :roundid';
     // $params[':roundid'] = $now_running['roundid'];
     // If Classes.sortorder gets corrupted so that two classes get the same value,
