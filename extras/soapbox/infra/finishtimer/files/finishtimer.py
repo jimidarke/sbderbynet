@@ -33,12 +33,15 @@ STATUS_TOPIC    = "derbynet/device/{}/status"       # online/offline with will m
 # Topics to subscribe to
 LED_TOPIC       = "derbynet/lane/{}/led"            # set LED color
 PINNY_TOPIC     = "derbynet/lane/{}/pinny"          # set pinny display
+UPDATE_TOPIC    = "derbynet/device/{}/update"       # firmware update trigger message="update"
 
 # Callbacks
 def on_connect(client, userdata, flags, rc, properties=None):
     logging.info(f"Connected with result code {rc}")
     client.subscribe(LED_TOPIC.format(pcb.get_Lane()))
     client.subscribe(PINNY_TOPIC.format(pcb.get_Lane()))
+    client.subscribe(UPDATE_TOPIC.format(pcb.gethwid()))
+    client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", retain=True)
 
 def on_message(client, userdata, msg):
     logging.info(f"Received message on topic {msg.topic} with payload {msg.payload}")
@@ -93,6 +96,13 @@ def parse_message(msg):
     elif topic == "pinny":
         pinny = msg.payload.decode("utf-8").lower()
         pcb.setPinny(pinny)
+    elif topic == "update": # 
+        logging.info("Update requested")
+        try:
+            client.publish(STATUS_TOPIC.format(pcb.gethwid()), "updating", retain=True)
+            pcb.update_pcb()
+        except Exception as e:
+            logging.error(f"Update failed: {e}")
     else:
         logging.warning(f"Unknown topic: {topic}")
 

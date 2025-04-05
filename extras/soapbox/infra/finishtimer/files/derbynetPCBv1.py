@@ -23,7 +23,8 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = 1
+PCB_VERSION     = "0.1.1"
+
 PIN_TOGGLE      = 24
 PIN_SDA         = 2
 PIN_SCL         = 3
@@ -82,6 +83,7 @@ class derbyPCBv1:
         self.pinny = "----"
         self.timestart = time.time()
         self.readyToRace = False
+        self.pcbVersion = PCB_VERSION
         # Read HWID
         if os.path.exists("/boot/firmware/derbyid.txt"):
             with open("/boot/firmware/derbyid.txt", "r") as f:
@@ -187,7 +189,8 @@ class derbyPCBv1:
             "time": int(time.time()),
             "led": self.led,
             "pinny": self.pinny,
-            "readyToRace": self.readyToRace
+            "readyToRace": self.readyToRace,
+            "pcbVersion": self.pcbVersion
         }
         return payload
 
@@ -294,3 +297,18 @@ class derbyPCBv1:
     def get_cpu_usage():
         return psutil.cpu_percent()
     
+    @staticmethod
+    def get_pcb_version():
+        return PCB_VERSION
+    
+    @staticmethod
+    def update_pcb(): # calls /opt/derbynet/setup.sh to update the PCB and restart the service 
+        logging.warning("Update requested. Calling /opt/derbynet/setup.sh")
+        try:
+            subprocess.check_output("sudo /opt/derbynet/setup.sh", shell=True)
+            logging.info("Update successful")
+            exit(0) # exit the script to restart the service
+        except Exception as e:
+            logging.error(f"Update failed: {e}")
+            return False
+        return True
