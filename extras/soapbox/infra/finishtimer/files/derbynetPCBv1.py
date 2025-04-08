@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.1.5"
+PCB_VERSION     = "0.1.7"
 
 PIN_TOGGLE      = 24
 PIN_SDA         = 2
@@ -84,6 +84,15 @@ class derbyPCBv1:
         self.timestart = time.time()
         self.readyToRace = False
         self.pcbVersion = PCB_VERSION
+        # check if system hostname is DEFAULT then run sudo /opt/derbynet/setup.sh to set the hostname
+        try:
+            hostname = subprocess.check_output("hostname", shell=True).decode("utf-8").strip()
+            if hostname == "DEFAULT":
+                logging.warning("Hostname is DEFAULT. Running setup.sh to set hostname.")
+                subprocess.check_output("sudo /opt/derbynet/setup.sh", shell=True)
+        except Exception as e:
+            logging.error(f"Error checking hostname: {e}")
+        
         # Read HWID
         if os.path.exists("/boot/firmware/derbyid.txt"):
             with open("/boot/firmware/derbyid.txt", "r") as f:
@@ -226,8 +235,8 @@ class derbyPCBv1:
     
     @staticmethod
     def getBatteryRaw(): #returns raw adc value from battery single shot
-        bus = smbus2.SMBus(1)  # Use I2C bus 1
         try:
+            bus = smbus2.SMBus(1)  # Use I2C bus 1
             data = bus.read_i2c_block_data(MCP3421_ADDR, 0, 3)  # Read 3 bytes
             bus.close()
             raw_value = (data[0] << 8) | data[1]  # 16-bit ADC value
