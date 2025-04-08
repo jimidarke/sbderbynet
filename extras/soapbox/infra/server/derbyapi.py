@@ -38,7 +38,7 @@ class DerbyNetClient:
         }
         payload = 'action=role.login&name=Timer&password='
         self.authcode = None
-        attempt = 0
+        attempt = 1
         while attempt < 5:
             try: 
                 response = requests.post(self.url, headers=headers, data=payload, timeout=5)
@@ -46,7 +46,7 @@ class DerbyNetClient:
                     break
             except Exception as e:
                 logging.error(f"Login failed: {e}")
-                time.sleep(1)  # Wait before retrying
+            time.sleep(1 * attempt)  # Wait before retrying
             attempt += 1
         if attempt >= 5:
             logging.critical("Failed to login after multiple attempts.")
@@ -59,7 +59,7 @@ class DerbyNetClient:
             self.authcode = auth_code
             return auth_code
         else:
-            logging.error("Login failed: Invalid credentials or server error")
+            logging.error("Login failed: Invalid credentials or server error. API Response: %s", response.text)
             return None
 
     def send_timer_heartbeat(self): #sends an overall command that the timers are all still alive
@@ -75,6 +75,9 @@ class DerbyNetClient:
         }
         try:
             response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            if response.status_code == 401: # unauthed, send for login
+                self.authcode = self.login()
+                self.send_timer_heartbeat()
             response.raise_for_status()
         except requests.RequestException as e:
             logging.error(f"Failed to send heartbeat message: {e}")
@@ -95,6 +98,9 @@ class DerbyNetClient:
 
         try:
             response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            if response.status_code == 401: # unauthed, send for login
+                self.authcode = self.login()
+                self.send_start()
             response.raise_for_status()
         except requests.RequestException as e:
             logging.error(f"Failed to send start message: {e}")
@@ -137,6 +143,9 @@ class DerbyNetClient:
 
         try:
             response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            if response.status_code == 401: # unauthed, send for login
+                self.authcode = self.login()
+                self.send_finish(roundid, heatid, lane_times)
             response.raise_for_status()
         except requests.RequestException as e:
             logging.error(f"Failed to send finish message: {e}")
@@ -175,6 +184,9 @@ class DerbyNetClient:
         url = self.url + '?query=poll.coordinator'
         try:
             response = requests.get(url, headers=headers, data=payload, timeout=5)
+            if response.status_code == 401:
+                self.authcode = self.login()
+                self.get_race_status()
             response.raise_for_status()
         except requests.RequestException as e:
             logging.error(f"Failed to get race status: {e}")
