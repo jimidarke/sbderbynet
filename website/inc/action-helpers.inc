@@ -59,13 +59,15 @@ function take_action($sql, $params, $body_xml = '') {
 		echo'<success/>'.$body_xml;
 	} else {
 		$info = $db->errorInfo();
-		echo '<failure code="sql'.$info[0].'-'.$info[1].'">'
+		http_response_code(500);
+    echo '<failure code="sql'.$info[0].'-'.$info[1].'">'
 		     .$sql.' failed: '.$info[2].' [EOM]</failure>';
 	}
 	end_response();
 }
 
 function not_authorized_body() {
+  http_response_code(401);
   echo '<failure code="notauthorized">Not authorized -- please see race coordinator';
   echo '</failure>';
 }

@@ -37,10 +37,12 @@ function json_failure($code, $description) {
 function json_sql_failure($sql) {
   global $db;
   $info = $db->errorInfo();
+  http_response_code(500);
   json_failure('sql'.$info[0].'-'.$info[1], "$sql failed: $info[2] [EOM]");
 }
 
 function json_not_authorized() {
+  http_response_code(401);
   json_failure('notauthorized', "Not authorized -- please see race coordinator.");
 }
 
