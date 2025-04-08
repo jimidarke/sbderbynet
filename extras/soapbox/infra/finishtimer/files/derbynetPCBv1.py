@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.1.3"
+PCB_VERSION     = "0.1.5"
 
 PIN_TOGGLE      = 24
 PIN_SDA         = 2
@@ -95,7 +95,7 @@ class derbyPCBv1:
         self.tm = tm1637.TM1637(clk=PIN_CLK, dio=PIN_DIO)
         self.tm.brightness(7)
         time.sleep(0.5)
-        self.setLED()
+        self.setLED("")
         logging.info("DerbyNet PCB Class Initialized")
 
     def begin_toggle_watch(self, callback):
