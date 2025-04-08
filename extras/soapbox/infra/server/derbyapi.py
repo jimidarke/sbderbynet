@@ -14,6 +14,12 @@ from pip._vendor import requests
 import logging
 import xml.etree.ElementTree as ET
 
+
+LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
+LOG_FILE        = '/var/log/derbynet.log'
+
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
+
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
 
@@ -40,7 +46,7 @@ class DerbyNetClient:
         response_json = response.json()
         if response_json.get("outcome", {}).get("code") == "success":
             auth_code = response.headers.get('Set-Cookie', '').split(';')[0]
-            logging.info("Successfully logged in with authcode: %s", auth_code)
+            logging.debug("Successfully logged in with authcode: %s", auth_code)
             self.authcode = auth_code
             return auth_code
         else:
@@ -97,7 +103,7 @@ class DerbyNetClient:
                 return False
 
         if response_xml.find('success') is not None:
-            logging.info("Start message successfully sent.")
+            logging.debug("Start message successfully sent.")
             return True
         else:
             logging.error("Failed to confirm start message reception.")
@@ -139,7 +145,7 @@ class DerbyNetClient:
                 return False
 
         if response_xml.find('success') is not None:
-            logging.info("Finish message successfully sent.")
+            logging.debug("Finish message successfully sent.")
             return True
         else:
             logging.error("Failed to confirm finish message reception.")

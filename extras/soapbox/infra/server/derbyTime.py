@@ -1,8 +1,8 @@
 ''' 
 This script will send the current unix time (and localized friendly date time string) to the MQTT broken for all clients to receive.
 
-local file      /var/lib/infra/app/sendtime.py
-service file    /etc/systemd/system/sendtime.service
+local file      /var/lib/infra/app/derbyTime.py
+service file    /etc/systemd/system/derbyTime.service
 '''
 
 import paho.mqtt.client as mqtt # type: ignore
@@ -35,13 +35,11 @@ def sendTime():
         "uptime": int(time.time() - time_start)
     }
     payload = json.dumps(payload)
-    sent = client.publish("derbynet/racetime", payload, 0, False)
+    sent = client.publish("derbynet/race/time", payload, 0, False)
     if sent.rc != mqtt.MQTT_ERR_SUCCESS:
         raise Exception("Failed to send racetime: " + dtstr)
 
 if __name__ == "__main__":
-    print ("Starting racetime service")
-    print (int(time_start))
     while True:
         try:
             sendTime()

@@ -1,6 +1,9 @@
 '''
 Main program to handle the Derby race.
 
+File location: /var/lib/infra/app/derbyRace.py
+Service file: /etc/systemd/system/derbyrace.service
+
 '''
 
 import logging 
@@ -10,16 +13,14 @@ import paho.mqtt.client as mqtt # type: ignore
 import random
 import json
 from derbyapi import DerbyNetClient
-import RPi.GPIO as GPIO # type: ignore
 
-GPIO.setmode(GPIO.BCM)
-PIN_START_BUTTON = 7
-GPIO.setup(PIN_START_BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 api = DerbyNetClient("localhost")
 
 # MQTT setup
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
+MQTT_BROKER             = "localhost"
+MQTT_PORT               = 1883
+
+##### Subscribe Topics #####
 MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
 MQTT_TOPIC_TELEMETRY    = "derbynet/device/+/telemetry"
 MQTT_TOPIC_STATE        = "derbynet/device/+/state"
@@ -67,7 +68,7 @@ class derbyRace:
     def on_message(self, client, userdata, message): # callback for mqtt messages
         topic = message.topic
         payload = message.payload.decode("utf-8")
-        logging.info(f"Received message on {topic} {payload}") 
+        logging.debug(f"Received message on {topic} {payload}") 
         # Received message on derbynet/device/DT54SIV0002/state: {"toggle": true, "time": 1742533387, "hwid": "DT54SIV0002", "dip": "1001"}
         #logging.info(f"RaceState: {self.race_state}")
         # check for finish toggle if race is active to indicate someone has crossed the finish line
@@ -80,17 +81,21 @@ class derbyRace:
             lane = 1
         elif dip == "1001": #lane2
             lane = 2
-        elif dip == "1002": #lane3
+        elif dip == "1010": #lane3
             lane = 3
-        elif dip == "1003": #lane4
+        elif dip == "1011": #lane4
             lane = 4
         else: 
             lane = 0
-        if "state" in topic and self.race_state == "RACING": # this can only happen if the individual finish is triggered 
-            logging.info(f"Received state message on {topic}: {payload}")
+        if "state" in topic and self.race_state == "STAGING": # Triggers start only if in staging mode
+            val = json.loads(payload).get("state",False)
+            if val == "GO":
+                self.startRace()
+                api.send_start()
+        if "state" in topic and self.race_state == "RACING" and lane > 0: # this can only happen if the individual finish is triggered 
             self.laneFinish(lane)
-            logging.info(f"Lane {lane} Finished. Lane data: {self.lane_times}")
-        if "telemetry" in topic:
+        if "telemetry" in topic and lane > 0: # this is the heartbeat from the timer to indicate it is alive and well
+            logging.debug(f"Timer heartbeat from lane {lane} with payload {payload}")
             self.timerHeartbeat(lane)
 
     def updateFromDerbyAPI(self): 
@@ -130,6 +135,7 @@ class derbyRace:
         if racestats.get("timer-state-string",) == "Race running":
            self.race_state = "RACING"
            led = "green"
+           self.startRace()
         if not racestats.get("active",False):
             led = "red"
             self.race_state = "STOPPED"
@@ -165,27 +171,36 @@ class derbyRace:
     def startRace(self,timer = None):
         if timer == None: # set to utc timestamp 
             timer = time.time()
-        self.start_time = timer
-        logging.info("Race Started at " + str(int(self.start_time)))
-        self.race_state = "RACING"
-        self.updateLED("green") # racing
-        api.send_start()
+        if self.start_time == 0: # not started yet
+            self.start_time = timer
+            logging.info("Race Started at " + str(int(self.start_time)))
+        #self.race_state = "RACING"
+        #self.updateLED("green") # racing
+        #api.send_start()
+
+    def stopRace(self,timer = None):
+        if timer == None: # set to utc timestamp 
+            timer = time.time()
+        logging.info("All Lanes Finished at " + str(int(timer)))
+        self.race_state = "STOPPED"
+        logging.info(self.lane_times)
+        self.updateLED("red")
+        api.send_finish(self.roundid,self.heatid,self.lane_times)
+        self.lanesFinished = 0
+        self.lane_times = {}
+        self.start_time = 0
         
     def laneFinish(self,lane,timer = None):
         if timer == None:
             timer = time.time()
         self.lane_times[lane] = int(timer) - int(self.start_time)
-        logging.info(f"Lane {lane} Finished")
+        logging.info(f"Lane {lane} Finished at {int(timer)} with time {self.lane_times[lane]}")
+        #pinny = str(int(self.lane_times[lane])).zfill(4)
+        #self.setLanePinny(lane,pinny)
+        self.updateLED("purple",lane) # purple for finished
         self.lanesFinished += 1
         if self.lanesFinished == self.lane_count:
-            logging.info("All Lanes Finished")
-            self.race_state = "STOPPED"
-            logging.info(self.lane_times)
-            self.updateLED("red")
-            api.send_finish(self.roundid,self.heatid,self.lane_times)
-            self.lanesFinished = 0
-            self.lane_times = {}
-            self.start_time = 0
+            self.stopRace(timer)
             return True
         return False
     
@@ -194,12 +209,11 @@ class derbyRace:
         # check if all timers have checked in in the last 30 seconds and then send an api command for heartbeat
         if all(time.time() - self.timer_heartbeat[lane] < 90 for lane in self.timer_heartbeat):
             api.send_timer_heartbeat()
-            logging.info("Sent Timer Heartbeat")
+            logging.debug("Sent Timer Heartbeat")
 
     def close(self,graceful = False):
         self.client.loop_stop()
         self.client.disconnect()
-        GPIO.cleanup()
         logging.info("DerbyRace Closed")
         if not graceful:
             exit(1)
@@ -214,14 +228,6 @@ if __name__ == "__main__":
         logging.error(f"Error in DerbyRace: {e}")
         exit(1)
     while True:
-        if GPIO.input(PIN_START_BUTTON) == 0:
-            logging.info("Start Button Pressed")
-            try:
-                derby.startRace()
-            except Exception as e:
-                logging.error(f"Error in DerbyRace Start Trigger: {e}")
-                derby.close()
-                exit(1)
         try:
             derby.updateFromDerbyAPI()
         except KeyboardInterrupt:
@@ -230,5 +236,5 @@ if __name__ == "__main__":
             logging.error(f"Error in DerbyRace: {e}")
             derby.close()
             exit(1)
-        time.sleep(1)
+        time.sleep(0.75) # update every 0.75 seconds to keep the api happy and not hammer it too hard
     
