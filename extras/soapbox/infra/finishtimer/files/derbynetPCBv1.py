@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.1.1"
+PCB_VERSION     = "0.1.3"
 
 PIN_TOGGLE      = 24
 PIN_SDA         = 2
@@ -119,7 +119,7 @@ class derbyPCBv1:
                 self.readyToRace = (tchk and self.led == "blue")
                 logging.info(f"Ready to race: {self.readyToRace}")
                 self._updatePinny()
-            time.sleep(0.5)
+            time.sleep(0.25)
 
     def end_toggle_watch(self):
         self.toggle_thread = None
@@ -149,6 +149,14 @@ class derbyPCBv1:
             GPIO.output(PIN_RED, GPIO.HIGH)
             GPIO.output(PIN_GREEN, GPIO.HIGH)
             GPIO.output(PIN_BLUE, GPIO.HIGH)
+        elif colour == "purple":
+            GPIO.output(PIN_RED, GPIO.HIGH)
+            GPIO.output(PIN_GREEN, GPIO.LOW)
+            GPIO.output(PIN_BLUE, GPIO.HIGH)
+        elif colour == "yellow":
+            GPIO.output(PIN_RED, GPIO.HIGH)
+            GPIO.output(PIN_GREEN, GPIO.HIGH)
+            GPIO.output(PIN_BLUE, GPIO.LOW)
         else:
             GPIO.output(PIN_RED, GPIO.LOW)
             GPIO.output(PIN_GREEN, GPIO.LOW)
@@ -166,6 +174,11 @@ class derbyPCBv1:
         if self.led == "red":
             self.tm.brightness(1)
             self.tm.show("stop")
+            if self.getBatteryPercent() < 20:
+                self.tm.show("BATT")
+                self.tm.brightness(3)
+                logging.warning("Battery low " + str(self.getBatteryPercent()) + "%")
+
             
     def get_uptime(self):
         return int(time.time() - self.timestart)

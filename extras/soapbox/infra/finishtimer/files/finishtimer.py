@@ -20,22 +20,27 @@ logging.info("####### Starting DerbyNet Finish Timer #######")
 pcb = derbyPCBv1()
 
 ###########################    MQTT    ###########################
-MQTT_BROKER = "192.168.100.10"
-MQTT_PORT = 1883
-MQTT_KEEPALIVE = 120
-TELEMETRY_INTERVAL = 5 # seconds
+MQTT_BROKER         = "192.168.100.10"
+MQTT_PORT           = 1883
+MQTT_KEEPALIVE      = 60 # seconds
+TELEMETRY_INTERVAL  = 3 # seconds
 
 # Topics to publish to
-TOGGLE_TOPIC    = "derbynet/device/{}/state"        # toggle state and timestamp
-TELEMETRY_TOPIC = "derbynet/device/{}/telemetry"    # telemetry data
-STATUS_TOPIC    = "derbynet/device/{}/status"       # online/offline with will message
+TOGGLE_TOPIC        = "derbynet/device/{}/state"        # toggle state and timestamp
+TELEMETRY_TOPIC     = "derbynet/device/{}/telemetry"    # telemetry data
+STATUS_TOPIC        = "derbynet/device/{}/status"       # online/offline with will message
 
 # Topics to subscribe to
-LED_TOPIC       = "derbynet/lane/{}/led"            # set LED color
-PINNY_TOPIC     = "derbynet/lane/{}/pinny"          # set pinny display
-UPDATE_TOPIC    = "derbynet/device/{}/update"       # firmware update trigger message="update"
+LED_TOPIC           = "derbynet/lane/{}/led"            # set LED color
+PINNY_TOPIC         = "derbynet/lane/{}/pinny"          # set pinny display
+UPDATE_TOPIC        = "derbynet/device/{}/update"       # firmware update trigger message="update"
 
-# Callbacks
+# Setup
+clientid = f"{pcb.gethwid()}-{random.randint(1000, 9999)}"
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, clientid)
+logging.info(f"MQTT Client ID: {clientid}")
+
+###########################    CALLBACKS    ###########################
 def on_connect(client, userdata, flags, rc, properties=None):
     logging.info(f"Connected with result code {rc}")
     client.subscribe(LED_TOPIC.format(pcb.get_Lane()))
@@ -51,16 +56,13 @@ def on_disconnect(client, userdata, rc):
     logging.info(f"Disconnected with result code {rc}")
     client.publish(STATUS_TOPIC.format(pcb.gethwid()), "offline", retain=True)
 
-# Setup
-clientid = f"{pcb.gethwid()}-{random.randint(1000, 9999)}"
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, clientid)
-logging.info(f"MQTT Client ID: {clientid}")
-client.will_set(STATUS_TOPIC.format(pcb.gethwid()), "offline", retain=True)
-client.on_connect = on_connect  
-client.on_message = on_message
-client.on_disconnect = on_disconnect
-client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
-client.loop_start()
+def initMQTT():
+    client.will_set(STATUS_TOPIC.format(pcb.gethwid()), "offline", retain=True)
+    client.on_connect = on_connect  
+    client.on_message = on_message
+    client.on_disconnect = on_disconnect
+    client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
+    client.loop_start()
 
 ###########################    HELPERS    ###########################
 def toggle_callback():
@@ -108,6 +110,13 @@ def parse_message(msg):
 
 ###########################     MAIN     ###########################
 def main():
+    logging.info("Initializing PCB Callbacks")
+    lane = pcb.get_Lane()
+    logging.info(f"Lane: {lane}")
+    pcb.setPinny("LAN" + str(int(lane)))
+    pcb.setLED("white")
+    time.sleep(6)
+    initMQTT()
     pcb.begin_toggle_watch(toggle_callback)
     try:
         while True:
