@@ -14,8 +14,6 @@ import random
 import json
 from derbyapi import DerbyNetClient
 
-api = DerbyNetClient("localhost")
-
 # MQTT setup
 MQTT_BROKER             = "localhost"
 MQTT_PORT               = 1883
@@ -40,7 +38,8 @@ class derbyRace:
         self.client.on_connect = self.on_connect
         self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
         self.client.loop_start()
-        
+        logging.info(f"Connected to MQTT Broker at {MQTT_BROKER}:{MQTT_PORT}")
+        self.api = DerbyNetClient("localhost")
         self.start_time = 0
         self.lane_times = {}
         self.lanesFinished = 0
@@ -91,7 +90,7 @@ class derbyRace:
             val = json.loads(payload).get("state",False)
             if val == "GO":
                 self.startRace()
-                api.send_start()
+                self.api.send_start()
         if "state" in topic and self.race_state == "RACING" and lane > 0: # this can only happen if the individual finish is triggered 
             self.laneFinish(lane)
         if "telemetry" in topic and lane > 0: # this is the heartbeat from the timer to indicate it is alive and well
@@ -102,7 +101,7 @@ class derbyRace:
         # sets online
         self.client.publish("derbynet/status", payload="online", qos=1, retain=True)
         # called frequently once a second to update the finish timers and led colours
-        racestats = api.get_race_status()
+        racestats = self.api.get_race_status()
         self.roundid = racestats.get("roundid",0)
         self.heatid = racestats.get("heat",0)
         self.class_name = racestats.get("class","")
@@ -185,7 +184,7 @@ class derbyRace:
         self.race_state = "STOPPED"
         logging.info(self.lane_times)
         self.updateLED("red")
-        api.send_finish(self.roundid,self.heatid,self.lane_times)
+        self.api.send_finish(self.roundid,self.heatid,self.lane_times)
         self.lanesFinished = 0
         self.lane_times = {}
         self.start_time = 0
@@ -208,7 +207,7 @@ class derbyRace:
         self.timer_heartbeat[lane] = time.time()
         # check if all timers have checked in in the last 30 seconds and then send an api command for heartbeat
         if all(time.time() - self.timer_heartbeat[lane] < 90 for lane in self.timer_heartbeat):
-            api.send_timer_heartbeat()
+            self.api.send_timer_heartbeat()
             logging.debug("Sent Timer Heartbeat")
 
     def close(self,graceful = False):

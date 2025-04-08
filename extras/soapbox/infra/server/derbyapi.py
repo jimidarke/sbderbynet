@@ -10,6 +10,7 @@ api = DerbyNetClient(SERVERIP)
 '''
 
 #import requests # type: ignore
+import time
 from pip._vendor import requests
 import logging
 import xml.etree.ElementTree as ET
@@ -36,12 +37,20 @@ class DerbyNetClient:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
         }
         payload = 'action=role.login&name=Timer&password='
-
-        try: 
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logging.error(f"Login failed: {e}")
+        self.authcode = None
+        attempt = 0
+        while attempt < 5:
+            try: 
+                response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+                if response.status_code == 200:
+                    break
+            except Exception as e:
+                logging.error(f"Login failed: {e}")
+                time.sleep(1)  # Wait before retrying
+            attempt += 1
+        if attempt >= 5:
+            logging.critical("Failed to login after multiple attempts.")
+            exit(1)
             return None
         response_json = response.json()
         if response_json.get("outcome", {}).get("code") == "success":
