@@ -24,3 +24,8 @@
   margin: 0px;
   font-weight: bold;
 }
+
+/* Update 09-04-2025 */
+.race-started {
+  background-color: #00f700 !important; /* light green */
+}
