@@ -151,6 +151,20 @@ if (schema_version() < 12) {
   $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '12')";
 }
 
+if (schema_version() < 13) {
+  $updates[] = "CREATE TABLE TimerStatus ("
+             . "lane INT NOT NULL, "
+             . "timerID VARCHAR(11) NOT NULL, "
+             . "last_heartbeat INT NOT NULL, "
+             . "ready TINYINT(1) NOT NULL, "
+             . "PRIMARY KEY (lane, timerID)"
+             . ")";
+
+  $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+  $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '13')";
+}
+
+
 // For each new schema version, copy the DELETE and INSERT for schema version
 
 return $updates;

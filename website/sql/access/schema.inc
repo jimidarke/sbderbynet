@@ -342,6 +342,8 @@ array(
 
 @include(sql_file_path('mutual-preferences')),
 
+@include(sql_file_path('timer-status')),
+
 array(
 
 // --- Populate basic data

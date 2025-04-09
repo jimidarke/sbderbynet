@@ -704,93 +704,409 @@ function process_coordinator_poll_json(json) {
 
   generate_timer_state_group(json['timer-state']);
 
-  // Get the number of lanes
-  var lanesCount = json['timer-state'].lanes || 0;
-  var lastHeartBeat = json['timer-state']['last-contact'] || 0;
-  var currentTime = Date.now(); 
-
-  // Convert last heartbeat from epoch seconds to milliseconds
-  var timestamp = lastHeartBeat * 1000;
-
-  // Check if a race is currently running
-  var nowRacing = json["current-heat"]["now_racing"] || false;
+//   console.log(json);
   
-  // Determine each lane's status
-  var tstate = [];
 
-  for (let i = 1; i <= lanesCount; i++) {
-    // Online if last contact < 5 sec
-      let isOnline = (currentTime - timestamp) <= 5000;
-      // Change Ready to Running if race is active
-      let status = isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY";
+//   // Get the number of lanes
+//   var lanesCount = json['timer-state'].lanes || 0;
+//   var lastHeartBeat = json['timer-state']['last-contact'] || 0;
+//   var currentTime = Date.now(); 
 
-      tstate.push({
-          label: `Lane ${i} Timer`,
-          online: isOnline,
-          status: status // "Ready", "Running", or "NOT READY"
-      });
-  }
+//   // Convert last heartbeat from epoch seconds to milliseconds
+//   var timestamp = lastHeartBeat * 1000;
 
-  // Generate the table dynamically
-  generate_timer_capture_status_table(tstate);
+//   // Check if a race is currently running
+//   var nowRacing = json["current-heat"]["now_racing"] || false;
+  
+//   // Determine each lane's status
+//   var tstate = [];
 
-  function updateTableHeader(tstate) {
-    let isAnyOnline = tstate.some(timer => timer.online);
+//   for (let i = 1; i <= lanesCount; i++) {
+//     // Online if last contact < 5 sec
+//       let isOnline = (currentTime - timestamp) <= 5000;
+//       // Change Ready to Running if race is active
+//       let status = isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY";
+// console.log(json);
 
-    let headerOnline = document.querySelector(".timer-heading-status");
-    let headerReady = document.querySelector(".timer-heading-ready");
+//       tstate.push({
+//           label: `Lane ${i} Timer`,
+//           online: isOnline,
+//           status: status // "Ready", "Running", or "NOT READY"
+//       });
+//   }
 
-    if (isAnyOnline) {
-        headerOnline.className = "timer-heading-status timer-online";
-        headerReady.className = "timer-heading-ready timer-ready";
+//   // Generate the table dynamically
+//   generate_timer_capture_status_table(tstate);
 
-        headerOnline.textContent = "Online";
-        headerReady.textContent = "Ready";
-    } else {
-        headerOnline.className = "timer-heading-status timer-offline";
-        headerReady.className = "timer-heading-ready timer-not-ready";
+//   function updateTableHeader(tstate) {
+//     let isAnyOnline = tstate.some(timer => timer.online);
 
-        headerOnline.textContent = "OFFLINE";
-        headerReady.textContent = "NOT READY";
-    }
-}
+//     let headerOnline = document.querySelector(".timer-heading-status");
+//     let headerReady = document.querySelector(".timer-heading-ready");
+
+//     if (isAnyOnline) {
+//         headerOnline.className = "timer-heading-status timer-online";
+//         headerReady.className = "timer-heading-ready timer-ready";
+
+//         headerOnline.textContent = "Online";
+//         headerReady.textContent = "Ready";
+//     } else {
+//         headerOnline.className = "timer-heading-status timer-offline";
+//         headerReady.className = "timer-heading-ready timer-not-ready";
+
+//         headerOnline.textContent = "OFFLINE";
+//         headerReady.textContent = "NOT READY";
+//     }
+// }
 
 
   // Function to generate the status table dynamically
-  function generate_timer_capture_status_table(tstate) {
-      // console.log(tstate); // Debugging output
+  // function generate_timer_capture_status_table(tstate) {
+  //     // console.log(tstate); // Debugging output
 
-      let tbody = document.getElementById("timer-statuses");
-      tbody.innerHTML = ""; // Clear existing rows before adding new ones
+  //     let tbody = document.getElementById("timer-statuses");
+  //     tbody.innerHTML = ""; // Clear existing rows before adding new ones
 
-      tstate.forEach((timer) => {
-          let row = document.createElement("tr");
+  //     tstate.forEach((timer) => {
+  //         let row = document.createElement("tr");
 
-          let labelCell = document.createElement("td");
-          labelCell.className = "timer-label";
-          labelCell.textContent = timer.label;
+  //         let labelCell = document.createElement("td");
+  //         labelCell.className = "timer-label";
+  //         labelCell.textContent = timer.label;
 
-          let onlineCell = document.createElement("td");
-          onlineCell.className = timer.online ? "timer-online" : "timer-offline";
-          onlineCell.textContent = timer.online ? "Online" : "OFFLINE";
+  //         let onlineCell = document.createElement("td");
+  //         onlineCell.className = timer.online ? "timer-online" : "timer-offline";
+  //         onlineCell.textContent = timer.online ? "Online" : "OFFLINE";
 
-          let statusCell = document.createElement("td");
-          statusCell.className = timer.status === "Running" ? "timer-running" : 
-                                timer.status === "Ready" ? "timer-ready" : 
-                                "timer-not-ready";
-          statusCell.textContent = timer.status;
+  //         let statusCell = document.createElement("td");
+  //         statusCell.className = timer.status === "Running" ? "timer-running" : 
+  //                               timer.status === "Ready" ? "timer-ready" : 
+  //                               "timer-not-ready";
+  //         statusCell.textContent = timer.status;
 
-          row.appendChild(labelCell);
-          row.appendChild(onlineCell);
-          row.appendChild(statusCell);
+  //         row.appendChild(labelCell);
+  //         row.appendChild(onlineCell);
+  //         row.appendChild(statusCell);
 
-          tbody.appendChild(row);
-      });
+  //         tbody.appendChild(row);
+  //     });
 
-    // Update the header row styles dynamically
-    updateTableHeader(tstate);
+  //   // Update the header row styles dynamically
+  //   updateTableHeader(tstate);
 
+  // }
+
+//   function generate_timer_capture_status_table(timers) {
+//     let tbody = document.getElementById("timer-statuses");
+//     tbody.innerHTML = ""; // Clear existing rows
+
+//     let currentTime = Date.now();
+
+//     timers.forEach(timer => {
+//         let row = document.createElement("tr");
+
+//         let labelCell = document.createElement("td");
+//         labelCell.className = "timer-label";
+//         labelCell.textContent = `Lane ${timer.lane} (${timer.timerID})`;
+
+//         let statusCell = document.createElement("td");
+//         let timeSinceHeartbeat = (currentTime / 1000) - timer.last_heartbeat;
+//         if (timeSinceHeartbeat > 5) {
+//             statusCell.className = "timer-offline";
+//             statusCell.textContent = "OFFLINE";
+//         } else if (!timer.ready) {
+//             statusCell.className = "timer-warning";
+//             statusCell.textContent = "NOT READY";
+//         } else {
+//             statusCell.className = "timer-ready";
+//             statusCell.textContent = "READY";
+//         }
+
+//         let heartbeatCell = document.createElement("td");
+//         heartbeatCell.textContent = `${Math.round(timeSinceHeartbeat)}s ago`;
+
+//         row.appendChild(labelCell);
+//         row.appendChild(statusCell);
+//         row.appendChild(heartbeatCell);
+
+//         tbody.appendChild(row);
+//     });
+
+//     // Update the header row styles dynamically
+//     // updateTableHeader(tstate);
+// }
+
+// function generate_timer_capture_status_table(timers) {
+//   let tbody = document.getElementById("timer-statuses");
+//   tbody.innerHTML = ""; // Clear existing rows
+
+//   let currentTime = Date.now();
+
+//   timers.forEach(timer => {
+//       let row = document.createElement("tr");
+
+//       let labelCell = document.createElement("td");
+//       labelCell.className = "timer-label";
+//       labelCell.textContent = `Lane ${timer.lane || "undefined"} (${timer.timerID || "undefined"})`;
+
+//       let statusCell = document.createElement("td");
+//       let timeSinceHeartbeat = timer.last_heartbeat
+//           ? (currentTime / 1000) - timer.last_heartbeat
+//           : NaN;
+
+//       if (isNaN(timeSinceHeartbeat) || timeSinceHeartbeat > 5) {
+//           statusCell.className = "timer-offline";
+//           statusCell.textContent = "OFFLINE";
+//       } else if (!timer.ready) {
+//           statusCell.className = "timer-warning";
+//           statusCell.textContent = "NOT READY";
+//       } else {
+//           statusCell.className = "timer-ready";
+//           statusCell.textContent = "READY";
+//       }
+
+//       let heartbeatCell = document.createElement("td");
+//       heartbeatCell.textContent = isNaN(timeSinceHeartbeat)
+//           ? "Unknown"
+//           : `${Math.round(timeSinceHeartbeat)}s ago`;
+
+//       row.appendChild(labelCell);
+//       row.appendChild(statusCell);
+//       row.appendChild(heartbeatCell);
+
+//       tbody.appendChild(row);
+//   });
+// }
+
+
+// function generate_timer_capture_status_table(timers) {
+//   let tbody = document.getElementById("timer-statuses");
+//   tbody.innerHTML = ""; // Clear existing rows
+
+//   let currentTime = Date.now();
+
+//   timers.forEach(timer => {
+//       let row = document.createElement("tr");
+
+//       let labelCell = document.createElement("td");
+//       labelCell.className = "timer-label";
+//       labelCell.textContent = `Lane ${timer.lane || "undefined"} (${timer.timerID || "undefined"})`;
+
+//       let statusCell = document.createElement("td");
+//       let timeSinceHeartbeat = timer.last_heartbeat
+//           ? (currentTime / 1000) - timer.last_heartbeat
+//           : NaN;
+
+//       if (isNaN(timeSinceHeartbeat) || timeSinceHeartbeat > 5) {
+//           statusCell.className = "timer-offline";
+//           statusCell.textContent = "OFFLINE";
+//       } else if (!timer.ready) {
+//           statusCell.className = "timer-warning";
+//           statusCell.textContent = "NOT READY";
+//       } else {
+//           statusCell.className = "timer-ready";
+//           statusCell.textContent = "READY";
+//       }
+
+//       let heartbeatCell = document.createElement("td");
+//       heartbeatCell.textContent = isNaN(timeSinceHeartbeat)
+//           ? "Unknown"
+//           : `${Math.round(timeSinceHeartbeat)}s ago`;
+
+//       row.appendChild(labelCell);
+//       row.appendChild(statusCell);
+//       row.appendChild(heartbeatCell);
+
+//       tbody.appendChild(row);
+//   });
+// }
+
+console.log(json);
+
+// // Get the number of lanes
+// var lanesCount = json['timer-state'].lanes || 0;
+// var currentTime = Date.now();
+
+// // Check if a race is currently running
+// var nowRacing = json["current-heat"]["now_racing"] || false;
+
+// // Determine each lane's status using the timers array
+// var tstate = [];
+
+// json['timer-state'].timers.forEach(timer => {
+//     // Online if last heartbeat < 5 seconds ago
+//     let timeSinceHeartbeat = (currentTime / 1000) - timer.last_heartbeat;
+//     let isOnline = timeSinceHeartbeat <= 5;
+
+//     // Determine the status based on online state and race activity
+//     let status = isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY";
+
+//     // Push the timer's status into the tstate array
+//     tstate.push({
+//         lane: `Lane ${timer.lane} Timer (${timer.timerID || "Unknown"})`,
+//         online: isOnline,
+//         status: status,
+//         lastHeartbeat: `${Math.round(timeSinceHeartbeat)}s ago`
+//     });
+// });
+
+// // Generate the table dynamically
+// generate_timer_capture_status_table(tstate);
+
+
+// function generate_timer_capture_status_table(timers) {
+  
+//   let tbody = document.getElementById("timer-statuses");
+//   tbody.innerHTML = ""; // Clear existing rows
+
+//   let currentTime = Date.now();
+
+//   // console.log(timers);
+  
+//   timers.forEach(timer => {
+//       let row = document.createElement("tr");
+
+//       console.log(timer);
+      
+//       let labelCell = document.createElement("td");
+//       labelCell.className = "timer-label";
+//       labelCell.textContent = `${timer.lane || "undefined"}`;
+
+//       let statusCell = document.createElement("td");
+//       let timeSinceHeartbeat = timer.lastHeartbeat
+//           ? (currentTime / 1000) - timer.lastHeartbeat
+//           : NaN;
+
+//       if (isNaN(timeSinceHeartbeat) || timeSinceHeartbeat > 5) {
+//           statusCell.className = "timer-offline";
+//           statusCell.textContent = "OFFLINE";
+//       } else if (!timer.ready) {
+//           statusCell.className = "timer-warning";
+//           statusCell.textContent = "NOT READY";
+//       } else {
+//           statusCell.className = "timer-ready";
+//           statusCell.textContent = "READY";
+//       }
+
+//       let heartbeatCell = document.createElement("td");
+//       heartbeatCell.textContent = isNaN(timeSinceHeartbeat)
+//           ? "Unknown"
+//           : `${Math.round(timeSinceHeartbeat)}s ago`;
+
+//       row.appendChild(labelCell);
+//       row.appendChild(statusCell);
+//       row.appendChild(heartbeatCell);
+
+//       tbody.appendChild(row);
+//   });
+// }
+
+
+// Get the number of lanes and current time
+const lanesCount = json['timer-state'].lanes || 0;
+const currentTime = Date.now();
+
+// Check if a race is currently running
+const nowRacing = json["current-heat"]["now_racing"] || false;
+
+// Determine each lane's status using the timers array
+const tstate = json['timer-state'].timers.map(timer => {
+    const timeSinceHeartbeat = (currentTime / 1000) - timer.last_heartbeat;
+    const isOnline = timeSinceHeartbeat <= 5;
+
+    return {
+        lane: `Lane ${timer.lane} Timer (${timer.timerID || "Unknown"})`,
+        online: isOnline,
+        status: isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY",
+        lastHeartbeat: isNaN(timeSinceHeartbeat) ? "Unknown" : `${Math.round(timeSinceHeartbeat)}`
+    };
+});
+
+// Generate the table dynamically
+generate_timer_capture_status_table(tstate);
+
+function generate_timer_capture_status_table(timers) {
+    const tbody = document.getElementById("timer-statuses");
+    tbody.innerHTML = ""; // Clear existing rows
+
+    timers.forEach(timer => {
+        const row = document.createElement("tr");
+
+        // Lane/Timer Label
+        const labelCell = document.createElement("td");
+        labelCell.className = "timer-label";
+        labelCell.textContent = timer.lane;
+
+         // isOnline Cell
+         const isOnlineCell = document.createElement("td");
+         isOnlineCell.className = timer.online ? "timer-online" : "timer-offline";
+         isOnlineCell.textContent = timer.online == true ? "Online" : "Offline";
+
+        // Status Cell
+        const statusCell = document.createElement("td");
+        statusCell.className = timer.online ? (timer.status === "Running" ? "timer-running" : "timer-ready") : "timer-offline";
+        statusCell.textContent = timer.status;
+
+        let convertedTime = formatTimeAgo(timer.lastHeartbeat);
+        // Last Heartbeat Cell
+        const heartbeatCell = document.createElement("td");
+        heartbeatCell.textContent = convertedTime;
+
+        // Append cells to the row
+        row.appendChild(labelCell);
+        row.appendChild(isOnlineCell);
+        row.appendChild(statusCell);
+        row.appendChild(heartbeatCell);
+
+        // Append row to the table body
+        tbody.appendChild(row);
+    });
+}
+
+
+// Helper function to format time ago
+function formatTimeAgo(timeAgoInSeconds) {
+  console.log(timeAgoInSeconds);
+  
+  if (isNaN(timeAgoInSeconds)) {
+      return "Unknown";
   }
+
+  const minutes = Math.floor(timeAgoInSeconds / 60);
+  const seconds = timeAgoInSeconds % 60;
+
+  if (minutes > 0) {
+      return `${minutes}m ${seconds}s ago`;
+  } else {
+      return `${seconds}s ago`;
+  }
+}
+
+// function generate_timer_capture_status_table(timers) {
+//   let tbody = document.getElementById("timer-statuses");
+//   tbody.innerHTML = ""; // Clear existing rows
+
+//   timers.forEach(timer => {
+//       let row = document.createElement("tr");
+
+//       let labelCell = document.createElement("td");
+//       labelCell.className = "timer-label";
+//       labelCell.textContent = timer.label;
+
+//       let statusCell = document.createElement("td");
+//       statusCell.className = timer.online ? "timer-online" : "timer-offline";
+//       statusCell.textContent = timer.status;
+
+//       let heartbeatCell = document.createElement("td");
+//       heartbeatCell.textContent = timer.lastHeartbeat;
+
+//       row.appendChild(labelCell);
+//       row.appendChild(statusCell);
+//       row.appendChild(heartbeatCell);
+
+//       tbody.appendChild(row);
+//   });
+// }
 
   generate_replay_state_group(json['replay-state']);
 
