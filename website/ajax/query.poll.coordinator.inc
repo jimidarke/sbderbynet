@@ -12,6 +12,9 @@ require_once('inc/json-rounds.inc');
 require_once('inc/json-timer-state.inc');
 require_once('inc/name-mangler.inc');
 
+// Device status is used by the coordinator to show the status of the timer
+require_once('inc/json-device-status.inc');
+
 // print_r($_GET);die;
 
 $now_running = get_running_round();

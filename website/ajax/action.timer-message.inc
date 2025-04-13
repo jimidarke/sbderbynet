@@ -163,6 +163,137 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// TIMER_STAGING, below.
 		$timer_state->to_state(TIMER_CONNECTED);
 	} else if ($message == 'HEARTBEAT') {
+
+		// $lane = isset($_POST['lane']) ? intval($_POST['lane']) : null;
+		// $timerID = isset($_POST['timerID']) ? substr($_POST['timerID'], 0, 11) : null;
+		// $ready = isset($_POST['ready']) ? intval($_POST['ready']) : 0;
+	
+		// if ($lane && $timerID) {
+		// 	// Update or insert the timer status in the database
+		// 	$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
+		// 						  VALUES (:lane, :timerID, :last_heartbeat, :ready)');
+		// 	$stmt->execute(array(
+		// 		':lane' => $lane,
+		// 		':timerID' => $timerID,
+		// 		':last_heartbeat' => time(),
+		// 		':ready' => $ready
+		// 	));
+		// }
+
+		// error_log("HEARTBEAT POST data: " . print_r($_POST, true));
+
+		// foreach ($_POST as $key => $value) {
+		// 	if (preg_match('/^lane(\d+)$/', $key, $matches)) {
+		// 		$lane = intval($value);
+		// 		$laneIndex = $matches[1];
+		// 		$timerID = isset($_POST["timerId{$laneIndex}"]) ? substr($_POST["timerId{$laneIndex}"], 0, 11) : null;
+		// 		$ready = isset($_POST["ready{$laneIndex}"]) ? intval($_POST["ready{$laneIndex}"]) : 0;
+	
+		// 		if ($lane && $timerID) {
+		// 			error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
+	
+		// 			$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
+		// 								  VALUES (:lane, :timerID, :last_heartbeat, :ready)');
+		// 			$success = $stmt->execute(array(
+		// 				':lane' => $lane,
+		// 				':timerID' => $timerID,
+		// 				':last_heartbeat' => time(),
+		// 				':ready' => $ready
+		// 			));
+	
+		// 			if (!$success) {
+		// 				error_log("Database error: " . print_r($stmt->errorInfo(), true));
+		// 			} else {
+		// 				error_log("Timer status saved: Lane $lane, TimerID $timerID, Ready $ready");
+		// 			}
+		// 		}
+		// 	}
+		// }
+		
+
+		error_log("HEARTBEAT POST data: " . print_r($_POST, true));
+
+		// foreach ($_POST as $key => $value) {
+		// 	if (preg_match('/^lane(\d+)$/', $key, $matches)) {
+		// 		$lane = intval($value);
+		// 		$laneIndex = $matches[1];
+		// 		$timerID = isset($_POST["timerId{$laneIndex}"]) ? substr($_POST["timerId{$laneIndex}"], 0, 11) : null;
+		// 		$ready = isset($_POST["ready{$laneIndex}"]) ? intval($_POST["ready{$laneIndex}"]) : 0;
+		
+		// 		if ($lane && $timerID) {
+		// 			error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
+				
+		// 			$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
+		// 								  VALUES (:lane, :timerID, :last_heartbeat, :ready)');
+		// 			$success = $stmt->execute(array(
+		// 				':lane' => $lane,
+		// 				':timerID' => $timerID,
+		// 				':last_heartbeat' => time(),
+		// 				':ready' => $ready
+		// 			));
+				
+		// 			if (!$success) {
+		// 				error_log("Database error: " . print_r($stmt->errorInfo(), true));
+		// 			} else {
+		// 				error_log("Timer status saved: Lane $lane, TimerID $timerID, Ready $ready");
+		// 			}
+		// 		}
+		// 	}
+		// }
+
+		// Updated code for mark stale timers and delete them
+		foreach ($_POST as $key => $value) {
+			if (preg_match('/^lane(\d+)$/', $key, $matches)) {
+				$lane = intval($value);
+				$laneIndex = $matches[1];
+				$timerID = isset($_POST["timerId{$laneIndex}"]) ? substr($_POST["timerId{$laneIndex}"], 0, 11) : null;
+				$ready = isset($_POST["ready{$laneIndex}"]) ? intval($_POST["ready{$laneIndex}"]) : 0;
+		
+				if ($lane && $timerID) {
+					error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
+		
+					// Update or insert the timer status in the database
+					$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
+										  VALUES (:lane, :timerID, :last_heartbeat, :ready)');
+					$success = $stmt->execute(array(
+						':lane' => $lane,
+						':timerID' => $timerID,
+						':last_heartbeat' => time(),
+						':ready' => $ready
+					));
+		
+					if (!$success) {
+						error_log("Database error: " . print_r($stmt->errorInfo(), true));
+					} else {
+						error_log("Timer status saved: Lane $lane, TimerID $timerID, Ready $ready");
+					}
+				}
+			}
+		}
+		
+		// Mark stale timers as not ready
+		$staleThreshold = time() - 5; // 5 seconds threshold for stale timers
+		$stmt = $db->prepare('UPDATE TimerStatus SET ready = 0 WHERE last_heartbeat < :staleThreshold');
+		$success = $stmt->execute(array(':staleThreshold' => $staleThreshold));
+		
+		if (!$success) {
+			error_log("Failed to mark stale timers: " . print_r($stmt->errorInfo(), true));
+		} else {
+			error_log("Stale timers marked as not ready.");
+		}
+		
+		// Delete stale timers
+		$stmt = $db->prepare('DELETE FROM TimerStatus WHERE last_heartbeat < :staleThreshold');
+		$success = $stmt->execute(array(':staleThreshold' => $staleThreshold));
+		
+		if (!$success) {
+			error_log("Failed to delete stale timers: " . print_r($stmt->errorInfo(), true));
+		} else {
+			error_log("Stale timers deleted.");
+		}
+		
+
+
 		echo "\n  <success/>\n";
 		if (isset($_POST['unhealthy'])) {
 			// Probably a no-op

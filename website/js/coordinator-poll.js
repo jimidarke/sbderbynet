@@ -704,93 +704,86 @@ function process_coordinator_poll_json(json) {
 
   generate_timer_state_group(json['timer-state']);
 
-  // Get the number of lanes
-  var lanesCount = json['timer-state'].lanes || 0;
-  var lastHeartBeat = json['timer-state']['last-contact'] || 0;
-  var currentTime = Date.now(); 
-
-  // Convert last heartbeat from epoch seconds to milliseconds
-  var timestamp = lastHeartBeat * 1000;
+  // Get the number of lanes and current time
+  const lanesCount = json['timer-state'].lanes || 0;
+  const currentTime = Date.now();
 
   // Check if a race is currently running
-  var nowRacing = json["current-heat"]["now_racing"] || false;
-  
-  // Determine each lane's status
-  var tstate = [];
+  const nowRacing = json["current-heat"]["now_racing"] || false;
 
-  for (let i = 1; i <= lanesCount; i++) {
-    // Online if last contact < 5 sec
-      let isOnline = (currentTime - timestamp) <= 5000;
-      // Change Ready to Running if race is active
-      let status = isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY";
+  // Determine each lane's status using the timers array
+  const tstate = json['timer-state'].timers.map(timer => {
+    const timeSinceHeartbeat = (currentTime / 1000) - timer.last_heartbeat;
+    const isOnline = timeSinceHeartbeat <= 5;
 
-      tstate.push({
-          label: `Lane ${i} Timer`,
-          online: isOnline,
-          status: status // "Ready", "Running", or "NOT READY"
-      });
-  }
+    return {
+      lane: `Lane ${timer.lane} Timer (${timer.timerID || "Unknown"})`,
+      online: isOnline,
+      status: isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY",
+      lastHeartbeat: isNaN(timeSinceHeartbeat) ? "Unknown" : `${Math.round(timeSinceHeartbeat)}`
+    };
+  });
 
   // Generate the table dynamically
   generate_timer_capture_status_table(tstate);
 
-  function updateTableHeader(tstate) {
-    let isAnyOnline = tstate.some(timer => timer.online);
+  function generate_timer_capture_status_table(timers) {
+    const tbody = document.getElementById("timer-statuses");
+    tbody.innerHTML = ""; // Clear existing rows
 
-    let headerOnline = document.querySelector(".timer-heading-status");
-    let headerReady = document.querySelector(".timer-heading-ready");
+    timers.forEach(timer => {
+      const row = document.createElement("tr");
 
-    if (isAnyOnline) {
-        headerOnline.className = "timer-heading-status timer-online";
-        headerReady.className = "timer-heading-ready timer-ready";
+      // Lane/Timer Label
+      const labelCell = document.createElement("td");
+      labelCell.className = "timer-label";
+      labelCell.textContent = timer.lane;
 
-        headerOnline.textContent = "Online";
-        headerReady.textContent = "Ready";
-    } else {
-        headerOnline.className = "timer-heading-status timer-offline";
-        headerReady.className = "timer-heading-ready timer-not-ready";
+      // isOnline Cell
+      const isOnlineCell = document.createElement("td");
+      isOnlineCell.className = timer.online ? "timer-online" : "timer-offline";
+      isOnlineCell.textContent = timer.online == true ? "Online" : "Offline";
 
-        headerOnline.textContent = "OFFLINE";
-        headerReady.textContent = "NOT READY";
-    }
-}
+      // Status Cell
+      const statusCell = document.createElement("td");
+      statusCell.className = timer.online ? (timer.status === "Running" ? "timer-running" : "timer-ready") : "timer-offline";
+      statusCell.textContent = timer.status;
 
+      let convertedTime = formatTimeAgo(timer.lastHeartbeat);
+      // Last Heartbeat Cell
+      const heartbeatCell = document.createElement("td");
+      heartbeatCell.textContent = convertedTime;
 
-  // Function to generate the status table dynamically
-  function generate_timer_capture_status_table(tstate) {
-      // console.log(tstate); // Debugging output
+      // Append cells to the row
+      row.appendChild(labelCell);
+      row.appendChild(isOnlineCell);
+      row.appendChild(statusCell);
+      row.appendChild(heartbeatCell);
 
-      let tbody = document.getElementById("timer-statuses");
-      tbody.innerHTML = ""; // Clear existing rows before adding new ones
-
-      tstate.forEach((timer) => {
-          let row = document.createElement("tr");
-
-          let labelCell = document.createElement("td");
-          labelCell.className = "timer-label";
-          labelCell.textContent = timer.label;
-
-          let onlineCell = document.createElement("td");
-          onlineCell.className = timer.online ? "timer-online" : "timer-offline";
-          onlineCell.textContent = timer.online ? "Online" : "OFFLINE";
-
-          let statusCell = document.createElement("td");
-          statusCell.className = timer.status === "Running" ? "timer-running" : 
-                                timer.status === "Ready" ? "timer-ready" : 
-                                "timer-not-ready";
-          statusCell.textContent = timer.status;
-
-          row.appendChild(labelCell);
-          row.appendChild(onlineCell);
-          row.appendChild(statusCell);
-
-          tbody.appendChild(row);
-      });
-
-    // Update the header row styles dynamically
-    updateTableHeader(tstate);
-
+      // Append row to the table body
+      tbody.appendChild(row);
+    });
   }
+
+
+  // Helper function to format time ago
+  function formatTimeAgo(timeAgoInSeconds) {
+    console.log(timeAgoInSeconds);
+
+    if (isNaN(timeAgoInSeconds)) {
+      return "Unknown";
+    }
+
+    const minutes = Math.floor(timeAgoInSeconds / 60);
+    const seconds = timeAgoInSeconds % 60;
+
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s ago`;
+    } else {
+      return `${seconds}s ago`;
+    }
+  }
+
 
   generate_replay_state_group(json['replay-state']);
 
@@ -825,6 +818,12 @@ function process_coordinator_poll_json(json) {
   $("#supplemental-control-group").toggleClass("hidden",
     $("#add-new-rounds-button").hasClass("hidden") &&
     $("#now-racing-group-buttons").is(":empty"));
+
+
+  // Process device statuses
+  if (json['device-status']) {
+    generate_device_status_table(json['device-status']);
+  }
 }
 
 var g_polling_interval;

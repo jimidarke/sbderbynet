@@ -196,6 +196,10 @@ make_index("Rounds", "round"),
 
 @include(sql_file_path('mutual-preferences')),
 
+@include(sql_file_path('timer-status')),
+
+@include(sql_file_path('device-status')),
+
 array(
 "INSERT INTO RaceInfo (itemkey, itemvalue) VALUES ('schema', ".expected_schema_version().")",
 "INSERT INTO RaceInfo (itemkey, itemvalue) VALUES ('photos-on-now-racing', 'head')",

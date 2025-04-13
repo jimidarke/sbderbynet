@@ -285,7 +285,7 @@ function repopulate_schedule(json) {
         .css({'width': th0_width_vw + 'vw'}).appendTo(row);
     }
     $("<th/>").text(row_label)
-      .css({'width': th_width_vw + 'vw'})
+      .css({'width': th_width_vw + 'vw', 'height' : '100%', 'align-content' : 'space-evenly'})
       .appendTo(row);
 
     let lane = 0;
@@ -321,7 +321,8 @@ function repopulate_schedule(json) {
               });
               row_photo_divs.css({ height: max_height });
             })
-            .css({ 'max-width': g_img_max_width_px + 'px', 'max-height': g_img_max_height_px + 'px' }));
+            // .css({ 'max-width': g_img_max_width_px + 'px', 'max-height': g_img_max_height_px + 'px' }));
+            .css({ 'max-width': '220px', 'max-height': '100px' }));
         row_has_photos = true;
       }
 
@@ -342,22 +343,6 @@ function repopulate_schedule(json) {
   }
 
   
-}
-
-function create_heat_row(heat, rowClass) {
-  let $row = $("<tr/>").addClass("heat").addClass(rowClass);
-  
-  // Example layout: edit as needed
-  for (let lane = 0; lane < heat['cars']; lane++) {
-    let car = heat['cars'][lane];
-    let $cell = $("<td/>").addClass("lane").html(`
-      <div class="ondeck_photo"><img src="${car.photo_url}" /></div>
-      <div class="name">${car.name}</div>
-      <div class="time"></div>
-    `);
-    $row.append($cell);
-  }
-  return $row;
 }
 
 function is_heat_finished(heat) {
@@ -445,6 +430,7 @@ function animate_next_heat() {
         .css({position: 'absolute',
               'background': 'transparent',
               'font-size': (curheat.outerHeight() * 0.75) + 'px',
+              // 'font-size': Math.min(window.innerWidth / 30, curheat.outerHeight() * 0.75) + 'px',
               'text-align': 'center',
               'width': curheat.outerWidth(),
               'height': curheat.outerHeight(),
@@ -583,6 +569,14 @@ $(function() {
                   }
                   g_resized = false;
                   repopulate_schedule(json);
+
+                  setTimeout(() => {
+                    // Trigger reflow after resize
+                    $(".curheat, .nextheat").each(function() {
+                      $(this).css("width", "100%");
+                    });
+                  }, 100);
+                  
                   current_heat = json['current-heat'];
                   next_heat = json['ondeck']['next'];
                   scroll_to_current_heat();

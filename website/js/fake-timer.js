@@ -225,6 +225,62 @@ function send_identified() {
 
 // As of 28-03-2025
 
+// function send_heartbeat() {
+//   var data = {
+//       action: 'timer-message',
+//       message: 'HEARTBEAT',
+//       confirmed: 1
+//   };
+
+//   $("#timer-sim-times td").each(function (i, td) {
+//       let laneNumber = i + 1;
+//       let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`; // Ensures 11-char ID
+//       let isReady = $(td).attr('data-running') == 1; // Ready if running
+
+//       data[`lane${laneNumber}`] = laneNumber;
+//       data[`timerId${laneNumber}`] = timerId;
+//       data[`ready${laneNumber}`] = isReady ? 1 : 0;
+//   });
+
+//   $.ajax('action.php', {
+//       type: 'POST',
+//       data: data,
+//       success: function (response) {
+//           process_timer_messages(response);
+//       }
+//   });
+// }
+
+
+// Update: 09-04-2025
+// function send_heartbeat() {
+//   var data = {
+//       action: 'timer-message',
+//       message: 'HEARTBEAT',
+//       confirmed: 1
+//   };
+
+//   $("#timer-sim-times td").each(function (i, td) {
+//       let laneNumber = i + 1;
+//       let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`;
+//       let isReady = $(td).attr('data-running') == 1;
+
+//       data[`lane`] = laneNumber;
+//       data[`timerID`] = timerId;
+//       data[`ready`] = isReady ? 1 : 0;
+//   });
+
+//   console.log("Sending HEARTBEAT data:", data);
+
+//   $.ajax('action.php', {
+//       type: 'POST',
+//       data: data,
+//       success: function (response) {
+//           console.log("HEARTBEAT response:", response);
+//       }
+//   });
+// }
+
 function send_heartbeat() {
   var data = {
       action: 'timer-message',
@@ -234,19 +290,21 @@ function send_heartbeat() {
 
   $("#timer-sim-times td").each(function (i, td) {
       let laneNumber = i + 1;
-      let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`; // Ensures 11-char ID
-      let isReady = $(td).attr('data-running') == 1; // Ready if running
+      let timerId = `TIMER_${laneNumber.toString().padStart(5, '0')}`; // Ensure unique timerID
+      let isReady = $(td).attr('data-running') == 1;
 
       data[`lane${laneNumber}`] = laneNumber;
       data[`timerId${laneNumber}`] = timerId;
       data[`ready${laneNumber}`] = isReady ? 1 : 0;
   });
 
+  console.log("Sending HEARTBEAT data:", data); // Debugging
+
   $.ajax('action.php', {
       type: 'POST',
       data: data,
       success: function (response) {
-          process_timer_messages(response);
+          console.log("HEARTBEAT response:", response);
       }
   });
 }

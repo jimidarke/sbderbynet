@@ -300,6 +300,20 @@ function generate_kiosk_control(index, kiosk, pages) {
 
   kiosk_select.appendTo(kiosk_control);
   
+  
+  // Add the "Video Replay Enabled" toggle
+  var video_replay_id = 'video-replay-' + kiosk.address.replace(/[:+]/g, '_');
+  $("<input type='checkbox' class='flipswitch'/>")
+    .attr('id', video_replay_id)
+    .prop('checked', kiosk.parameters.video_replay === true)
+    .on("change", null, kiosk, function(event) {
+      var checked = $(event.target).is(':checked');
+      var kiosk = event.data;
+      post_new_params(kiosk, {video_replay: checked});
+    })
+    .appendTo(kiosk_select);
+  $('<label for="' + video_replay_id + '">Video Replay Enabled</label>').appendTo(kiosk_select);
+
   kiosk_control.appendTo("#kiosk_control_group");
 }
 
@@ -489,21 +503,49 @@ function show_config_qrcode_modal(event) {
 }
 
 // Uses #config_classes_modal with extra #slideshow_div turned on.
+// function show_config_slideshow_modal(event) {
+//   var kiosk = event.data;  // {name:, address:, page:, parameters: }
+//   $("#slideshow_div").removeClass('hidden');
+//   $("#title_text").val(kiosk.parameters.title);
+//   $("#slideshow_subdir").val(kiosk.parameters.subdir || '');
+//   mobile_select_refresh($("#slideshow_subdir"))
+//   populate_classids(kiosk.parameters);
+//   show_modal("#config_classes_modal", function(event) {
+//     close_modal("#config_classes_modal");
+//     post_new_params(kiosk, {title: $("#title_text").val(),
+//                             subdir: $("#slideshow_subdir").length ? $("#slideshow_subdir").val() : '',
+//                             classids: compute_classids()});
+//     return false;
+//   });
+// }
+
+// UPDATE: As of 09-04-2025
 function show_config_slideshow_modal(event) {
   var kiosk = event.data;  // {name:, address:, page:, parameters: }
   $("#slideshow_div").removeClass('hidden');
   $("#title_text").val(kiosk.parameters.title);
   $("#slideshow_subdir").val(kiosk.parameters.subdir || '');
-  mobile_select_refresh($("#slideshow_subdir"))
+  mobile_select_refresh($("#slideshow_subdir"));
+
+  // Set video replay checkbox state
+  $(".replay-checkbox").prop("checked", kiosk.parameters.replay === "1");
+
+  flipswitch_refresh($(".replay-checkbox"));
+
+
   populate_classids(kiosk.parameters);
   show_modal("#config_classes_modal", function(event) {
     close_modal("#config_classes_modal");
-    post_new_params(kiosk, {title: $("#title_text").val(),
-                            subdir: $("#slideshow_subdir").length ? $("#slideshow_subdir").val() : '',
-                            classids: compute_classids()});
+    post_new_params(kiosk, {
+      title: $("#title_text").val(),
+      subdir: $("#slideshow_subdir").length ? $("#slideshow_subdir").val() : '',
+      replay: $(".replay-checkbox").is(":checked") ? "1" : undefined,
+      classids: compute_classids()
+    });
     return false;
   });
 }
+
 
 // Update the UI controls to show the current set of classids
 function populate_classids(parameters) {
@@ -564,4 +606,17 @@ function reload_kiosk(btn) {
             $(btn).closest(".reload").find("p.reloading").removeClass('hidden');
           },
          });
+}
+
+
+// UPDATE: 09-04-2025
+function updateRaceStatusDisplay(data) {
+  var container = $("#race-status-container");
+console.log(container);
+
+  if (data.race_started) {
+    container.addClass("race-started");
+  } else {
+    container.removeClass("race-started");
+  }
 }

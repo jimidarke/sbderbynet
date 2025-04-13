@@ -338,6 +338,9 @@ function process_polling_result(data) {
     } else {
       Lineup.process_new_lineup(data, g_row_height);
     }
+
+    updateRaceStatusDisplay(data); 
+
   } else {
     Lineup.process_new_lineup(data, g_row_height);
   }
@@ -370,3 +373,16 @@ $(function () {
   // Run the watchdog every couple seconds
   setInterval(function() { Poller.watchdog(); }, 2000);
 });
+
+
+// UPDATE: 09-04-2025 | Changing Background color When Race starts.
+function updateRaceStatusDisplay(data) {
+  var container = $("#race-status-container");
+  console.log(container, data);
+
+  if (data["current-heat"] && data["current-heat"].now_racing) {
+    container.addClass("race-started");
+  } else {
+    container.removeClass("race-started");
+  }
+}

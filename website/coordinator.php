@@ -162,7 +162,7 @@ input.lane-time::-webkit-outer-spin-button {
     </table> -->
 
 
-    <table border="1" cellpadding="10" style="width: fit-content">
+    <!-- <table border="1" cellpadding="10" style="width: fit-content">
       <thead>
         <tr>
           <td class="timer-label">Start Timer</td>
@@ -171,9 +171,26 @@ input.lane-time::-webkit-outer-spin-button {
         </tr>
       </thead>
       <tbody id="timer-statuses">
-        <!-- Dynamic rows will be added here -->
+
       </tbody>
-    </table>
+    </table> -->
+
+    <!-- <div id='lane-timers' class="lane-timers"> -->
+      <table border="1" cellpadding="10" style="width: auto; justify-self: center;">
+        <thead>
+            <tr>
+                <th>Lane</th>
+                <th>Is-Online</th>
+                <th>Is-Ready</th>
+                <th>Last Heartbeat</th>
+            </tr>
+        </thead>
+        <tbody id="timer-statuses">
+            <!-- Dynamic rows will be added here -->
+        </tbody>
+      </table>
+    <!-- </div> -->
+
 
     </div>
    <?php } ?>

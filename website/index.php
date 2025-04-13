@@ -151,6 +151,8 @@ if ($two_columns) {
 }
 
 // *********** After ***************
+$need_spacer = make_link_button('Device status', 'device-status.php', VIEW_DEVICE_STATUS, 'after_button');
+
 $need_spacer = make_link_button('Present Awards', 'awards-presentation.php', PRESENT_AWARDS_PERMISSION, 'after_button');
 $need_spacer = make_link_button('Standings', 'standings.php', VIEW_AWARDS_PERMISSION, 'after_button') || $need_spacer;
 $need_spacer = make_link_button('Export Results', 'export.php', VIEW_RACE_RESULTS_PERMISSION, 'after_button') || $need_spacer;
