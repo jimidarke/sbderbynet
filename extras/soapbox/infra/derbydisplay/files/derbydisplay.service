@@ -1,13 +1,11 @@
 [Unit]
 Description=Derby Display Service
-After=network.target graphical.target
+After=network.target 
 
 [Service]
-Environment=XDG_RUNTIME_DIR=/run/user/1000
-Environment=DISPLAY=:0
-ExecStart=/usr/bin/python3 /opt/derbynet/files/derbydisplay/derbydisplay.py
+ExecStart=/usr/bin/python3 /opt/derbynet/files/derbydisplay.py
 Restart=always
-User=displayuser
+User=root
 
 [Install]
 WantedBy=multi-user.target

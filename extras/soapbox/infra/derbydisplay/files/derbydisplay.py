@@ -30,13 +30,11 @@ TELEMETRY_TOPIC = "derbynet/device/{}/telemetry"    # telemetry data
 STATUS_TOPIC    = "derbynet/device/{}/status"       # online/offline with will message
 
 # Topics to subscribe to
-URL_TOPIC       = "derbynet/display/{}/url"         # sets the kiosk URL
 UPDATE_TOPIC    = "derbynet/device/{}/update"       # firmware update trigger message="update"
 
 # Callbacks
 def on_connect(client, userdata, flags, rc, properties=None):
     logging.info(f"Connected with result code {rc}")
-    client.subscribe(URL_TOPIC.format(str(pcb.readDIP())))
     client.subscribe(UPDATE_TOPIC.format(pcb.gethwid()))
     client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", retain=True)
 
@@ -61,7 +59,7 @@ client.loop_start()
 
 def send_telemetry():
     payload = pcb.packageTelemetry()
-    logging.info(f"Sending Telemetry: {json.dumps(payload)}")
+    logging.debug(f"Sending Telemetry: {json.dumps(payload)}")
     client.publish(TELEMETRY_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=1, retain=True)
     client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", retain=True)
 
@@ -78,21 +76,21 @@ def parse_message(msg):
     elif "url" in msg.topic:
         url = msg.payload.decode("utf-8")
         logging.info(f"Setting URL: {url}")
-        update_display(url)
+        #update_display(url)
     else:
         logging.warning(f"Unknown topic or payload: {msg.topic} {msg.payload}")
 
 # Start Chromium in kiosk mode
 def update_display(url):
     logging.info(f"Updated display to {url}")
-    subprocess.run(["pkill", "epiphany-browser"])
-    subprocess.Popen(["epiphany-browser", "--profile", "--display=:0", "--application-mode", "--fullscreen", url])
+    #subprocess.run(["pkill", "epiphany-browser"])
+    #subprocess.Popen(["epiphany-browser", "--profile", "--display=:0", "--application-mode", "--fullscreen", url])
 
     
 ###########################     MAIN     ###########################
 def main():
-    defulr = "http://derbynetpi/derbynet/fullscreen.php"
-    update_display(defulr)
+    #defulr = "http://derbynetpi/derbynet/fullscreen.php"
+    #update_display(defulr)
     try:
         while True:
             send_telemetry()

@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.1.1"
+PCB_VERSION     = "0.1.7"
 
 PIN_TOGGLE      = 24
 PIN_SDA         = 2
@@ -84,6 +84,15 @@ class derbyPCBv1:
         self.timestart = time.time()
         self.readyToRace = False
         self.pcbVersion = PCB_VERSION
+        # check if system hostname is DEFAULT then run sudo /opt/derbynet/setup.sh to set the hostname
+        try:
+            hostname = subprocess.check_output("hostname", shell=True).decode("utf-8").strip()
+            if hostname == "DEFAULT":
+                logging.warning("Hostname is DEFAULT. Running setup.sh to set hostname.")
+                subprocess.check_output("sudo /opt/derbynet/setup.sh", shell=True)
+        except Exception as e:
+            logging.error(f"Error checking hostname: {e}")
+        
         # Read HWID
         if os.path.exists("/boot/firmware/derbyid.txt"):
             with open("/boot/firmware/derbyid.txt", "r") as f:
@@ -95,7 +104,7 @@ class derbyPCBv1:
         self.tm = tm1637.TM1637(clk=PIN_CLK, dio=PIN_DIO)
         self.tm.brightness(7)
         time.sleep(0.5)
-        self.setLED()
+        self.setLED("")
         logging.info("DerbyNet PCB Class Initialized")
 
     def begin_toggle_watch(self, callback):
@@ -119,7 +128,7 @@ class derbyPCBv1:
                 self.readyToRace = (tchk and self.led == "blue")
                 logging.info(f"Ready to race: {self.readyToRace}")
                 self._updatePinny()
-            time.sleep(0.5)
+            time.sleep(0.25)
 
     def end_toggle_watch(self):
         self.toggle_thread = None
@@ -149,6 +158,14 @@ class derbyPCBv1:
             GPIO.output(PIN_RED, GPIO.HIGH)
             GPIO.output(PIN_GREEN, GPIO.HIGH)
             GPIO.output(PIN_BLUE, GPIO.HIGH)
+        elif colour == "purple":
+            GPIO.output(PIN_RED, GPIO.HIGH)
+            GPIO.output(PIN_GREEN, GPIO.LOW)
+            GPIO.output(PIN_BLUE, GPIO.HIGH)
+        elif colour == "yellow":
+            GPIO.output(PIN_RED, GPIO.HIGH)
+            GPIO.output(PIN_GREEN, GPIO.HIGH)
+            GPIO.output(PIN_BLUE, GPIO.LOW)
         else:
             GPIO.output(PIN_RED, GPIO.LOW)
             GPIO.output(PIN_GREEN, GPIO.LOW)
@@ -166,6 +183,11 @@ class derbyPCBv1:
         if self.led == "red":
             self.tm.brightness(1)
             self.tm.show("stop")
+            if self.getBatteryPercent() < 20:
+                self.tm.show("BATT")
+                self.tm.brightness(3)
+                logging.warning("Battery low " + str(self.getBatteryPercent()) + "%")
+
             
     def get_uptime(self):
         return int(time.time() - self.timestart)
@@ -213,8 +235,8 @@ class derbyPCBv1:
     
     @staticmethod
     def getBatteryRaw(): #returns raw adc value from battery single shot
-        bus = smbus2.SMBus(1)  # Use I2C bus 1
         try:
+            bus = smbus2.SMBus(1)  # Use I2C bus 1
             data = bus.read_i2c_block_data(MCP3421_ADDR, 0, 3)  # Read 3 bytes
             bus.close()
             raw_value = (data[0] << 8) | data[1]  # 16-bit ADC value

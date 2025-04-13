@@ -60,10 +60,11 @@ else
 fi
 
 
-# checks if display specific features were added to the /boot/firmware/config.txt file
-#if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then
-#    echo "Adding Derby Display settings to boot config."
-#    sudo bash -c "echo '#DERBYNET' >> /boot/firmware/config.txt"
+#checks if display specific features were added to the /boot/firmware/config.txt file
+if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then
+    echo "Adding Derby Display settings to boot config."
+    sudo bash -c "echo '#DERBYNET' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'dtparam=i2c_arm=on' >> /boot/firmware/config.txt"
 #    sudo bash -c "echo 'hdmi_force_hotplug=1' >> /boot/firmware/config.txt"
 #    sudo bash -c "echo 'hdmi_group=2' >> /boot/firmware/config.txt"
 #    sudo bash -c "echo 'hdmi_mode=82' >> /boot/firmware/config.txt"
@@ -75,8 +76,8 @@ fi
 #    sudo systemctl disable --now logrotate 
 #    sudo systemctl disable --now cron
 #    sudo systemctl mask tmp.mount
-#    TOREBOOT=1
-#fi
+    TOREBOOT=1
+fi
 
 # perform system update only if internet is available and /boot/updated file is missing
 if [ ! -f /boot/firmware/updated ]; then
@@ -85,7 +86,7 @@ if [ ! -f /boot/firmware/updated ]; then
         echo "Internet connection available. Updating system."
         sudo apt update
         sudo apt upgrade -y #sudo apt install -y 
-        sudo apt install -y rsync python3 python3-pip mosquitto-clients unclutter epiphany-browser x11-xserver-utils xautomation unclutter
+        sudo apt install -y rsync python3 python3-pip mosquitto-clients unclutter midori
         sudo pip install paho-mqtt psutil raspberrypi-tm1637 --break
         sudo apt autoremove -y
         sudo apt clean
@@ -96,6 +97,19 @@ if [ ! -f /boot/firmware/updated ]; then
     fi
 else
     echo "Update file found. Skipping system update."
+fi
+
+# checks if kiosk.desktop exists in the /home/derby/.config/autostart folder, if not creates it and the folder 
+if [ ! -d /home/derby/.config/autostart ]; then
+    echo "Creating autostart folder."
+    sudo mkdir -p /home/derby/.config/autostart
+fi
+if [ ! -f /home/derby/.config/autostart/kiosk.desktop ]; then
+    echo "Creating kiosk.desktop file."
+    cp ${LOCAL_DIR}files/kiosk.desktop /home/derby/.config/autostart/kiosk.desktop
+    TOREBOOT=1
+else
+    echo "kiosk.desktop file already exists."
 fi
 
 # checks if the local user is set to login automatically (display user)
