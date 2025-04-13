@@ -91,6 +91,20 @@ if (schema_version() < 11) {
 }
 
 
+if (schema_version() < 12) {
+  $updates[] = "CREATE TABLE mutual_preferences ("
+             . "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+             . "racerid INTEGER NOT NULL, "
+             . "related_racerid INTEGER NOT NULL, "
+             . "preference TEXT CHECK(preference IN ('include', 'exclude')) NOT NULL, "
+             . "FOREIGN KEY (racerid) REFERENCES RegistrationInfo(racerid), "
+             . "FOREIGN KEY (related_racerid) REFERENCES RegistrationInfo(racerid)"
+             . ")";
+
+  $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+  $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '12')";
+}
+
 // For each new schema version, copy the DELETE and INSERT for schema version
 
 return $updates;

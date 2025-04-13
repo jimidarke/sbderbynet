@@ -5,34 +5,54 @@ require_once('inc/photo-config.inc');
 require_once('inc/schema_version.inc');
 require_once('inc/xbs.inc');
 
+// function checkin_table_SELECT_FROM_sql() {
+//   $schema_version = schema_version();
+//   return
+//     'SELECT racerid, carnumber, lastname, firstname, carname, carweight, imagefile,'
+//     .($schema_version < 2 ? " '' AS carphoto," : " carphoto,")
+//     .($schema_version < PARTITION_SCHEMA
+//       ? " 1 AS partitionid, 1 AS partition_sortorder, '".DEFAULT_PARTITION_NAME."' AS partition_name,"
+//       ." '' AS note,"
+//       : " Partitions.partitionid AS partitionid,"
+//         ." Partitions.sortorder AS partition_sortorder,"
+//         ." Partitions.name AS partition_name, note,")
+//     .' RegistrationInfo.classid, class, RegistrationInfo.rankid, rank, passedinspection, exclude,'
+//     .' EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.racerid = RegistrationInfo.racerid) AS scheduled,'
+//     .' EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.classid = RegistrationInfo.classid) AS denscheduled,'
+//     .' EXISTS(SELECT 1 FROM Awards WHERE Awards.awardname = :xbs_award_name AND'
+//     .'                                   Awards.racerid = RegistrationInfo.racerid) AS xbs'
+//     .' FROM '.($schema_version < PARTITION_SCHEMA 
+//                ? inner_join('RegistrationInfo', 'Classes',
+//                             'RegistrationInfo.classid = Classes.classid',
+//                             'Ranks',
+//                             'RegistrationInfo.rankid = Ranks.rankid')
+//                : inner_join('RegistrationInfo', 'Classes',
+//                             'RegistrationInfo.classid = Classes.classid',
+//                             'Ranks',
+//                             'RegistrationInfo.rankid = Ranks.rankid',
+//                             'Partitions',
+//                             'RegistrationInfo.partitionid = Partitions.partitionid'));
+// }
+
+
+// UPDATE: As of 01-04-2025
 function checkin_table_SELECT_FROM_sql() {
-  $schema_version = schema_version();
   return
-    'SELECT racerid, carnumber, lastname, firstname, carname, carweight, imagefile,'
-    .($schema_version < 2 ? " '' AS carphoto," : " carphoto,")
-    .($schema_version < PARTITION_SCHEMA
-      ? " 1 AS partitionid, 1 AS partition_sortorder, '".DEFAULT_PARTITION_NAME."' AS partition_name,"
-      ." '' AS note,"
-      : " Partitions.partitionid AS partitionid,"
-        ." Partitions.sortorder AS partition_sortorder,"
-        ." Partitions.name AS partition_name, note,")
-    .' RegistrationInfo.classid, class, RegistrationInfo.rankid, rank, passedinspection, exclude,'
-    .' EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.racerid = RegistrationInfo.racerid) AS scheduled,'
-    .' EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.classid = RegistrationInfo.classid) AS denscheduled,'
-    .' EXISTS(SELECT 1 FROM Awards WHERE Awards.awardname = :xbs_award_name AND'
-    .'                                   Awards.racerid = RegistrationInfo.racerid) AS xbs'
-    .' FROM '.($schema_version < PARTITION_SCHEMA 
-               ? inner_join('RegistrationInfo', 'Classes',
-                            'RegistrationInfo.classid = Classes.classid',
-                            'Ranks',
-                            'RegistrationInfo.rankid = Ranks.rankid')
-               : inner_join('RegistrationInfo', 'Classes',
-                            'RegistrationInfo.classid = Classes.classid',
-                            'Ranks',
-                            'RegistrationInfo.rankid = Ranks.rankid',
-                            'Partitions',
-                            'RegistrationInfo.partitionid = Partitions.partitionid'));
+      'SELECT ri.racerid, ri.carnumber, ri.lastname, ri.firstname, ri.carname, ri.carweight, ri.imagefile, '
+      . 'ri.carphoto, p.partitionid AS partitionid, p.sortorder AS partition_sortorder, '
+      . 'p.name AS partition_name, ri.note, ri.classid, c.class, ri.rankid, r.rank, ri.passedinspection, ri.exclude, '
+      . 'EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.racerid = ri.racerid) AS scheduled, '
+      . 'EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.classid = ri.classid) AS denscheduled, '
+      . 'EXISTS(SELECT 1 FROM Awards WHERE Awards.awardname = :xbs_award_name AND Awards.racerid = ri.racerid) AS xbs, '
+      . 'inc.related_racerid AS grouped_with, exc.related_racerid AS avoid_with '
+      . 'FROM RegistrationInfo AS ri '
+      . 'INNER JOIN Classes AS c ON ri.classid = c.classid '
+      . 'INNER JOIN Ranks AS r ON ri.rankid = r.rankid '
+      . 'LEFT JOIN Partitions AS p ON ri.partitionid = p.partitionid '
+      . 'LEFT JOIN (SELECT racerid, related_racerid FROM mutual_preferences WHERE preference_type = "include") AS inc ON inc.racerid = ri.racerid '
+      . 'LEFT JOIN (SELECT racerid, related_racerid FROM mutual_preferences WHERE preference_type = "exclude") AS exc ON exc.racerid = ri.racerid';
 }
+
 
 function json_table_row_for_id($racerid) {
   $xbs_award_name = xbs_award();
@@ -58,7 +78,7 @@ function json_table_row(&$row, $n = 0) {
     'partitionid' => $row['partitionid'],
     'partition' => $row['partition_name'],
     'partition_sortorder' => $row['partition_sortorder'],
-    'note' => /* is_null($row['note']) ? '' :*/ $row['note'],
+    'note' => $row['note'],
     'classid' => $row['classid'],
     'class' => $row['class'],
     'rankid' => $row['rankid'],
@@ -81,7 +101,10 @@ function json_table_row(&$row, $n = 0) {
     'scheduled' => $row['scheduled'] ? true : false,
     'passed' => $row['passedinspection'] ? true : false,
 
-    'xbs' => $row['xbs']);
+    'xbs' => $row['xbs'],
+    'grouped_with' => $row['grouped_with'], // Include grouped_with
+    'avoid_with' => $row['avoid_with'] // Include avoid_with
+  );
 }
 
 ?>

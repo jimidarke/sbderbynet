@@ -170,7 +170,7 @@ input.white-button {
 #edit_racer_modal .flipswitch {
   font-size: 24px;
   margin-left: 37px;
-  margin-bottom: 30px;
+  margin-bottom: 11px;
 }
 #edit_racer_modal .block_buttons input,
 #edit_racer_modal .block_buttons select,
@@ -189,7 +189,6 @@ input.white-button {
 }
 #delete_racer_extension {
   /* padding-top: 30px; */
-  padding-top: 10px;
 }
 
 
@@ -306,10 +305,13 @@ div.delete-extension {
 
 /* As of 24-03-2025 */
 
-/* .buttons-container {
+.buttons-container {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between !important;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: -10px;
 }
 .buttons-container input[type="button"] {
   height: 53px;
-} */
+}

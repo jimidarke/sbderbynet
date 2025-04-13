@@ -48,6 +48,15 @@
 //       }
 //     }
 //   }
+
+
+//   // As of 31-03-2025
+//   // foreach ($next_heat as $car) {
+//   //   if (in_array($car, $prev_heat)) {
+//   //     return PHP_INT_MAX;  // Prevents selection of this heat
+//   //   }
+//   // }
+
 //   return $result;
 // }
 
@@ -89,6 +98,12 @@
 //           if ($trace) {
 //             $trace[] = array('score' => $score, 'index' => $rough_i);
 //           }
+
+//           // // Skip heat if it includes a car from the previous heat
+//           // if ($score === PHP_INT_MAX) {
+//           //   continue;
+//           // }
+          
 //           if ($score < $best_heat_score - 0.00001) {
 //             $best_heat_score = $score;
 //             $best_heat_index = $rough_i;
@@ -120,127 +135,98 @@
 // }
 
 
-// UPDATE: As of 31-03-2025
 
+// As of 31-03-2025
 
 require_once('inc/schedule_rough.inc');
-require_once('inc/schedule_utils.inc');
 
-// Fetch user-configurable weights from the settings
-$race_count_weight = read_raceinfo('heat-counts', 10);
-$consecutive_weight = read_raceinfo('avoid-consecutive', 1000);
-$repeat_weight = read_raceinfo('avoid-same-lane', 1000);
-$weight_group_weight = read_raceinfo('group-weighted-cars', 0); // Default: 0 (no effect)
+define('RACE_COUNT_WEIGHT', 300);
+define('CONSECUTIVE_WEIGHT', 1000);
+define('REPEAT_WEIGHT', 1000);
+define('WEIGHT_GROUPING_WEIGHT', 1000); // Weight penalty for mixed-weight heats
 
-// Ensures race counts remain balanced across all cars
 function rate_race_counts(&$next_heat, $n_prev_heats, &$appearances) {
-    global $race_count_weight;
-    $nlanes = count($next_heat);
-    $ncars = count($appearances);
-    $new_appearances = $appearances; 
+  $nlanes = count($next_heat);
+  $ncars = count($appearances);
+  $new_appearances = $appearances;
+  foreach ($next_heat as $car) {
+    ++$new_appearances[$car];
+  }
 
-    foreach ($next_heat as $car) {
-        ++$new_appearances[$car];
-    }
-
-    $deviation = 0;
-    $target = (($n_prev_heats + 1) * $nlanes) / $ncars;
-    foreach ($new_appearances as $count) {
-        $deviation += ($count - $target) * ($count - $target);
-    }
-
-    return $deviation * $race_count_weight;
+  $dev = 0;
+  $target = (($n_prev_heats + 1) * $nlanes) / $ncars;
+  foreach ($new_appearances as $app) {
+    $dev += ($app - $target) * ($app - $target);
+  }
+  return $dev * RACE_COUNT_WEIGHT;
 }
 
-// Applies penalties for consecutive races and lane repetition when enabled
 function rate_consecutive(&$prev_heat, &$next_heat) {
-    global $consecutive_weight, $repeat_weight;
-    $result = 0;
+  $result = 0;
+  foreach ($next_heat as $car) {
+    if (in_array($car, $prev_heat)) {
+      $result += CONSECUTIVE_WEIGHT;
+    }
+  }
+  return $result;
+}
 
-    for ($lane = 0; $lane < count($next_heat); ++$lane) {
-        for ($prev_lane = 0; $prev_lane < count($prev_heat); ++$prev_lane) {
-            if ($prev_heat[$prev_lane] == $next_heat[$lane]) {
-                $result += $consecutive_weight;
-                if ($lane == $prev_lane) {
-                    $result += $repeat_weight;
-                }
-            }
+function rate_weight_similarity(&$next_heat, &$car_weights) {
+  $weights = array_map(fn($car) => $car_weights[$car], $next_heat);
+  $avg_weight = array_sum($weights) / count($weights);
+  $variance = array_sum(array_map(fn($w) => ($w - $avg_weight) ** 2, $weights));
+  return $variance * WEIGHT_GROUPING_WEIGHT;
+}
+
+function rate_next_heat(&$prev_heat, $n_prev_heats, &$next_heat, &$appearances, &$car_weights, $group_by_weight) {
+  $rating = rate_race_counts($next_heat, $n_prev_heats, $appearances);
+  if ($n_prev_heats > 0) {
+    $rating += rate_consecutive($prev_heat, $next_heat);
+  }
+  if ($group_by_weight) {
+    $rating += rate_weight_similarity($next_heat, $car_weights);
+  }
+  return $rating;
+}
+
+function make_ordered_schedule($nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace, &$car_weights, $group_by_weight) {
+  $rough = make_rough_schedule($nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace);
+  if (empty($rough)) {
+    return $rough;
+  }
+
+  $appearances = array_fill(0, $ncars, 0);
+  $ordered = [];
+  $prev_heat = [];
+  for ($round = 0; $round < $n_times_per_lane; ++$round) {
+    for ($car_index = 0; $car_index < $ncars; ++$car_index) {
+      $best_heat_index = count($rough) - 1;
+      $best_heat_score = PHP_INT_MAX;
+      foreach ($rough as $rough_i => $heat) {
+        if ($heat) {
+          $score = rate_next_heat($prev_heat, count($ordered), $heat, $appearances, $car_weights, $group_by_weight);
+          if ($score < $best_heat_score) {
+            $best_heat_score = $score;
+            $best_heat_index = $rough_i;
+          }
         }
-    }
-    return $result;
-}
+      }
 
-// Scores a potential next heat based on fairness rules
-function rate_next_heat(&$prev_heat, $n_prev_heats, &$next_heat, &$appearances) {
-    $rating = rate_race_counts($next_heat, $n_prev_heats, $appearances);
-    if ($n_prev_heats > 0) {
-        $rating += rate_consecutive($prev_heat, $next_heat);
-    }
-    return $rating;
-}
-
-// Sorts racers by weight with adjustable intensity
-// function sort_roster_by_weight(&$roster) {
-//     global $weight_group_weight;
-//     if ($weight_group_weight > 0) {
-//         error_log('Roster type: ' . gettype($roster));
-//         error_log(print_r($roster, true));
-//         usort($roster, function($a, $b) use($weight_group_weight) {
-//             error_log('  Weight Group Weight: '. $weight_group_weight. '  Carweight A: '. $a['carweight']. ' Carweight B: '. $b['carweight']);
-//             return ($b['carweight'] <=> $a['carweight']) * ($weight_group_weight / 1000);
-//         });
-//     }
-// }
-
-// Generates the ordered race schedule
-function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace) {
-    $rough = make_rough_schedule($nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace);
-    if (empty($rough)) {
-        return $rough;
-    }
-
-    // $roundid = $roundid;
-    // // Read and sort the roster if weight grouping is enabled
-    // $roster = read_roster($roundid);
-    // sort_roster_by_weight($roster);
-
-    // Track the number of times each car appears
-    $appearances = array_fill(0, $ncars, 0);
-
-    $ordered = array();
-    $prev_heat = array();
-    for ($round = 0; $round < $n_times_per_lane; ++$round) {
-        for ($car_index = 0; $car_index < $ncars; ++$car_index) {
-            $best_heat_index = -1;
-            $best_heat_score = PHP_INT_MAX;
-
-            for ($rough_i = 0; $rough_i < count($rough); ++$rough_i) {
-                if ($rough[$rough_i]) {
-                    $score = rate_next_heat($prev_heat, count($ordered), $rough[$rough_i], $appearances);
-                    if ($score < $best_heat_score) {
-                        $best_heat_score = $score;
-                        $best_heat_index = $rough_i;
-                    }
-                }
-            }
-
-            if ($best_heat_index == -1) {
-                continue; 
-            }
-
-            $prev_heat = $rough[$best_heat_index];
-            $rough[$best_heat_index] = NULL;
-            foreach ($prev_heat as $car) {
-                ++$appearances[$car];
-                if ($max_runs_per_car > 0 && $appearances[$car] > $max_runs_per_car) {
-                    return $ordered;
-                }
-            }
-            $ordered[] = $prev_heat;
+      $prev_heat = $rough[$best_heat_index];
+      $rough[$best_heat_index] = NULL;
+      foreach ($prev_heat as $car) {
+        ++$appearances[$car];
+        if ($max_runs_per_car > 0 && $appearances[$car] > $max_runs_per_car) {
+          return $ordered;
         }
+      }
+      $ordered[] = $prev_heat;
     }
-
-    return $ordered;
+  }
+  return $ordered;
 }
+?>
+
+
 
 ?>

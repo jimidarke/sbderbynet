@@ -412,3 +412,29 @@ div.block_buttons[data-name=buttons] {
   padding: 10px;
   background: #ffffff;
 }
+
+/* As of 28-03-2025 */
+.lane-timers table{
+  width: 100% !important;
+}
+.timer-label {
+  font-weight: bold;
+}
+
+.timer-online {
+  background-color: #008000;
+  color: #ffffff;
+}
+.timer-offline {
+  background-color: #cc0000;
+  color: #ffffff;
+}
+
+.timer-ready, .timer-running {
+  background-color: #008000;
+  color: #ffffff;
+}
+.timer-not-ready {
+  background-color: #cc0000;
+  color: #ffffff;
+}

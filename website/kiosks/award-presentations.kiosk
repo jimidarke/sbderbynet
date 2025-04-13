@@ -29,7 +29,7 @@
     <p class="award-racer">
       <span class="recipient" id="recipient"></span>
     </p>
-    <p class="award-racer"><span class="car-name" id="carname"></span></p>
+//    <p class="award-racer"><span class="car-name" id="carname"></span></p>
     <p class="award-racer"><span class="subgroup" id="subgroup"></span></p>
   </div>    
 

@@ -102,6 +102,7 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
     // As of 27-03-2025
     $heatCounts = read_raceinfo('heat-counts');
     $avoidConsecutive = read_raceinfo('avoid-consecutive');
+    $groupWeightedCars = read_raceinfo('group-weighted-cars');
     $avoidSameLane = read_raceinfo('avoid-same-lane');
 
     ?>
@@ -383,22 +384,36 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                         <div class="weight-container">
                             <label for="weight-label">Weight</label>
                             <select id="heat-counts" name="heat-counts">
-                                <option value="zero" <?= ($heatCounts == "zero") ? 'selected' : '' ?>>Zero</option>
-                                <option value="low" <?= ($heatCounts == "low") ? 'selected' : '' ?>>Low</option>
-                                <option value="medium" <?= ($heatCounts == "medium") ? 'selected' : '' ?>>Medium</option>
-                                <option value="high" <?= ($heatCounts == "high") ? 'selected' : '' ?>>High</option>
+                                <option value="0" <?= ($heatCounts == "0") ? 'selected' : '' ?>>Zero</option>
+                                <option value="50" <?= ($heatCounts == "50") ? 'selected' : '' ?>>Low</option>
+                                <option value="300" <?= ($heatCounts == "300") ? 'selected' : '' ?>>Medium</option>
+                                <option value="1000" <?= ($heatCounts == "1000") ? 'selected' : '' ?>>Heavy</option>
                             </select>
                         </div>
                     </div>
+                    <!-- As of 31-03-2025 -->
+                    <div class="d-flex">
+                        <label for="group-weighted-cars">Group similar weighted cars?</label>
+                        <div class="weight-container">
+                            <label for="weight-label">Weight</label>
+                            <select id="group-weighted-cars" name="group-weighted-cars">
+                                <option value="0" <?= ($groupWeightedCars == "0") ? 'selected' : '' ?>>Zero</option>
+                                <option value="50" <?= ($groupWeightedCars == "50") ? 'selected' : '' ?>>Low</option>
+                                <option value="300" <?= ($groupWeightedCars == "300") ? 'selected' : '' ?>>Medium</option>
+                                <option value="1000" <?= ($groupWeightedCars == "1000") ? 'selected' : '' ?>>Heavy</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- / As of 31-03-2025 -->
                     <div class="d-flex">
                         <label for="avoid-consecutive">Avoid cars in consecutive races?</label>
                         <div class="weight-container">
                             <label for="weight-label">Weight</label>
                             <select id="avoid-consecutive" name="avoid-consecutive">
-                                <option value="zero" <?= ($avoidConsecutive == "zero") ? 'selected' : '' ?>>Zero</option>
-                                <option value="low" <?= ($avoidConsecutive == "low") ? 'selected' : '' ?>>Low</option>
-                                <option value="medium" <?= ($avoidConsecutive == "medium") ? 'selected' : '' ?>>Medium</option>
-                                <option value="high" <?= ($avoidConsecutive == "high") ? 'selected' : '' ?>>High</option>
+                                <option value="0" <?= ($avoidConsecutive == "0") ? 'selected' : '' ?>>Zero</option>
+                                <option value="50" <?= ($avoidConsecutive == "50") ? 'selected' : '' ?>>Low</option>
+                                <option value="300" <?= ($avoidConsecutive == "300") ? 'selected' : '' ?>>Medium</option>
+                                <option value="1000" <?= ($avoidConsecutive == "1000") ? 'selected' : '' ?>>Heavy</option>
                             </select>
                         </div>
                     </div>
@@ -407,10 +422,10 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                         <div class="weight-container">
                             <label for="weight-label">Weight</label>
                             <select id="avoid-same-lane" name="avoid-same-lane">
-                                <option value="zero" <?= ($avoidSameLane == "zero") ? 'selected' : '' ?>>Zero</option>
-                                <option value="low" <?= ($avoidSameLane == "low") ? 'selected' : '' ?>>Low</option>
-                                <option value="medium" <?= ($avoidSameLane == "medium") ? 'selected' : '' ?>>Medium</option>
-                                <option value="high" <?= ($avoidSameLane == "high") ? 'selected' : '' ?>>High</option>
+                                <option value="0" <?= ($avoidSameLane == "0") ? 'selected' : '' ?>>Zero</option>
+                                <option value="50" <?= ($avoidSameLane == "50") ? 'selected' : '' ?>>Low</option>
+                                <option value="300" <?= ($avoidSameLane == "300") ? 'selected' : '' ?>>Medium</option>
+                                <option value="1000" <?= ($avoidSameLane == "1000") ? 'selected' : '' ?>>Heavy</option>
                             </select>
                         </div>
                     </div>

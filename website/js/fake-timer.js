@@ -207,19 +207,48 @@ function send_identified() {
     });
 }
 
+// function send_heartbeat() {
+//   $.ajax('action.php',
+//     {
+//       type: 'POST',
+//       data: {
+//         action: 'timer-message',
+//         message: 'HEARTBEAT',
+//         confirmed: 1
+//       },
+//       success: function (data) {
+//         process_timer_messages(data);
+//       }
+//     });
+// }
+
+
+// As of 28-03-2025
+
 function send_heartbeat() {
-  $.ajax('action.php',
-    {
+  var data = {
+      action: 'timer-message',
+      message: 'HEARTBEAT',
+      confirmed: 1
+  };
+
+  $("#timer-sim-times td").each(function (i, td) {
+      let laneNumber = i + 1;
+      let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`; // Ensures 11-char ID
+      let isReady = $(td).attr('data-running') == 1; // Ready if running
+
+      data[`lane${laneNumber}`] = laneNumber;
+      data[`timerId${laneNumber}`] = timerId;
+      data[`ready${laneNumber}`] = isReady ? 1 : 0;
+  });
+
+  $.ajax('action.php', {
       type: 'POST',
-      data: {
-        action: 'timer-message',
-        message: 'HEARTBEAT',
-        confirmed: 1
-      },
-      success: function (data) {
-        process_timer_messages(data);
+      data: data,
+      success: function (response) {
+          process_timer_messages(response);
       }
-    });
+  });
 }
 
 
@@ -238,25 +267,48 @@ function send_started() {
     });
 }
 
+// function send_finished() {
+//   var data = {action: 'timer-message',
+//               message: 'FINISHED'};
+//   $("#timer-sim-times td").each(function(i, td) {
+//     data['lane' + (i + 1)] = $(td).text();
+//   });
 
+//   $.ajax('action.php',
+//          {type: 'POST',
+//           data: data,
+//           success: function(data) {
+//             show_not_racing();  // Will be immediately changed back, most likely.
+//             process_timer_messages(data);
+//           }
+//          });
+// }
+
+// As of 28-03-2025
 function send_finished() {
   var data = {
-    action: 'timer-message',
-    message: 'FINISHED'
+      action: 'timer-message',
+      message: 'FINISHED'
   };
+
   $("#timer-sim-times td").each(function (i, td) {
-    data['lane' + (i + 1)] = $(td).text();
+      let laneNumber = i + 1;
+      let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`;
+
+      data[`lane${laneNumber}`] = $(td).text();
+      data[`timerId${laneNumber}`] = timerId;
   });
 
-  $.ajax('action.php',
-    {
+  console.log(data); // Debugging output
+
+  $.ajax('action.php', {
       type: 'POST',
       data: data,
-      success: function (data) {
-        show_not_racing();  // Will be immediately changed back, most likely.
-        process_timer_messages(data);
+      success: function (response) {
+          show_not_racing();  
+          process_timer_messages(response);
       }
-    });
+  });
 }
 
 $(function () {

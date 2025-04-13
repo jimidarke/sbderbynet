@@ -126,3 +126,9 @@ th.nrows4 img {
   max-width: 600px;
   max-height: 600px;
 }
+
+/* // UPDATE: As on 04-04-2025  // For Excluding Finished heats and extending On-deck display to show Next Five heats and Staged heats */
+
+.finished-heat.hidden-heat {
+  display: none;
+}

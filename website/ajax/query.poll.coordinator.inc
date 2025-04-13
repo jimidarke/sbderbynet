@@ -12,6 +12,8 @@ require_once('inc/json-rounds.inc');
 require_once('inc/json-timer-state.inc');
 require_once('inc/name-mangler.inc');
 
+// print_r($_GET);die;
+
 $now_running = get_running_round();
 json_out('current-heat', json_current_heat($now_running));
 json_out('racers', json_current_racers($now_running, FULL_NAME, /* photos */ false));

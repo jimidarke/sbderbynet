@@ -4,6 +4,9 @@
 // Maps partitionid to highest existing carnumber for that partitionid
 g_next_carnumbers = [];
 g_poll_max_interval = 0;
+
+let isAddForm = false;
+let isEditForm = false;
 function poll_max_carnumbers() {
   $.ajax(g_action_url,
     {
@@ -152,6 +155,10 @@ function callback_after_partition_modal(op, arg) {
 }
 
 function show_edit_racer_form(racerid) {
+
+  // localStorage.setItem('isEditForm', true);
+  isEditForm = true;
+
   var first_name = $('#firstname-' + racerid).text();
   var last_name = $('#lastname-' + racerid).text();
   var car_no = $('#car-number-' + racerid).text();
@@ -170,7 +177,7 @@ function show_edit_racer_form(racerid) {
   $("#edit_carno").removeAttr('data-updatable').val(car_no);
   // $("#edit_carname").val(car_name);
   // $("#edit_note_from").val(note_from);
-  console.log(car_weight);
+  // console.log(car_weight);
   $("#edit_car_weight").val(car_weight);
 
   var partitionid = $('#div-' + racerid).attr('data-partitionid');
@@ -184,12 +191,25 @@ function show_edit_racer_form(racerid) {
   $("#delete_racer_extension").removeClass('hidden');
 
   show_modal("#edit_racer_modal", "#edit_firstname", function (event) {
-    handle_edit_racer();
+    handle_edit_racer(isEditForm = true);
     return false;
   });
+  
+  // As of 01-04-2025  
+  if (isEditForm === true) {
+    console.log(isEditForm);
+    $('.mutual-inclusion-exclusion').css('display', 'block');
+  }
+  
+  // Retrieve the stored racers data (localStorage)
+  const storedRacers = JSON.parse(localStorage.getItem('racersData') || '[]');
+  populateMutualInclusionExclusion(storedRacers, racerid);
 }
 
 function show_new_racer_form() {
+  // isAddForm = true;
+  // localStorage.setItem('isEditForm', false);
+  isEditForm = false;
   $("#edit_racer").val(-1);
 
   $("#edit_firstname").val("");
@@ -213,12 +233,18 @@ function show_new_racer_form() {
   $("#delete_racer_extension").addClass('hidden');
 
   show_modal("#edit_racer_modal", "#edit_firstname", function (event) {
-    handle_edit_racer();
+    handle_edit_racer(isEditForm = false);
     return false;
   });
+
+  if (isEditForm === false) {
+    console.log(isEditForm);
+    
+    $('.mutual-inclusion-exclusion').css('display', 'none');
+  }
 }
 
-function handle_edit_racer() {
+function handle_edit_racer(isEditForm) {
   close_modal("#edit_racer_modal");
 
   var racerid = $("#edit_racer").val();
@@ -241,6 +267,11 @@ function handle_edit_racer() {
 
   var exclude = $("#eligible").is(':checked') ? 0 : 1;
 
+  
+  // Get mutual inclusion and exclusion selections
+  var groupedWith = $('#grouped_with').val();
+  var avoidWith = $('#avoid_with').val();
+
   $.ajax(g_action_url,
     {
       type: 'POST',
@@ -254,7 +285,11 @@ function handle_edit_racer() {
         //  note_from: new_note_from,
         carweight: new_car_weight_in_kg,
         partitionid: new_div_id,
-        exclude: exclude
+        exclude: exclude,
+
+        // New attributes to store mutual preferences
+        grouped_with: groupedWith,
+        avoid_with: avoidWith
       },
       success: function (data) {
         if (new_div_id <= 0) {
@@ -901,3 +936,128 @@ function getSelectedWeightUnit() {
 document.addEventListener("DOMContentLoaded", function () {
   $(".preferred-Unit").text(' (' + getSelectedWeightUnit() + ')');
 });
+
+// Add Mutual inclusion/exclusion factors for scheduling heat
+
+// Function to update racers data
+function updateRacersData(newRacers) {
+  racersData = newRacers;
+  // Optionally store in LocalStorage for persistence across page reloads
+  localStorage.setItem('racersData', JSON.stringify(racersData));
+}
+
+// As of 01-04-2025
+
+// function populateMutualInclusionExclusion(racers, currentRacerId) {
+//   const includeSelect = $("#grouped_with");
+//   const excludeSelect = $("#avoid_with");
+
+//   // Clear and add placeholder
+//   [includeSelect, excludeSelect].forEach(select => {
+//     select.empty().append('<option value="">Any</option>');
+//   });
+
+//   // Find existing preferences for current racer
+//   const currentRacer = racers.find(r => r.racerid == currentRacerId);
+//   const groupedWith = currentRacer?.grouped_with;
+//   const avoidWith = currentRacer?.avoid_with;
+
+//   // Generate options with proper selection
+//   racers.forEach(racer => {
+//     if (racer.racerid == currentRacerId) return; // Skip current racer
+
+//     // Inclusion dropdown
+//     const includeSelected = groupedWith == racer.racerid ? 'selected' : '';
+//     includeSelect.append(
+//       `<option value="${racer.racerid}" ${includeSelected}>
+//         ${racer.firstname} ${racer.lastname}
+//       </option>`
+//     );
+
+//     // Exclusion dropdown
+//     const excludeSelected = avoidWith == racer.racerid ? 'selected' : '';
+//     excludeSelect.append(
+//       `<option value="${racer.racerid}" ${excludeSelected}>
+//         ${racer.firstname} ${racer.lastname}
+//       </option>`
+//     );
+//   });
+// }
+
+function populateMutualInclusionExclusion(racers, currentRacerId) {
+  const includeSelect = $("#grouped_with");
+  const excludeSelect = $("#avoid_with");
+
+  // Clear and add placeholder
+  [includeSelect, excludeSelect].forEach(select => {
+    select.empty().append('<option value="">Any</option>');
+  });
+
+  // Find existing preferences for current racer
+  const currentRacer = racers.find(r => r.racerid == currentRacerId);
+  let groupedWith = currentRacer?.grouped_with;
+  let avoidWith = currentRacer?.avoid_with;
+
+  console.log(racers, groupedWith, avoidWith);
+
+  // Function to update the options in a select element
+  function updateOptions(selectElement, racers, isIncludeList) {
+    selectElement.empty().append('<option value="">Any</option>'); // Re-add the 'Any' option
+
+    racers.forEach(racer => {
+      if (racer.racerid == currentRacerId) return; // Skip current racer
+
+      let isExcluded;
+      let selected;
+      if (isIncludeList) {
+        isExcluded = avoidWith == racer.racerid;
+        selected = groupedWith == racer.racerid ? 'selected' : '';
+      } else {
+        isExcluded = groupedWith == racer.racerid;
+        selected = avoidWith == racer.racerid ? 'selected' : '';
+      }
+
+      if (!isExcluded) {
+        selectElement.append(
+          `<option value="${racer.racerid}" ${selected}>
+            ${racer.firstname} ${racer.lastname}
+          </option>`
+        );
+      }
+    });
+  }
+
+  // Initial population of options
+  updateOptions(includeSelect, racers, true);
+  updateOptions(excludeSelect, racers, false);
+
+
+  // Function to update span content based on selected option
+  function updateSpanContent(selectElement, selectId) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const spanElement = $(selectElement).closest('.mselect-inner').find('span');
+
+    if (selectedOption.value) {
+      spanElement.text(selectedOption.text);
+    } else {
+      spanElement.text('Any');
+    }
+  }
+
+  // Update span content based on initial selections
+  updateSpanContent(includeSelect[0], 'grouped_with');
+  updateSpanContent(excludeSelect[0], 'avoid_with');
+
+  // Add event listeners to update on change
+  includeSelect.off('change').on('change', function() { // Remove previous event handlers
+    groupedWith = $(this).val(); // Update groupedWith with selected value
+    updateOptions(excludeSelect, racers, false); // Rebuild the other list
+    updateSpanContent(this, 'grouped_with');
+  });
+
+  excludeSelect.off('change').on('change', function() { // Remove previous event handlers
+    avoidWith = $(this).val(); // Update avoidWith with selected value
+    updateOptions(includeSelect, racers, true); // Rebuild the other list
+    updateSpanContent(this, 'avoid_with');
+  });
+}

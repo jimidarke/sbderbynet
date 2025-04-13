@@ -194,7 +194,7 @@ foreach ($awards as &$row) {
         .' data-awardname="'.htmlspecialchars($row['awardname'], ENT_QUOTES, 'UTF-8').'"'
         .' data-recipient="'.htmlspecialchars(mangled_name($row, $name_style), ENT_QUOTES, 'UTF-8').'"'
         .' data-carnumber="'.$row['carnumber'].'"'
-        .' data-carname="'.htmlspecialchars((string)$row['carname'], ENT_QUOTES, 'UTF-8').'"'
+        // .' data-carname="'.htmlspecialchars((string)$row['carname'], ENT_QUOTES, 'UTF-8').'"'
         .($classid == 0 ? '' :
           ' data-class="'.htmlspecialchars($classes[$classid]['class'], ENT_QUOTES, 'UTF-8').'"')
         .($rankid == 0 ? '' :
@@ -233,7 +233,7 @@ foreach ($awards as &$row) {
 
 <h3 id="recipient"></h3>
 <p id="carnumber" class="detail"></p>
-<p id="carname" class="detail"></p>
+<!-- <p id="carname" class="detail"></p> -->
 
 <div class="presenter-inner hidden">
   <input type="checkbox" class="flipswitch"
