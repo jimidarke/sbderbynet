@@ -14,7 +14,8 @@ return array(
         memory INT NOT NULL,
         disk INT NOT NULL,
         cpu FLOAT NOT NULL,
-        last_updated INT NOT NULL
+        last_updated INT NOT NULL,
+        status ENUM('active', 'inactive') DEFAULT 'active'
     )"
 
 );
