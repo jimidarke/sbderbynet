@@ -17,30 +17,39 @@ require_once('inc/action-helpers.inc');
 
 $json_out = array();
 
-function json_out($key, $value) {
+function json_out($key, $value)
+{
   global $json_out;
   $json_out[$key] = $value;
 }
 
-function json_success() {
-  json_out('outcome', array('summary' => 'success',
-                            'code' => 'success',
-                            'description' => ''));
+function json_success()
+{
+  json_out('outcome', array(
+    'summary' => 'success',
+    'code' => 'success',
+    'description' => ''
+  ));
 }
 
-function json_failure($code, $description) {
-  json_out('outcome', array('summary' => 'failure',
-                            'code' => $code,
-                            'description' => $description));
+function json_failure($code, $description)
+{
+  json_out('outcome', array(
+    'summary' => 'failure',
+    'code' => $code,
+    'description' => $description
+  ));
 }
 
-function json_sql_failure($sql) {
+function json_sql_failure($sql)
+{
   global $db;
   $info = $db->errorInfo();
-  json_failure('sql'.$info[0].'-'.$info[1], "$sql failed: $info[2] [EOM]");
+  json_failure('sql' . $info[0] . '-' . $info[1], "$sql failed: $info[2] [EOM]");
 }
 
-function json_not_authorized() {
+function json_not_authorized()
+{
   json_failure('notauthorized', "Not authorized -- please see race coordinator.");
 }
 
@@ -50,10 +59,11 @@ if (empty($_POST) && empty($_GET)) {
 }
 
 $is_action = !empty($_POST);
-$inc = $is_action ? @$_POST['action'] : @$_GET['query'];
-$in_json = $inc != 'timer-message' && (strpos($inc, 'snapshot') === false)
-           // These are to provide an error message for older derby-timer.jar
-           && $inc != 'login' && $inc != 'roles';
+$inc = $is_action ? ($_POST['action'] ?? '') : ($_GET['query'] ?? '');
+
+$in_json = $inc !== 'timer-message' && strpos($inc, 'snapshot') === false
+  // These are to provide an error message for older derby-timer.jar
+  && $inc !== 'login' && $inc !== 'roles';
 
 if ($in_json) {
   header('Content-Type: application/json; charset=utf-8');
@@ -62,13 +72,13 @@ if ($in_json) {
   echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 }
 
-if (substr($inc, -7) != '.nodata') {
+if (is_string($inc) && substr($inc, -7) != '.nodata') {
   require_once('inc/data.inc');
-  // We can close the session for writing except for these three that might
-  // perform some write to $_SESSION.
-  if (strstr($inc, 'ballot.get') === false &&
-      strstr($inc, 'session.write') === false &&
-      strstr($inc, 'role.login') === false) {
+  if (
+    strpos($inc, 'ballot.get') === false &&
+    strpos($inc, 'session.write') === false &&
+    strpos($inc, 'role.login') === false
+  ) {
     session_write_close();
   }
 }
@@ -79,23 +89,27 @@ if ($is_action) {
     $args[$attr] = $attr == 'password' ? '...' : $val;
   }
   json_out('action', $args);
-  json_out('outcome', array('summary' => 'in-progress',
-                            'code' => 'in-progress',
-                            'description' => 'No outcome defined.'));
-  if (isset($db) &&
-      !($args['action'] == 'timer-message' && $args['message'] == 'HEARTBEAT') &&
-      array_search($args['action'], array('role.login', 'vote.cast')) === false) {
+  json_out('outcome', array(
+    'summary' => 'in-progress',
+    'code' => 'in-progress',
+    'description' => 'No outcome defined.'
+  ));
+  if (
+    isset($db) &&
+    !($args['action'] == 'timer-message' && $args['message'] == 'HEARTBEAT') &&
+    array_search($args['action'], array('role.login', 'vote.cast')) === false
+  ) {
     record_action($args);
   }
 }
 
 $prefix = $is_action ? 'action' : 'query';
-if (!@include 'ajax/'.$prefix.'.'.$inc.'.inc') {
+if (!@include 'ajax/' . $prefix . '.' . $inc . '.inc') {
   if ($in_json) {
     json_failure('unrecognized', "Unrecognized $prefix: $inc");
   } else {
     start_response();
-    echo '<failure code="unrecognized">Unrecognized '.$prefix.': '.$inc.'</failure>';
+    echo '<failure code="unrecognized">Unrecognized ' . $prefix . ': ' . $inc . '</failure>';
     end_response();
   }
 }
