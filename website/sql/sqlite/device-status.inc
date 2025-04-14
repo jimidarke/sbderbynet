@@ -15,7 +15,7 @@ return array(
         disk INT NOT NULL,
         cpu FLOAT NOT NULL,
         last_updated INT NOT NULL,
-        status ENUM('active', 'inactive') DEFAULT 'active'
+        status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive'))
     )"
 
 );
