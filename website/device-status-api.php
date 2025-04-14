@@ -3,10 +3,6 @@ require_once('inc/data.inc');      // Include database connection
 require_once('inc/authorize.inc'); // Include authorization
 
 header('Content-Type: application/json');
-// Uncomment below if you're calling this from JavaScript in the browser
-// header("Access-Control-Allow-Origin: *");
-// header("Access-Control-Allow-Methods: GET, POST");
-// header("Access-Control-Allow-Headers: Content-Type");
 
 // Check authentication via session
 if (!isset($_COOKIE['PHPSESSID'])) {
@@ -51,14 +47,16 @@ try {
             }
 
             try {
+                // Prepare the REPLACE statement
                 $stmt = $db->prepare('REPLACE INTO DeviceStatus (
                     device_name, serial, uptime, ip_address, mac_address, wifi_signal, 
-                    battery, temperature, memory, disk, cpu, last_updated
+                    battery, temperature, memory, disk, cpu, last_updated, status
                 ) VALUES (
                     :device_name, :serial, :uptime, :ip_address, :mac_address, :wifi_signal, 
-                    :battery, :temperature, :memory, :disk, :cpu, :last_updated
+                    :battery, :temperature, :memory, :disk, :cpu, :last_updated, :status
                 )');
-
+               
+                // Execute the REPLACE query
                 $success = $stmt->execute([
                     ':device_name' => $device['device_name'],
                     ':serial' => $device['serial'],
@@ -72,6 +70,7 @@ try {
                     ':disk' => $device['disk'],
                     ':cpu' => $device['cpu'],
                     ':last_updated' => time(),
+                    ':status' => $device['status'] ?? 'active',
                 ]);
 
                 $results[] = [
@@ -86,6 +85,24 @@ try {
                 ];
             }
         }
+
+        // Once all devices are processed, handle inactive devices and deletion in bulk
+        $timestampOneMinuteAgo = time() - 60;
+
+        // Update devices that haven't been updated in the last minute
+        $stmt = $db->prepare("
+            UPDATE DeviceStatus
+            SET status = 'inactive'
+            WHERE last_updated < :timestamp
+        ");
+        $stmt->execute([':timestamp' => $timestampOneMinuteAgo]);
+
+        // Delete devices that haven't been updated in the last minute
+        $stmt = $db->prepare("
+            DELETE FROM DeviceStatus
+            WHERE last_updated < :timestamp
+        ");
+        $stmt->execute([':timestamp' => $timestampOneMinuteAgo]);
 
         // Respond with all results
         echo json_encode(['results' => $results]);
