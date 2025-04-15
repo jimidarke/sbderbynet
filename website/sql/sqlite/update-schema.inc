@@ -184,6 +184,19 @@ if (schema_version() < 14) {
   $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '14')";
 }
 
+if (schema_version() < 15) {
+  error_log("Updating to schema version 15...");
+
+  // Check if column already exists before adding
+  $column_exists = read_single_value("SELECT COUNT(*) FROM pragma_table_info('RegistrationInfo') WHERE name='carweight'");
+  if (!$column_exists) {
+      $updates[] = "ALTER TABLE RegistrationInfo ADD COLUMN registered BOOLEAN DEFAULT 0";
+  }
+
+  $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+  $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '15')";
+}
+
 // For each new schema version, copy the DELETE and INSERT for schema version
 
 return $updates;

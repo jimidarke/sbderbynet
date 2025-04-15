@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 // This action allows manual selection of the current racing heat.
 //
 // $_POST['now_racing']
@@ -27,7 +29,7 @@ $ok = true;
 if (have_permission(CONTROL_RACE_PERMISSION)) {
   if (isset($_POST['roundid']) || isset($_POST['heat'])) {
     // Turn off NowRacing, although it may get turned back on before
-    // this action completes.  set_racing_state(0) will take care of
+    // this action completes. set_racing_state(0) will take care of
     // sending a replay CANCEL.
     set_racing_state(0);
 
@@ -41,7 +43,34 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
       $heat = $_POST['heat'];
     }
 
-    if (!advance_heat($current, $heat, /* report_failure: */'json')) {
+    // Check for unregistered or unpassed racers
+    $unregistered = $db->prepare(
+      'SELECT carnumber FROM RaceChart
+       JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid
+       WHERE roundid = :roundid AND heat = :heat AND (passedinspection = 0 OR registered = 0)'
+    );
+    $unregistered->execute([
+      ':roundid' => $current['roundid'],
+      ':heat' => $heat
+    ]);
+    
+    if ($unregistered->rowCount() > 0) {
+      $unregistered_racers = [];
+      while ($row = $unregistered->fetch(PDO::FETCH_ASSOC)) {
+        $unregistered_racers[] = $row['carnumber'];
+      }
+    
+      // JSON failure response for unregistered racers
+      json_failure(
+        'unregistered_racers',
+        'The following racers are not registered or have not passed inspection: ' .
+        implode(', ', $unregistered_racers)
+      );
+      exit;
+    }
+
+    // Attempt to advance the heat
+    if (!advance_heat($current, $heat, /* report_failure: */ 'json')) {
       $ok = false;
     }
   }
@@ -57,14 +86,19 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
       // first result already has data.
       $ok = false;
       if (isset($_POST['roundid'])) {
-        json_failure('cant_race',
-                     "The first heat in this group has already been run.  "
-                     + "Please choose a heat without results.");
+        write_raceinfo('refused-results', 0);
+        json_failure(
+          'cant_race',
+          "The first heat in this group has already been run. " .
+          "Please choose a heat without results."
+        );
       } else {
         // Clean up refused-results, even if the attempt was unsuccessful.
         write_raceinfo('refused-results', 0);
-        json_failure('cant_race',
-                     "To start racing mode, there must be a valid current heat without results.");
+        json_failure(
+          'cant_race',
+          "To start racing mode, there must be a valid current heat without results."
+        );
       }
     }
   }

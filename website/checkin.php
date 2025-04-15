@@ -136,6 +136,7 @@ function column_header($text, $o)
           <th>First Name</th>
           <!-- <th>Car Name &amp; From</th> -->
           <th>Car Weight <span class="preferred-Unit"></span></th>
+          <th>Registered</th>
           <th>Passed?</th>
           <?php if ($xbs) {
             echo '<th>' . $xbs_award_name . '</th>';

@@ -51,5 +51,4 @@ UniServerZ
 UniServerZ/*
 .htaccess
 *.zip
-SECURE/
-.vscode/
+local.php

@@ -217,6 +217,7 @@ function inject_progress_bars(control_group, round) {
 function inject_progress_text(control_group, round) {
   control_group.find("[data-name=roster_size]").text(round.roster_size);
   control_group.find("[data-name=n_passed]").text(round.passed);
+  control_group.find("[data-name=n_registered]").text(round.registered);
   control_group.find("[data-name=scheduled]").text(round.passed - round.unscheduled);
   control_group.find("[data-name=n_heats_scheduled]").text(round.heats_scheduled);
   control_group.find("[data-name=n_heats_run]").text(round.heats_run);
@@ -268,6 +269,7 @@ function generate_scheduling_control_group(round, current, timer_state) {
         + (show_checkins
           ? '<span data-name="roster_size"></span> racer(s), '
           + '<span data-name="n_passed"></span> passed, '
+          + '<span data-name="n_registered"></span> registered, '
           + '<span data-name="scheduled"></span> in schedule.'
           + '<br/>'
           : '')
@@ -768,7 +770,7 @@ function process_coordinator_poll_json(json) {
 
   // Helper function to format time ago
   function formatTimeAgo(timeAgoInSeconds) {
-    console.log(timeAgoInSeconds);
+    // console.log(timeAgoInSeconds);
 
     if (isNaN(timeAgoInSeconds)) {
       return "Unknown";

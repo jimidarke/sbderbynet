@@ -42,7 +42,17 @@ function json_all_rounds(&$now_running) {
       $stmt->execute(array(':roundid' => $roundid));
       $adjustments = array_merge($adjustments, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
-    
+
+    // Fetch the count of registered racers for the round
+    $stmt = $db->prepare(
+      'SELECT COUNT(*) AS registered_count
+       FROM RegistrationInfo
+       JOIN Roster ON RegistrationInfo.racerid = Roster.racerid
+       WHERE Roster.roundid = :roundid AND RegistrationInfo.registered = 1'
+    );
+    $stmt->execute(array(':roundid' => $roundid));
+    $registered_count = $stmt->fetchColumn();
+
     $r = array(
       'roundid' => $roundid,
       'classid' => $round['classid'],
@@ -51,6 +61,7 @@ function json_all_rounds(&$now_running) {
       'aggregate' => $round['aggregate'] ? true : false,
       'roster_size' => $round['roster_size'],
       'passed' => $round['passed'],
+      'registered' => $registered_count, // Add registered count here
       'unscheduled' => $round['unscheduled'],
       'adjustments' => $adjustments,
       'heats_scheduled' => $round['heats_scheduled'],
