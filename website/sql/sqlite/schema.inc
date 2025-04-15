@@ -138,7 +138,8 @@ make_index("Ranks", "rank"),
 .(expected_schema_version() < 11 ? "" : "  `carweight` VARCHAR(255), ")
 .(expected_schema_version() < REGISTRATION_CHECKIN_SCHEMA ? "" : "  `checkin_time` INTEGER, ")
 ."  `note` VARCHAR(255), "
-."  `exclude` TINYINT(1) DEFAULT 0"
+."  `exclude` TINYINT(1) DEFAULT 0,"
+.'	registered BOOLEAN DEFAULT 0'
 .")",
 make_index("RegistrationInfo", "carnumber"),  // Why??
 make_index("RegistrationInfo", "classid"),

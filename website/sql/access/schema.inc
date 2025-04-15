@@ -221,6 +221,7 @@ array(
 .'	RankID           INTEGER,'
 .'  PartitionID       INTEGER,'
 .'	PassedInspection BIT,'
+.'	registered        BOOLEAN DEFAULT 0,'
 .'	ImageFile        VARCHAR (255),'
 .(expected_schema_version() < 2 ? '' : '	CarPhoto        VARCHAR (255),')
 .'  Note             VARCHAR (255),'

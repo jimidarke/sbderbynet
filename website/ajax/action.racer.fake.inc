@@ -74,6 +74,9 @@ if (have_permission(SET_UP_PERMISSION)) {
   if ($_POST['check_in']) {
     $db->exec('UPDATE RegistrationInfo SET passedinspection = 1');
   }
+  if ($_POST['register_all']) {
+    $db->exec('UPDATE RegistrationInfo SET registered = 1');
+  }
   write_raceinfo('fake-racers', 1);
 
   json_success();

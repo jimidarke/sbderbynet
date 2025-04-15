@@ -56,7 +56,7 @@ $(function () {
 // var g_order specified in checkin.php
 
 // This executes when a checkbox for "Passed" is clicked.
-function handlechange_passed(cb, racer) {
+function handlechange_passed(cb, racer) { 
   // cb is the checkbox element, with name "passed-" plus the racer id, e.g., passed-1234
   if (!cb.checked && !confirm("Are you sure you want to unregister " + racer + "?")) {
     cb.checked = true;
@@ -71,6 +71,29 @@ function handlechange_passed(cb, racer) {
       type: 'POST',
       data: {
         action: 'racer.pass',
+        racer: racer,
+        value: value
+      },
+    });
+}
+
+// This executes when a checkbox for "Registered" is clicked.
+function handlechange_registered(cb, racer) {
+
+  if (!cb.checked && !confirm("Are you sure you want to unregister " + racer + "?")) {
+    cb.checked = true;
+    return;
+  }
+
+  // 11 = length of "registered-" prefix
+  var racer = cb.name.substring(11);
+  var value = cb.checked ? 1 : 0;
+
+  $.ajax(g_action_url,
+    {
+      type: 'POST',
+      data: {
+        action: 'racer.register',
         racer: racer,
         value: value
       },
@@ -829,6 +852,21 @@ function make_table_row(racer, xbs) {
     .attr('data-weight-kg', weightData.kg)
     .attr('data-weight-lbs', weightData.lbs)
     .text(weightData[userPreferredUnit] + ' ' + userPreferredUnit));
+console.log(racer.registered);
+
+  var registered = $('<td class="registered-status"/>').appendTo(tr);
+  registered.append('<br/>');
+  registered.append($('<input type="checkbox" class="flipswitch"/>')
+    .attr('id', 'registered-' + racer.racerid)
+    .attr('name', 'registered-' + racer.racerid)
+    .prop('checked', racer.registered)
+    .attr('disabled', racer.registered === true ? 'disabled' : false)
+    .attr('data-on-text', 'Yes')
+    .attr('data-off-text', 'No')
+    // prop onchange doesn't seem to allow a string, but attr does
+    .attr('onchange', 'handlechange_registered(this, ' +
+      JSON.stringify(racer.firstname + ' ' + racer.lastname) +
+      ')'));
 
   var checkin = $('<td class="checkin-status"/>').appendTo(tr);
   checkin.append('<br/>');

@@ -40,7 +40,7 @@ function checkin_table_SELECT_FROM_sql() {
   return
       'SELECT ri.racerid, ri.carnumber, ri.lastname, ri.firstname, ri.carname, ri.carweight, ri.imagefile, '
       . 'ri.carphoto, p.partitionid AS partitionid, p.sortorder AS partition_sortorder, '
-      . 'p.name AS partition_name, ri.note, ri.classid, c.class, ri.rankid, r.rank, ri.passedinspection, ri.exclude, '
+      . 'p.name AS partition_name, ri.note, ri.classid, c.class, ri.rankid, r.rank, ri.passedinspection, ri.registered, ri.exclude, '
       . 'EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.racerid = ri.racerid) AS scheduled, '
       . 'EXISTS(SELECT 1 FROM RaceChart WHERE RaceChart.classid = ri.classid) AS denscheduled, '
       . 'EXISTS(SELECT 1 FROM Awards WHERE Awards.awardname = :xbs_award_name AND Awards.racerid = ri.racerid) AS xbs, '
@@ -97,9 +97,10 @@ function json_table_row(&$row, $n = 0) {
     'lastname' => $row['lastname'],
     'carname' => $row['carname'],
     'carweight' => $row['carweight'],
-
+    
     'scheduled' => $row['scheduled'] ? true : false,
     'passed' => $row['passedinspection'] ? true : false,
+    'registered' => $row['registered'] ? true : false,
 
     'xbs' => $row['xbs'],
     'grouped_with' => $row['grouped_with'], // Include grouped_with
