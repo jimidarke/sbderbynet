@@ -7,6 +7,20 @@ SERVERIP = "192.168.100.10"
 api = DerbyNetClient(SERVERIP)
 
 
+Device status telemetry format V 0.2.1
+
+hostname
+hwid
+uptime
+ip
+mac
+wifi_rssi
+battery_level
+cpu_temp
+memory_usage
+disk
+cpu_usage
+
 '''
 
 #import requests # type: ignore
@@ -19,7 +33,7 @@ import xml.etree.ElementTree as ET
 LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
 LOG_FILE        = '/var/log/derbynet.log'
 
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename=LOG_FILE)
 
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
@@ -210,26 +224,8 @@ class DerbyNetClient:
         out['timer-state-string'] = response_json.get('timer-state', {}).get('message', '')
         return out
     
-    def send_device_telemetry(self,statusPayload={}):
+    def send_device_status(self,payload):
         # sends telemetry data to the DerbyNet server for the Device Status API
-        '''
-        curl -X POST
-        /ajax/action.device-status-api.inc \
-        -H "Content-Type: application/json" \
-        -d '{
-            "device_name": "Finish Timer 1",
-            "serial": "FT12345678",
-            "uptime": 3600,
-            "ip_address": "192.168.1.100",
-            "mac_address": "00:1A:2B:3C:4D:5E",
-            "wifi_signal": 75,
-            "battery": 90,
-            "temperature": 45.5,
-            "memory": 2048,
-            "disk": 128,
-            "cpu": 15.3
-        }'
-        '''
         if not self.authcode:
             self.authcode = self.login()
             if not self.authcode:
@@ -239,30 +235,45 @@ class DerbyNetClient:
             'Content-Type': 'application/json',
             'Cookie': self.authcode
         }
-        payload = {
-            "device_name": statusPayload.get('device_name', 'UNKNOWN'),
-            "serial": statusPayload.get('serial', ''),
-            "uptime": statusPayload.get('uptime', 0),
-            "ip_address": statusPayload.get('ip_address', ''),
-            "mac_address": statusPayload.get('mac_address', ''),
-            "wifi_signal": statusPayload.get('wifi_signal', 0),
-            "battery": statusPayload.get('battery', 0),
-            "temperature": statusPayload.get('temperature', 0),
-            "memory": statusPayload.get('memory', 0),
-            "disk": statusPayload.get('disk', 0),
-            "cpu": statusPayload.get('cpu', 0)
+        # check if payload is a dict, if not, return false
+        if not isinstance(payload, dict):
+            logging.error("Payload is not a dictionary.")
+            return False
+        APIpayload = {
+            "devices":[{
+                "device_name": payload.get("hostname","UNKNOWN"),
+                "serial": payload.get("hwid",""),
+                "uptime": payload.get("uptime",0),
+                "ip_address": payload.get("ip",""),
+                "mac_address": payload.get("mac",""),
+                "wifi_signal": self.getWiFiPercentFromRSSI(payload.get("wifi_rssi",0)),
+                "battery": payload.get("battery_level",0),
+                "temperature": payload.get("cpu_temp",0),
+                "memory": payload.get("memory_usage",0),
+                "disk": payload.get("disk",0),
+                "cpu": payload.get("cpu_usage",0)}
+            ]
         }
-        url = self.rooturl + 'ajax/action.device.status.api.inc'
+        url = self.rooturl + 'device-status-api.php'
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=5)
+            response = requests.post(url, headers=headers, json=APIpayload, timeout=5)
             if response.status_code == 401:
                 self.authcode = self.login()
-                self.send_device_telemetry(statusPayload)
+                self.send_device_status(payload)
             response.raise_for_status()
         except requests.RequestException as e:
             logging.error(f"Failed to send device telemetry: {e}")
             return False
-        print(response.text)
-        response_json = response.json()
+        logging.debug("Device telemetry successfully sent.")
+        logging.debug("Device telemetry response: %s", response.text)
         return True
     
+    @staticmethod
+    def getWiFiPercentFromRSSI(rssi):
+        """Converts RSSI value to percentage."""
+        if rssi <= -100:
+            return 0
+        elif rssi >= -50:
+            return 100
+        else:
+            return int((rssi + 100) * 2)

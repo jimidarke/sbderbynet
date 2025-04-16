@@ -26,7 +26,7 @@ MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
 LOG_FILE        = '/var/log/derbynet.log'
 
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename=LOG_FILE)
 
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
@@ -68,34 +68,30 @@ class derbyRace:
         topic = message.topic
         payload = message.payload.decode("utf-8")
         logging.debug(f"Received message on {topic} {payload}") 
-        # Received message on derbynet/device/DT54SIV0002/state: {"toggle": true, "time": 1742533387, "hwid": "DT54SIV0002", "dip": "1001"}
-        #logging.info(f"RaceState: {self.race_state}")
-        # check for finish toggle if race is active to indicate someone has crossed the finish line
+        dip = None
         try:
             dip = json.loads(payload).get("dip","")
         except Exception as e:
-            dip = ""
             logging.error(f"Error parsing dip from payload: {e}")
-        if dip == "1000": #lane1 
-            lane = 1
-        elif dip == "1001": #lane2
-            lane = 2
-        elif dip == "1010": #lane3
-            lane = 3
-        elif dip == "1011": #lane4
-            lane = 4
-        else: 
-            lane = 0
+        lane = self.getDIPName(dip) # get the lane number from the dip switch
+        
+        ########### Trigger for START RACE ###########
         if "state" in topic and self.race_state == "STAGING": # Triggers start only if in staging mode
             val = json.loads(payload).get("state",False)
             if val == "GO":
                 self.startRace()
                 self.api.send_start()
+        
+        ########### Trigger for LANE FINISH ###########
         if "state" in topic and self.race_state == "RACING" and lane > 0: # this can only happen if the individual finish is triggered 
             self.laneFinish(lane)
-        if "telemetry" in topic and lane > 0: # this is the heartbeat from the timer to indicate it is alive and well
-            logging.debug(f"Timer heartbeat from lane {lane} with payload {payload}")
-            self.timerHeartbeat(lane)
+        
+        ########### Trigger for DEVICE TELEMETRY ###########
+        if "telemetry" in topic: # this is the heartbeat from the timer to indicate it is alive and well as well as status telemetry
+            logging.info(f"Telemetry from {topic} with payload {payload}")
+            self.api.send_device_status(json.loads(payload))
+            if lane > 0:
+                self.timerHeartbeat(lane)
 
     def updateFromDerbyAPI(self): 
         # sets online
@@ -203,6 +199,7 @@ class derbyRace:
             return True
         return False
     
+        
     def timerHeartbeat(self,lane):
         self.timer_heartbeat[lane] = time.time()
         # check if all timers have checked in in the last 30 seconds and then send an api command for heartbeat
@@ -218,6 +215,19 @@ class derbyRace:
             exit(1)
         else:
             exit(0)
+    
+    @staticmethod
+    def getDIPName(dip):
+        name = 0
+        if dip == "1000": #lane1 
+            name = 1
+        elif dip == "1001": #lane2
+            name = 2
+        elif dip == "1010": #lane3
+            name = 3
+        elif dip == "1011": #lane4
+            name = 4
+        return name
 
 if __name__ == "__main__":
     logging.info("DerbyRace Started")
