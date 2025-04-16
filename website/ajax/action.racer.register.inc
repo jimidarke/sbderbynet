@@ -1,6 +1,7 @@
 <?php
 require_once('inc/events.inc');
 require_once('inc/schema_version.inc');
+require_once('inc/error-logging.inc');
 
 $value = isset($_POST['value']) ? $_POST['value'] : 1;
 $racerid = @$_POST['racer'];
@@ -60,8 +61,8 @@ function register_racer($racerid, $value)
     );
 
     if ($current_status == 1) {
-      echo json_encode(['success' => false, 'error' => 'cannot_unregister']);
-      return false;
+      json_failure(code: 'cannot_unregister', description: 'Once registered, a racer cannot be unregistered.');
+      exit;
     }
   }
 

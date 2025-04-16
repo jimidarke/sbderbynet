@@ -80,46 +80,6 @@ require_once('inc/schedule_utils.inc');
 require_once('inc/schedule_one_round.inc');
 
 if (have_permission(CONTROL_RACE_PERMISSION)) {
-
-  $unregistered = $db->prepare(
-    'SELECT RegistrationInfo.carnumber, RegistrationInfo.firstname, RegistrationInfo.lastname 
-     FROM RegistrationInfo
-     WHERE RegistrationInfo.registered = 0 OR RegistrationInfo.passedinspection = 0'
-  );
-  $unregistered->execute();
-
-  if ($unregistered->rowCount() > 0) {
-    $unregistered_racers = [];
-    while ($row = $unregistered->fetch(PDO::FETCH_ASSOC)) {
-      $unregistered_racers[] = $row['carnumber'] . ' (' . $row['firstname'] . ' ' . $row['lastname'] . ')';
-    }
-
-    error_log('Unregistered racers: ' . implode(', ', $unregistered_racers));
-    // Return failure response
-    json_failure(
-      'unregistered_racers',
-      'The following racers are not registered or have not passed inspection: ' .
-      implode(', ', $unregistered_racers)
-    );
-    exit;
-  }
-
-  if ($unregistered->rowCount() > 0) {
-    $unregistered_racers = [];
-    while ($row = $unregistered->fetch(PDO::FETCH_ASSOC)) {
-      $unregistered_racers[] = $row['carnumber'] . ' (' . $row['firstname'] . ' ' . $row['lastname'] . ')';
-    }
-
-    // Return failure response
-    json_failure(
-      'unregistered_racers',
-      'The following racers are not registered or have not passed inspection: ' .
-      implode(', ', $unregistered_racers)
-    );
-    exit;
-  }
-
-
   // Get number of lanes in use
   $nlanes = read_raceinfo('lane_count', 0);
   $nlanes -= count_one_bits(read_raceinfo('unused-lane-mask', 0));
@@ -134,20 +94,11 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
     $avoid_consecutive = intval(read_raceinfo('avoid-consecutive', 0));
     $avoid_same_lane = intval(read_raceinfo('avoid-same-lane', 0));
 
-    error_log("group_weighted_cars: $group_weighted_cars, avoid_consecutive: $avoid_consecutive, avoid_same_lane: $avoid_same_lane");
+    // error_log("group_weighted_cars: $group_weighted_cars, avoid_consecutive: $avoid_consecutive, avoid_same_lane: $avoid_same_lane");
 
     // Generate schedule with additional constraints
-    if (
-      schedule_one_round(
-        $roundid,
-        $nlanes,
-        $n_times_per_lane,
-        $trace,
-        $group_weighted_cars,
-        $avoid_consecutive,
-        $avoid_same_lane
-      )
-    ) {
+    if (schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace, 
+                           $group_weighted_cars, $avoid_consecutive, $avoid_same_lane)) {
       json_success();
       if ($trace) {
         json_out('trace', $trace);
@@ -155,7 +106,7 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
       require('ajax/query.poll.coordinator.inc');
     } else {
       json_failure('too-few-racers', 'There need to be at least two racers checked in'
-        . ' to generate a schedule.');
+                   .' to generate a schedule.');
     }
   }
 

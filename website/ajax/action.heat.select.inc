@@ -1,6 +1,6 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+require_once('inc/error-logging.inc');
+
 // This action allows manual selection of the current racing heat.
 //
 // $_POST['now_racing']
@@ -43,34 +43,34 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
       $heat = $_POST['heat'];
     }
 
-    // Check for unregistered or unpassed racers
-    $unregistered = $db->prepare(
-      'SELECT carnumber FROM RaceChart
-       JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid
-       WHERE roundid = :roundid AND heat = :heat AND (passedinspection = 0 OR registered = 0)'
-    );
-    $unregistered->execute([
-      ':roundid' => $current['roundid'],
-      ':heat' => $heat
-    ]);
-    
-    if ($unregistered->rowCount() > 0) {
-      $unregistered_racers = [];
-      while ($row = $unregistered->fetch(PDO::FETCH_ASSOC)) {
-        $unregistered_racers[] = $row['carnumber'];
-      }
-    
-      // JSON failure response for unregistered racers
-      json_failure(
-        'unregistered_racers',
-        'The following racers are not registered or have not passed inspection: ' .
-        implode(', ', $unregistered_racers)
-      );
-      exit;
-    }
+    // // Check for unregistered or unpassed racers
+    // $unregistered = $db->prepare(
+    //   'SELECT carnumber FROM RaceChart
+    //    JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid
+    //    WHERE roundid = :roundid AND heat = :heat AND (passedinspection = 0 AND registered = 0)'
+    // );
+    // $unregistered->execute([
+    //   ':roundid' => $current['roundid'],
+    //   ':heat' => $heat
+    // ]);
+
+    // // print_r($unregistered->fetch(PDO::FETCH_ASSOC)); die;
+    // if ($unregistered->rowCount() > 0) {
+    //   $unregistered_racers = [];
+    //   while ($row = $unregistered->fetch(PDO::FETCH_ASSOC)) {
+    //     $unregistered_racers[] = $row['carnumber'];
+    //   }
+    //   error_log("Unregistered racers: " . implode(', ', $unregistered_racers));
+    //   json_failure(
+    //     'unregistered_racers',
+    //     'The following racers are not registered or have not passed inspection: ' .
+    //     implode(', ', $unregistered_racers)
+    //   );
+    //   exit; // Prevent further execution
+    // }
 
     // Attempt to advance the heat
-    if (!advance_heat($current, $heat, /* report_failure: */ 'json')) {
+    if (!advance_heat($current, $heat, /* report_failure:  */ 'json')) {
       $ok = false;
     }
   }

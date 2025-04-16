@@ -79,25 +79,30 @@ function handlechange_passed(cb, racer) {
 
 // This executes when a checkbox for "Registered" is clicked.
 function handlechange_registered(cb, racer) {
-
-  if (!cb.checked && !confirm("Are you sure you want to unregister " + racer + "?")) {
-    cb.checked = true;
+  if (!cb.checked) {
+    alert("Once registered, a racer cannot be unregistered.");
+    cb.checked = true; // Revert the toggle
     return;
   }
 
-  // 11 = length of "registered-" prefix
-  var racer = cb.name.substring(11);
+  var racerId = cb.name.substring(11); // Extract racer ID
   var value = cb.checked ? 1 : 0;
 
-  $.ajax(g_action_url,
-    {
-      type: 'POST',
-      data: {
-        action: 'racer.register',
-        racer: racer,
-        value: value
-      },
-    });
+  $.ajax(g_action_url, {
+    type: 'POST',
+    data: {
+      action: 'racer.register',
+      racer: racerId,
+      value: value
+    },
+    success: function () {
+      cb.disabled = true; // Disable the toggle once registered
+    },
+    error: function () {
+      alert("Failed to update registration status.");
+      cb.checked = !cb.checked; // Revert the toggle on failure
+    }
+  });
 }
 
 // This executes when a checkbox for "Exclusively by Scout" is clicked.
@@ -852,7 +857,6 @@ function make_table_row(racer, xbs) {
     .attr('data-weight-kg', weightData.kg)
     .attr('data-weight-lbs', weightData.lbs)
     .text(weightData[userPreferredUnit] + ' ' + userPreferredUnit));
-console.log(racer.registered);
 
   var registered = $('<td class="registered-status"/>').appendTo(tr);
   registered.append('<br/>');
