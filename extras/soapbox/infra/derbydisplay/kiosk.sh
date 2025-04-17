@@ -1,21 +1,13 @@
 #!/bin/bash
 
-# This script is used to update the hostname and download the derbynet files from the server and is run on boot
+# Kiosk Setup Script
+# Configures a device to display a webpage with MAC address as URL parameter
+# Includes splash screens and error handling
 
-# Customized for the display setup
-
-#  sudo rsync -avz --delete rsync://192.168.100.10/derbynet/derbydisplay/ /opt/derbynet/
-
-# Path to the derbyid.txt file
-DERBY_ID_FILE="/boot/firmware/derbyid.txt"
-SERVER_IP="192.168.100.10"
-RSYNC_SERVER="rsync://$SERVER_IP/derbynet/derbydisplay/"
-LOCAL_DIR="/opt/derbynet"
-
-
+# Configuration variables
 WEB_URL="http://192.168.100.10/derbynet/kiosk.php"  
-LOADING_IMAGE="$LOCAL_DIR/splash/loading.png"
-ERROR_IMAGE="$LOCAL_DIR/splash/error.png"
+LOADING_IMAGE="/opt/kiosk/splash/loading.png"
+ERROR_IMAGE="/opt/kiosk/splash/error.png"
 KIOSK_USER="kioskuser"
 DESKTOP_ENV="xfce"  
 
@@ -25,6 +17,15 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# Install required packages
+echo "Installing required packages..."
+apt-get update
+apt-get install -y --no-install-recommends \
+    xserver-xorg x11-xserver-utils xinit \
+    unclutter chromium \
+    lightdm xinit openbox \
+    feh sudo
+
 # Create kiosk user if not exists
 if ! id "$KIOSK_USER" &>/dev/null; then
     echo "Creating kiosk user..."
@@ -32,94 +33,25 @@ if ! id "$KIOSK_USER" &>/dev/null; then
     echo "$KIOSK_USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010_kioskuser
 fi
 
-# checks if /opt/derbynet (LOCAL_DIR) folder exists, if not creates
-if [ ! -d $LOCAL_DIR ]; then
-    sudo mkdir $LOCAL_DIR
-    sudo mkdir $LOCAL_DIR/splash
-    chown -R "$KIOSK_USER:$KIOSK_USER" $LOCAL_DIR/splash
-fi
+# Create splash screen directory
+echo "Setting up splash screens..."
+mkdir -p /opt/kiosk/splash
+# You should place your loading.png and error.png in this directory
+# For now we'll create simple placeholder images
+wget http://192.168.100.10/derbynet/loading.png -O /opt/kiosk/splash/loading.png
+wget http://192.168.100.10/derbynet/error.png -O /opt/kiosk/splash/error.png
+#convert -size 800x480 xc:navy /opt/kiosk/splash/loading.png
+#convert -size 800x480 xc:maroon /opt/kiosk/splash/error.png
+chown -R "$KIOSK_USER:$KIOSK_USER" /opt/kiosk
 
-# Check if the derbyid.txt file exists
-if [ ! -f "$DERBY_ID_FILE" ]; then
-    echo "Error: $DERBY_ID_FILE not found."
-    exit 1
-fi
-
-# Read the derby ID from the file
-DERBY_ID=$(cat "$DERBY_ID_FILE")
-echo "Derby ID: $DERBY_ID"
-# Get the current hostname
-CURRENT_HOSTNAME=$(hostname)
-
-TOREBOOT=0
-
-# Apply system time settings 
-# Ensure systemd-timesyncd is installed
-if ! command -v systemctl &> /dev/null; then
-    echo "systemd-timesyncd is not installed. Installing..."
-    sudo apt update && sudo apt install -y systemd-timesyncd
-fi
-
-if ! grep -q "$SERVER_IP" /etc/systemd/timesyncd.conf; then
-    echo "Time server not found in /etc/systemd/timesyncd.conf. Adding..."
-    sudo bash -c "echo 'NTP=$SERVER_IP' >> /etc/systemd/timesyncd.conf"
-    sudo systemctl restart systemd-timesyncd
-    TOREBOOT=1
-fi
-timedatectl show-timesync --all
-
-# Check if the current hostname matches the derby ID
-if [ "$CURRENT_HOSTNAME" != "$DERBY_ID" ]; then
-    echo "Hostname does not match derby ID. Updating hostname to $DERBY_ID."
-    # Set the new hostname
-    sudo hostnamectl set-hostname "$DERBY_ID"
-    sudo bash -c "echo '127.0.1.1   $DERBY_ID' >> /etc/hosts"
-    TOREBOOT=1
-else
-    echo "Hostname matches derby ID. No changes needed."
-fi
-
-# run raspi-config to enable i2c if needed
-
-# perform system update only if internet is available and /boot/updated file is missing
-if [ ! -f /boot/firmware/updated ]; then
-    echo "Updated file missing. Checking for internet connection."
-    if ping -q -c 1 -W 1 google.com >/dev/null; then
-        echo "Internet connection available. Updating system."
-        sudo apt update
-        sudo apt upgrade -y 
-        #sudo apt install -y \
-        #    rsync python3 python3-pip mosquitto-clients 
-        sudo apt install -y --no-install-recommends \
-            xserver-xorg x11-xserver-utils xinit \
-            unclutter chromium \
-            lightdm xinit openbox \
-            feh sudo
-        #sudo pip install paho-mqtt psutil raspberrypi-tm1637 --break
-        sudo apt autoremove -y
-        sudo apt clean
-        sudo touch /boot/firmware/updated
-        TOREBOOT=1
-    else
-        echo "No internet connection available. Skipping system update."
-    fi
-else
-    echo "Update file found. Skipping system update."
-fi
-
-
-
-if [ ! -f /boot/firmware/displaysetup ]; then
-    # Configure lightdm to auto-login
-    echo "Configuring lightdm for auto-login..."
-
+# Configure lightdm to auto-login
+echo "Configuring lightdm for auto-login..."
 cat > /etc/lightdm/lightdm.conf <<EOL
 [SeatDefaults]
 autologin-user=$KIOSK_USER
 autologin-user-timeout=0
 user-session=$DESKTOP_ENV
 EOL
-
 
 # Create xinit script
 echo "Creating xinit script..."
@@ -158,14 +90,13 @@ if [ \$count -lt 30 ]; then
         --disable-session-crashed-bubble \\
         --disable-component-update \\
         --check-for-update-interval=31536000 \\
-        "$WEB_URL?address=\$MAC"
+        "$WEB_URL?mac=\$MAC"
 else
     # Network failed, show error
     pkill feh
     feh --fullscreen --hide-pointer $ERROR_IMAGE
 fi
 EOL
-
 
 chown "$KIOSK_USER:$KIOSK_USER" /home/$KIOSK_USER/.xinitrc
 chmod +x /home/$KIOSK_USER/.xinitrc
@@ -235,6 +166,12 @@ cat > /etc/chromium-browser/customizations/01-accelerate <<EOL
 CHROMIUM_FLAGS="\${CHROMIUM_FLAGS} --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --enable-native-gpu-memory-buffers --enable-accelerated-video-decode"
 EOL
 
+# Clean up
+echo "Cleaning up..."
+apt-get autoremove -y
+apt-get clean
+
+# Création du service système (nouveau)
 echo "Creating systemd service..."
 cat > /etc/systemd/system/kiosk.service <<EOL
 [Unit]
@@ -254,21 +191,10 @@ RestartSec=5s
 WantedBy=multi-user.target
 EOL
 
-sudo touch /boot/firmware/displaysetup
-
-TOREBOOT=1
-
-fi
-
+# Activation du service
 systemctl daemon-reload
 systemctl enable kiosk.service
 
-# reboots if TOREBOOT is set to 1
-if [ $TOREBOOT -eq 1 ]; then    
-    # Clean up
-    echo "Cleaning up..."
-    apt-get autoremove -y
-    apt-get clean
-    echo "Rebooting system."
-    sudo reboot
-fi 
+echo "Setup complete!"
+echo "The kiosk will start automatically on next boot."
+echo "To start it now manually: sudo systemctl start kiosk"

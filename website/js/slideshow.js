@@ -44,19 +44,36 @@ function mainphoto_onload(img) {
   function refresh_page(response) {
     next_query = response.next;
 
-    // Remove old slide and prepare for new one
+    // There's always a div.next, which is hidden; we populate it with images
+    // for the next racer.  When the next racer becomes current, the old
+    // div.current gets removed, div.next becomes div.current, and we create a
+    // new div.next.
     $("#photo-background div.current").remove();
     $("#photo-background div.next").removeClass("next").addClass("current");
 
-    // Create a new div for the next slide
     var next = $("<div class='next'></div>").appendTo("#photo-background")
         .append($("<img class='mainphoto'/>")
                 .attr('src', response['photo'])
                 .on('load', function() { mainphoto_onload(this); }));
 
-    // Only add title if specified in kiosk parameters
+    if (response.hasOwnProperty('name')) {
+      var subtitle = $("<p class='subtitle'/>").text(response['name']).appendTo(next);
+      if (response.hasOwnProperty('carnumber')) {
+        subtitle.prepend(': ')
+                .prepend($("<span class='carno'/>").text(response['carnumber']));
+      }
+      if (response.hasOwnProperty('carname')) {
+        subtitle.append("<br/>")
+                .append($("<i/>").text(response['carname']));
+      }
+    }
+
+    if (response.hasOwnProperty('inset')) {
+      next.append('<img class="inset_photo" src="' + response['inset'] + '"/>');
+    }
+
     if (response.hasOwnProperty('title') && kiosk_parameters.title) {
-        $('<p class="maintitle"></p>').text(kiosk_parameters.title).appendTo(next);
+      $('<p class="maintitle"></p>').text(kiosk_parameters.title).appendTo(next);
     }
   }
 
@@ -65,12 +82,17 @@ function mainphoto_onload(img) {
     if (kiosk_parameters.subdir) {
       next_query.subdir = kiosk_parameters.subdir;
     }
-    
-    $.ajax('action.php', {
-        type: 'GET',
-        data: next_query,
-        success: function(data) {
-            if (data.hasOwnProperty('photo')) {
+    var classids = kiosk_parameters.classids;
+    if (classids && classids.length > 0) {
+      next_query.classids = classids.join(',');
+    }
+    $.ajax('action.php',
+           {type: 'GET',
+            data: next_query,
+            success: function(data) {
+              console.log('slideshow next', data);
+              console.log('slideshow query', next_query);
+              if (data.hasOwnProperty('photo')) {
                 refresh_page(data.photo);
             } else {
                 refresh_page({

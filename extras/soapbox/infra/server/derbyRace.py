@@ -26,7 +26,7 @@ MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
 LOG_FILE        = '/var/log/derbynet.log'
 
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename=LOG_FILE)
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
 
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
@@ -83,12 +83,13 @@ class derbyRace:
                 self.api.send_start()
         
         ########### Trigger for LANE FINISH ###########
-        if "state" in topic and self.race_state == "RACING" and lane > 0: # this can only happen if the individual finish is triggered 
+        if "state" in topic and self.race_state == "RACING" and lane > 0: # run through lane finish check
             self.laneFinish(lane)
         
         ########### Trigger for DEVICE TELEMETRY ###########
         if "telemetry" in topic: # this is the heartbeat from the timer to indicate it is alive and well as well as status telemetry
-            logging.info(f"Telemetry from {topic} with payload {payload}")
+            logging.info(f"Telemetry from {topic}")
+            logging.debug(f"Telemetry from {topic} with payload {payload}")
             self.api.send_device_status(json.loads(payload))
             if lane > 0:
                 self.timerHeartbeat(lane)
@@ -167,16 +168,14 @@ class derbyRace:
         if timer == None: # set to utc timestamp 
             timer = time.time()
         if self.start_time == 0: # not started yet
+            self.lanesFinished = 0
             self.start_time = timer
-            logging.info("Race Started at " + str(int(self.start_time)))
-        #self.race_state = "RACING"
-        #self.updateLED("green") # racing
-        #api.send_start()
-
+            logging.info("Race Started at " + str(self.start_time))
+        
     def stopRace(self,timer = None):
         if timer == None: # set to utc timestamp 
             timer = time.time()
-        logging.info("All Lanes Finished at " + str(int(timer)))
+        logging.info("All Lanes Finished at " + str(timer))
         self.race_state = "STOPPED"
         logging.info(self.lane_times)
         self.updateLED("red")
@@ -188,18 +187,16 @@ class derbyRace:
     def laneFinish(self,lane,timer = None):
         if timer == None:
             timer = time.time()
-        self.lane_times[lane] = int(timer) - int(self.start_time)
-        logging.info(f"Lane {lane} Finished at {int(timer)} with time {self.lane_times[lane]}")
-        #pinny = str(int(self.lane_times[lane])).zfill(4)
-        #self.setLanePinny(lane,pinny)
-        self.updateLED("purple",lane) # purple for finished
+        self.lane_times[lane] = round(timer - self.start_time,1)
         self.lanesFinished += 1
+        logging.info(f"Lane {lane} Finished at {timer} with time {self.lane_times[lane]}s which is # {self.lanesFinished} to finish")
+        logging.debug(f"LaneFinishTimes: {self.lane_times}")
+        self.updateLED("purple",lane) # purple for finished
         if self.lanesFinished == self.lane_count:
             self.stopRace(timer)
             return True
         return False
     
-        
     def timerHeartbeat(self,lane):
         self.timer_heartbeat[lane] = time.time()
         # check if all timers have checked in in the last 30 seconds and then send an api command for heartbeat

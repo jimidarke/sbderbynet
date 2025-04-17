@@ -33,7 +33,7 @@ import xml.etree.ElementTree as ET
 LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
 LOG_FILE        = '/var/log/derbynet.log'
 
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename=LOG_FILE)
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
 
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
@@ -151,12 +151,10 @@ class DerbyNetClient:
         #&lane1=10&lane2=12&lane3=13&place1=1&place2=2&place3=3"
         for lane, time in lane_times.items():
             payload += f"&lane{lane}={time}"
-
         headers = {
             'Content-Type': "application/x-www-form-urlencoded",
             'Cookie': self.authcode
         }
-
         try:
             response = requests.post(self.url, headers=headers, data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
@@ -179,7 +177,7 @@ class DerbyNetClient:
                 return False
 
         if response_xml.find('success') is not None:
-            logging.debug("Finish message successfully sent.")
+            logging.info("Finish message successfully sent.")
             return True
         else:
             logging.error("Failed to confirm finish message reception.")
