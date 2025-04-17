@@ -12,10 +12,11 @@ import random
 import urequests
 
 
-VERSION = '0.2.0'  # Version of the firmware.  
+VERSION = '0.2.2'  # Version of the firmware.  
 # V0.0.1 - March 31 2025    - Initial version with basic functionality including sending state and telemetry to mqtt
 # V0.1.0 - April 4 2025     - Added OTA updates
-# V0.2.0 - April 5 2025     - Added watchdog timer for stability
+# V0.2.0 - April 15 2025    - Added watchdog timer and updated telemetry data 
+# V0.2.2 - April 15 2025    - Fixed telemetry and OTA
 HWID = "STARTTIMER"
 
 # Wi-Fi Configuration
@@ -203,14 +204,17 @@ def collect_telemetry():
     temperature, humidity = read_dht22()
 
     telemetry = {
-        'ip_address': ip,
-        'mac_address': mac,
-        'rssi': rssi,
+        'hostname': 'Starter',
+        'ip': ip,
+        'mac': mac,
+        'wifi_rssi': rssi,
+        'battery_level': 100,  # Placeholder for battery level
+        'cpu_usage': 0,  # Placeholder for CPU usage
         'uptime': uptime,
-        'free_memory': free_mem,
+        'memory_usage': 0,
         'flash_size': flash_size,
-        'flash_free': flash_free,
-        'temperature': temperature,
+        'disk': 0,
+        'cpu_temp': temperature,
         'humidity': humidity,
         'timestamp': get_timestamp(),
         'version': VERSION,
@@ -251,7 +255,7 @@ def send_mqtt_message(state):
 # Monitor for changes in start signal
 def monitor_signal():
     global previous_state
-    telemetry_interval = 60  # Send telemetry every x seconds
+    telemetry_interval = 10  # Send telemetry every x seconds
     last_telemetry = 0
     while True:
 

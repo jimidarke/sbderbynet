@@ -23,7 +23,8 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.1.7"
+PCB_VERSION     = "0.2.2"
+DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
 PIN_SDA         = 2
@@ -190,17 +191,42 @@ class derbyPCBv1:
 
             
     def get_uptime(self):
-        return int(time.time() - self.timestart)
+        # get system uptime in seconds 
+        try:
+            with open('/proc/uptime', 'r') as f:
+                uptime = f.readline().split()[0]
+            return int(float(uptime))   
+        # return uptime in seconds
+        except Exception as e:
+            logging.error(f"Error getting uptime: {e}")
+            return 0
+
     
     def packageTelemetry(self): 
+        '''
+        Device status telemetry format V 0.2.0
+
+        hostname
+        hwid
+        uptime
+        ip
+        mac
+        wifi_rssi
+        battery_level
+        cpu_temp
+        memory_usage
+        disk
+        cpu_usage
+        '''
         payload = {
+            "hostname": DEVICE_CLASS + derbyPCBv1.get_Lane(),
             "mac": derbyPCBv1.get_mac(),
             "ip": derbyPCBv1.get_ip(),
-            "hostname": derbyPCBv1.get_hostname(),
             "cpu_temp": derbyPCBv1.get_cpu_temp(),
             "wifi_rssi": derbyPCBv1.get_wifi_rssi(),
             "uptime": self.get_uptime(),
             "memory_usage": derbyPCBv1.get_memory_usage(),
+            "disk": derbyPCBv1.get_disk_usage(),
             "cpu_usage": derbyPCBv1.get_cpu_usage(),
             "battery_level": derbyPCBv1.getBatteryPercent(),
             "battery_raw": derbyPCBv1.getBatteryRaw(),
@@ -324,10 +350,15 @@ class derbyPCBv1:
         return PCB_VERSION
     
     @staticmethod
+    def get_disk_usage():
+        disk = psutil.disk_usage('/')
+        return disk.percent
+
+    @staticmethod
     def update_pcb(): # calls /opt/derbynet/setup.sh to update the PCB and restart the service 
-        logging.warning("Update requested. Calling /opt/derbynet/setup.sh")
+        logging.warning("Update requested. Calling /setup.sh")
         try:
-            subprocess.check_output("sudo /opt/derbynet/setup.sh", shell=True)
+            subprocess.check_output("sudo /setup.sh", shell=True)
             logging.info("Update successful")
             exit(0) # exit the script to restart the service
         except Exception as e:
