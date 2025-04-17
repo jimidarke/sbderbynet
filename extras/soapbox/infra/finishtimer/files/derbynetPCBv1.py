@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.2.2"
+PCB_VERSION     = "0.2.4"
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -177,10 +177,11 @@ class derbyPCBv1:
 
     def _updatePinny(self):
         self.tm.brightness(7)
-        self.tm.show(self.pinny)
         if self.led == "blue" and self.readyToRace == False:
             self.tm.show("flip")
-            logging.warning("Not ready to race, showing flip")
+            logging.info("Not ready to race, showing flip")
+        else: 
+            self.tm.show(self.pinny)
         if self.led == "red":
             self.tm.brightness(1)
             self.tm.show("stop")

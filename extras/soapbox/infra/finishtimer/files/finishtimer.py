@@ -40,6 +40,10 @@ clientid = f"{pcb.gethwid()}-{random.randint(1000, 9999)}"
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, clientid)
 logging.info(f"MQTT Client ID: {clientid}")
 
+pinny   = "----" # default pinny display
+led     = "white" # default LED color
+
+
 ###########################    CALLBACKS    ###########################
 def on_connect(client, userdata, flags, rc, properties=None):
     logging.info(f"Connected with result code {rc}")
@@ -91,6 +95,7 @@ def send_telemetry():
 
 def parse_message(msg):
     # Parses out the subscribed topic and sets the appropriate value
+    global led, pinny
     topic = msg.topic.split("/")[-1]
     if topic == "led":
         led = msg.payload.decode("utf-8").lower()
@@ -110,18 +115,31 @@ def parse_message(msg):
 
 ###########################     MAIN     ###########################
 def main():
+    global led, pinny
     logging.info("Initializing PCB Callbacks")
     lane = pcb.get_Lane()
     logging.info(f"Lane: {lane}")
     pcb.setPinny("LAN" + str(int(lane)))
     pcb.setLED("white")
-    time.sleep(6)
+    time.sleep(1)
+    pcb.setLED("purple")
+    time.sleep(1)
+    pcb.setLED("red")
+    time.sleep(1)
+    pcb.setLED("blue")
+    time.sleep(1)
+    pcb.setLED("green")
+    time.sleep(1)
+    pcb.setLED("yellow")
+    time.sleep(1)
     initMQTT()
     pcb.begin_toggle_watch(toggle_callback)
     try:
         while True:
             send_telemetry()
             time.sleep(TELEMETRY_INTERVAL)
+            pcb.setLED(led)
+            pcb.setPinny(pinny)
             if not client.is_connected():
                 logging.error("MQTT Disconnected")
                 client.reconnect()

@@ -166,7 +166,7 @@ class derbyRace:
 
     def startRace(self,timer = None):
         if timer == None: # set to utc timestamp 
-            timer = round(time.time(),1)
+            timer = time.time()
         if self.start_time == 0: # not started yet
             self.lanesFinished = 0
             self.start_time = timer
@@ -174,7 +174,7 @@ class derbyRace:
         
     def stopRace(self,timer = None):
         if timer == None: # set to utc timestamp 
-            timer = round(time.time(),1)
+            timer = time.time()
         logging.info("All Lanes Finished at " + str(timer))
         self.race_state = "STOPPED"
         logging.info(self.lane_times)
@@ -186,10 +186,10 @@ class derbyRace:
         
     def laneFinish(self,lane,timer = None):
         if timer == None:
-            timer = round(time.time(),1)
+            timer = time.time()
         self.lane_times[lane] = round(timer - self.start_time,1)
         self.lanesFinished += 1
-        logging.info(f"Lane {lane} Finished at {timer} with time {self.lane_times[lane]}s which is the {self.lanesFinished}th lane to finish")
+        logging.info(f"Lane {lane} Finished at {timer} with time {self.lane_times[lane]}s which is # {self.lanesFinished} to finish")
         logging.debug(f"LaneFinishTimes: {self.lane_times}")
         self.updateLED("purple",lane) # purple for finished
         if self.lanesFinished == self.lane_count:
