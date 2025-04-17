@@ -33,7 +33,7 @@ import xml.etree.ElementTree as ET
 LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
 LOG_FILE        = '/var/log/derbynet.log'
 
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename=LOG_FILE)
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
 
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
