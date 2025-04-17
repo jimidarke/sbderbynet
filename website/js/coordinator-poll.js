@@ -732,7 +732,7 @@ function offer_new_rounds(rounds, classes) {
 }
 
 function process_coordinator_poll_json(json) {
-  console.log(json);
+  // console.log(json);
 
   // // Check for unregistered racers in the rounds
   // const unregisteredRounds = json.rounds.filter(
@@ -909,6 +909,7 @@ function process_coordinator_poll_json(json) {
   // Get the number of lanes and current time
   const lanesCount = json["timer-state"].lanes || 0;
   const currentTime = Date.now();
+  console.log(json);
 
   // Check if a race is currently running
   const nowRacing = json["current-heat"]["now_racing"] || false;
@@ -916,12 +917,14 @@ function process_coordinator_poll_json(json) {
   // Determine each lane's status using the timers array
   const tstate = json["timer-state"].timers.map((timer) => {
     const timeSinceHeartbeat = currentTime / 1000 - timer.last_heartbeat;
-    const isOnline = timeSinceHeartbeat <= 5;
+    const isOnline = timeSinceHeartbeat <= 10; // 10 seconds thresholds
+    const isReady = timer.ready || false;
 
     return {
       lane: `Lane ${timer.lane} Timer (${timer.timerID || "Unknown"})`,
+      ready: isReady,
       online: isOnline,
-      status: isOnline ? (nowRacing ? "Running" : "Ready") : "NOT READY",
+      status: isOnline ? (nowRacing ? "Running" : (isReady ? 'Ready' : 'NOT READY')) : "NOT READY",
       lastHeartbeat: isNaN(timeSinceHeartbeat)
         ? "Unknown"
         : `${Math.round(timeSinceHeartbeat)}`,
@@ -950,11 +953,22 @@ function process_coordinator_poll_json(json) {
 
       // Status Cell
       const statusCell = document.createElement("td");
-      statusCell.className = timer.online
-        ? timer.status === "Running"
-          ? "timer-running"
-          : "timer-ready"
-        : "timer-offline";
+      // statusCell.className = timer.online
+      //   ? timer.status === "Running"
+      //     ? "timer-running"
+      //     : "timer-ready"
+      //   : "timer-offline";
+      if (timer.online && timer.status === "Running") {
+        statusCell.className = "timer-online"
+      } else if (!timer.online) {
+        statusCell.className = "timer-offline";
+      } else if (timer.status === "Running") {
+        statusCell.className = "timer-running";
+      } else if (timer.status === "Ready") {
+        statusCell.className = "timer-ready";
+      } else {
+        statusCell.className = "timer-not-ready";
+      }
       statusCell.textContent = timer.status;
 
       let convertedTime = formatTimeAgo(timer.lastHeartbeat);
