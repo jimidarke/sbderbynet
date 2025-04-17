@@ -439,18 +439,39 @@ div.block_buttons[data-name=buttons] {
   color: #ffffff;
 }
 
-/* 
-.timer-ready {
-  color: green;
-  font-weight: bold;
+
+/* Update AS OF 17-04-2025 */
+.status-error {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
 }
 
-.timer-warning {
-  color: orange;
-  font-weight: bold;
+.status-success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
 }
 
-.timer-offline {
-  color: red;
-  font-weight: bold;
-} */
+#registration-notification {
+  display: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  animation: slideIn 0.10s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+      transform: translateX(100%);
+      opacity: 0;
+  }
+  to {
+      transform: translateX(0);
+      opacity: 1;
+  }
+}

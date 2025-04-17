@@ -909,7 +909,7 @@ function process_coordinator_poll_json(json) {
   // Get the number of lanes and current time
   const lanesCount = json["timer-state"].lanes || 0;
   const currentTime = Date.now();
-  console.log(json);
+  // console.log(json);
 
   // Check if a race is currently running
   const nowRacing = json["current-heat"]["now_racing"] || false;
@@ -1106,6 +1106,59 @@ function coordinator_poll() {
 }
 
 $(function () {
-  g_polling_interval = setInterval(coordinator_poll, 1000);
+  g_polling_interval = setInterval(coordinator_poll, 5000);
   coordinator_poll();
+});
+
+
+// Handle AJAX success events to show notifications
+$(document).ajaxSuccess(function(event, xhr, options, data) {
+  if (data && data.registration_status) {
+      const status = data.registration_status;
+      
+      // Create or get notification container
+      let notificationContainer = $('#registration-notification');
+      if (notificationContainer.length === 0) {
+          notificationContainer = $('<div id="registration-notification"></div>')
+              .css({
+                  'position': 'fixed',
+                  'top': '20px',
+                  'right': '20px',
+                  'padding': '15px',
+                  'border-radius': '5px',
+                  'z-index': '1000',
+                  'max-width': '400px'
+              })
+              .appendTo('body');
+      }
+      
+      // Style based on status
+      const bgColor = status.status === 'error' ? '#ffebee' : '#e8f5e9';
+      const textColor = status.status === 'error' ? '#c62828' : '#2e7d32';
+      const borderColor = status.status === 'error' ? '#ef9a9a' : '#a5d6a7';
+      
+      // Update notification
+      notificationContainer
+          .css({
+              'background-color': bgColor,
+              'color': textColor,
+              'border': `1px solid ${borderColor}`
+          })
+          .html(status.message)
+          .fadeIn();
+      
+      // Auto hide after 5 seconds
+      setTimeout(() => {
+          notificationContainer.fadeOut();
+      }, 5000);
+      
+      // Also update any status display in the racing interface
+      const statusDisplay = $('#racing-status');
+      if (statusDisplay.length > 0) {
+          statusDisplay
+              .removeClass('status-error status-success')
+              .addClass(`status-${status.status}`)
+              .text(status.message);
+      }
+  }
 });

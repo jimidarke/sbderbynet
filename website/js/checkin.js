@@ -79,28 +79,29 @@ function handlechange_passed(cb, racer) {
 
 // This executes when a checkbox for "Registered" is clicked.
 function handlechange_registered(cb, racer) {
+  // Once registered, cannot be unregistered
   if (!cb.checked) {
     alert("Once registered, a racer cannot be unregistered.");
-    cb.checked = true; // Revert the toggle
+    cb.checked = true;
     return;
   }
 
-  var racerId = cb.name.substring(11); // Extract racer ID
-  var value = cb.checked ? 1 : 0;
-
+  var racerId = cb.name.substring(11); // Remove 'registered-' prefix
+  
   $.ajax(g_action_url, {
     type: 'POST',
     data: {
-      action: 'racer.register',
+      action: 'racer.register', 
       racer: racerId,
-      value: value
+      value: 1
     },
-    success: function () {
-      cb.disabled = true; // Disable the toggle once registered
+    success: function() {
+      // Disable toggle after successful registration
+      cb.disabled = true;
     },
-    error: function () {
+    error: function() {
       alert("Failed to update registration status.");
-      cb.checked = !cb.checked; // Revert the toggle on failure
+      cb.checked = false;
     }
   });
 }

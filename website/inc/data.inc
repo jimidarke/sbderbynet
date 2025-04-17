@@ -207,7 +207,10 @@ function get_running_round() {
                   'use_points' => 0,
                   'now_racing' => 0,
 				  'class' => '',
-				  'roundid' => -1);  // May be overwritten
+				  'roundid' => -1,
+				  'classid' => 1,
+				  'round' => 1,
+          'heat' => 1);  // May be overwritten
 
   foreach ($db->query('SELECT itemkey, itemvalue FROM RaceInfo') as $rs) {
     $key = $rs['itemkey'];
