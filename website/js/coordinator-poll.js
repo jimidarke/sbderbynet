@@ -732,35 +732,6 @@ function offer_new_rounds(rounds, classes) {
 }
 
 function process_coordinator_poll_json(json) {
-  // console.log(json);
-
-  // // Check for unregistered racers in the rounds
-  // const unregisteredRounds = json.rounds.filter(
-  //   (round) => round.registered < round.passed
-  // );
-  // if (unregisteredRounds.length > 0) {
-  //   alert(
-  //     `The following rounds have unregistered racers:\n` +
-  //       unregisteredRounds
-  //         .map(
-  //           (round) =>
-  //             `- ${round.name}: Registered ${round.registered}, Passed ${round.passed}`
-  //         )
-  //         .join("\n")
-  //   );
-  // }
-
-  // // Handle other conditions (e.g., no heats scheduled)
-  // const noHeatsRounds = json.rounds.filter(
-  //   (round) => round.heats_scheduled === 0 && round.passed > 0
-  // );
-  // if (noHeatsRounds.length > 0) {
-  //   alert(
-  //     `The following rounds have no heats scheduled:\n` +
-  //       noHeatsRounds.map((round) => `- ${round.name}`).join("\n")
-  //   );
-  // }
-
   json["current-heat"].heat_results = [];
   for (var i = 0; i < json["heat-results"].length; ++i) {
     json["current-heat"].heat_results.push(json["heat-results"][i]);
