@@ -10,6 +10,7 @@ require_once('inc/events.inc');
 require_once('inc/timer-flags.inc');
 require_once('inc/event-lane-details.inc');
 require_once('inc/timer-logging.inc');
+require_once('inc/error-logging.inc');
 
 // Timer-controller-to-web-service messages:
 //

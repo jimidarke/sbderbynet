@@ -11,7 +11,7 @@ require_once('inc/schema_version.inc');
 // $photo_render if a PhotoRender or false
 function json_current_racers(&$now_running, $name_style, $photo_render, $photo_render2 = false) {
   global $db;
-  
+
   $use_subgroups = use_subgroups();
   $time_format = get_finishtime_formatting_string();
 

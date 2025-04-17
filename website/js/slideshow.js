@@ -44,7 +44,7 @@ function mainphoto_onload(img) {
   function refresh_page(response) {
     next_query = response.next;
 
-    // Remove the current and next divs
+    // Remove old slide and prepare for new one
     $("#photo-background div.current").remove();
     $("#photo-background div.next").removeClass("next").addClass("current");
 
@@ -54,7 +54,7 @@ function mainphoto_onload(img) {
                 .attr('src', response['photo'])
                 .on('load', function() { mainphoto_onload(this); }));
 
-    // Skip adding car/racer-related elements
+    // Only add title if specified in kiosk parameters
     if (response.hasOwnProperty('title') && kiosk_parameters.title) {
         $('<p class="maintitle"></p>').text(kiosk_parameters.title).appendTo(next);
     }
@@ -65,26 +65,25 @@ function mainphoto_onload(img) {
     if (kiosk_parameters.subdir) {
       next_query.subdir = kiosk_parameters.subdir;
     }
-
-    // Remove classids to avoid filtering by racer classes
-    delete next_query.classids;
-
-    $.ajax('action.php',
-           {type: 'GET',
-            data: next_query,
-            success: function(data) {
-              console.log('slideshow next', data);
-              if (data.hasOwnProperty('photo')) {
+    
+    $.ajax('action.php', {
+        type: 'GET',
+        data: next_query,
+        success: function(data) {
+            if (data.hasOwnProperty('photo')) {
                 refresh_page(data.photo);
-              } else {
-                refresh_page({'photo': 'slide.php/title',
-                              'title': true,
-                              'next': {'mode': 'slide',
-                                       'file': ''}});
-              }
+            } else {
+                refresh_page({
+                    'photo': 'slide.php/title',
+                    'title': true,
+                    'next': {
+                        'mode': 'slide',
+                        'file': ''
+                    }
+                });
             }
-           }
-          );
+        }
+    });
   }
 
   $(document).ready(function() {

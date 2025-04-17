@@ -18,6 +18,9 @@ require_permission(CHECK_IN_RACERS_PERMISSION);
 	<script type="text/javascript" src="js/mobile.js"></script>
 	<script type="text/javascript">
 		function make_the_fake_racers() {
+			// console.log($("#check_in_all").is(':checked'));
+			// console.log($("#register_all").is(':checked'));
+			
 			console.log('make_the_fake_racers');
 			$.ajax("action.php", {
 				type: 'POST',
@@ -64,12 +67,12 @@ require_permission(CHECK_IN_RACERS_PERMISSION);
 		fake racers each.
 		<br />
 		<p>
-			<input id="check_in_all" type="checkbox" checked="checked" />
-			<label for="check_in_all">Fake racers are Registered</label>
+			<input id="register_all" type="checkbox" checked="checked" />
+			<label for="register_all">Fake racers are Registered</label>
 		</p>
 		<p>
-			<input id="register_all" type="checkbox" checked="checked" />
-			<label for="register_all">Fake racers have passed inspection</label>
+			<input id="check_in_all" type="checkbox" checked="checked" />
+			<label for="check_in_all">Fake racers have passed inspection</label>
 		</p>
 		<div class="block_buttons" style="width: 350px;">
 			<input id="do_it" type="button" value="Make Fake Racers" />

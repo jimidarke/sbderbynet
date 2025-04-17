@@ -9,6 +9,39 @@ function url_for_cropped(&$row, $column_name, &$repository) {
   return $repository->url_for_file($row[$column_name], $row['racerid'], RENDER_CROPPED);
 }
 
+function next_slides($current_slide, $subdir = '') {
+    $slides_dir = 'slides/';
+    if (!empty($subdir)) {
+        $slides_dir .= $subdir . '/';
+    }
+    
+    $slides = array();
+    if (is_dir($slides_dir)) {
+        foreach (scandir($slides_dir) as $file) {
+            if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'png') {
+                $slides[] = $file;
+            }
+        }
+        sort($slides); // Alphabetical order
+    }
+    
+    if (empty($slides)) {
+        return array();
+    }
+    
+    // If no current slide, return first slide
+    if (empty($current_slide)) {
+        return array($slides[0]);
+    }
+    
+    // Find current slide and return next one
+    $current_index = array_search($current_slide, $slides);
+    if ($current_index === false || $current_index >= count($slides) - 1) {
+        return array($slides[0]); // Loop back to first slide
+    }
+    
+    return array($slides[$current_index + 1]);
+}
 
 $done = false;
 
@@ -23,90 +56,40 @@ $done = false;
 // argument; if there isn't one, then we advance to 'racer' mode.  'racer' mode
 // tries to return information about the next racer in racerid order; if there
 // isn't one, then we cycle back around to 'title' mode and give a title slide.
-$mode = 'title';
-
-if (isset($_GET['mode'])) {
-  $mode = $_GET['mode'];
-}
-
+$mode = isset($_GET['mode']) ? $_GET['mode'] : 'slide';
 $subdir = '';
 if (isset($_GET['subdir']) && is_acceptable_subdir($_GET['subdir'])) {
-  $subdir = $_GET['subdir'];
-  json_out('subdir', $subdir);
+    $subdir = $_GET['subdir'];
+    json_out('subdir', $subdir);
 }
 
-$racerid = 0;
-if (isset($_GET['racerid'])) {
-  $racerid = $_GET['racerid'];
-}
-
-$classids = '';
-if (isset($_GET['classids'])) {
-  $classids = $_GET['classids'];
-}
-
-
-if ($mode == 'slide') {
-  $f = $_GET['file'];
-
-  $results = next_slides($f, $subdir);
-  if (count($results) > 0) {
-    json_out('debug-results', $results);
-    // next_slides returns filenames only, not paths relative to the slides
-    // directory.
-    if (!empty($subdir)) {
-      $subdir = $subdir.DIRECTORY_SEPARATOR;
+// Only handle slide mode now
+if ($mode == 'slide' || $mode == 'title') {
+    $current_file = isset($_GET['file']) ? $_GET['file'] : '';
+    $results = next_slides($current_file, $subdir);
+    
+    if (count($results) > 0) {
+        json_out('photo', array(
+            'photo' => 'slide.php/' . ($subdir ? $subdir . '/' : '') . rawurlencode($results[0]),
+            'next' => array(
+                'mode' => 'slide',
+                'file' => $results[0]
+            )
+        ));
+        $done = true;
     }
-    json_out('photo', array('photo' => 'slide.php/'.$subdir.rawurlencode($results[0]),
-                            'next' => array('mode' => 'slide',
-                                            'file' => $results[0])));
-    $done = true;
-  }
-
-  $mode = 'racer';
-  $racerid = 0;
 }
 
-if (!$done && $mode == 'racer') {
-  $row = read_single_row('SELECT racerid, lastname, firstname, carnumber, carname, classid,'
-                         .' imagefile, carphoto FROM RegistrationInfo'
-                         .' WHERE racerid > :racerid'
-                         .'  AND passedinspection'
-                         .'  AND ((imagefile IS NOT NULL AND imagefile <> \'\') OR'
-                         .'       (carphoto IS NOT NULL AND carphoto <> \'\'))'
-                         .($classids
-                           ? ' AND classid IN ('.$classids.')'
-                           : '')
-                         .' ORDER BY racerid',
-                         array(':racerid' => $racerid),
-                         PDO::FETCH_ASSOC);
-  if ($row !== false) {
-    $out = array('name' => mangled_name($row, read_name_style()),
-                 'carnumber' => $row['carnumber'],
-                 'carname' => $row['carname'],
-                 'next' => array('mode' => 'racer',
-                                 'racerid' => $row['racerid']));
-    if (isset($row['carphoto'])) {
-      $out['photo'] = url_for_cropped($row, 'carphoto', car_photo_repository());
-      if (isset($row['imagefile'])) {
-        $out['inset'] = url_for_cropped($row, 'imagefile', headshots());
-      }
-    } else {
-      // From the query, imagefile should be populated if carphoto isn't
-      $out['photo'] = url_for_cropped($row, 'imagefile', headshots());
-    }
-    json_out('photo', $out);
-    $done = true;
-  }
-  $mode = 'title';
-}
-
-if (!$done && $mode == 'title') {
-  json_out('photo', array('photo' => 'slide.php/title',
-                          'title' => true,
-                          'next' => array('mode' => 'slide',
-                                          'file' => '')));
-  $done = true;
+// If no slides found, show title slide
+if (!$done) {
+    json_out('photo', array(
+        'photo' => 'slide.php/title',
+        'title' => true,
+        'next' => array(
+            'mode' => 'slide',
+            'file' => ''
+        )
+    ));
 }
 
 ?>

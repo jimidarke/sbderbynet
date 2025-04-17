@@ -27,6 +27,73 @@
 
 require_once('inc/replay.inc');
 
+require_once('inc/data.inc');
+
+// Check if the racer is registered
+// function check_registration_status($roundid) {
+//   global $db;
+  
+//   $stmt = $db->prepare('SELECT carnumber, registered 
+//                        FROM RaceChart 
+//                        JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid
+//                        WHERE roundid = :roundid 
+//                        AND registered = 0');
+//   $stmt->execute([':roundid' => $roundid]);
+  
+//   $unregistered = [];
+//   while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+//       $unregistered[] = $row['carnumber'];
+//   }
+  
+//   if (!empty($unregistered)) {
+//       return [
+//           'allowed' => false,
+//           'message' => 'Cannot start racing: The following racers are not registered: ' . 
+//                       implode(', ', $unregistered)
+//       ];
+//   }
+  
+//   return ['allowed' => true];
+// }
+
+
+
+function check_registration_status($roundid) {
+  global $db;
+  
+  $stmt = $db->prepare('SELECT carnumber, registered 
+                       FROM RaceChart 
+                       JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid
+                       WHERE roundid = :roundid 
+                       AND registered = 0');
+  $stmt->execute([':roundid' => $roundid]);
+  
+  $unregistered = [];
+  while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+      $unregistered[] = $row['carnumber'];
+  }
+  
+  if (!empty($unregistered)) {
+      $message = 'Cannot start racing: The following racers with Pinny Numbers: ' . 
+                implode(', ', $unregistered) . ' are not registered';
+      
+      // Send both failure and notification data
+      json_failure('unregistered_racers', $message);
+      json_out('registration_status', [
+          'status' => 'error',
+          'message' => $message,
+          'unregistered' => $unregistered
+      ]);
+      return false;
+  }
+  
+  // Send success notification
+  json_out('registration_status', [
+      'status' => 'success',
+      'message' => 'All racers are registered'
+  ]);
+  return true;
+}
 
 function racing_state_allowed(&$current) {
   if (!isset($current['roundid']) || !isset($current['heat'])) {
@@ -35,6 +102,20 @@ function racing_state_allowed(&$current) {
   if ($current['roundid'] == TIMER_TEST_ROUNDID) {
     return true;
   }
+      
+  // // Check registration status first
+  // $registration_check = check_registration_status($current['roundid']);
+  // if (!$registration_check['allowed']) {
+  //     write_raceinfo('racing_blocked_reason', $registration_check['message']);
+  //     return false;
+  // }
+
+    
+  // Check registration status first
+  if (!check_registration_status($current['roundid'])) {
+    return false;
+  }
+  
   $finished = read_single_value('SELECT COUNT(*) FROM RaceChart'
                                 .' WHERE roundid = :roundid'
                                 .'  AND  heat = :heat'
@@ -65,27 +146,29 @@ function get_racing_state() {
 // Turning off NowRacingState always succeeds.
 function set_racing_state($state) {
   $state = ($state ? 1 : 0);
-
+  
   $current = get_running_round();
   if ($state) {
-    if (!racing_state_allowed($current)) {
-      return false;
-    }
+      if (!racing_state_allowed($current)) {
+          $reason = read_raceinfo('racing_blocked_reason', 
+              'Cannot start racing - validation failed');
+          write_raceinfo('racing_blocked_reason', ''); // Clear the message
+          json_out('error', $reason);
+          return false;
+      }
 
-    if (!$current['now_racing']) {
-      // This starts the video when the "Now Racing" switch turns
-      // on.
-      send_replay_START($current);
-    }
+      if (!$current['now_racing']) {
+          send_replay_START($current);
+      }
   } else {
-    if ($current['now_racing']) {
-      send_replay_CANCEL();
-    }
+      if ($current['now_racing']) {
+          send_replay_CANCEL();
+      }
   }
 
   write_raceinfo('NowRacingState', $state);
   write_raceinfo('refused-results', 0);
-
+  
   return true;
 }
 

@@ -65,20 +65,22 @@
 // UPDATE: As on 31-03-2025
 
 // Action to schedule heats for a round, with each car running once in each lane.
-require_once('inc/data.inc');
-require_once('inc/masterheat.inc');
-require_once('inc/autoadvance.inc');
-require_once('inc/schedule_utils.inc');
-require_once('inc/schedule_one_round.inc');
-require_once('inc/error-logging.inc');
 
 $roundid = $_POST['roundid'];
 $n_times_per_lane = isset($_POST['n_times_per_lane']) ? $_POST['n_times_per_lane'] : 1;
 
 $trace = !isset($_POST['trace']) ? false : array('trace');
 
+//  error_log("roundid: $roundid, n_times_per_lane: $n_times_per_lane, trace: $trace");
+
+require_once('inc/data.inc');
+require_once('inc/masterheat.inc');
+require_once('inc/autoadvance.inc');
+require_once('inc/schedule_utils.inc');
+require_once('inc/schedule_one_round.inc');
+
 if (have_permission(CONTROL_RACE_PERMISSION)) {
-  // Get number of lanes in use  
+  // Get number of lanes in use
   $nlanes = read_raceinfo('lane_count', 0);
   $nlanes -= count_one_bits(read_raceinfo('unused-lane-mask', 0));
 
@@ -87,56 +89,24 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
   } else if (results_exist($roundid)) {
     json_failure('results-exist', 'Race results already exist for this round');
   } else {
-    // Check for unregistered or failed inspection racers
-    $stmt = $db->prepare('SELECT carnumber, registered, passedinspection 
-                         FROM RaceChart
-                         JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid
-                         WHERE roundid = :roundid');
-    $stmt->execute([':roundid' => $roundid]);
-    
-    $unregistered = [];
-    $failed_inspection = [];
-    
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-      if (!$row['registered']) {
-        $unregistered[] = $row['carnumber'];
-      }
-      if (!$row['passedinspection']) {
-        $failed_inspection[] = $row['carnumber'];
-      }
-    }
+    // Fetch heat ordering settings
+    $group_weighted_cars = intval(read_raceinfo('group-weighted-cars', 0));
+    $avoid_consecutive = intval(read_raceinfo('avoid-consecutive', 0));
+    $avoid_same_lane = intval(read_raceinfo('avoid-same-lane', 0));
 
-    // Don't schedule racers who failed inspection
-    if (!empty($failed_inspection)) {
-      json_failure('inspection_failed', 
-        'The following racers have not passed inspection and will not be scheduled: ' . 
-        implode(', ', $failed_inspection));
-      return;
-    }
+    // error_log("group_weighted_cars: $group_weighted_cars, avoid_consecutive: $avoid_consecutive, avoid_same_lane: $avoid_same_lane");
 
-    // Allow scheduling but warn about unregistered racers
-    if (!empty($unregistered)) {
-      error_log("Warning: Unregistered racers in schedule: " . implode(', ', $unregistered));
-    }
-
-    // Continue with schedule generation...
-    if (schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace)) {
+    // Generate schedule with additional constraints
+    if (schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace, 
+                           $group_weighted_cars, $avoid_consecutive, $avoid_same_lane)) {
       json_success();
       if ($trace) {
         json_out('trace', $trace);
       }
-      
-      // Add warning about unregistered racers to response
-      if (!empty($unregistered)) {
-        json_out('unregistered_warning', 
-          'The following racers are scheduled but not registered: ' . 
-          implode(', ', $unregistered));
-      }
-      
       require('ajax/query.poll.coordinator.inc');
     } else {
-      json_failure('too-few-racers', 
-        'There need to be at least two racers checked in to generate a schedule.');
+      json_failure('too-few-racers', 'There need to be at least two racers checked in'
+                   .' to generate a schedule.');
     }
   }
 

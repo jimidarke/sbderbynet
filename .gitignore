@@ -51,4 +51,5 @@ UniServerZ
 UniServerZ/*
 .htaccess
 *.zip
-local.php
+index.php
+settings.jsonsw

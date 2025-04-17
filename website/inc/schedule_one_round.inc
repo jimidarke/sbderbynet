@@ -197,7 +197,9 @@ function schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace,
     $sched = make_rotation_schedule($nlanes, count($roster), $n_times_per_lane, $trace);
   }
 
-  write_chart($roundid, spread_across_unused_lanes(form_chart($sched, $roster)));
+  $chart = form_chart($sched, $roster);
+  $spread_chart = spread_across_unused_lanes($chart);
+  write_chart($roundid, $spread_chart);
   return true;
 }
 

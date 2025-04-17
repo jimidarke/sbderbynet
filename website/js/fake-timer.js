@@ -298,13 +298,14 @@ function send_heartbeat() {
       data[`ready${laneNumber}`] = isReady ? 1 : 0;
   });
 
-  console.log("Sending HEARTBEAT data:", data); // Debugging
+  // console.log("Sending HEARTBEAT data:", data); // Debugging
 
   $.ajax('action.php', {
       type: 'POST',
       data: data,
       success: function (response) {
-          console.log("HEARTBEAT response:", response);
+          // console.log("HEARTBEAT response:", response);
+          process_timer_messages(data);
       }
   });
 }
