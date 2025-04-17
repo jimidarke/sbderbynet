@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.2.4"
+PCB_VERSION     = "0.2.7"
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -176,19 +176,21 @@ class derbyPCBv1:
         logging.info(f"LED Set to {colour}")
 
     def _updatePinny(self):
-        self.tm.brightness(7)
         if self.led == "blue" and self.readyToRace == False:
+            self.tm.brightness(4)
             self.tm.show("flip")
             logging.info("Not ready to race, showing flip")
-        else: 
-            self.tm.show(self.pinny)
-        if self.led == "red":
-            self.tm.brightness(1)
-            self.tm.show("stop")
+        elif self.led == "red":
             if self.getBatteryPercent() < 20:
                 self.tm.show("BATT")
                 self.tm.brightness(3)
                 logging.warning("Battery low " + str(self.getBatteryPercent()) + "%")
+            else:
+                self.tm.brightness(1)
+                self.tm.show("stop")
+        else: 
+            self.tm.brightness(7)
+            self.tm.show(self.pinny)
 
             
     def get_uptime(self):
