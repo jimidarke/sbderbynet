@@ -167,9 +167,12 @@ make_index("Roster", "roundid"),
 "CREATE TABLE `Rounds` ("
 ."  `roundid` INTEGER PRIMARY KEY, "
 ."  `round` INTEGER NOT NULL, "
+."  `roundname` varchar NULL, "  // 'Preliminary', 'Semi-Final', 'Final'  
 ."  `classid` INTEGER NOT NULL, "
 ."  `charttype` INTEGER, "
-."  `phase` INTEGER"
+."  `phase` INTEGER, "
+."  `is_triple_elim` BOOLEAN DEFAULT 0,"  // New field to identify triple elimination rounds
+.'  `elim_type` VARCHAR (20)' // New field to identify elimination type`
 .")",
 make_index("Rounds", "classid"),
 make_index("Rounds", "round"),

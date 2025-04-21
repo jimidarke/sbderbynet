@@ -28,7 +28,6 @@
 require_once('inc/replay.inc');
 
 require_once('inc/data.inc');
-require_once('error-logging.inc');
 
 // Check if the racer is registered
 // function check_registration_status($roundid) {
@@ -107,44 +106,40 @@ function racing_state_allowed(&$current)
   }
 
   // Triple Elimination rounds
-  // Get round info
-  $round_info = read_single_row(
-    'SELECT r.roundname, r.classid, c.class 
+    // Get round info
+    $round_info = read_single_row(
+      'SELECT r.roundname, r.classid, c.class 
        FROM Rounds r
        JOIN Classes c ON c.classid = r.classid
        WHERE r.roundid = :roundid',
-    [':roundid' => $current['roundid']]
+      [':roundid' => $current['roundid']]
   );
 
   if ($round_info) {
-    // Check round type requirements
-    $roundname = $round_info['roundname'] ?? null;
-
-    if ($roundname) {
-      switch ($roundname) {
-        case 'Semi-Final Round':
-          $prelim_complete = check_preliminary_complete($current['roundid'] - 1);
-          if (!$prelim_complete) {
-            write_raceinfo(
-              'racing_blocked_reason',
-              'Cannot start Semi-Finals until Preliminary round is complete'
-            );
-            return false;
+      // Check round type requirements
+      $roundname = $round_info['roundname'] ?? null;
+      
+      if ($roundname) {
+          switch ($roundname) {
+              case 'Semi-Final':
+                  $prelim_complete = check_preliminary_complete($current['roundid'] - 1);
+                  if (!$prelim_complete) {
+                      write_raceinfo('racing_blocked_reason', 
+                          'Cannot start Semi-Finals until Preliminary round is complete');
+                      return false;
+                  }
+                  break;
+                  
+              case 'Final':
+                  $semi_complete = check_round_complete($current['roundid'] - 1);
+                  if (!$semi_complete) {
+                      write_raceinfo('racing_blocked_reason', 
+                          'Cannot start Finals until Semi-Final round is complete');
+                      return false;
+                  }
+                  break;
           }
-          break;
-
-        case 'Final Round':
-          $semi_complete = check_round_complete($current['roundid'] - 1);
-          if (!$semi_complete) {
-            write_raceinfo(
-              'racing_blocked_reason',
-              'Cannot start Finals until Semi-Final round is complete'
-            );
-            return false;
-          }
-          break;
       }
-    }
   }
 
 
@@ -191,12 +186,11 @@ function racing_state_allowed(&$current)
   return true;
 }
 
-function check_preliminary_complete($roundid)
-{
+function check_preliminary_complete($roundid) {
   global $db;
-
+  
   $stmt = $db->prepare(
-    "SELECT COUNT(*) as incomplete
+      "SELECT COUNT(*) as incomplete
        FROM (
            SELECT racerid 
            FROM RaceChart 
@@ -206,7 +200,7 @@ function check_preliminary_complete($roundid)
        )"
   );
   $stmt->execute([':roundid' => $roundid]);
-
+  
   return $stmt->fetchColumn() == 0;
 }
 
@@ -291,22 +285,22 @@ function advance_round($roundid)
   return true;
 }
 
-// function add_to_round($roundid, $racerid)
-// {
-//   global $db;
+function add_to_round($roundid, $racerid)
+{
+  global $db;
 
-//   $stmt = $db->prepare(
-//     'INSERT INTO Roster (roundid, racerid, classid)
-//        SELECT :roundid, :racerid, r.classid
-//        FROM Rounds r
-//        WHERE r.roundid = :roundid'
-//   );
+  $stmt = $db->prepare(
+    'INSERT INTO Roster (roundid, racerid, classid)
+       SELECT :roundid, :racerid, r.classid
+       FROM Rounds r
+       WHERE r.roundid = :roundid'
+  );
 
-//   return $stmt->execute([
-//     ':roundid' => $roundid,
-//     ':racerid' => $racerid
-//   ]);
-// }
+  return $stmt->execute([
+    ':roundid' => $roundid,
+    ':racerid' => $racerid
+  ]);
+}
 
 
 function get_racing_state()
@@ -361,4 +355,158 @@ function maybe_cancel_running_round($roundid)
     cancel_running_round();
   }
 }
+
+function advance_triple_elimination($roundid) {
+    global $db;
+    error_log("Starting triple elimination advancement for round: " . $roundid);
+    
+    try {
+        $db->beginTransaction();
+        
+        // Get current round info
+        $round_info = read_single_row(
+            'SELECT r.roundid, r.elim_type, r.classid, r.round, r.roundname 
+             FROM Rounds r 
+             WHERE r.roundid = :roundid',
+            [':roundid' => $roundid]
+        );
+
+        if (!$round_info) {
+            error_log("Error: Round not found: " . $roundid);
+            throw new Exception("Round not found: " . $roundid);
+        }
+
+        error_log("Processing " . $round_info['roundname'] . " round");
+
+        switch ($round_info['elim_type']) {
+            case 'preliminary':
+                // Verify all racers completed 3 runs
+                $incomplete = read_single_value(
+                    "SELECT COUNT(*) FROM (
+                        SELECT racerid FROM RaceChart 
+                        WHERE roundid = :roundid 
+                        GROUP BY racerid 
+                        HAVING COUNT(finishtime) < 3
+                    )",
+                    [':roundid' => $roundid]
+                );
+
+                if ($incomplete > 0) {
+                    error_log("Error: Preliminary round incomplete - some racers missing runs");
+                    throw new Exception("All racers must complete 3 runs before advancing");
+                }
+
+                // Get top 27 based on average time
+                $stmt = $db->prepare(
+                    "SELECT racerid 
+                     FROM (
+                         SELECT racerid, AVG(finishtime) as avg_time
+                         FROM RaceChart 
+                         WHERE roundid = :roundid
+                         AND finishtime IS NOT NULL
+                         GROUP BY racerid
+                         HAVING COUNT(*) = 3
+                         ORDER BY avg_time ASC
+                         LIMIT 27
+                     ) qualified"
+                );
+                $stmt->execute([':roundid' => $roundid]);
+                $qualifiers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                error_log("Found " . count($qualifiers) . " qualifiers for semifinals");
+
+                // Get semifinal round
+                $semifinal = read_single_row(
+                    'SELECT roundid FROM Rounds 
+                     WHERE classid = :classid 
+                     AND elim_type = :elim_type',
+                    [
+                        ':classid' => $round_info['classid'],
+                        ':elim_type' => 'semifinal'
+                    ]
+                );
+
+                if (!$semifinal) {
+                    error_log("Error: Semifinal round not found");
+                    throw new Exception("Semifinal round not found");
+                }
+
+                // Clear existing semifinal roster
+                $db->exec('DELETE FROM Roster WHERE roundid = ' . $semifinal['roundid']);
+                
+                // Add qualifiers to semifinal round
+                foreach ($qualifiers as $racerid) {
+                    add_to_round($semifinal['roundid'], $racerid);
+                }
+
+                // Generate semifinal schedule
+                $nlanes = read_raceinfo('lane_count', 0);
+                if (!schedule_one_round($semifinal['roundid'], $nlanes, 1, false)) {
+                    error_log("Error: Failed to generate semifinal schedule");
+                    throw new Exception("Failed to generate semifinal schedule");
+                }
+
+                error_log("Successfully scheduled semifinal round");
+                break;
+
+            case 'semifinal':
+                // Get top 9 from semifinals based on single run time
+                $stmt = $db->prepare(
+                    "SELECT racerid
+                     FROM RaceChart 
+                     WHERE roundid = :roundid
+                     AND finishtime IS NOT NULL
+                     ORDER BY finishtime ASC
+                     LIMIT 9"
+                );
+                $stmt->execute([':roundid' => $roundid]);
+                $qualifiers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                error_log("Found " . count($qualifiers) . " qualifiers for finals");
+
+                // Get final round
+                $final = read_single_row(
+                    'SELECT roundid FROM Rounds 
+                     WHERE classid = :classid 
+                     AND elim_type = :elim_type',
+                    [
+                        ':classid' => $round_info['classid'],
+                        ':elim_type' => 'final'
+                    ]
+                );
+
+                if (!$final) {
+                    error_log("Error: Final round not found");
+                    throw new Exception("Final round not found");
+                }
+
+                // Clear existing final roster
+                $db->exec('DELETE FROM Roster WHERE roundid = ' . $final['roundid']);
+                
+                // Add qualifiers to final round
+                foreach ($qualifiers as $racerid) {
+                    add_to_round($final['roundid'], $racerid);
+                }
+
+                // Generate final schedule
+                $nlanes = read_raceinfo('lane_count', 0);
+                if (!schedule_one_round($final['roundid'], $nlanes, 1, false)) {
+                    error_log("Error: Failed to generate final schedule");
+                    throw new Exception("Failed to generate final schedule");
+                }
+
+                error_log("Successfully scheduled final round");
+                break;
+        }
+        
+        $db->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $db->rollBack();
+        error_log("Error in advance_triple_elimination: " . $e->getMessage());
+        throw $e;
+    }
+}
+
 ?>

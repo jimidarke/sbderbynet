@@ -38,8 +38,9 @@ if (have_permission(SET_UP_PERMISSION)) {
       $index = mt_rand(0, count($fake_names) - 1);
       $racer = $fake_names[$index];
 
-      // Generate a random weight between 0.1kg and 0.2kg
-      $random_weight = round(mt_rand(25000, 50000) / 1000.0, 2); // Converts to kg (e.g., 0.25 - 0.50 kg) 
+      // Generate a random weight between 25kg and 50kg
+      $random_weight = round(mt_rand(25000, 50000) / 1000.0, 2); // Converts to kg (e.g., 25 - 50 kg) 
+      $checkInTime = floor(microtime(true) * 1000);
 
       $racerid = insert_new_racer(array(
             'firstname' => $racer['firstname'],
@@ -47,6 +48,7 @@ if (have_permission(SET_UP_PERMISSION)) {
             'carname' => '',
             'carnumber' => ($g - 1) * 100 + $r + 1,
             'partition' => $group_name,
+            'checkin_time' => $checkInTime,
             'carweight' => $random_weight // Assign Generated Weight
         ));
 

@@ -87,16 +87,70 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
   } else if (results_exist($roundid)) {
     json_failure('results-exist', 'Race results already exist for this round');
   } else {
+
+    // Update the query to handle missing columns gracefully
+    $round_info = read_single_row(
+      'SELECT r.roundid, r.round, r.roundname, r.classid,
+          CASE WHEN EXISTS (
+              SELECT 1 FROM pragma_table_info("Rounds") 
+              WHERE name="is_triple_elim"
+          ) 
+          THEN r.is_triple_elim 
+          ELSE 0 
+          END as is_triple_elim,
+          CASE WHEN EXISTS (
+              SELECT 1 FROM pragma_table_info("Rounds") 
+              WHERE name="elim_type"
+          )
+          THEN r.elim_type
+          ELSE NULL
+          END as elim_type
+   FROM Rounds r
+   WHERE r.roundid = :roundid',
+      [':roundid' => $roundid]
+    );
+
+    if (!$round_info) {
+      json_failure('round-not-found', 'Round not found');
+      return;
+    }
+
+    // Check if triple elimination is enabled and properly configured
+    if (isset($round_info['is_triple_elim']) && $round_info['is_triple_elim']) {
+      if (!isset($round_info['elim_type'])) {
+        error_log("Warning: Triple elimination round without elimination type");
+        $round_info['elim_type'] = 'preliminary'; // Default to preliminary
+      }
+
+      switch ($round_info['elim_type']) {
+        case 'preliminary':
+        case 'Preliminary':
+          $n_times_per_lane = 3;
+          break;
+        case 'semifinal':
+        case 'Semi-Final':
+          $n_times_per_lane = 1;
+          break;
+        case 'final':
+        case 'Final':
+          $n_times_per_lane = 1;
+          break;
+        default:
+          error_log("Warning: Unknown elimination type: " . $round_info['elim_type']);
+          $n_times_per_lane = 1;
+      }
+    }
+
     // Check for unregistered or failed inspection racers
     $stmt = $db->prepare('SELECT carnumber, registered, passedinspection 
                          FROM RaceChart
                          JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid
                          WHERE roundid = :roundid');
     $stmt->execute([':roundid' => $roundid]);
-    
+
     $unregistered = [];
     $failed_inspection = [];
-    
+
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
       if (!$row['registered']) {
         $unregistered[] = $row['carnumber'];
@@ -108,9 +162,11 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
 
     // Don't schedule racers who failed inspection
     if (!empty($failed_inspection)) {
-      json_failure('inspection_failed', 
-        'The following racers have not passed inspection and will not be scheduled: ' . 
-        implode(', ', $failed_inspection));
+      json_failure(
+        'inspection_failed',
+        'The following racers have not passed inspection and will not be scheduled: ' .
+        implode(', ', $failed_inspection)
+      );
       return;
     }
 
@@ -125,18 +181,22 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
       if ($trace) {
         json_out('trace', $trace);
       }
-      
+
       // Add warning about unregistered racers to response
       if (!empty($unregistered)) {
-        json_out('unregistered_warning', 
-          'The following racers are scheduled but not registered: ' . 
-          implode(', ', $unregistered));
+        json_out(
+          'unregistered_warning',
+          'The following racers are scheduled but not registered: ' .
+          implode(', ', $unregistered)
+        );
       }
-      
+
       require('ajax/query.poll.coordinator.inc');
     } else {
-      json_failure('too-few-racers', 
-        'There need to be at least two racers checked in to generate a schedule.');
+      json_failure(
+        'too-few-racers',
+        'There need to be at least two racers checked in to generate a schedule.'
+      );
     }
   }
 

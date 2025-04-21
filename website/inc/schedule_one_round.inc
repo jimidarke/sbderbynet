@@ -108,15 +108,16 @@ require_once('inc/schedule_utils.inc');
 require_once('inc/schedule_rotation.inc');
 require_once('inc/events.inc');
 
-function read_roster($roundid, $by_car_number = false) {
+function read_roster($roundid, $by_car_number = false)
+{
   global $db;
   $roster = array();
   $group_by_weight = read_raceinfo('group-weighted-cars', 0);  // Updated key
 
   $stmt = $db->prepare('SELECT rosterid, Roster.racerid, RegistrationInfo.carweight FROM Roster'
-                       .' INNER JOIN RegistrationInfo ON Roster.racerid = RegistrationInfo.racerid'
-                       .' WHERE roundid = :roundid AND passedinspection = 1'
-                       .($by_car_number ? ' ORDER BY carnumber, rosterid' : ' ORDER BY rosterid'));
+    . ' INNER JOIN RegistrationInfo ON Roster.racerid = RegistrationInfo.racerid'
+    . ' WHERE roundid = :roundid AND passedinspection = 1'
+    . ($by_car_number ? ' ORDER BY carnumber, rosterid' : ' ORDER BY rosterid'));
   $stmt->execute(array(':roundid' => $roundid));
 
   foreach ($stmt as $row) {
@@ -125,16 +126,17 @@ function read_roster($roundid, $by_car_number = false) {
 
   // Sort by weight if grouping is enabled
   if ($group_by_weight) {
-    usort($roster, function($a, $b) {
+    usort($roster, function ($a, $b) {
       return $a['carweight'] <=> $b['carweight'];
     });
   }
-// error_log(print_r($roster, true));
+  // error_log(print_r($roster, true));
   return array_column($roster, 'racerid');  // Return only racer IDs
 }
 
 // Converts a schedule to a race chart
-function form_chart(&$schedule, &$roster) {
+function form_chart(&$schedule, &$roster)
+{
   $heats = array();
   foreach ($schedule as $sched_heat) {
     $heat = array();
@@ -147,13 +149,14 @@ function form_chart(&$schedule, &$roster) {
 }
 
 // Writes the race chart to the database
-function write_chart($roundid, &$heats) {
+function write_chart($roundid, &$heats)
+{
   global $db;
   record_event(EVENT_SCHEDULE_ADDED, array('roundid' => $roundid));
-  $db->exec('DELETE FROM RaceChart WHERE roundid = '.$roundid);
-  $classid = read_single_value('SELECT classid FROM Rounds WHERE roundid = '.$roundid);
+  $db->exec('DELETE FROM RaceChart WHERE roundid = ' . $roundid);
+  $classid = read_single_value('SELECT classid FROM Rounds WHERE roundid = ' . $roundid);
   $stmt = $db->prepare('INSERT INTO RaceChart(roundid, heat, lane, racerid, classid)'
-                       .' VALUES(:roundid, :heat, :lane, :racerid, :classid)');
+    . ' VALUES(:roundid, :heat, :lane, :racerid, :classid)');
   $heat_index = 0;
   foreach ($heats as $heat) {
     ++$heat_index;
@@ -161,21 +164,60 @@ function write_chart($roundid, &$heats) {
     foreach ($heat as $racerid) {
       ++$lane_index;
       if ($racerid) {
-        $stmt->execute(array(':roundid' => $roundid,
-                             ':heat' => $heat_index,
-                             ':lane' => $lane_index,
-                             ':racerid' => $racerid,
-                             ':classid' => $classid));
+        $stmt->execute(array(
+          ':roundid' => $roundid,
+          ':heat' => $heat_index,
+          ':lane' => $lane_index,
+          ':racerid' => $racerid,
+          ':classid' => $classid
+        ));
       }
     }
   }
 }
 
 // Main scheduling function
-function schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace, 
-                            $group_weighted_cars = 0, $avoid_consecutive = 0, $avoid_same_lane = 0) {
+function schedule_one_round(
+  $roundid,
+  $nlanes,
+  $n_times_per_lane,
+  $trace,
+  $group_weighted_cars = 0,
+  $avoid_consecutive = 0,
+  $avoid_same_lane = 0
+) {
+  global $db;
+
+  // Get round information including triple elimination status
+  $round_info = read_single_row(
+    'SELECT r.roundid, r.round, r.roundname, r.classid, 
+              r.is_triple_elim, r.elim_type, r.phase
+      FROM Rounds r
+      WHERE r.roundid = :roundid',
+    [':roundid' => $roundid]
+  );
+
+  if (!$round_info) {
+    error_log("Round info not found for roundid: " . $roundid);
+    return false;
+  }
+
+  // Override n_times_per_lane based on elimination type
+  if (isset($round_info['is_triple_elim']) && $round_info['is_triple_elim']) {
+    switch ($round_info['elim_type']) {
+      case 'preliminary':
+        $n_times_per_lane = 3; // Three runs in preliminaries
+        break;
+      case 'semifinal':
+      case 'final':
+        $n_times_per_lane = 1; // One run in semis/finals
+        break;
+    }
+  }
+
   $rotation_schedule = read_raceinfo('rotation-schedule', 0);
-  $roster = read_roster($roundid, /*by_car_number=*/$rotation_schedule);
+  $roster = read_roster($roundid, $rotation_schedule);
+
   if (count($roster) < 2) {
     return false;
   }
@@ -190,9 +232,17 @@ function schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace,
   }
 
   if (!$rotation_schedule) {
-    $sched = make_ordered_schedule($roundid, $nlanes, count($roster), $n_times_per_lane,
-                                   $max_runs_per_car, $trace, $group_weighted_cars,
-                                   $avoid_consecutive, $avoid_same_lane);
+    $sched = make_ordered_schedule(
+      $roundid,
+      $nlanes,
+      count($roster),
+      $n_times_per_lane,
+      $max_runs_per_car,
+      $trace,
+      $group_weighted_cars,
+      $avoid_consecutive,
+      $avoid_same_lane
+    );
   } else {
     $sched = make_rotation_schedule($nlanes, count($roster), $n_times_per_lane, $trace);
   }

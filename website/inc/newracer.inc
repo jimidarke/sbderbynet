@@ -7,6 +7,7 @@ require_once('inc/schema_version.inc');
 require_once('inc/sql-script.inc');
 require_once(sql_file_path('column-widths'));
 require_once('inc/rank_add_or_delete.inc');
+require_once('error-logging.inc') ;
 
 define('UNSPECIFIED_CLASS', '* Not specified');
 define('UNSPECIFIED_RANK', '* Not specified');
@@ -58,9 +59,10 @@ function insert_new_racer($values) {
   }
 
 
-  $stmt = $db->prepare('INSERT INTO RegistrationInfo (carnumber, lastname, firstname, carname, note, partitionid, rankid, classid, exclude, carweight)
-                       VALUES(:carnumber, :lastname, :firstname, :carname, :note, :partitionid, :rankid, :classid, :exclude, :carweight)');
+  $stmt = $db->prepare('INSERT INTO RegistrationInfo (carnumber, lastname, firstname, carname, note, partitionid, rankid, classid, exclude, carweight, checkin_time)
+                       VALUES(:carnumber, :lastname, :firstname, :carname, :note, :partitionid, :rankid, :classid, :exclude, :carweight, :checkin_time)');
 
+  $values['checkin_time'] = isset($values['checkin_time']) ? $values['checkin_time'] : floor(microtime(true) * 1000);  // Set default if missing
   $values['carweight'] = isset($values['carweight']) ? $values['carweight'] : '0';  // Set default if missing
 
   try {
@@ -73,6 +75,7 @@ function insert_new_racer($values) {
           ':partitionid' => $values['partitionid'],
           ':rankid' => $values['rankid'],
           ':classid' => $values['classid'],
+          ':checkin_time' => $values['checkin_time'],
           ':exclude' => (isset($values['exclude']) && $values['exclude']) ? 1 : 0,
           ':carweight' => $values['carweight']
       ));

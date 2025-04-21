@@ -101,8 +101,12 @@ function read_raceinfo($key, $def = false) {
 						   array(':key' => $key), $def);
 }
 
-function read_raceinfo_boolean($key) {
-  return read_raceinfo($key) ? true : false;
+function read_raceinfo_boolean($key, $default = false) {
+    $value = read_raceinfo($key);
+    if ($value === false || $value === null) {
+        return $default;
+    }
+    return $value == '1' || strtolower($value) == 'true';
 }
 
 function write_raceinfo($key, $val) {
@@ -202,56 +206,82 @@ define('TIMER_TEST_ROUNDID', -100);
 // Returns an array value with elements for { classid => , roundid => , heat => }
 // describing the currently-running round and heat.
 function get_running_round() {
-  global $db;
-  $config = array('use_master_sched' => 0,
-                  'use_points' => 0,
-                  'now_racing' => 0,
-				  'class' => '',
-				  'roundid' => -1,
-				  'classid' => 1,
-				  'round' => 1,
-          'heat' => 1);  // May be overwritten
 
-  foreach ($db->query('SELECT itemkey, itemvalue FROM RaceInfo') as $rs) {
-    $key = $rs['itemkey'];
-    $val = $rs['itemvalue'];
-    if ($key == 'ClassID')
-      $config['classid'] = $val;
-    else if ($key == 'RoundID')
-      $config['roundid'] = $val;
-    else if ($key == 'Heat')
-      $config['heat'] = $val;
-    // GPRM doesn't record use-master-sched in the database; it has to
-    // be set explicitly from the settings page.
-    // TODO: use-master-sched key => UseMasterSched
-    else if ($key == 'use-master-sched')
-      $config['use_master_sched'] = $val ? 1 : 0;
-    else if ($key == 'use-points')
-      $config['use_points'] = $val ? 1 : 0;
-    else if ($key == 'NowRacingState')
-      $config['now_racing'] = $val ? 1 : 0;
-  }
+  // global $db;
+  // $config = array('use_master_sched' => 0,
+  //                 'use_points' => 0,
+  //                 'now_racing' => 0,
+	// 			  'class' => '',
+	// 			  'roundid' => -1,
+	// 			  'classid' => 1,
+	// 			  'round' => 1,
+  //         'heat' => 1);  // May be overwritten
 
-  if (@$config['roundid'] == TIMER_TEST_ROUNDID) {
-    $config['class'] = 'Timer Test';
-    $config['round'] = 1;
-  } else if (@$config['roundid']) {
-    $stmt = $db->prepare('SELECT round, class'
-                         .' FROM Rounds'
-                         .' INNER JOIN Classes'
-                         .' ON Rounds.classid = Classes.classid'
-                         .' WHERE roundid = :roundid'
-                         .' AND Rounds.classid = :classid');
-    $stmt->execute(array(':roundid' => @$config['roundid'],
-                         ':classid' => @$config['classid']));
-    $rs = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($rs !== false) {
-      $config['class'] = $rs['class'];
-      $config['round'] = $rs['round'];
+  // foreach ($db->query('SELECT itemkey, itemvalue FROM RaceInfo') as $rs) {
+  //   $key = $rs['itemkey'];
+  //   $val = $rs['itemvalue'];
+  //   if ($key == 'ClassID')
+  //     $config['classid'] = $val;
+  //   else if ($key == 'RoundID')
+  //     $config['roundid'] = $val;
+  //   else if ($key == 'Heat')
+  //     $config['heat'] = $val;
+  //   // GPRM doesn't record use-master-sched in the database; it has to
+  //   // be set explicitly from the settings page.
+  //   // TODO: use-master-sched key => UseMasterSched
+  //   else if ($key == 'use-master-sched')
+  //     $config['use_master_sched'] = $val ? 1 : 0;
+  //   else if ($key == 'use-points')
+  //     $config['use_points'] = $val ? 1 : 0;
+  //   else if ($key == 'NowRacingState')
+  //     $config['now_racing'] = $val ? 1 : 0;
+  // }
+
+  // if (@$config['roundid'] == TIMER_TEST_ROUNDID) {
+  //   $config['class'] = 'Timer Test';
+  //   $config['round'] = 1;
+  // } else if (@$config['roundid']) {
+  //   $stmt = $db->prepare('SELECT round, class'
+  //                        .' FROM Rounds'
+  //                        .' INNER JOIN Classes'
+  //                        .' ON Rounds.classid = Classes.classid'
+  //                        .' WHERE roundid = :roundid'
+  //                        .' AND Rounds.classid = :classid');
+  //   $stmt->execute(array(':roundid' => @$config['roundid'],
+  //                        ':classid' => @$config['classid']));
+  //   $rs = $stmt->fetch(PDO::FETCH_ASSOC);
+  //   if ($rs !== false) {
+  //     $config['class'] = $rs['class'];
+  //     $config['round'] = $rs['round'];
+  //   }
+  // }
+
+  // Update As on 18-04-2025
+  // The above code is replaced with the following code to use the new
+    $config = array();
+    $config['roundid'] = read_raceinfo('RoundID', 0);
+    $config['heat'] = read_raceinfo('Heat', 0);
+    $config['now_racing'] = read_raceinfo('NowRacingState', 0);
+    $config['use_master_sched'] = use_master_sched();
+
+    if ($config['roundid']) {
+        $round = read_single_row(
+            'SELECT Rounds.round, Rounds.roundname, Classes.classid, Classes.class 
+             FROM Rounds 
+             INNER JOIN Classes ON Classes.classid = Rounds.classid 
+             WHERE Rounds.roundid = :roundid',
+            [':roundid' => $config['roundid']]
+        );
+
+        if ($round) {
+            $config['round'] = $round['round'] ?? null;
+            $config['roundname'] = $round['roundname'] ?? null;
+            $config['class'] = $round['class'] ?? null;
+            $config['classid'] = $round['classid'] ?? null;
+        }
     }
-  }
 
-  return $config;
+    return $config;
 }
 
 function record_action($args) {

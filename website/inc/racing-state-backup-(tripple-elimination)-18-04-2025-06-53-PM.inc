@@ -291,22 +291,22 @@ function advance_round($roundid)
   return true;
 }
 
-// function add_to_round($roundid, $racerid)
-// {
-//   global $db;
+function add_to_round($roundid, $racerid)
+{
+  global $db;
 
-//   $stmt = $db->prepare(
-//     'INSERT INTO Roster (roundid, racerid, classid)
-//        SELECT :roundid, :racerid, r.classid
-//        FROM Rounds r
-//        WHERE r.roundid = :roundid'
-//   );
+  $stmt = $db->prepare(
+    'INSERT INTO Roster (roundid, racerid, classid)
+       SELECT :roundid, :racerid, r.classid
+       FROM Rounds r
+       WHERE r.roundid = :roundid'
+  );
 
-//   return $stmt->execute([
-//     ':roundid' => $roundid,
-//     ':racerid' => $racerid
-//   ]);
-// }
+  return $stmt->execute([
+    ':roundid' => $roundid,
+    ':racerid' => $racerid
+  ]);
+}
 
 
 function get_racing_state()
@@ -361,4 +361,181 @@ function maybe_cancel_running_round($roundid)
     cancel_running_round();
   }
 }
+
+function advance_triple_elimination($roundid) {
+    global $db;
+    error_log("Starting triple elimination advancement for round: " . $roundid);
+    
+    try {
+        $db->beginTransaction();
+        
+        // Updated query to include all required fields
+        $round_info = read_single_row(
+            'SELECT r.roundid, r.elim_type, r.classid, r.round, r.roundname, 
+                    r.is_triple_elim,
+                    c.class as den_name,
+                    COALESCE(r.elim_type, \'preliminary\') as elim_type
+             FROM Rounds r 
+             JOIN Classes c ON c.classid = r.classid
+             WHERE r.roundid = :roundid',
+            [':roundid' => $roundid]
+        );
+
+        error_log("Round info retrieved: " . json_encode($round_info));
+
+        if (!$round_info) {
+            error_log("Round not found: " . $roundid);
+            throw new Exception("Round not found: " . $roundid);
+        }
+
+        error_log("Processing {$round_info['den_name']} - {$round_info['roundname']} ({$round_info['elim_type']})");
+
+        // Add null checks
+        if (!isset($round_info['elim_type'])) {
+            error_log("Warning: Missing elimination type, defaulting to preliminary");
+            $round_info['elim_type'] = 'preliminary';
+        }
+
+        switch ($round_info['elim_type']) {
+            case 'preliminary':
+                // Get next round (semifinal)
+                $semifinal = read_single_row(
+                    'SELECT roundid FROM Rounds 
+                     WHERE classid = :classid 
+                     AND round = 2
+                     AND elim_type = :elim_type',
+                    [
+                        ':classid' => $round_info['classid'],
+                        ':elim_type' => 'semifinal'
+                    ]
+                );
+
+                if (!$semifinal) {
+                    throw new Exception("Semifinal round not found");
+                }
+
+                // Get top 27 based on SUM of three race times
+                $stmt = $db->prepare(
+                    "SELECT racerid
+                     FROM (
+                         SELECT racerid, 
+                                SUM(finishtime) as total_time,
+                                COUNT(*) as race_count
+                         FROM RaceChart 
+                         WHERE roundid = :roundid
+                         AND finishtime IS NOT NULL
+                         GROUP BY racerid
+                         HAVING race_count = 3
+                         ORDER BY total_time ASC
+                         LIMIT 27
+                     ) qualified"
+                );
+                $stmt->execute([':roundid' => $roundid]);
+                $qualifiers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                error_log("Found " . count($qualifiers) . " qualifiers for semifinals");
+
+                // Clear existing semifinal roster
+                $db->exec('DELETE FROM Roster WHERE roundid = ' . $semifinal['roundid']);
+                
+                // Add qualifiers to semifinal round
+                foreach ($qualifiers as $racerid) {
+                    add_to_round($semifinal['roundid'], $racerid);
+                }
+
+                // Schedule semifinal heats
+                $nlanes = read_raceinfo('lane_count', 0);
+                schedule_one_round($semifinal['roundid'], $nlanes, 1, false);
+
+                // Create playlist entry for semifinals
+                $stmt = $db->prepare(
+                    'INSERT INTO Playlist (
+                        classid, round, n_times_per_lane, continue_racing,
+                        seq, bucketed, bucket_limit
+                    ) VALUES (
+                        :classid,
+                        2,
+                        1,
+                        1,
+                        (SELECT COALESCE(MAX(seq), 0) + 1 FROM Playlist),
+                        0,
+                        0
+                    )'
+                );
+                $stmt->execute([':classid' => $round_info['classid']]);
+                break;
+
+            case 'semifinal':
+                // Get final round
+                $final = read_single_row(
+                    'SELECT roundid FROM Rounds 
+                     WHERE classid = :classid 
+                     AND round = 3
+                     AND elim_type = :elim_type',
+                    [
+                        ':classid' => $round_info['classid'],
+                        ':elim_type' => 'final'
+                    ]
+                );
+
+                if (!$final) {
+                    throw new Exception("Final round not found");
+                }
+
+                // Get top 3 based on single race time
+                $stmt = $db->prepare(
+                    "SELECT racerid
+                     FROM RaceChart 
+                     WHERE roundid = :roundid
+                     AND finishtime IS NOT NULL
+                     GROUP BY racerid
+                     ORDER BY MIN(finishtime) ASC
+                     LIMIT 3"
+                );
+                $stmt->execute([':roundid' => $roundid]);
+                $qualifiers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                error_log("Found " . count($qualifiers) . " qualifiers for finals");
+
+                // Clear existing final roster
+                $db->exec('DELETE FROM Roster WHERE roundid = ' . $final['roundid']);
+                
+                // Add qualifiers to final round
+                foreach ($qualifiers as $racerid) {
+                    add_to_round($final['roundid'], $racerid);
+                }
+
+                // Schedule final heats
+                $nlanes = read_raceinfo('lane_count', 0);
+                schedule_one_round($final['roundid'], $nlanes, 1, false);
+
+                // Create playlist entry for finals
+                $stmt = $db->prepare(
+                    'INSERT INTO Playlist (
+                        classid, round, n_times_per_lane, continue_racing,
+                        seq, bucketed, bucket_limit
+                    ) VALUES (
+                        :classid,
+                        3,
+                        1,
+                        1,
+                        (SELECT COALESCE(MAX(seq), 0) + 1 FROM Playlist),
+                        0,
+                        0
+                    )'
+                );
+                $stmt->execute([':classid' => $round_info['classid']]);
+                break;
+        }
+        
+        $db->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $db->rollBack();
+        error_log("Error in advance_triple_elimination: " . $e->getMessage());
+        throw $e;
+    }
+}
+
 ?>

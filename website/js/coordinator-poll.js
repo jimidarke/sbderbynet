@@ -960,21 +960,28 @@ function process_coordinator_poll_json(json) {
 
   // Helper function to format time ago
   function formatTimeAgo(timeAgoInSeconds) {
-    // console.log(timeAgoInSeconds);
-
     if (isNaN(timeAgoInSeconds)) {
       return "Unknown";
     }
-
-    const minutes = Math.floor(timeAgoInSeconds / 60);
+  
     const seconds = timeAgoInSeconds % 60;
-
-    if (minutes > 0) {
-      return `${minutes}m ${seconds}s ago`;
-    } else {
-      return `${seconds}s ago`;
-    }
+    const minutes = Math.floor(timeAgoInSeconds / 60) % 60;
+    const hours = Math.floor(timeAgoInSeconds / 3600) % 24;
+    const days = Math.floor(timeAgoInSeconds / 86400) % 30;
+    const months = Math.floor(timeAgoInSeconds / (86400 * 30)) % 12;
+    const years = Math.floor(timeAgoInSeconds / (86400 * 365));
+  
+    let parts = [];
+    if (years > 0) parts.push(`${years}y`);
+    if (months > 0) parts.push(`${months}mo`);
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  
+    return parts.join(' ') + ' ago';
   }
+  
 
   generate_replay_state_group(json["replay-state"]);
 
@@ -1077,7 +1084,7 @@ function coordinator_poll() {
 }
 
 $(function () {
-  g_polling_interval = setInterval(coordinator_poll, 5000);
+  g_polling_interval = setInterval(coordinator_poll, 2000);
   coordinator_poll();
 });
 

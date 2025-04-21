@@ -3,7 +3,13 @@
 require_once('inc/last-heat.inc');
 require_once('inc/timer-test.inc');
 
-function compare_by_finishtime(&$lhs, &$rhs) {
+// function compare_by_finishtime(&$lhs, &$rhs) {
+//   if ($lhs['finishtime'] == $rhs['finishtime']) return 0;
+//   return ($lhs['finishtime'] < $rhs['finishtime']) ? -1 : 1;
+// }
+
+// Fix references to values in the array
+function compare_by_finishtime($lhs, $rhs) {
   if ($lhs['finishtime'] == $rhs['finishtime']) return 0;
   return ($lhs['finishtime'] < $rhs['finishtime']) ? -1 : 1;
 }
