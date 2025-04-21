@@ -3,7 +3,7 @@ Description=Derby Display Service
 After=network.target 
 
 [Service]
-ExecStart=/usr/bin/python3 /opt/derbynet/files/derbydisplay.py
+ExecStart=/usr/bin/python3 /opt/derbynet/derbydisplay.py
 Restart=always
 User=root
 
