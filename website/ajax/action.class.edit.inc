@@ -7,10 +7,12 @@
 require_once('inc/classes.inc');
 require_once('inc/partitions.inc');
 require_once(sql_file_path('column-widths'));
+require_once("inc/error-logging.inc");
 
 if (have_permission(SET_UP_PERMISSION)) {
   if (isset($_POST['classid']) && isset($_POST['name'])) {
     $name = substr(trim($_POST['name']), 0, CLASS_COLUMN_WIDTH);
+    error_log("Renaming class {".json_encode($_POST)."} to $name");
     $stmt = $db->prepare('UPDATE Classes SET class = :name WHERE classid = :classid');
     $stmt->execute(array(':classid' => $_POST['classid'],
                          ':name' => $name));
@@ -20,11 +22,20 @@ if (have_permission(SET_UP_PERMISSION)) {
       $stmt = $db->prepare('UPDATE Ranks SET rank = :name WHERE classid = :classid');
       $stmt->execute(array(':classid' => $_POST['classid'],
                            ':name' => $name));
-      $stmt = $db->prepare('UPDATE Partitions SET name = :name'
-                           .' WHERE rankid IN (SELECT rankid FROM Ranks'
-                           .'                  WHERE classid = :classid)');
-      $stmt->execute(array(':classid' => $_POST['classid'],
-                           ':name' => $name));
+      $stmt = $db->prepare('SELECT COUNT(*) FROM Partitions WHERE name = :name AND rankid NOT IN (
+        SELECT rankid FROM Ranks WHERE classid = :classid)');
+      $stmt->execute(array(':name' => $name, ':classid' => $_POST['classid']));
+      if ($stmt->fetchColumn() == 0) {
+        $stmt = $db->prepare('UPDATE Partitions SET name = :name'
+                              .' WHERE rankid IN (SELECT rankid FROM Ranks'
+                              .'                  WHERE classid = :classid)');
+        $stmt->execute(array(':classid' => $_POST['classid'],
+                              ':name' => $name));
+      } else {
+        json_failure('duplicate-partition-name', "Another partition already uses the name '$name'");
+        exit;
+      }
+                          
     }
     if (isset($_POST['ntrophies'])) {
       update_ntrophies($_POST['classid'], $_POST['ntrophies']);
