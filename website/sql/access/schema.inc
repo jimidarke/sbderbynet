@@ -296,14 +296,16 @@ array(
 
 'DROP TABLE Rounds',
 
-'CREATE TABLE Rounds'
-.'	('
-.'	RoundID   COUNTER,'
-.'	Round     INTEGER,'
-.'	ClassID   INTEGER,'
-.'	ChartType INTEGER,'
-.'	Phase     INTEGER'
-.'	)',
+'CREATE TABLE `Rounds` ('
+.'  `roundid` INTEGER PRIMARY KEY, '
+.'  `round` INTEGER NOT NULL, '
+.'  `roundname` varchar NULL, '  // 'Preliminary', 'Semi-Final', 'Final'
+.'  `classid` INTEGER NOT NULL, '
+.'  `charttype` INTEGER, '
+.'  `phase` INTEGER, '
+.'  `is_triple_elim` BOOLEAN DEFAULT 0,'  // New field
+.'  `elim_type` VARCHAR (20)'  // New field
+.')',
 
 'CREATE UNIQUE INDEX PrimaryKey'
 .'	ON Rounds (RoundID)',

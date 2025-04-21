@@ -78,8 +78,8 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 			write_raceinfo(
 				'timer-interface',
 				isset($_POST['build'])
-					? $_POST['interface'] . '-' . $_POST['build']
-					: $_POST['interface']
+				? $_POST['interface'] . '-' . $_POST['build']
+				: $_POST['interface']
 			);
 		}
 		$last_contact = $timer_state->last_contact();
@@ -117,10 +117,10 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		if (isset($_POST['options'])) {
 			write_raceinfo('timer-options', $_POST['options']);
 		}
-		if (@$_POST['vid']) {
+		if (isset($_POST['vid'])) {
 			write_raceinfo('timer-vid', $_POST['vid']);
 		}
-		if (@$_POST['pid']) {
+		if (isset($_POST['pid'])) {
 			write_raceinfo('timer-pid', $_POST['pid']);
 		}
 		if (isset($_POST['confirmed']) && $_POST['confirmed'] == 0) {
@@ -168,7 +168,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// $lane = isset($_POST['lane']) ? intval($_POST['lane']) : null;
 		// $timerID = isset($_POST['timerID']) ? substr($_POST['timerID'], 0, 11) : null;
 		// $ready = isset($_POST['ready']) ? intval($_POST['ready']) : 0;
-	
+
 		// if ($lane && $timerID) {
 		// 	// Update or insert the timer status in the database
 		// 	$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
@@ -189,10 +189,10 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// 		$laneIndex = $matches[1];
 		// 		$timerID = isset($_POST["timerId{$laneIndex}"]) ? substr($_POST["timerId{$laneIndex}"], 0, 11) : null;
 		// 		$ready = isset($_POST["ready{$laneIndex}"]) ? intval($_POST["ready{$laneIndex}"]) : 0;
-	
+
 		// 		if ($lane && $timerID) {
 		// 			error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
-	
+
 		// 			$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
 		// 								  VALUES (:lane, :timerID, :last_heartbeat, :ready)');
 		// 			$success = $stmt->execute(array(
@@ -201,7 +201,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// 				':last_heartbeat' => time(),
 		// 				':ready' => $ready
 		// 			));
-	
+
 		// 			if (!$success) {
 		// 				error_log("Database error: " . print_r($stmt->errorInfo(), true));
 		// 			} else {
@@ -210,7 +210,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// 		}
 		// 	}
 		// }
-		
+
 
 		error_log("HEARTBEAT POST data: " . print_r($_POST, true));
 
@@ -220,10 +220,10 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// 		$laneIndex = $matches[1];
 		// 		$timerID = isset($_POST["timerId{$laneIndex}"]) ? substr($_POST["timerId{$laneIndex}"], 0, 11) : null;
 		// 		$ready = isset($_POST["ready{$laneIndex}"]) ? intval($_POST["ready{$laneIndex}"]) : 0;
-		
+
 		// 		if ($lane && $timerID) {
 		// 			error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
-				
+
 		// 			$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
 		// 								  VALUES (:lane, :timerID, :last_heartbeat, :ready)');
 		// 			$success = $stmt->execute(array(
@@ -232,7 +232,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// 				':last_heartbeat' => time(),
 		// 				':ready' => $ready
 		// 			));
-				
+
 		// 			if (!$success) {
 		// 				error_log("Database error: " . print_r($stmt->errorInfo(), true));
 		// 			} else {
@@ -249,10 +249,10 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 				$laneIndex = $matches[1];
 				$timerID = isset($_POST["timerId{$laneIndex}"]) ? substr($_POST["timerId{$laneIndex}"], 0, 11) : null;
 				$ready = isset($_POST["ready{$laneIndex}"]) ? intval($_POST["ready{$laneIndex}"]) : 0;
-		
+
 				if ($lane && $timerID) {
 					error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
-		
+
 					// Update or insert the timer status in the database
 					$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
 										  VALUES (:lane, :timerID, :last_heartbeat, :ready)');
@@ -262,7 +262,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 						':last_heartbeat' => time(),
 						':ready' => $ready
 					));
-		
+
 					if (!$success) {
 						error_log("Database error: " . print_r($stmt->errorInfo(), true));
 					} else {
@@ -271,28 +271,28 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 				}
 			}
 		}
-		
+
 		// Mark stale timers as not ready
 		$staleThreshold = time() - 5; // 5 seconds threshold for stale timers
 		$stmt = $db->prepare('UPDATE TimerStatus SET ready = 0 WHERE last_heartbeat < :staleThreshold');
 		$success = $stmt->execute(array(':staleThreshold' => $staleThreshold));
-		
+
 		if (!$success) {
 			error_log("Failed to mark stale timers: " . print_r($stmt->errorInfo(), true));
 		} else {
 			error_log("Stale timers marked as not ready.");
 		}
-		
+
 		// Delete stale timers
 		$stmt = $db->prepare('DELETE FROM TimerStatus WHERE last_heartbeat < :staleThreshold');
 		$success = $stmt->execute(array(':staleThreshold' => $staleThreshold));
-		
+
 		if (!$success) {
 			error_log("Failed to delete stale timers: " . print_r($stmt->errorInfo(), true));
 		} else {
 			error_log("Stale timers deleted.");
 		}
-		
+
 
 
 		echo "\n  <success/>\n";
@@ -393,7 +393,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		}
 		if ($pending) {
 			echo '  <heat-ready lane-mask="' . $mask . '"'
-				. ' class="' . htmlspecialchars($current['class'], ENT_QUOTES, 'UTF-8') . '"'
+				. ' class="' . htmlspecialchars($current['class'] ?? '', ENT_QUOTES, 'UTF-8') . '"'
 				. ' round="' . $current['round'] . '"'
 				. ' roundid="' . $current['roundid'] . '"'
 				. ' heat="' . $current['heat'] . '"'

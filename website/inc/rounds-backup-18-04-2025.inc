@@ -35,9 +35,9 @@ function all_rounds($by_class = true) {
   $use_groups = use_groups();
   $stmt = $db->query('SELECT roundid, roundid AS groupid, round,'
                      .' Classes.classid, class,'
-                    //  .($use_groups ? "class || ', ' || " : "")
-                     .' roundname As roundnamee,'
+                     .($use_groups ? "class || ', ' || " : "")
                      .'\'Round \' || round AS roundname'
+                     .' roundname As roundName,'
                      .' FROM Rounds INNER JOIN Classes'
                      .' ON Rounds.classid = Classes.classid'
                      .' ORDER BY '
@@ -82,37 +82,34 @@ function sql_for_departed($roundid_expr) {
 function all_rounds_with_counts($by_class = true) {
   global $db;
   $use_groups = use_groups();
-  
-  // Add is_triple_elim and elim_type to the query
-  $stmt = $db->query('SELECT roundid, roundid AS groupid, round,
-                   Classes.classid, class,
-                   COALESCE(is_triple_elim, 0) as is_triple_elim,
-                   elim_type,
-                   ' . (schema_version() >= 3 ? ' constituents > \'\' AS aggregate,' : '0 AS aggregate,') . '
-                   ' . ($use_groups ? " class || ', ' ||" : "") . '
-                   CASE 
-                       WHEN is_triple_elim = 1 THEN elim_type
-                       ELSE \'Round \' || round 
-                   END AS roundname,
-                   (SELECT COUNT(*) FROM Roster 
-                    WHERE Roster.roundid = Rounds.roundid) AS roster_size,
-                   (SELECT COUNT(*) FROM Roster
-                    INNER JOIN RegistrationInfo
-                    ON Roster.racerid = RegistrationInfo.racerid
-                    WHERE Roster.roundid = Rounds.roundid
-                    AND RegistrationInfo.passedinspection <> 0) AS passed,
-                   (SELECT COUNT(*) ' . sql_for_unscheduled('Rounds.roundid') . ') AS unscheduled,
-                   (SELECT COUNT(DISTINCT racerid) ' . sql_for_departed('Rounds.roundid') . ') AS departed,
-                   (SELECT COUNT(DISTINCT heat) FROM RaceChart 
-                    WHERE roundid = Rounds.roundid) AS heats_scheduled,
-                   (SELECT COUNT(DISTINCT heat) FROM RaceChart
-                    WHERE roundid = Rounds.roundid
-                    AND (finishtime IS NOT NULL OR finishplace IS NOT NULL)) AS heats_run
-                   FROM Rounds 
-                   INNER JOIN Classes ON Rounds.classid = Classes.classid
-                   ORDER BY ' . ($by_class ? '' : 'round, ') .
-                   (schema_version() >= 2 ? 'Classes.sortorder, ' : '') . 'class, round');
-
+  $stmt = $db->query('SELECT roundid, roundid AS groupid, round,'
+                     .' Classes.classid, class,'
+                     .(schema_version() >= 3 ? ' constituents > \'\' AS aggregate,' : '0 AS aggregate,')
+                     .($use_groups ? " class || ', ' ||" : "")
+                     .' \'Round \' || round AS roundname,'
+                     .' (SELECT COUNT(*) FROM Roster'
+                     .'   WHERE Roster.roundid = Rounds.roundid) AS roster_size,'
+                     .' (SELECT COUNT(*) FROM Roster'
+                     .'    INNER JOIN RegistrationInfo'
+                     .'    ON Roster.racerid = RegistrationInfo.racerid'
+                     .'   WHERE Roster.roundid = Rounds.roundid'
+                     .'   AND RegistrationInfo.passedinspection <> 0) AS passed,'
+                     .' (SELECT COUNT(*) '.sql_for_unscheduled('Rounds.roundid')
+                                          .') AS unscheduled,'
+                     .' (SELECT COUNT(DISTINCT racerid) '.sql_for_departed('Rounds.roundid')
+                                                         .') AS departed,'
+                     .' (SELECT COUNT(DISTINCT heat) FROM RaceChart'
+                     .'         WHERE roundid = Rounds.roundid) AS heats_scheduled,'
+                     .' (SELECT COUNT(DISTINCT heat) FROM RaceChart'
+                     .'         WHERE roundid = Rounds.roundid'
+                     .'         AND (finishtime IS NOT NULL'
+                     .'           OR finishplace IS NOT NULL)) AS heats_run'
+                     .' FROM Rounds INNER JOIN Classes'
+                     .' ON Rounds.classid = Classes.classid'
+                     .' ORDER BY '
+                     .($by_class ? '' : 'round, ')
+                     .(schema_version() >= 2 ? 'Classes.sortorder, ' : '')
+                     .'class, round');
   return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

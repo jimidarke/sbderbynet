@@ -157,7 +157,7 @@ foreach ($rounds as $round) {
       .(use_groups()
         ? htmlspecialchars($round['class'], ENT_QUOTES, 'UTF-8').', '
         : '')
-      .'Round '.$round['round'].'</th>'
+      .'Round '.$round['round'].' ('. $round['roundnamee'] .') </th>'
       .'</tr>'."\n";
 
   echo '<tr>';
@@ -187,7 +187,7 @@ foreach ($rounds as $round) {
       }
       $racer_label .= '<div class="racer_label"><span class="racer">'
         .htmlspecialchars(mangled_name($rs, $name_style), ENT_QUOTES, 'UTF-8').'</span>'
-		.' (<span class="car">'.$rs['carnumber'].'</span>)</div>';
+		.' (<span class="car"> Pinny: '.$rs['carnumber'].'</span>)</div>';
       $racer_cells = array();
       for ($i = 1; $i <= $nlanes; ++$i) {
 		$racer_cells[] = array();

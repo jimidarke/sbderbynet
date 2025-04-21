@@ -59,11 +59,11 @@ require_permission(CHECK_IN_RACERS_PERMISSION);
 	<p>You can purge the fake roster data by <b>returning to the Set-Up page</b>.</p>
 	<div style="margin-left: 20px; font-size: 24px;">
 		Generate
-		<input id="ngroups" type="number" min="1" max="10" class="not-mobile" value="6" />
+		<input id="ngroups" type="number" min="1" max="20" class="not-mobile" value="6" />
 		<?php echo plural(group_label()); ?>
 		<br />
 		of approximately
-		<input id="racers_per_group" type="number" min="2" max="20" class="not-mobile" value="5" />
+		<input id="racers_per_group" type="number" min="2" max="50" class="not-mobile" value="5" />
 		fake racers each.
 		<br />
 		<p>
