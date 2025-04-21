@@ -1,7 +1,0 @@
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=Start kiosk
-Encoding=UTF-8
-Exec=sh -c "/opt/derbynet/files/kiosk.sh"
-X-GNOME-Autostart-enabled=true

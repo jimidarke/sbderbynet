@@ -84,7 +84,7 @@ class DerbyNetClient:
             if not self.authcode:
                 logging.critical("Failed to authenticate with DerbyNet.")
                 return False
-        payload = "message=HEARTBEAT&action=timer-message"
+        payload = "message=HEARTBEAT&action=timer-message&confirmed=1&lane1=1&lane2=2&lane3=3&timerId1=L1&timerId2=L2&timerId3=L3"
         headers = {
             'Content-Type': "application/x-www-form-urlencoded",
             'Cookie': self.authcode

@@ -1,121 +1,206 @@
 #!/bin/bash
+# Kiosk Setup Script - Console Autologin Version for Raspberry Pi OS Lite
 
-# Kiosk Setup Script
-# Configures a device to display a webpage with MAC address as URL parameter
-# Includes splash screens and error handling
-
-# Configuration variables
-WEB_URL="http://192.168.100.10/derbynet/kiosk.php"  
-LOADING_IMAGE="/opt/kiosk/splash/loading.png"
-ERROR_IMAGE="/opt/kiosk/splash/error.png"
+### Configuration ###
+WEB_URL="http://192.168.100.10/derbynet/kiosk.php?address="
+LOADING_IMAGE="/opt/derbynet/loading.png"
+ERROR_IMAGE="/opt/derbynet/error.png"
 KIOSK_USER="kioskuser"
-DESKTOP_ENV="xfce"  
+LOG_FILE="/var/log/kiosk-install.log"
 
-# Check if script is run as root
-if [ "$(id -u)" -ne 0 ]; then
-    echo "This script must be run as root" >&2
+### Initialization ###
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== Starting Kiosk Installation $(date) ==="
+
+### System Checks ###
+[ "$(id -u)" -ne 0 ] && { echo "ERROR: Must be run as root" >&2; exit 1; }
+
+### Verify Images ###
+check_images() {
+    [ -f "$LOADING_IMAGE" ] || { echo "ERROR: Missing $LOADING_IMAGE" >&2; exit 1; }
+    [ -f "$ERROR_IMAGE" ] || { echo "ERROR: Missing $ERROR_IMAGE" >&2; exit 1; }
+    echo "Found both splash screen images"
+}
+
+### System Configuration ###
+setup_system() {
+    echo "--- Configuring System ---"
+
+    if ! id "$KIOSK_USER" &>/dev/null; then
+        useradd -m -G video,input,render,tty "$KIOSK_USER" || {
+            echo "ERROR: Failed to create user" >&2
+            exit 1
+        }
+    fi
+
+    echo "$KIOSK_USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/kioskuser
+    chmod 440 /etc/sudoers.d/kioskuser
+
+    mkdir -p /opt/kiosk/splash
+    chown "$KIOSK_USER:$KIOSK_USER" /opt/kiosk
+
+    # Fix X Server permissions
+    echo -e "allowed_users=anybody\nneeds_root_rights=yes" > /etc/X11/Xwrapper.config
+}
+
+setup_kiosk_app_v2(){
+    echo "--- Configuring Kiosk App ---"
+    cat > /home/"$KIOSK_USER"/.xinitrc <<'EOL'
+#!/bin/bash
+# Set display
+export DISPLAY=:0
+
+# Paths
+LOADING="/opt/derbynet/loading.png"
+ERROR="/opt/derbynet/error.png"
+URL_FILE="/opt/derbynet/url.txt"
+BASE_URL="http://192.168.100.10/derbynet/kiosk.php?address="
+
+# Determine final URL
+if [[ -f "$URL_FILE" ]]; then
+    CUSTOM_URL=$(cat "$URL_FILE")
+    URL="${CUSTOM_URL:-$BASE_URL}"
+else
+    URL="$BASE_URL"
+fi
+
+# Detect Chromium binary
+CHROMIUM=$(command -v chromium-browser || command -v chromium)
+if [[ -z "$CHROMIUM" ]]; then
+    echo "ERROR: Chromium not found"
     exit 1
 fi
 
-# Install required packages
-echo "Installing required packages..."
-apt-get update
-apt-get install -y --no-install-recommends \
-    xserver-xorg x11-xserver-utils xinit \
-    unclutter chromium \
-    lightdm xinit openbox \
-    feh sudo
+# Show loading screen
+feh --fullscreen --hide-pointer "$LOADING" &
+FEH_PID=$!
+sleep 3  # shorter, tweak if you need more buffer
 
-# Create kiosk user if not exists
-if ! id "$KIOSK_USER" &>/dev/null; then
-    echo "Creating kiosk user..."
-    useradd -m -G audio,video,input "$KIOSK_USER"
-    echo "$KIOSK_USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010_kioskuser
+# Get MAC address (first available NIC)
+MAC=$(cat /sys/class/net/eth0/address 2>/dev/null || \
+      cat /sys/class/net/wlan0/address 2>/dev/null || \
+      echo "NOMAC")
+
+# Wait for network connection (ping gateway)
+NETWORK_READY=false
+for i in {1..30}; do
+    if ping -c1 -W1 192.168.100.10 >/dev/null 2>&1; then
+        NETWORK_READY=true
+        break
+    fi
+    sleep 1
+done
+
+# Act based on network state
+if $NETWORK_READY; then
+    kill "$FEH_PID" 2>/dev/null
+    sleep 0.5
+    # Hide mouse cursor
+    unclutter-xfixes --timeout 0 --hide-on-touch &
+    # Launch browser in kiosk mode
+    #exec "$CHROMIUM" --noerrdialogs --kiosk --incognito "${URL}${MAC}"
+    exec "$CHROMIUM" --noerrdialogs --kiosk --start-fullscreen --window-size=1920,1080 --no-sandbox --incognito "${URL}${MAC}" >> ~/kiosk.log 2>&1
+
+else
+    kill "$FEH_PID" 2>/dev/null
+    feh --fullscreen --hide-pointer "$ERROR" &
+    echo "Network failed to connect after 30s" >> ~/kiosk.log
+    sleep 30
+    exit 1
 fi
 
-# Create splash screen directory
-echo "Setting up splash screens..."
-mkdir -p /opt/kiosk/splash
-# You should place your loading.png and error.png in this directory
-# For now we'll create simple placeholder images
-wget http://192.168.100.10/derbynet/loading.png -O /opt/kiosk/splash/loading.png
-wget http://192.168.100.10/derbynet/error.png -O /opt/kiosk/splash/error.png
-#convert -size 800x480 xc:navy /opt/kiosk/splash/loading.png
-#convert -size 800x480 xc:maroon /opt/kiosk/splash/error.png
-chown -R "$KIOSK_USER:$KIOSK_USER" /opt/kiosk
-
-# Configure lightdm to auto-login
-echo "Configuring lightdm for auto-login..."
-cat > /etc/lightdm/lightdm.conf <<EOL
-[SeatDefaults]
-autologin-user=$KIOSK_USER
-autologin-user-timeout=0
-user-session=$DESKTOP_ENV
 EOL
+    chown "$KIOSK_USER:$KIOSK_USER" /home/"$KIOSK_USER"/.xinitrc
+    chmod +x /home/"$KIOSK_USER"/.xinitrc
+}
 
-# Create xinit script
-echo "Creating xinit script..."
-cat > /home/$KIOSK_USER/.xinitrc <<EOL
-#!/bin/sh
+### Kiosk Application ###
+setup_kiosk_app() {
+    echo "--- Configuring Kiosk App ---"
+    cat > /home/"$KIOSK_USER"/.xinitrc <<'EOL'
+#!/bin/bash
+# Set display environment
+export DISPLAY=:0
 
-# Display loading screen
-feh --fullscreen --hide-pointer $LOADING_IMAGE &
+# Configuration
+LOADING="/opt/derbynet/loading.png"
+ERROR="/opt/derbynet/error.png"
+URL="http://192.168.100.10/derbynet/kiosk.php?address="
+
+if [ ! -f /opt/derbynet/url.txt ]; then
+    URL="http://192.168.100.10/derbynet/kiosk.php?address="
+else
+    URL=$(cat /opt/derbynet/url.txt)
+fi
+
+# Find Chromium
+CHROMIUM=$(which chromium-browser || which chromium)
+[ -z "$CHROMIUM" ] && { echo "ERROR: Chromium not found"; exit 1; }
+
+# Show loading screen
+feh --fullscreen --hide-pointer "$LOADING" &
+sleep 10
+FEH_PID=$!
 
 # Get MAC address
-MAC=\$(cat /sys/class/net/eth0/address 2>/dev/null || cat /sys/class/net/wlan0/address 2>/dev/null)
-MAC=\${MAC//:/}
+MAC=$(cat /sys/class/net/eth0/address 2>/dev/null || cat /sys/class/net/wlan0/address 2>/dev/null)
+[ -z "$MAC" ] && MAC="NOMAC"
 
+# Network check (ping + HTTP)
+SUCCESS=false #true
 # Wait for network connection
 count=0
 while [ \$count -lt 30 ]; do
-    ping -c1 example.com >/dev/null 2>&1 && break
+    ping -c1 192.168.100.10 >/dev/null 2>&1 && SUCCESS=true && break
     sleep 1
     count=\$((count+1))
 done
 
-# Launch browser or show error
-if [ \$count -lt 30 ]; then
-    # Network is up, launch browser
-    pkill feh  # Close loading screen
-    exec chromium-browser \\
-        --noerrdialogs \\
-        --disable-infobars \\
-        --kiosk \\
-        --incognito \\
-        --disable-translate \\
-        --disable-features=TranslateUI \\
-        --disk-cache-dir=/dev/null \\
-        --disable-pinch \\
-        --overscroll-history-navigation=0 \\
-        --disable-session-crashed-bubble \\
-        --disable-component-update \\
-        --check-for-update-interval=31536000 \\
-        "$WEB_URL?mac=\$MAC"
+if $SUCCESS; then
+    kill $FEH_PID 2>/dev/null
+    sleep 0.5
+    unclutter-xfixes --timeout 0 --hide-on-touch &
+    exec "$CHROMIUM" --noerrdialogs --kiosk --incognito "${URL}${MAC}"
 else
-    # Network failed, show error
-    pkill feh
-    feh --fullscreen --hide-pointer $ERROR_IMAGE
+    kill $FEH_PID 2>/dev/null
+    feh --fullscreen --hide-pointer "$ERROR" &
+    sleep 30
+    exit 1
+fi
+
+EOL
+
+    chown "$KIOSK_USER:$KIOSK_USER" /home/"$KIOSK_USER"/.xinitrc
+    chmod +x /home/"$KIOSK_USER"/.xinitrc
+}
+
+### Console Autologin Configuration ###
+setup_autologin() {
+    echo "--- Configuring Console Autologin ---"
+    
+    # Configure autologin for tty1
+    mkdir -p /etc/systemd/system/getty@tty1.service.d
+    cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<'EOL'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin kioskuser --noclear %I $TERM
+EOL
+
+    # Create autostart script
+    cat > /etc/profile.d/kiosk.sh <<'EOL'
+#!/bin/sh
+if [ "$(tty)" = "/dev/tty1" ] && [ "$USER" = "kioskuser" ]; then
+    exec startx /home/kioskuser/.xinitrc -- -keeptty -verbose 3
 fi
 EOL
 
-chown "$KIOSK_USER:$KIOSK_USER" /home/$KIOSK_USER/.xinitrc
-chmod +x /home/$KIOSK_USER/.xinitrc
+    chmod +x /etc/profile.d/kiosk.sh
+}
 
-# Configure autostart
-echo "Configuring autostart..."
-mkdir -p /home/$KIOSK_USER/.config/autostart
-cat > /home/$KIOSK_USER/.config/autostart/kiosk.desktop <<EOL
-[Desktop Entry]
-Type=Application
-Name=Kiosk
-Exec=startx
-EOL
-
-chown -R "$KIOSK_USER:$KIOSK_USER" /home/$KIOSK_USER/.config
-
-# Disable screen blanking and power management
-echo "Disabling screen blanking..."
-cat > /etc/X11/xorg.conf.d/10-disable-screensaver.conf <<EOL
+setup_screensleep(){
+    # Disable screen blanking and power management
+    echo "Disabling screen blanking..."
+    cat > /etc/X11/xorg.conf.d/10-disable-screensaver.conf <<EOL
 Section "ServerFlags"
     Option "BlankTime" "0"
     Option "StandbyTime" "0"
@@ -124,77 +209,18 @@ Section "ServerFlags"
 EndSection
 EOL
 
-# Disable sleep modes
-echo "Disabling system sleep modes..."
-systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-
-# Configure Chromium policies for better kiosk performance
-echo "Configuring Chromium policies..."
-mkdir -p /etc/chromium-browser/policies/managed
-cat > /etc/chromium-browser/policies/managed/kiosk_policy.json <<EOL
-{
-    "AutoSelectCertificateForUrls": [{"pattern":"*","filter":{"ISSUER":{"CN":"*"}}}],
-    "DefaultNotificationsSetting": 2,
-    "DefaultPopupsSetting": 2,
-    "DefaultGeolocationSetting": 2,
-    "DefaultWebBluetoothGuardSetting": 2,
-    "PasswordManagerEnabled": false,
-    "TranslateEnabled": false,
-    "ImportAutofillFormData": false,
-    "ImportBrowserTheme": false,
-    "ImportBookmarks": false,
-    "ImportHistory": false,
-    "ImportHomepage": false,
-    "ImportSearchEngine": false,
-    "ImportSavedPasswords": false,
-    "ImportCookies": false,
-    "RestoreOnStartup": 0,
-    "RestoreOnStartupURLs": [],
-    "HomepageLocation": "$WEB_URL",
-    "HardwareAccelerationModeEnabled": true,
-    "AllowDeletingBrowserHistory": false,
-    "AllowDinosaurEasterEgg": false,
-    "BrowserAddPersonEnabled": false,
-    "BrowserGuestModeEnabled": false,
-    "SpellcheckServiceEnabled": false
+    # Disable sleep modes
+    echo "Disabling system sleep modes..."
+    systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 }
-EOL
 
-# Enable hardware acceleration for video playback
-echo "Configuring hardware acceleration..."
-cat > /etc/chromium-browser/customizations/01-accelerate <<EOL
-CHROMIUM_FLAGS="\${CHROMIUM_FLAGS} --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --enable-native-gpu-memory-buffers --enable-accelerated-video-decode"
-EOL
+### Main Execution ###
+{
+    check_images
+    setup_system
+    setup_kiosk_app
+    setup_autologin
+    setup_screensleep
+}
 
-# Clean up
-echo "Cleaning up..."
-apt-get autoremove -y
-apt-get clean
-
-# Création du service système (nouveau)
-echo "Creating systemd service..."
-cat > /etc/systemd/system/kiosk.service <<EOL
-[Unit]
-Description=Kiosk Mode
-After=lightdm.service
-Wants=lightdm.service
-
-[Service]
-User=$KIOSK_USER
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/$KIOSK_USER/.Xauthority
-ExecStart=/bin/bash /home/$KIOSK_USER/.xinitrc
-Restart=on-abort
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-EOL
-
-# Activation du service
-systemctl daemon-reload
-systemctl enable kiosk.service
-
-echo "Setup complete!"
-echo "The kiosk will start automatically on next boot."
-echo "To start it now manually: sudo systemctl start kiosk"
+echo "=== Installation Complete ==="

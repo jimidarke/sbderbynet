@@ -1,42 +1,16 @@
 #!/bin/bash
 
-# This script is used to update the hostname and download the derbynet files from the server and is run on boot
-
-# Customized for the display setup
-
-#  sudo rsync -avz --delete rsync://192.168.100.10/derbynet/derbydisplay/ /opt/derbynet/
-
 # Path to the derbyid.txt file
 DERBY_ID_FILE="/boot/firmware/derbyid.txt"
 SERVER_IP="192.168.100.10"
 RSYNC_SERVER="rsync://$SERVER_IP/derbynet/derbydisplay/"
-LOCAL_DIR="/opt/derbynet"
-
-
-WEB_URL="http://192.168.100.10/derbynet/kiosk.php"  
-LOADING_IMAGE="$LOCAL_DIR/splash/loading.png"
-ERROR_IMAGE="$LOCAL_DIR/splash/error.png"
-KIOSK_USER="kioskuser"
-DESKTOP_ENV="xfce"  
-
-# Check if script is run as root
-if [ "$(id -u)" -ne 0 ]; then
-    echo "This script must be run as root" >&2
-    exit 1
-fi
-
-# Create kiosk user if not exists
-if ! id "$KIOSK_USER" &>/dev/null; then
-    echo "Creating kiosk user..."
-    useradd -m -G audio,video,input "$KIOSK_USER"
-    echo "$KIOSK_USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010_kioskuser
-fi
+LOCAL_DIR="/opt/derbynet/"
 
 # checks if /opt/derbynet (LOCAL_DIR) folder exists, if not creates
 if [ ! -d $LOCAL_DIR ]; then
     sudo mkdir $LOCAL_DIR
-    sudo mkdir $LOCAL_DIR/splash
-    chown -R "$KIOSK_USER:$KIOSK_USER" $LOCAL_DIR/splash
+    sudo chown $KIOSK_USER:$KIOSK_USER -R $LOCAL_DIR
+    sudo chmod 775 -R $LOCAL_DIR
 fi
 
 # Check if the derbyid.txt file exists
@@ -68,6 +42,24 @@ if ! grep -q "$SERVER_IP" /etc/systemd/timesyncd.conf; then
 fi
 timedatectl show-timesync --all
 
+# checks if power saving features were added to the /boot/firmware/config.txt file
+if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then
+    sudo bash -c "echo '#DERBYNET' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'dtparam=audio=off' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'dtparam=uart=off' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'dtoverlay=disable-bt' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'hdmi_force_hotplug=1' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'hdmi_group=2' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'hdmi_mode=82' >> /boot/firmware/config.txt" # 1920x1080 @ 60Hz
+    sudo bash -c "echo 'disable_overscan=1' >> /boot/firmware/config.txt"
+    sudo systemctl disable --now systemd-journald
+    sudo systemctl disable --now rsyslog
+    sudo systemctl disable --now logrotate 
+    sudo systemctl disable --now cron
+    sudo systemctl mask tmp.mount
+    TOREBOOT=1
+fi
+
 # Check if the current hostname matches the derby ID
 if [ "$CURRENT_HOSTNAME" != "$DERBY_ID" ]; then
     echo "Hostname does not match derby ID. Updating hostname to $DERBY_ID."
@@ -79,7 +71,9 @@ else
     echo "Hostname matches derby ID. No changes needed."
 fi
 
-# run raspi-config to enable i2c if needed
+
+# downloads the derbynet files from the server with rsync
+sudo rsync -avz --delete ${RSYNC_SERVER} ${LOCAL_DIR}
 
 # perform system update only if internet is available and /boot/updated file is missing
 if [ ! -f /boot/firmware/updated ]; then
@@ -87,188 +81,42 @@ if [ ! -f /boot/firmware/updated ]; then
     if ping -q -c 1 -W 1 google.com >/dev/null; then
         echo "Internet connection available. Updating system."
         sudo apt update
-        sudo apt upgrade -y 
-        #sudo apt install -y \
-        #    rsync python3 python3-pip mosquitto-clients 
         sudo apt install -y --no-install-recommends \
-            xserver-xorg x11-xserver-utils xinit \
-            unclutter chromium \
-            lightdm xinit openbox \
-            feh sudo
-        #sudo pip install paho-mqtt psutil raspberrypi-tm1637 --break
+            chromium-browser xserver-xorg xinit x11-xserver-utils openbox unclutter feh upower dbus unclutter-xfixes
+        sudo apt install -y rsync python3-pip mosquitto-clients
+        sudo pip install paho-mqtt psutil raspberrypi-tm1637 --break
         sudo apt autoremove -y
         sudo apt clean
+        #run kiosk.sh 
+        sudo chmod +x /opt/derbynet/kiosk.sh
+        # run the kiosk.sh script in the background but wait for it to finish
+        sudo /opt/derbynet/kiosk.sh &
+        # wait for the script to finish 
+        wait $!
+        # create the updated file to indicate that the system has been updated
         sudo touch /boot/firmware/updated
         TOREBOOT=1
     else
         echo "No internet connection available. Skipping system update."
     fi
 else
-    echo "Update file found. Skipping system update."
+    echo "Update file not found. Skipping system update."
 fi
 
-
-
-if [ ! -f /boot/firmware/displaysetup ]; then
-    # Configure lightdm to auto-login
-    echo "Configuring lightdm for auto-login..."
-
-cat > /etc/lightdm/lightdm.conf <<EOL
-[SeatDefaults]
-autologin-user=$KIOSK_USER
-autologin-user-timeout=0
-user-session=$DESKTOP_ENV
-EOL
-
-
-# Create xinit script
-echo "Creating xinit script..."
-cat > /home/$KIOSK_USER/.xinitrc <<EOL
-#!/bin/sh
-
-# Display loading screen
-feh --fullscreen --hide-pointer $LOADING_IMAGE &
-
-# Get MAC address
-MAC=\$(cat /sys/class/net/eth0/address 2>/dev/null || cat /sys/class/net/wlan0/address 2>/dev/null)
-MAC=\${MAC//:/}
-
-# Wait for network connection
-count=0
-while [ \$count -lt 30 ]; do
-    ping -c1 example.com >/dev/null 2>&1 && break
-    sleep 1
-    count=\$((count+1))
-done
-
-# Launch browser or show error
-if [ \$count -lt 30 ]; then
-    # Network is up, launch browser
-    pkill feh  # Close loading screen
-    exec chromium-browser \\
-        --noerrdialogs \\
-        --disable-infobars \\
-        --kiosk \\
-        --incognito \\
-        --disable-translate \\
-        --disable-features=TranslateUI \\
-        --disk-cache-dir=/dev/null \\
-        --disable-pinch \\
-        --overscroll-history-navigation=0 \\
-        --disable-session-crashed-bubble \\
-        --disable-component-update \\
-        --check-for-update-interval=31536000 \\
-        "$WEB_URL?address=\$MAC"
+# checks if the display service is installed and running, if not installs and starts them
+if [ ! -f /etc/systemd/system/derbydisplay.service ]; then
+    echo "DerbyNet Display service not found. Installing and starting the service."
+    sudo cp ${LOCAL_DIR}derbydisplay.service /etc/systemd/system/
+    sudo systemctl enable derbydisplay
+    sudo systemctl start derbydisplay
+    TOREBOOT=1
 else
-    # Network failed, show error
-    pkill feh
-    feh --fullscreen --hide-pointer $ERROR_IMAGE
+    echo "DerbyNet Derby Display service found. Starting."
+    sudo systemctl restart derbydisplay
 fi
-EOL
-
-
-chown "$KIOSK_USER:$KIOSK_USER" /home/$KIOSK_USER/.xinitrc
-chmod +x /home/$KIOSK_USER/.xinitrc
-
-# Configure autostart
-echo "Configuring autostart..."
-mkdir -p /home/$KIOSK_USER/.config/autostart
-cat > /home/$KIOSK_USER/.config/autostart/kiosk.desktop <<EOL
-[Desktop Entry]
-Type=Application
-Name=Kiosk
-Exec=startx
-EOL
-
-chown -R "$KIOSK_USER:$KIOSK_USER" /home/$KIOSK_USER/.config
-
-# Disable screen blanking and power management
-echo "Disabling screen blanking..."
-cat > /etc/X11/xorg.conf.d/10-disable-screensaver.conf <<EOL
-Section "ServerFlags"
-    Option "BlankTime" "0"
-    Option "StandbyTime" "0"
-    Option "SuspendTime" "0"
-    Option "OffTime" "0"
-EndSection
-EOL
-
-# Disable sleep modes
-echo "Disabling system sleep modes..."
-systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-
-# Configure Chromium policies for better kiosk performance
-echo "Configuring Chromium policies..."
-mkdir -p /etc/chromium-browser/policies/managed
-cat > /etc/chromium-browser/policies/managed/kiosk_policy.json <<EOL
-{
-    "AutoSelectCertificateForUrls": [{"pattern":"*","filter":{"ISSUER":{"CN":"*"}}}],
-    "DefaultNotificationsSetting": 2,
-    "DefaultPopupsSetting": 2,
-    "DefaultGeolocationSetting": 2,
-    "DefaultWebBluetoothGuardSetting": 2,
-    "PasswordManagerEnabled": false,
-    "TranslateEnabled": false,
-    "ImportAutofillFormData": false,
-    "ImportBrowserTheme": false,
-    "ImportBookmarks": false,
-    "ImportHistory": false,
-    "ImportHomepage": false,
-    "ImportSearchEngine": false,
-    "ImportSavedPasswords": false,
-    "ImportCookies": false,
-    "RestoreOnStartup": 0,
-    "RestoreOnStartupURLs": [],
-    "HomepageLocation": "$WEB_URL",
-    "HardwareAccelerationModeEnabled": true,
-    "AllowDeletingBrowserHistory": false,
-    "AllowDinosaurEasterEgg": false,
-    "BrowserAddPersonEnabled": false,
-    "BrowserGuestModeEnabled": false,
-    "SpellcheckServiceEnabled": false
-}
-EOL
-
-# Enable hardware acceleration for video playback
-echo "Configuring hardware acceleration..."
-cat > /etc/chromium-browser/customizations/01-accelerate <<EOL
-CHROMIUM_FLAGS="\${CHROMIUM_FLAGS} --ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy --enable-native-gpu-memory-buffers --enable-accelerated-video-decode"
-EOL
-
-echo "Creating systemd service..."
-cat > /etc/systemd/system/kiosk.service <<EOL
-[Unit]
-Description=Kiosk Mode
-After=lightdm.service
-Wants=lightdm.service
-
-[Service]
-User=$KIOSK_USER
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/$KIOSK_USER/.Xauthority
-ExecStart=/bin/bash /home/$KIOSK_USER/.xinitrc
-Restart=on-abort
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-EOL
-
-sudo touch /boot/firmware/displaysetup
-
-TOREBOOT=1
-
-fi
-
-systemctl daemon-reload
-systemctl enable kiosk.service
 
 # reboots if TOREBOOT is set to 1
-if [ $TOREBOOT -eq 1 ]; then    
-    # Clean up
-    echo "Cleaning up..."
-    apt-get autoremove -y
-    apt-get clean
+if [ $TOREBOOT -eq 1 ]; then
     echo "Rebooting system."
     sudo reboot
 fi 
