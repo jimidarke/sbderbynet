@@ -266,6 +266,10 @@ class DerbyNetClient:
     @staticmethod
     def getWiFiPercentFromRSSI(rssi):
         """Converts RSSI value to percentage."""
+        # check if rssi is an int, if not, return 0
+        if not isinstance(rssi, int):
+            logger.debug("RSSI value is not an integer.")
+            return 0
         if rssi <= -100:
             return 0
         elif rssi >= -50:

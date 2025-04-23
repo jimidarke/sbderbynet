@@ -8,12 +8,16 @@ Service file: /etc/systemd/system/derbyrace.service
 
 
 from datetime import datetime
+import os
+import subprocess
 import time
+import uuid
 import paho.mqtt.client as mqtt # type: ignore
 import random
 import json
 from derbyapi import DerbyNetClient
 from derbylogger import setup_logger
+import psutil # type: ignore
 
 logger = setup_logger("derbyRace")
 
@@ -29,6 +33,7 @@ MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
         logger.info("Initializing DerbyRace")
+        self.boottime = datetime.now()
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr" + str(random.randint(1000,9999)))
         self.client.on_log = self.on_log
         self.client.will_set("derbynet/status", payload="offline", qos=1, retain=True)
@@ -86,7 +91,7 @@ class derbyRace:
         
         ########### Trigger for DEVICE TELEMETRY ###########
         if "telemetry" in topic: # this is the heartbeat from the timer to indicate it is alive and well as well as status telemetry
-            logger.info(f"Telemetry from {topic}")
+            #logger.info(f"Telemetry from {topic}")
             logger.debug(f"Telemetry from {topic} with payload {payload}")
             self.api.send_device_status(json.loads(payload))
             if lane > 0:
@@ -223,6 +228,48 @@ class derbyRace:
         elif dip == "1011": #lane4
             name = 4
         return name
+    
+    def sendServerTelemetry(self):
+        '''
+        "device_name": payload.get("hostname","UNKNOWN"),
+        "serial": payload.get("hwid",""),
+        "uptime": payload.get("uptime",0),
+        "ip_address": payload.get("ip",""),
+        "mac_address": payload.get("mac",""),
+        "wifi_signal": self.getWiFiPercentFromRSSI(payload.get("wifi_rssi",0)),
+        "battery": payload.get("battery_level",0),
+        "temperature": payload.get("cpu_temp",0),
+        "memory": payload.get("memory_usage",0),
+        "disk": payload.get("disk",0),
+        "cpu": payload.get("cpu_usage",0)}
+        '''
+        #self.boottime
+        uptime = int((time.time() - self.boottime.timestamp()) ) # uptime in seconds
+        cmd = "hostname -I | cut -d' ' -f1"
+        ipaddr = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+        macaddr = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)])
+        tempraw = subprocess.check_output("vcgencmd measure_temp", shell=True).decode("utf-8")
+        temp =  float(tempraw.replace("temp=", "").replace("'C\n", ""))
+        memusage = psutil.virtual_memory().percent
+        cpuusage = psutil.cpu_percent()
+        diskusage = psutil.disk_usage('/').percent
+        payload = {
+            "hostname": "derbynetpi",
+            "hwid": "derbyRace",
+            "uptime": uptime,
+            "ip": ipaddr,
+            "mac": macaddr,
+            "wifi_rssi": str(0),
+            "battery_level": 100,
+            "cpu_temp": str(temp),
+            "memory_usage": str(memusage),
+            "disk": str(diskusage),
+            "cpu_usage": str(cpuusage)
+        }
+        logger.debug(f"Telemetry: {payload}")
+        self.api.send_device_status(payload)
+
+
 
 if __name__ == "__main__":
     logger.debug("DerbyRace Started")
@@ -234,6 +281,7 @@ if __name__ == "__main__":
     while True:
         try:
             derby.updateFromDerbyAPI()
+            derby.sendServerTelemetry()
         except KeyboardInterrupt:
             derby.close()
         except Exception as e:
