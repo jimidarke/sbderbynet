@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.2.10"
+PCB_VERSION     = "0.3.2"
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -39,8 +39,6 @@ PIN_RED         = 8
 PIN_GREEN       = 7
 PIN_BLUE        = 1
 MCP3421_ADDR    = 0x68
-LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
-LOG_FILE        = '/var/log/derbynet.log'
 
 # Imports
 import time
@@ -48,13 +46,14 @@ import os
 import uuid
 import RPi.GPIO as GPIO # type: ignore
 import tm1637 # type: ignore
-import logging
 import threading
 import smbus2 # type: ignore
 import subprocess
 import psutil # type: ignore
 
-logging.basicConfig( level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
+from derbylogger import setup_logger # unified logging
+logger = setup_logger(__name__) # setup logger with hwid
+logger.debug("DerbyNet PCB Class Loaded")
 
 # GPIO Setup
 GPIO.setmode(GPIO.BCM)
@@ -75,8 +74,7 @@ GPIO.setup(PIN_DIP4, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 class derbyPCBv1:
     def __init__(self):
         # logging setup
-        logging.basicConfig( level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename='/var/log/derbynet.log')
-        logging.info("Starting DerbyNet PCB Class")
+        logger.debug("Starting DerbyNet PCB Class")
         # Initialize variables
         self.toggle_thread = None
         self.toggle_callback = None
@@ -89,10 +87,10 @@ class derbyPCBv1:
         try:
             hostname = subprocess.check_output("hostname", shell=True).decode("utf-8").strip()
             if hostname == "DEFAULT":
-                logging.warning("Hostname is DEFAULT. Running setup.sh to set hostname.")
+                logger.warning("Hostname is DEFAULT. Running setup.sh to set hostname.")
                 subprocess.check_output("sudo /opt/derbynet/setup.sh", shell=True)
         except Exception as e:
-            logging.error(f"Error checking hostname: {e}")
+            logger.error(f"Error checking hostname: {e}")
         
         # Read HWID
         if os.path.exists("/boot/firmware/derbyid.txt"):
@@ -100,19 +98,19 @@ class derbyPCBv1:
                 self.hwid = f.read().strip()
         else:
             self.hwid = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)])
-        logging.info(f"HWID: {self.hwid}")
+        logger.debug(f"HWID: {self.hwid}")
         # Initialize 7-segment Display
         self.tm = tm1637.TM1637(clk=PIN_CLK, dio=PIN_DIO)
         self.tm.brightness(7)
         time.sleep(0.5)
         self.setLED("")
-        logging.info("DerbyNet PCB Class Initialized")
+        logger.info("DerbyNet PCB Class Initialized")
 
     def begin_toggle_watch(self, callback):
         self.toggle_callback = callback
         self.toggle_thread = threading.Thread(target=self._toggle_watch)
         self.toggle_thread.start()
-        logging.info("Toggle Watch Started")
+        logger.debug("Toggle Watch Started")
 
     def _toggle_watch(self):
         tog = not derbyPCBv1.getToggleState()
@@ -121,20 +119,20 @@ class derbyPCBv1:
             tchk = derbyPCBv1.getToggleState()
             if tog != tchk:
                 tog = tchk
-                logging.debug(f"Toggle Changed to: {tog}")
+                logger.debug(f"Toggle Changed to: {tog}")
                 if self.toggle_callback:
                     self.toggle_callback()
             if self.readyToRace != (tchk and self.led == "blue"):
                 # change of state detected
                 self.readyToRace = (tchk and self.led == "blue")
-                logging.info(f"Ready to race: {self.readyToRace}")
+                logger.info(f"Ready to race: {self.readyToRace}")
                 self._updatePinny()
             time.sleep(0.25)
 
     def end_toggle_watch(self):
         self.toggle_thread = None
         self.toggle_callback = None
-        logging.info("Toggle Watch Stopped")
+        logger.warning("Toggle Watch Stopped")
 
     def setPinny(self, text, actNormal=True): # set the pinny display value. call this function to update the display from the main thread with mqtt
         # take first 4 characters of the string and pad with zeros
@@ -171,10 +169,10 @@ class derbyPCBv1:
             GPIO.output(PIN_RED, GPIO.LOW)
             GPIO.output(PIN_GREEN, GPIO.LOW)
             GPIO.output(PIN_BLUE, GPIO.LOW)
-        if self.led != colour:
-            logging.info(f"LED Set to {colour}")
+        if self.led != colour and actNormal:
+            logger.info(f"LED Changed to {colour}")
         else:
-            logging.debug(f"LED Set to {colour}")
+            logger.debug(f"LED Set to {colour}")
         self.led = colour
         if actNormal:
             self._updatePinny()
@@ -188,12 +186,12 @@ class derbyPCBv1:
         if self.led == "blue" and self.readyToRace == False:
             self.tm.brightness(4)
             self.tm.show("flip")
-            logging.info("Not ready to race, showing flip")
+            logger.warning("Not ready to race, showing FLIP")
         elif self.led == "red":
             if self.getBatteryPercent() < 20:
                 self.tm.show("BATT")
                 self.tm.brightness(3)
-                logging.warning("Battery low " + str(self.getBatteryPercent()) + "%")
+                logger.warning("Battery low " + str(self.getBatteryPercent()) + "%")
             else:
                 self.tm.brightness(1)
                 self.tm.show("stop")
@@ -209,7 +207,7 @@ class derbyPCBv1:
             return int(float(uptime))   
         # return uptime in seconds
         except Exception as e:
-            logging.error(f"Error getting uptime: {e}")
+            logger.error(f"Error getting uptime: {e}")
             return 0
 
     
@@ -256,7 +254,7 @@ class derbyPCBv1:
     def close(self):
         GPIO.cleanup()
         self.end_toggle_watch()
-        logging.info("PCB class closed")
+        logger.warning("PCB class closed")
         return True
     
     def gethwid(self):
@@ -281,7 +279,7 @@ class derbyPCBv1:
                 raw_value -= 65536
             return raw_value # Return the raw ADC value which is unitless
         except Exception as e:
-            logging.error(f"Error reading MCP3421: {e}")
+            logger.error(f"Error reading MCP3421: {e}")
             return None
 
     @staticmethod
@@ -367,12 +365,11 @@ class derbyPCBv1:
 
     @staticmethod
     def update_pcb(): # calls /opt/derbynet/setup.sh to update the PCB and restart the service 
-        logging.warning("Update requested. Calling /setup.sh")
+        logger.warning("Update requested. Calling /setup.sh")
         try:
             subprocess.check_output("sudo /setup.sh", shell=True)
-            logging.info("Update successful")
             exit(0) # exit the script to restart the service
         except Exception as e:
-            logging.error(f"Update failed: {e}")
+            logger.error(f"Update failed: {e}")
             return False
         return True
