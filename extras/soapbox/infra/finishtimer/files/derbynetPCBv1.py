@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.2.7"
+PCB_VERSION     = "0.2.10"
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -136,13 +136,13 @@ class derbyPCBv1:
         self.toggle_callback = None
         logging.info("Toggle Watch Stopped")
 
-    def setPinny(self, text): # set the pinny display value. call this function to update the display from the main thread with mqtt
+    def setPinny(self, text, actNormal=True): # set the pinny display value. call this function to update the display from the main thread with mqtt
         # take first 4 characters of the string and pad with zeros
         text = text[:4].zfill(4)
         self.pinny = text 
-        self._updatePinny()
+        self._updatePinny(actNormal)
 
-    def setLED(self, colour=""):
+    def setLED(self, colour="", actNormal=True):
         if colour == "red":
             GPIO.output(PIN_RED, GPIO.HIGH)
             GPIO.output(PIN_GREEN, GPIO.LOW)
@@ -171,11 +171,20 @@ class derbyPCBv1:
             GPIO.output(PIN_RED, GPIO.LOW)
             GPIO.output(PIN_GREEN, GPIO.LOW)
             GPIO.output(PIN_BLUE, GPIO.LOW)
+        if self.led != colour:
+            logging.info(f"LED Set to {colour}")
+        else:
+            logging.debug(f"LED Set to {colour}")
         self.led = colour
-        self._updatePinny()
-        logging.info(f"LED Set to {colour}")
+        if actNormal:
+            self._updatePinny()
+        
 
-    def _updatePinny(self):
+    def _updatePinny(self, actNormal=True):
+        if not actNormal:
+            self.tm.brightness(7)
+            self.tm.show(self.pinny)
+            return
         if self.led == "blue" and self.readyToRace == False:
             self.tm.brightness(4)
             self.tm.show("flip")
@@ -192,7 +201,6 @@ class derbyPCBv1:
             self.tm.brightness(7)
             self.tm.show(self.pinny)
 
-            
     def get_uptime(self):
         # get system uptime in seconds 
         try:

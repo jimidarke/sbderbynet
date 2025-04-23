@@ -228,11 +228,11 @@ class derbyRace:
 
 if __name__ == "__main__":
     logging.info("DerbyRace Started")
-    try:
-        derby = derbyRace()
-    except Exception as e:
-        logging.error(f"Error in DerbyRace: {e}")
-        exit(1)
+    #try:
+    derby = derbyRace()
+    #except Exception as e:
+    #    logging.error(f"Error in DerbyRace: {e}")
+    #    exit(1)
     while True:
         try:
             derby.updateFromDerbyAPI()
