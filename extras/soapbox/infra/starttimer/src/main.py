@@ -10,14 +10,16 @@ import dht
 import ntptime
 import random
 import urequests
+import usocket
 
 
-VERSION = '0.2.2'  # Version of the firmware.  
+VERSION = '0.3.0'  # Version of the firmware.  
 # V0.0.1 - March 31 2025    - Initial version with basic functionality including sending state and telemetry to mqtt
 # V0.1.0 - April 4 2025     - Added OTA updates
 # V0.2.0 - April 15 2025    - Added watchdog timer and updated telemetry data 
 # V0.2.2 - April 15 2025    - Fixed telemetry and OTA
-HWID = "STARTTIMER"
+# V0.3.0 - April 22 2025    - Added remote syslogging and improved error handling
+HWID = "START"
 
 # Wi-Fi Configuration
 SSID = 'DerbyNet'
@@ -26,7 +28,7 @@ PASSWORD = 'all4theKids'
 # MQTT Configuration
 MQTT_BROKER = '192.168.100.10'  # Replace with your MQTT broker IP
 MQTT_TOPIC = 'derbynet/device/starttimer' #/status /telemetry /state
-CLIENT_ID = HWID + str(random.randint(1000, 9999))  # Unique client ID
+CLIENT_ID = HWID # + str(random.randint(1000, 9999))  # Unique client ID
 
 # NTP Configuration
 NTP_SERVER = '192.168.100.10'  # Replace with your local NTP server IP
@@ -58,30 +60,42 @@ wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT)
 # OTA Configuration
 OTA_URL = 'http://192.168.100.10/starttimer/main.py'  # Replace with your local HTTP server IP
 
+def sendLog(message, level="INFO"):
+    try:
+        # Format the log message
+        # %(levelname)s - [%(filename)s:%(lineno)d] %(message)s
+        log_message = f"STARTER {level} - [main.py] {message}"
+        # Send the log message over UDP
+        sock = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
+        sock.sendto(log_message.encode('utf-8'), (MQTT_BROKER, 514))
+        sock.close()
+    except Exception as e:
+        print(f"Failed to send log to rsyslog: {e}")
+
 # OTA Update Function
 def ota_update():
     try:
-        print('Starting OTA update...')
-        print(f'Downloading firmware from {OTA_URL}...')
+        sendLog('Starting OTA update...')
+        sendLog(f'Downloading firmware from {OTA_URL}...',"DEBUG")
         response = urequests.get(OTA_URL)
-        print(f'Downloaded {len(response.content)} bytes from {OTA_URL}')
+        sendLog(f'Downloaded {len(response.content)} bytes from {OTA_URL}',"DEBUG")
         # Check if the response is valid
         if response.status_code == 200:
-            print('Firmware download complete. Writing to flash...')
+            sendLog('Firmware download complete. Writing to flash...',"DEBUG")
             with open('/main.py', 'wb') as f:
                 f.write(response.content)
-            print('Firmware saved.')
+            sendLog('Firmware saved.',"DEBUG")
             response.close()
             # Flash the new firmware
             machine.reset()
         else:
-            print(f'Failed to download firmware: {response.status_code}')
+            sendLog(f'Failed to download firmware: {response.status_code}',"ERROR")
     except Exception as e:
-        print(f'OTA update failed: {e}')
+        sendLog(f'OTA update failed: {e}',"ERROR")
 
 # MQTT Callback for OTA
 def mqtt_callback(topic, msg):
-    print(f'Received message: {msg} on topic: {topic}')
+    sendLog(f'Received message: {msg} on topic: {topic}',"DEBUG")
     if topic == bytes(MQTT_TOPIC + '/update', 'utf-8') and msg == b'update':
         ota_update()
 
@@ -92,10 +106,10 @@ def sync_time():
         try:
             ntptime.host = NTP_SERVER
             ntptime.settime()
-            print('Time synchronized with NTP server')
+            sendLog('Time synchronized with NTP server', "DEBUG")
             break
         except Exception as e:
-            print('NTP sync failed, retrying...', str(e))
+            sendLog('NTP sync failed, retrying...' +  str(e), "ERROR")
             time.sleep(exponential_backoff(attempt))
             attempt += 1
 
@@ -105,13 +119,13 @@ def get_timestamp():
         current_time = time.time() + UNIX_EPOCH_OFFSET  # Adjust for local time zone
         return int(current_time)
     except Exception as e:
-        print('Error getting timestamp:', e)
+        sendLog('Error getting timestamp:' + str(e), "ERROR")
         return 0
 
 # Exponential backoff for reconnections
 def exponential_backoff(attempt):
     if attempt > 10:
-        print('Max attempts reached, resetting...')
+        sendLog('Max attempts reached, resetting...')
         machine.reset()
     return min(60, (2 ** attempt))
 
@@ -128,6 +142,7 @@ def connect_wifi():
             time.sleep(exponential_backoff(attempt))
             attempt += 1
     print('Connected to Wi-Fi:', wlan.ifconfig())
+    #sendLog('Connected to Wi-Fi', "DEBUG")
     wdt.feed()
 
 # Connect to MQTT Broker
@@ -137,18 +152,19 @@ def connect_mqtt():
     while True:
         try:
             print('Connecting to MQTT Broker...')
-            client = MQTTClient(CLIENT_ID, MQTT_BROKER, keepalive=60)
+            client = MQTTClient(CLIENT_ID, MQTT_BROKER, keepalive=10)
             #set callbacks or will messages
             client.set_callback(mqtt_callback)
             client.set_last_will(MQTT_TOPIC + "/status", 'offline', retain=True) 
             client.connect()
             client.subscribe(MQTT_TOPIC + '/update')
             client.publish(MQTT_TOPIC + "/status", 'online', retain=True)
-            print('MQTT connected')
+            sendLog('MQTT connected')
             wdt.feed()
             return
         except Exception as e:
             print('Failed to connect to MQTT:', e)
+            sendLog('MQTT connection failed, retrying...' + str(e), "ERROR")
             time.sleep(exponential_backoff(attempt))
             attempt += 1
 
@@ -162,6 +178,8 @@ def ensure_mqtt():
         client.publish(MQTT_TOPIC + "/status", 'online', retain=True)
     except Exception as e:
         print('MQTT connection lost:', e)
+        sendLog('MQTT connection lost, reconnecting...' + str(e), "ERROR")
+        client = None
         connect_mqtt()
 
 # Blink LED to indicate message sent
@@ -251,6 +269,7 @@ def send_mqtt_message(state):
         wdt.feed()
     except Exception as e:
         print('Error sending MQTT message:', e)
+        sendLog('Error sending MQTT message:' + str(e), "ERROR")
 
 # Monitor for changes in start signal
 def monitor_signal():

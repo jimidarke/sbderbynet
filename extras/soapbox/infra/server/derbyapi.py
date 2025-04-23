@@ -26,14 +26,11 @@ cpu_usage
 #import requests # type: ignore
 import time
 from pip._vendor import requests
-import logging
+
 import xml.etree.ElementTree as ET
 
-
-LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
-LOG_FILE        = '/var/log/derbynet.log'
-
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
+from derbylogger import setup_logger
+logger = setup_logger("derbyapi")
 
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
@@ -61,28 +58,28 @@ class DerbyNetClient:
                 if response.status_code == 200:
                     break
             except Exception as e:
-                logging.error(f"Login failed: {e}")
+                logger.error(f"Login failed: {e}")
             time.sleep(1 * attempt)  # Wait before retrying
             attempt += 1
         if attempt >= 5:
-            logging.critical("Failed to login after multiple attempts.")
+            logger.critical("Failed to login after multiple attempts.")
             exit(1)
             return None
         response_json = response.json()
         if response_json.get("outcome", {}).get("code") == "success":
             auth_code = response.headers.get('Set-Cookie', '').split(';')[0]
-            logging.debug("Successfully logged in with authcode: %s", auth_code)
+            logger.debug("Successfully logged in with authcode: %s", auth_code)
             self.authcode = auth_code
             return auth_code
         else:
-            logging.error("Login failed: Invalid credentials or server error. API Response: %s", response.text)
+            logger.error("Login failed: Invalid credentials or server error. API Response: %s", response.text)
             return None
 
     def send_timer_heartbeat(self): #sends an overall command that the timers are all still alive
         if not self.authcode:
             self.authcode = self.login()
             if not self.authcode:
-                logging.critical("Failed to authenticate with DerbyNet.")
+                logger.critical("Failed to authenticate with DerbyNet.")
                 return False
         payload = "message=HEARTBEAT&action=timer-message&confirmed=1&lane1=1&lane2=2&lane3=3&timerId1=L1&timerId2=L2&timerId3=L3"
         headers = {
@@ -96,14 +93,14 @@ class DerbyNetClient:
                 self.send_timer_heartbeat()
             response.raise_for_status()
         except requests.RequestException as e:
-            logging.error(f"Failed to send heartbeat message: {e}")
+            logger.error(f"Failed to send heartbeat message: {e}")
     
     def send_start(self):
         """Sends the start signal to the DerbyNet server."""
         if not self.authcode:
             self.authcode = self.login()
             if not self.authcode:
-                logging.critical("Failed to authenticate with DerbyNet.")
+                logger.critical("Failed to authenticate with DerbyNet.")
                 return False
 
         payload = "message=STARTED&action=timer-message"
@@ -119,25 +116,25 @@ class DerbyNetClient:
                 self.send_start()
             response.raise_for_status()
         except requests.RequestException as e:
-            logging.error(f"Failed to send start message: {e}")
+            logger.error(f"Failed to send start message: {e}")
             return False
 
         response_xml = ET.fromstring(response.text)
 
         if response_xml.find('failure') is not None:
-            logging.warning("Authentication failed, retrying login...")
+            logger.warning("Authentication failed, retrying login...")
             self.authcode = self.login()
             if self.authcode:
                 return self.send_start()
             else:
-                logging.critical("Failed to re-authenticate after failure.")
+                logger.critical("Failed to re-authenticate after failure.")
                 return False
 
         if response_xml.find('success') is not None:
-            logging.debug("Start message successfully sent.")
+            logger.debug("Start message successfully sent.")
             return True
         else:
-            logging.error("Failed to confirm start message reception.")
+            logger.error("Failed to confirm start message reception.")
             return False
 
     def send_finish(self, roundid, heatid, lane_times):
@@ -145,7 +142,7 @@ class DerbyNetClient:
         if not self.authcode:
             self.authcode = self.login()
             if not self.authcode:
-                logging.critical("Failed to authenticate with DerbyNet.")
+                logger.critical("Failed to authenticate with DerbyNet.")
                 return False
         payload =f"message=FINISHED&action=timer-message&roundid={roundid}&heat={heatid}" 
         #&lane1=10&lane2=12&lane3=13&place1=1&place2=2&place3=3"
@@ -162,25 +159,25 @@ class DerbyNetClient:
                 self.send_finish(roundid, heatid, lane_times)
             response.raise_for_status()
         except requests.RequestException as e:
-            logging.error(f"Failed to send finish message: {e}")
+            logger.error(f"Failed to send finish message: {e}")
             return False
 
         response_xml = ET.fromstring(response.text)
 
         if response_xml.find('failure') is not None:
-            logging.warning("Authentication failed, retrying login...")
+            logger.warning("Authentication failed, retrying login...")
             self.authcode = self.login()
             if self.authcode:
                 return self.send_finish(lane_times)
             else:
-                logging.critical("Failed to re-authenticate after failure.")
+                logger.critical("Failed to re-authenticate after failure.")
                 return False
 
         if response_xml.find('success') is not None:
-            logging.info("Finish message successfully sent.")
+            logger.info("Finish message successfully sent.")
             return True
         else:
-            logging.error("Failed to confirm finish message reception.")
+            logger.error("Failed to confirm finish message reception.")
             return False
     
     def get_race_status(self):
@@ -188,7 +185,7 @@ class DerbyNetClient:
         if not self.authcode:
             self.authcode = self.login()
             if not self.authcode:
-                logging.critical("Failed to authenticate with DerbyNet.")
+                logger.critical("Failed to authenticate with DerbyNet.")
                 return False
         headers = {
             'Accept': 'application/json',
@@ -203,7 +200,7 @@ class DerbyNetClient:
                 self.get_race_status()
             response.raise_for_status()
         except requests.RequestException as e:
-            logging.error(f"Failed to get race status: {e}")
+            logger.error(f"Failed to get race status: {e}")
             return False
         response_json = response.json()
         out = {}
@@ -227,7 +224,7 @@ class DerbyNetClient:
         if not self.authcode:
             self.authcode = self.login()
             if not self.authcode:
-                logging.critical("Failed to authenticate with DerbyNet.")
+                logger.critical("Failed to authenticate with DerbyNet.")
                 return False
         headers = {
             'Content-Type': 'application/json',
@@ -235,7 +232,7 @@ class DerbyNetClient:
         }
         # check if payload is a dict, if not, return false
         if not isinstance(payload, dict):
-            logging.error("Payload is not a dictionary.")
+            logger.error("Payload is not a dictionary.")
             return False
         APIpayload = {
             "devices":[{
@@ -260,10 +257,10 @@ class DerbyNetClient:
                 self.send_device_status(payload)
             response.raise_for_status()
         except requests.RequestException as e:
-            logging.error(f"Failed to send device telemetry: {e}")
+            logger.error(f"Failed to send device telemetry: {e}")
             return False
-        logging.debug("Device telemetry successfully sent.")
-        logging.debug("Device telemetry response: %s", response.text)
+        logger.debug("Device telemetry successfully sent.")
+        logger.debug("Device telemetry response: %s", response.text)
         return True
     
     @staticmethod

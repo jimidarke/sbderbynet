@@ -1,5 +1,4 @@
 
-import logging
 import json
 import subprocess
 import time
@@ -10,12 +9,12 @@ import os
 import uuid
 import psutil # type: ignore
 
-###########################    SETUP    ###########################
-LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
-LOG_FILE        = '/var/log/derbynet.log'
 
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
-logging.info("####### Starting DerbyNet DerbyDisplay #######")
+###########################    SETUP    ###########################
+from derbylogger import setup_logger
+logger = setup_logger(__name__)
+
+logger.info("####### Starting DerbyNet DerbyDisplay #######")
 
 ###########################    MQTT    ###########################
 MQTT_BROKER = "192.168.100.10"
@@ -36,26 +35,26 @@ if os.path.exists("/boot/firmware/derbyid.txt"):
         hwid = f.read().strip()
 else:
     hwid = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)])
-logging.info(f"HWID: {hwid}")
+logger.debug(f"HWID: {hwid}")
 
 # Callbacks
 def on_connect(client, userdata, flags, rc, properties=None):
-    logging.info(f"Connected with result code {rc}")
+    logger.info(f"Connected with result code {rc}")
     client.subscribe(UPDATE_TOPIC.format(hwid))
     client.publish(STATUS_TOPIC.format(hwid), "online", retain=True)
 
 def on_message(client, userdata, msg):
-    logging.info(f"Received message on topic {msg.topic} with payload {msg.payload}")
+    logger.debug(f"Received message on topic {msg.topic} with payload {msg.payload}")
     parse_message(msg)
 
 def on_disconnect(client, userdata, rc):
-    logging.info(f"Disconnected with result code {rc}")
+    logger.warning(f"Disconnected with result code {rc}")
     client.publish(STATUS_TOPIC.format(hwid), "offline", retain=True)
 
 # Setup
-clientid = f"{hwid}-{random.randint(1000, 9999)}"
+clientid = f"{hwid}"#-{random.randint(1000, 9999)}"
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, clientid)
-logging.info(f"MQTT Client ID: {clientid}")
+logger.debug(f"MQTT Client ID: {clientid}")
 client.will_set(STATUS_TOPIC.format(hwid), "offline", retain=True)
 client.on_connect = on_connect  
 client.on_message = on_message
@@ -97,7 +96,7 @@ def send_telemetry():
         #return payload
 
     #payload = pcb.packageTelemetry()
-    logging.debug(f"Sending Telemetry: {json.dumps(payload)}")
+    logger.debug(f"Sending Telemetry: {json.dumps(payload)}")
     client.publish(TELEMETRY_TOPIC.format(hwid), json.dumps(payload), qos=1, retain=True)
     client.publish(STATUS_TOPIC.format(hwid), "online", retain=True)
 
@@ -107,18 +106,18 @@ def parse_message(msg):
     pass
     '''
     if "update" in msg.topic and "update" in msg.payload.decode("utf-8").lower():
-        logging.warning("Update requested")
+        logger.warning("Update requested")
         try:
             client.publish(STATUS_TOPIC.format(hwid), "updating", retain=True)
             pcb.update_pcb()
         except Exception as e:
-            logging.error(f"Update failed: {e}")
+            logger.error(f"Update failed: {e}")
     elif "url" in msg.topic:
         url = msg.payload.decode("utf-8")
-        logging.info(f"Setting URL: {url}")
+        logger.info(f"Setting URL: {url}")
         #update_display(url)
     else:
-        logging.warning(f"Unknown topic or payload: {msg.topic} {msg.payload}")
+        logger.warning(f"Unknown topic or payload: {msg.topic} {msg.payload}")
     '''
 
 
@@ -174,7 +173,7 @@ def get_uptime():
         return int(float(uptime))   
     # return uptime in seconds
     except Exception as e:
-        logging.error(f"Error getting uptime: {e}")
+        logger.error(f"Error getting uptime: {e}")
         return 0
 
 ###########################     MAIN     ###########################
@@ -184,13 +183,13 @@ def main():
             send_telemetry()
             time.sleep(TELEMETRY_INTERVAL)
             if not client.is_connected():
-                logging.error("MQTT Disconnected")
+                logger.error("MQTT Disconnected")
                 client.reconnect()
     except KeyboardInterrupt:
-        logging.info("Exiting")
+        logger.info("Exiting")
         exit(0)
     except Exception as e:
-        logging.error(f"Error: {e}")
+        logger.error(f"Error: {e}")
         exit(1)
     finally:
         exit(0)

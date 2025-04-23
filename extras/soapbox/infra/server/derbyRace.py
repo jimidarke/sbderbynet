@@ -6,13 +6,16 @@ Service file: /etc/systemd/system/derbyrace.service
 
 '''
 
-import logging 
+
 from datetime import datetime
 import time
 import paho.mqtt.client as mqtt # type: ignore
 import random
 import json
 from derbyapi import DerbyNetClient
+from derbylogger import setup_logger
+
+logger = setup_logger("derbyRace")
 
 # MQTT setup
 MQTT_BROKER             = "localhost"
@@ -23,14 +26,9 @@ MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
 MQTT_TOPIC_TELEMETRY    = "derbynet/device/+/telemetry"
 MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 
-LOG_FORMAT      = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
-LOG_FILE        = '/var/log/derbynet.log'
-
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, filename=LOG_FILE)
-
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
-        logging.info("Initializing DerbyRace")
+        logger.info("Initializing DerbyRace")
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr" + str(random.randint(1000,9999)))
         self.client.on_log = self.on_log
         self.client.will_set("derbynet/status", payload="offline", qos=1, retain=True)
@@ -38,7 +36,7 @@ class derbyRace:
         self.client.on_connect = self.on_connect
         self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
         self.client.loop_start()
-        logging.info(f"Connected to MQTT Broker at {MQTT_BROKER}:{MQTT_PORT}")
+        logger.info(f"Connected to MQTT Broker at {MQTT_BROKER}:{MQTT_PORT}")
         self.api = DerbyNetClient("localhost")
         self.start_time = 0
         self.lane_times = {}
@@ -55,24 +53,24 @@ class derbyRace:
         self.updateFromDerbyAPI()
         
     def on_log(self, client, userdata, level, buf): # callback for mqtt logging
-        logging.debug(f"MQTT Log: {buf}")
+        logger.debug(f"MQTT Log: {buf}")
 
     def on_connect(self, client, userdata, flags, rc, properties=None): # callback for mqtt connection
-        logging.info(f"Connected with result code {rc}")        
+        logger.debug(f"Connected with result code {rc}")        
         client.subscribe(MQTT_TOPIC_TELEMETRY)
-        logging.info(f"Subscribed to {MQTT_TOPIC_TELEMETRY}")
+        logger.info(f"Subscribed to {MQTT_TOPIC_TELEMETRY}")
         client.subscribe(MQTT_TOPIC_STATE)
-        logging.info(f"Subscribed to {MQTT_TOPIC_STATE}")
+        logger.info(f"Subscribed to {MQTT_TOPIC_STATE}")
     
     def on_message(self, client, userdata, message): # callback for mqtt messages
         topic = message.topic
         payload = message.payload.decode("utf-8")
-        logging.debug(f"Received message on {topic} {payload}") 
+        logger.debug(f"Received message on {topic} {payload}") 
         dip = None
         try:
             dip = json.loads(payload).get("dip","")
         except Exception as e:
-            logging.error(f"Error parsing dip from payload: {e}")
+            logger.error(f"Error parsing dip from payload: {e}")
         lane = self.getDIPName(dip) # get the lane number from the dip switch
         
         ########### Trigger for START RACE ###########
@@ -88,8 +86,8 @@ class derbyRace:
         
         ########### Trigger for DEVICE TELEMETRY ###########
         if "telemetry" in topic: # this is the heartbeat from the timer to indicate it is alive and well as well as status telemetry
-            logging.info(f"Telemetry from {topic}")
-            logging.debug(f"Telemetry from {topic} with payload {payload}")
+            logger.info(f"Telemetry from {topic}")
+            logger.debug(f"Telemetry from {topic} with payload {payload}")
             self.api.send_device_status(json.loads(payload))
             if lane > 0:
                 self.timerHeartbeat(lane)
@@ -109,7 +107,7 @@ class derbyRace:
         # publish racestate
         result = self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1)
         if result.rc != 0:
-            logging.error(f"Error publishing to {MQTT_TOPIC_RACESTATE} with rc {result.rc} and error {result.error_string}")
+            logger.error(f"Error publishing to {MQTT_TOPIC_RACESTATE} with rc {result.rc} and error {result.error_string}")
 
     def setLanePinny(self, lane, pinny):
         pinny = str(pinny).zfill(4)
@@ -119,8 +117,8 @@ class derbyRace:
         topic = f"derbynet/lane/{lane}/pinny"
         result = self.client.publish(topic, pinny, qos=2, retain=True)
         if result.rc != 0:
-            logging.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
-        logging.info(f"Set Lane {lane} to Pinny {pinny}")
+            logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+        logger.info(f"Set Lane {lane} to Pinny {pinny}")
 
     def setLEDFromRaceStat(self,racestats): # checks the api for the led to use and sends thusly 
         #racestats = api.get_race_status()
@@ -138,7 +136,7 @@ class derbyRace:
         if led and led != self.led:
             self.led = led
             self.updateLED(led)
-            logging.info(f"Set LED to {led}")
+            logger.debug(f"Set LED to {led}")
 
     def updateLED(self,led,lane="all"):
         if lane == "all":
@@ -146,13 +144,13 @@ class derbyRace:
                 topic = f"derbynet/lane/{i}/led"
                 result = self.client.publish(topic, led, qos=2, retain=True)
                 if result.rc != 0:
-                    logging.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+                    logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
         else:
             topic = f"derbynet/lane/{lane}/led"
             result = self.client.publish(topic, led, qos=2, retain=True)
             if result.rc != 0:
-                logging.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
-        #logging.info(f"Set LED to {led} for lane {lane}")
+                logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+        #logger.info(f"Set LED to {led} for lane {lane}")
     
     def getRaceStatus(self):
         payload = {
@@ -170,14 +168,14 @@ class derbyRace:
         if self.start_time == 0: # not started yet
             self.lanesFinished = 0
             self.start_time = timer
-            logging.info("Race Started at " + str(self.start_time))
+            logger.info("Race Started at " + str(self.start_time))
         
     def stopRace(self,timer = None):
         if timer == None: # set to utc timestamp 
             timer = time.time()
-        logging.info("All Lanes Finished at " + str(timer))
+        logger.info("All Lanes Finished at " + str(timer))
         self.race_state = "STOPPED"
-        logging.info(self.lane_times)
+        logger.info(self.lane_times)
         self.updateLED("red")
         self.api.send_finish(self.roundid,self.heatid,self.lane_times)
         self.lanesFinished = 0
@@ -189,8 +187,8 @@ class derbyRace:
             timer = time.time()
         self.lane_times[lane] = round(timer - self.start_time,1)
         self.lanesFinished += 1
-        logging.info(f"Lane {lane} Finished at {timer} with time {self.lane_times[lane]}s which is # {self.lanesFinished} to finish")
-        logging.debug(f"LaneFinishTimes: {self.lane_times}")
+        logger.info(f"Lane {lane} Finished at {timer} with time {self.lane_times[lane]}s which is # {self.lanesFinished} to finish")
+        logger.debug(f"LaneFinishTimes: {self.lane_times}")
         self.updateLED("purple",lane) # purple for finished
         if self.lanesFinished == self.lane_count:
             self.stopRace(timer)
@@ -202,12 +200,12 @@ class derbyRace:
         # check if all timers have checked in in the last 30 seconds and then send an api command for heartbeat
         if all(time.time() - self.timer_heartbeat[lane] < 90 for lane in self.timer_heartbeat):
             self.api.send_timer_heartbeat()
-            logging.debug("Sent Timer Heartbeat")
+            logger.debug("Sent Timer Heartbeat")
 
     def close(self,graceful = False):
         self.client.loop_stop()
         self.client.disconnect()
-        logging.info("DerbyRace Closed")
+        logger.warning("DerbyRace Closed")
         if not graceful:
             exit(1)
         else:
@@ -227,11 +225,11 @@ class derbyRace:
         return name
 
 if __name__ == "__main__":
-    logging.info("DerbyRace Started")
+    logger.debug("DerbyRace Started")
     #try:
     derby = derbyRace()
     #except Exception as e:
-    #    logging.error(f"Error in DerbyRace: {e}")
+    #    logger.error(f"Error in DerbyRace: {e}")
     #    exit(1)
     while True:
         try:
@@ -239,7 +237,7 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             derby.close()
         except Exception as e:
-            logging.error(f"Error in DerbyRace: {e}")
+            logger.error(f"Error in DerbyRace: {e}")
             derby.close()
             exit(1)
         time.sleep(0.75) # update every 0.75 seconds to keep the api happy and not hammer it too hard

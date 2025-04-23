@@ -11,6 +11,9 @@ import datetime
 import pytz # type: ignore
 import json
 
+from derbylogger import setup_logger
+logger = setup_logger("derbyTime")
+
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "racetime")
 client.connect("127.0.0.1", 1883, 5)
 time_start = time.time()
@@ -40,11 +43,13 @@ def sendTime():
         raise Exception("Failed to send racetime: " + dtstr)
 
 if __name__ == "__main__":
+    logger.info("Starting Derby Time Service")
     while True:
         try:
             sendTime()
         except Exception as e:
             print ("General exception: " + str(e))
+            logger.error("General exception: " + str(e))
             client.disconnect()
             client.connect("127.0.0.1", 1883, 5)
         time.sleep(0.95)
