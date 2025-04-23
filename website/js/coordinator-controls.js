@@ -718,3 +718,27 @@ function handle_racing_mode_activation(json) {
     console.log("Racing mode activated successfully.");
   }
 }
+
+function handleRacerDropout(racerid, roundid) {
+  if (confirm('Are you sure you want to remove this racer? This action cannot be undone.')) {
+    $.ajax('action.php', {
+      type: 'POST',
+      data: {
+        action: 'racer.dropout',
+        racerid: racerid,
+        roundid: roundid
+      },
+      success: function(data) {
+        if (data.outcome.code == 'success') {
+          // Reload current round display
+          location.reload();
+        } else {
+          alert('Failed to remove racer: ' + data.outcome.description);
+        }
+      },
+      error: function() {
+        alert('Server error while processing racer dropout');
+      }
+    });
+  }
+}

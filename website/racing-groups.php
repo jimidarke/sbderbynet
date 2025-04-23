@@ -47,7 +47,6 @@ $(function() {
 
 <div id="race-rules">
 
-
 <input id="by-partition-radio" type="radio" name="form-groups-by" value="by-partition"/>
 <label for="by-partition-radio">Race each
        <span class="partition-label-lc"><?php echo partition_label_lc(); ?></span>

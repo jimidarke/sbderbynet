@@ -156,12 +156,28 @@ function fetchDeviceStatus() {
                 updateDeviceStatusTable(response.devices);
             } else {
                 console.warn("Using dummy data due to empty or invalid response:", response);
+
+                // Get current time in seconds
+                const now = Math.floor(Date.now() / 1000);
+
+                // Update timestamps to simulate activity every minute
+                dummyDevices.devices.forEach((device, index) => {
+                    device.last_updated = now - (index * 60); // newer devices have more recent timestamps
+                });
+
                 updateDeviceStatusTable(dummyDevices.devices);
             }
         },
         error: function (xhr, status, error) {
             console.error("Failed to fetch device status:", error);
         }
+    });
+}
+
+// Function to sort devices by name
+function sortDevices(devices) {
+    return devices.sort((a, b) => {
+        return a.device_name.localeCompare(b.device_name);
     });
 }
 
@@ -181,23 +197,26 @@ function updateDeviceStatusTable(devices) {
         return lastSeen && now - lastSeen <= DEVICE_TIMEOUT_SECONDS;
     });
 
+    // Sort devices by name
+    const sortedDevices = sortDevices(activeDevices);
+
     // Mark devices as inactive on the backend if they are stale
     devices.forEach(device => {
         const lastSeen = lastSeenTimestamps.get(device.serial);
         if (now - lastSeen > DEVICE_TIMEOUT_SECONDS) {
-            markDeviceInactive(device.serial); // Mark device as inactive on the backend
+            markDeviceInactive(device.serial);
         }
     });
 
     tbody.innerHTML = ""; // Clear table
-    activeDevices.forEach(device => {
+    sortedDevices.forEach(device => {
+        
         const row = document.createElement("tr");
         row.innerHTML = `
             <td>${device.device_name}</td>
             <td>${device.serial}</td>
             <td>${formatUptime(device.uptime)}</td>
             <td>${device.ip_address}</td>
-            <td>${device.mac_address}</td>
             <td>${device.wifi_signal}%</td>
             <td>${device.battery}%</td>
             <td>${device.temperature}°C</td>
@@ -206,6 +225,7 @@ function updateDeviceStatusTable(devices) {
             <td>${device.cpu}%</td>
             <td>${formatTimestamp(device.last_updated)}</td>
         `;
+            // <td>${device.mac_address}</td>
         tbody.appendChild(row);
     });
 }
