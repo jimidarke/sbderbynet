@@ -573,6 +573,7 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
           "<th>Racer</th>" +
           "<th>" +
           (current.use_points ? "Place" : "Time") +
+          "<th>Action</th>" +
           "</th>" +
           "</tr>" +
           "</table>"
@@ -600,6 +601,24 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
     g_current_heat.hold_until = 0;
     g_current_heat_racers = new_racers;
     racers = new_racers;
+  }
+
+  // Add check for completed round
+  function isRoundCompleted(roundid) {
+    let completed = false;
+    $.ajax({
+      url: 'action.php',
+      type: 'POST',
+      data: {
+        action: 'round.check_complete',
+        roundid: roundid
+      },
+      async: false,
+      success: function(data) {
+        completed = data.completed;
+      }
+    });
+    return completed;
   }
 
   for (var lane = 1; lane <= nlanes; ++lane) {
@@ -637,6 +656,11 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
         "<td>" +
         result +
         "</td>" +
+        // Only show remove button if round not completed and racer exists
+        (r && !isRoundCompleted(current.roundid) ? 
+            '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid + 
+            ')" class="btn btn-warning btn-sm">Remove from Race</button></td>' : 
+            '<td></td>') +
         "</tr>"
     );
     if (holding) {
@@ -909,6 +933,19 @@ function process_coordinator_poll_json(json) {
     const tbody = document.getElementById("timer-statuses");
     tbody.innerHTML = ""; // Clear existing rows
 
+    // Add starter first if present
+    // const starter = timers.find(t => t.is_starter);
+    // if (starter) {
+    //     addTimerRow(tbody, "Starter", starter);
+    // }
+
+    // Add finish line timers
+    // timers.filter(t => !t.is_starter)
+    //       .forEach(timer => {
+    //           addTimerRow(tbody, `Lane ${timer.lane}`, timer);
+    //       });
+
+
     timers.forEach((timer) => {
       const row = document.createElement("tr");
 
@@ -920,7 +957,7 @@ function process_coordinator_poll_json(json) {
       // isOnline Cell
       const isOnlineCell = document.createElement("td");
       isOnlineCell.className = timer.online ? "timer-online" : "timer-offline";
-      isOnlineCell.textContent = timer.online == true ? "Online" : "Offline";
+      isOnlineCell.textContent = timer.online == true ? "Online" : "OFFLINE";
 
       // Status Cell
       const statusCell = document.createElement("td");
@@ -1140,3 +1177,24 @@ $(document).ajaxSuccess(function(event, xhr, options, data) {
       }
   }
 });
+
+function handleRacerDropout(racerid, roundid) {
+    if (confirm('Are you sure you want to remove this racer from the current round?')) {
+        $.ajax('action.php', {
+            type: 'POST',
+            data: {
+                action: 'racer.dropout',
+                racerid: racerid,
+                roundid: roundid
+            },
+            success: function(data) {
+                if (data.outcome.code == 'success') {
+                    // Reload current round display
+                    location.reload();
+                } else {
+                    alert('Failed to remove racer: ' + data.outcome.description);
+                }
+            }
+        });
+    }
+}

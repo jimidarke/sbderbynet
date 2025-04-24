@@ -29,7 +29,7 @@ function json_timer_state() {
   $tstate = $timer_state->state();
 
   // Fetch timer statuses from the database
-  $stmt = $db->query('SELECT lane, timerID, last_heartbeat, ready FROM TimerStatus');
+  $stmt = $db->query('SELECT lane, timerID, last_heartbeat, ready, is_starter FROM TimerStatus');
   $timers = array();
   while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
       // error_log("Fetched timer status: " . print_r($row, true)); // Debugging
@@ -37,7 +37,8 @@ function json_timer_state() {
           'lane' => $row['lane'],
           'timerID' => $row['timerid'],
           'last_heartbeat' => $row['last_heartbeat'],
-          'ready' => $row['ready']
+          'ready' => $row['ready'],
+          'is_starter' => (bool)$row['is_starter'],
       );
   }
 
@@ -74,13 +75,14 @@ function json_timer_state() {
 //       ts.timerID, 
 //       ts.last_heartbeat, 
 //       ts.ready,
+//       ts.is_starter,
 //       CASE 
 //           WHEN ts.ready = 1 AND (? - ts.last_heartbeat) <= ? THEN "READY"
 //           WHEN (? - ts.last_heartbeat) > ? THEN "DISCONNECTED"
 //           ELSE "WAITING"
 //       END as timer_state,
 //       CASE 
-//           WHEN ts.ready = 1 AND (? - ts.last_heartbeat) <= ? THEN "img/status/ok.png" 
+//           WHEN ts.ready = 1 AND (? - ts.last_heartbeat) <= ? THEN "img/status/ok.png"
 //           WHEN (? - ts.last_heartbeat) > ? THEN "img/status/trouble.png"
 //           ELSE "img/status/unknown.png"
 //       END as timer_icon
@@ -102,6 +104,7 @@ function json_timer_state() {
 //           'timerID' => $row['timerid'],
 //           'last_heartbeat' => (int)$row['last_heartbeat'],
 //           'ready' => (bool)$row['ready'],
+//           'is_starter' => (bool)$row['is_starter'],
 //           'state' => $row['timer_state'],
 //           'icon' => $row['timer_icon'],
 //           'last_seen' => ($current_time - $row['last_heartbeat']) . ' seconds ago'
