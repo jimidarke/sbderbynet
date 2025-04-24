@@ -9,6 +9,7 @@ import os
 import uuid
 import psutil # type: ignore
 
+time.sleep(10)
 
 ###########################    SETUP    ###########################
 from derbylogger import setup_logger
