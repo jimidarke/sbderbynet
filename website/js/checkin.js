@@ -103,6 +103,8 @@ function handlechange_registered(event, cb, racer) {
         value: 1
       },
       success: function () {
+        cb.checked = true
+        location.reload(true);
         // Disable toggle after successful registration
         cb.disabled = true;
       },
