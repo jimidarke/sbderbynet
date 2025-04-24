@@ -52,6 +52,9 @@ if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then
     sudo bash -c "echo 'hdmi_group=2' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'hdmi_mode=82' >> /boot/firmware/config.txt" # 1920x1080 @ 60Hz
     sudo bash -c "echo 'disable_overscan=1' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'disable_splash=1' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'framebuffer_width=1920' >> /boot/firmware/config.txt"
+    sudo bash -c "echo 'framebuffer_height=1080' >> /boot/firmware/config.txt"
     sudo systemctl disable --now systemd-journald
     sudo systemctl disable --now rsyslog
     sudo systemctl disable --now logrotate 
@@ -112,7 +115,8 @@ if [ ! -f /etc/systemd/system/derbydisplay.service ]; then
     TOREBOOT=1
 else
     echo "DerbyNet Derby Display service found. Starting."
-    sudo systemctl restart derbydisplay
+    sudo systemctl enable derbydisplay
+    sudo systemctl start derbydisplay
 fi
 
 # reboots if TOREBOOT is set to 1
