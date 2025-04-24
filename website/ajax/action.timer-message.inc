@@ -242,23 +242,23 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// 	}
 		// }
 
-		//  // Handle starter heartbeat first
-		//  if (isset($_POST['starter'])) {
-		// 	$timerID = $_POST['starter_id'] ?? 'STARTER_001';
-		// 	$ready = isset($_POST['starter_ready']) ? intval($_POST['starter_ready']) : 0;
-			
-		// 	$stmt = $db->prepare('REPLACE INTO TimerStatus 
-		// 		(lane, timerID, last_heartbeat, ready, is_starter) 
-		// 		VALUES (0, :timerID, :last_heartbeat, :ready, 1)');
-			
-		// 	$stmt->execute([
-		// 		':timerID' => $timerID,
-		// 		':last_heartbeat' => time(),
-		// 		':ready' => $ready
-		// 	]);
-	
-		// 	error_log("Starter status saved: TimerID $timerID, Ready $ready");
-		// }
+		// Handle starter heartbeat first
+		if (isset($_POST['starter'])) {
+			$timerID = $_POST['starter_id'] ?? 'STARTER_001';
+			$ready = isset($_POST['starter_ready']) ? intval($_POST['starter_ready']) : 0;
+
+			$stmt = $db->prepare('REPLACE INTO TimerStatus 
+				(lane, timerID, last_heartbeat, ready, is_starter) 
+				VALUES (0, :timerID, :last_heartbeat, :ready, 1)');
+
+			$stmt->execute([
+				':timerID' => $timerID,
+				':last_heartbeat' => time(),
+				':ready' => $ready
+			]);
+
+			error_log("Starter status saved: TimerID $timerID, Ready $ready");
+		}
 
 		// Updated code for mark stale timers and delete them
 		foreach ($_POST as $key => $value) {

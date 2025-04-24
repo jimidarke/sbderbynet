@@ -38,7 +38,7 @@ function json_timer_state() {
           'timerID' => $row['timerid'],
           'last_heartbeat' => $row['last_heartbeat'],
           'ready' => $row['ready'],
-          // 'is_starter' => (bool)$row['is_starter'],
+          'is_starter' => (bool)$row['is_starter'],
       );
   }
 

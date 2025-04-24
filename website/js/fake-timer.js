@@ -286,10 +286,10 @@ function send_heartbeat() {
       action: 'timer-message',
       message: 'HEARTBEAT',
       confirmed: 1,
-      // // Add starter info
-      // starter: true,
-      // starter_id: 'STARTER_001',
-      // starter_ready: 1
+      // Add starter info
+      starter: true,
+      starter_id: 'STARTER_001',
+      starter_ready: 1
   };
 
   $("#timer-sim-times td").each(function (i, td) {
