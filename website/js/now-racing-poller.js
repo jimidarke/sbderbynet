@@ -19,30 +19,32 @@ var Poller = {
   ceased: false,
 
   // This gets overridden in the actual now-racing kiosks
-  build_request: function(roundid, heat) {
-    return {query: 'poll',
-            values: '',
-            roundid: roundid,
-            heat: heat};
+  build_request: function (roundid, heat) {
+    return {
+      query: 'poll',
+      values: '',
+      roundid: roundid,
+      heat: heat
+    };
   },
-  
+
   // Queues the next poll request when processing of the current request has
   // completed, including animations, if any.  Because animations are handled
   // asynchronously, with completion callbacks, we can't just start the next
   // request when process_now_racing_element returns.
-  queue_next_request: function(roundid, heat) {
+  queue_next_request: function (roundid, heat) {
     if (this.id_of_timeout != 0) {
       console.log("Trying to queue a polling request when there's already one pending; ignored.");
     } else {
-      Poller.id_of_timeout = setTimeout(function() {
+      Poller.id_of_timeout = setTimeout(function () {
         Poller.id_of_timeout = 0;
         Poller.poll_for_update(roundid, heat);
       }, 500);  // 0.5 sec
     }
   },
 
-  poll_for_update: function(roundid, heat) {
-    if (typeof(simulated_poll_for_update) == "function") {
+  poll_for_update: function (roundid, heat) {
+    if (typeof (simulated_poll_for_update) == "function") {
       simulated_poll_for_update();
     } else if (this.suspended) {
       Poller.queue_next_request(roundid, heat);
@@ -50,21 +52,22 @@ var Poller = {
     } else {
       this.time_of_last_request = Date.now();
       $.ajax('action.php',
-             {type: 'GET',
-              data: Poller.build_request(roundid, heat),
-              success: function(data) {
-                if (data["cease"]) {
-                  Poller.ceased = true;
-                  window.location.href = '../index.php';
-                  return;
-                }
-                process_polling_result(data);
-              },
-              error: function() {
-                Poller.queue_next_request(roundid, heat);
-              }
-             }
-            );
+        {
+          type: 'GET',
+          data: Poller.build_request(roundid, heat),
+          success: function (data) {
+            if (data["cease"]) {
+              Poller.ceased = true;
+              window.location.href = '../index.php';
+              return;
+            }
+            process_polling_result(data);
+          },
+          error: function () {
+            Poller.queue_next_request(roundid, heat);
+          }
+        }
+      );
     }
   },
 
@@ -73,7 +76,7 @@ var Poller = {
   // seconds).  As a safeguard against a bug that perhaps prevents queuing the
   // next request, the watchdog periodically tests whether one seems overdue,
   // and may queue a new request if so.
-  watchdog: function() {
+  watchdog: function () {
     if (this.id_of_timeout != 0 && this.time_of_last_request + 15000 < Date.now()) {
       console.error("Watchdog notices no requests lately, and none queued!");
       this.queue_next_request();

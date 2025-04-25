@@ -431,8 +431,35 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                     </div>
                 </div>
             </div>
+            <!-- <div class="settings_group">
+                <div class="settings_group_image">
+                    <img src="img/testing.png" style="width: 100%;" />
+                </div>
+                <div class="settings_group_settings">
+                    <h3>Testing & Development</h3>
+                    <div class="block_buttons">
+                        <input id="show-simulate-results" name="show-simulate-results" type="checkbox" 
+                            <?php echo read_raceinfo('show-simulate-results', 0) ? 'checked="checked"' : ''; ?>/>
+                        <label for="show-simulate-results">Show Simulate Results Button</label>
+                    </div>
+                </div>
+            </div> -->
         </form>
     </div>
     <?php require('inc/chooser.inc'); ?>
 </body>
 </html>
+<!-- 
+<script>
+$(function() {
+    $('#show-simulate-results').change(function() {
+        $.ajax('action.php', {
+            type: 'POST',
+            data: {
+                action: 'settings.write',
+                show-simulate-results: $(this).prop('checked') ? 1 : 0
+            }
+        });
+    });
+});
+</script> -->

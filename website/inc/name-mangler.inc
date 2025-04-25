@@ -9,7 +9,7 @@ function read_name_style() {
 
 function mangled_name(&$racer, $style) {
   if ($style == FIRST_NAME_LAST_INITIAL) {
-    return $racer['firstname'].' '.substr($racer['lastname'], 0, 1).'.';
+    return $racer['firstname'].' '.substr((string)($racer['lastname'] ?? ''), 0, 1).'.';
   } else {
     return $racer['firstname'].' '.$racer['lastname'];
   }

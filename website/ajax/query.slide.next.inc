@@ -5,44 +5,47 @@ require_once('inc/path-info.inc');
 require_once('inc/photo-config.inc');
 require_once('inc/schema_version.inc');
 
-function url_for_cropped(&$row, $column_name, &$repository) {
-  return $repository->url_for_file($row[$column_name], $row['racerid'], RENDER_CROPPED);
+function url_for_cropped(&$row, $column_name, &$repository)
+{
+    return $repository->url_for_file($row[$column_name], $row['racerid'], RENDER_CROPPED);
 }
 
-function next_slides($current_slide, $subdir = '') {
-    $slides_dir = 'slides/';
-    if (!empty($subdir)) {
-        $slides_dir .= $subdir . '/';
-    }
-    
-    $slides = array();
-    if (is_dir($slides_dir)) {
-        foreach (scandir($slides_dir) as $file) {
-            if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'png') {
-                $slides[] = $file;
-            }
+if (!function_exists('next_slides')) {
+    function next_slides($current_slide, $subdir = '')
+    {
+        $slides_dir = 'slides/';
+        if (!empty($subdir)) {
+            $slides_dir .= $subdir . '/';
         }
-        sort($slides); // Alphabetical order
-    }
-    
-    if (empty($slides)) {
-        return array();
-    }
-    
-    // If no current slide, return first slide
-    if (empty($current_slide)) {
-        return array($slides[0]);
-    }
-    
-    // Find current slide and return next one
-    $current_index = array_search($current_slide, $slides);
-    if ($current_index === false || $current_index >= count($slides) - 1) {
-        return array($slides[0]); // Loop back to first slide
-    }
-    
-    return array($slides[$current_index + 1]);
-}
 
+        $slides = array();
+        if (is_dir($slides_dir)) {
+            foreach (scandir($slides_dir) as $file) {
+                if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'png') {
+                    $slides[] = $file;
+                }
+            }
+            sort($slides); // Alphabetical order
+        }
+
+        if (empty($slides)) {
+            return array();
+        }
+
+        // If no current slide, return the first slide
+        if (empty($current_slide)) {
+            return array($slides[0]);
+        }
+
+        // Find current slide and return the next one
+        $current_index = array_search($current_slide, $slides);
+        if ($current_index === false || $current_index >= count($slides) - 1) {
+            return array($slides[0]); // Loop back to the first slide
+        }
+
+        return array($slides[$current_index + 1]);
+    }
+}
 $done = false;
 
 // The three "modes" for the slide show are 'title', 'slide', and 'racer'.
@@ -67,7 +70,7 @@ if (isset($_GET['subdir']) && is_acceptable_subdir($_GET['subdir'])) {
 if ($mode == 'slide' || $mode == 'title') {
     $current_file = isset($_GET['file']) ? $_GET['file'] : '';
     $results = next_slides($current_file, $subdir);
-    
+
     if (count($results) > 0) {
         json_out('photo', array(
             'photo' => 'slide.php/' . ($subdir ? $subdir . '/' : '') . rawurlencode($results[0]),
@@ -91,5 +94,4 @@ if (!$done) {
         )
     ));
 }
-
 ?>
