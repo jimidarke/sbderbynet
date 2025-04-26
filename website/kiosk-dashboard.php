@@ -95,7 +95,7 @@ var g_url = <?php echo json_encode($urls[0],
       foreach ($standings->standings_catalog() as $entry) {
         $json_entry = json_encode($entry);
         echo '<option data-catalog-entry="'.htmlspecialchars($json_entry, ENT_QUOTES, 'UTF-8').'"';
-        echo ' data-count="'.@$standings->catalog_counts[$entry['key']].'"';
+        echo ' data-count="'.htmlspecialchars($standings->catalog_counts[$entry['key']] ?? 0, ENT_QUOTES, 'UTF-8').'"';
         if ($current_catalog_entry == $json_entry) {
           echo ' selected="selected"';
         }

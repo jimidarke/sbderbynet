@@ -41,8 +41,6 @@ $(function () {
   $("#lane-count").on('keyup mouseup', on_lane_count_change);
 });
 
-
-
 function reset_timer() {
   $("#timer-sim-times td").attr('data-running', 1).text('0.000');
   $('#start-button').prop('disabled', true);
@@ -283,34 +281,34 @@ function send_identified() {
 
 function send_heartbeat() {
   var data = {
-      action: 'timer-message',
-      message: 'HEARTBEAT',
-      confirmed: 1,
-      // Add starter info
-      starter: true,
-      starter_id: 'STARTER_001',
-      starter_ready: 1
+    action: 'timer-message',
+    message: 'HEARTBEAT',
+    confirmed: 1,
+    // Add starter info
+    starter: true,
+    starter_id: 'STARTER_001',
+    starter_ready: 1
   };
 
   $("#timer-sim-times td").each(function (i, td) {
-      let laneNumber = i + 1;
-      let timerId = `TIMER_${laneNumber.toString().padStart(5, '0')}`; // Ensure unique timerID
-      let isReady = $(td).attr('data-running') == 1;
+    let laneNumber = i + 1;
+    let timerId = `TIMER_${laneNumber.toString().padStart(5, '0')}`; // Ensure unique timerID
+    let isReady = $(td).attr('data-running') == 1;
 
-      data[`lane${laneNumber}`] = laneNumber;
-      data[`timerId${laneNumber}`] = timerId;
-      data[`ready${laneNumber}`] = isReady ? 1 : 0;
+    data[`lane${laneNumber}`] = laneNumber;
+    data[`timerId${laneNumber}`] = timerId;
+    data[`ready${laneNumber}`] = isReady ? 1 : 0;
   });
 
   // console.log("Sending HEARTBEAT data:", data); // Debugging
 
   $.ajax('action.php', {
-      type: 'POST',
-      data: data,
-      success: function (response) {
-          // console.log("HEARTBEAT response:", response);
-          process_timer_messages(data);
-      }
+    type: 'POST',
+    data: data,
+    success: function (response) {
+      // console.log("HEARTBEAT response:", response);
+      process_timer_messages(data);
+    }
   });
 }
 
@@ -350,27 +348,27 @@ function send_started() {
 // As of 28-03-2025
 function send_finished() {
   var data = {
-      action: 'timer-message',
-      message: 'FINISHED'
+    action: 'timer-message',
+    message: 'FINISHED'
   };
 
   $("#timer-sim-times td").each(function (i, td) {
-      let laneNumber = i + 1;
-      let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`;
+    let laneNumber = i + 1;
+    let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`;
 
-      data[`lane${laneNumber}`] = $(td).text();
-      data[`timerId${laneNumber}`] = timerId;
+    data[`lane${laneNumber}`] = $(td).text();
+    data[`timerId${laneNumber}`] = timerId;
   });
 
   console.log(data); // Debugging output
 
   $.ajax('action.php', {
-      type: 'POST',
-      data: data,
-      success: function (response) {
-          show_not_racing();  
-          process_timer_messages(response);
-      }
+    type: 'POST',
+    data: data,
+    success: function (response) {
+      show_not_racing();
+      process_timer_messages(response);
+    }
   });
 }
 

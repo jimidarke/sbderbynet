@@ -659,7 +659,7 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
         // Only show remove button if round not completed and racer exists
         (r && !isRoundCompleted(current.roundid) ? 
             '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid + 
-            ')" class="btn btn-warning btn-sm">Remove from Race</button></td>' : 
+            ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove from Race</button></td>' : 
             '<td></td>') +
         "</tr>"
     );

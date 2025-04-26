@@ -92,7 +92,8 @@ if (have_permission(SET_UP_PERMISSION)) {
     'avoid-consecutive' => array('setting' => 'avoid-consecutive'),
     'avoid-same-lane' => array('setting' => 'avoid-same-lane'),
     'group-weighted-cars' => array('setting' => 'group-weighted-cars'),
-    
+
+    // 'show-simulate-results' => array('setting' => 'show-simulate-results', 'type' => 'checkbox'),
 
   );
 
