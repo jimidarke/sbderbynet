@@ -63,27 +63,35 @@ var g_url = <?php echo json_encode($urls[0],
     <select id='standings-catalog'>
       <?php
         $standings = new StandingsOracle();
+        $standings_state = explode('-', read_raceinfo('standings-message'), 2);
+        $current_exposed = '';
+        $current_catalog_entry = '';
+        $still_hidden = 'nothing'; // Default value
 
-        // This <select> elements lets the operator choose what standings should be displayed on
-        // kiosks displaying standings.
-        $standings_state =  explode('-', read_raceinfo('standings-message'), 2);
-        $current_exposed = $current_catalog_entry = '';
+        // Initialize catalog_counts if not set
+        if (!isset($standings->catalog_counts)) {
+            $standings->catalog_counts = array();
+        }
+
         if (count($standings_state) >= 2) {
-          $current_exposed = $standings_state[0];
-          $current_catalog_entry = $standings_state[1];
+            $current_exposed = $standings_state[0];
+            $current_catalog_entry = $standings_state[1];
         }
 
         if ($current_exposed === '') {
-          $current_exposed = 'all';
-          $still_hidden = 'nothing';
+            $current_exposed = 'all';
+            $still_hidden = 'nothing';
         } else {
-          $cat_entry = json_decode($current_catalog_entry, /* assoc */true);
-          $count = @$standings->catalog_counts[$cat_entry['key']];
-          if ($current_exposed > $count) {
-            $current_exposed = $count;
-          }
-          $still_hidden = 'highest '.($count - $current_exposed);
-          $current_exposed = 'lowest '.$current_exposed;
+            $cat_entry = json_decode($current_catalog_entry, /* assoc */true);
+            $count = isset($standings->catalog_counts[$cat_entry['key']]) 
+                ? $standings->catalog_counts[$cat_entry['key']] 
+                : 0;
+            
+            if ($current_exposed > $count) {
+                $current_exposed = $count;
+            }
+            $still_hidden = 'highest ' . ($count - $current_exposed);
+            $current_exposed = 'lowest ' . $current_exposed;
         }
 
         $use_subgroups = use_subgroups();
@@ -92,16 +100,27 @@ var g_url = <?php echo json_encode($urls[0],
           echo '<option selected="selected" disabled="1">Please choose what standings to display</option>';
         }
 
-      foreach ($standings->standings_catalog() as $entry) {
-        $json_entry = json_encode($entry);
-        echo '<option data-catalog-entry="'.htmlspecialchars($json_entry, ENT_QUOTES, 'UTF-8').'"';
-        echo ' data-count="'.htmlspecialchars($standings->catalog_counts[$entry['key']] ?? 0, ENT_QUOTES, 'UTF-8').'"';
-        if ($current_catalog_entry == $json_entry) {
-          echo ' selected="selected"';
-        }
-        echo '>';
-        echo htmlspecialchars($entry['name'], ENT_QUOTES, 'UTF-8');
-        echo "</option>\n";
+      try {
+          // Wrap the standings catalog iteration in error handling
+          if ($standings && method_exists($standings, 'standings_catalog')) {
+              foreach ($standings->standings_catalog() as $entry) {
+                  if (isset($entry['key']) && isset($entry['name'])) {
+                      $json_entry = json_encode($entry);
+                      echo '<option data-catalog-entry="'.htmlspecialchars($json_entry, ENT_QUOTES, 'UTF-8').'"';
+                      echo ' data-count="'.htmlspecialchars($standings->catalog_counts[$entry['key']] ?? 0, ENT_QUOTES, 'UTF-8').'"';
+                      if ($current_catalog_entry == $json_entry) {
+                          echo ' selected="selected"';
+                      }
+                      echo '>';
+                      echo htmlspecialchars($entry['name'], ENT_QUOTES, 'UTF-8');
+                      echo "</option>\n";
+                  }
+              }
+          }
+      } catch (Exception $e) {
+          error_log("Error in standings processing: " . $e->getMessage());
+          // Show a friendly message to the user
+          echo '<option disabled="disabled">Error loading standings</option>';
       }
 
       ?>
