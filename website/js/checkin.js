@@ -873,7 +873,7 @@ function make_table_row(racer, xbs) {
     .text(weightData[userPreferredUnit] + ' ' + userPreferredUnit));
 
   var checkin = $('<td class="checkin-status"/>').appendTo(tr);
-  checkin.append('<br/>');
+  // checkin.append('<br/>');
   checkin.append($('<input type="checkbox" class="flipswitch"/>')
     .attr('id', 'passed-' + racer.racerid)
     .attr('name', 'passed-' + racer.racerid)
@@ -896,7 +896,7 @@ function make_table_row(racer, xbs) {
   }
 
   var registered = $('<td class="registered-status"/>').appendTo(tr);
-  registered.append('<br/>');
+  // registered.append('<br/>');
   registered.append($('<input type="checkbox" class="flipswitch"/>')
     .attr('id', 'registered-' + racer.racerid)
     .attr('name', 'registered-' + racer.racerid)
