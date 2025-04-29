@@ -85,10 +85,19 @@ $warn_no_timer = warn_no_timer();
           <input type="button" value="Start Race" onclick="handle_start_race_button()" />
         </div>
         
-        <?php if (read_raceinfo('show-simulate-results', 0)) { ?>
-          <!-- <div class="block_buttons">
-            <input type="button" value="Simulate Results" onclick="simulateRaceResults();" id="simulate-results-btn" />
-          </div> -->
+        <?php if (have_permission(CONTROL_RACE_PERMISSION)) { ?>
+            <div class="simulation-controls" <?php echo read_raceinfo('test-mode', 0) ? '' : 'style="display:none;"'; ?>>
+                <div class="block_buttons">
+                    <?php if (read_raceinfo('using_simulation', 0)) { ?>
+                        <span class="simulation-indicator">SIMULATION MODE</span>
+                    <?php } ?>
+                    <input type="button" 
+                           id="simulate-results-btn"
+                           value="Simulate Results" 
+                           onclick="simulateRaceResults();"
+                           class="btn btn-warning"/>
+                </div>
+            </div>
         <?php } ?>
 
         <div class="centered_flipswitch">

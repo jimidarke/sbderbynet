@@ -1,4 +1,5 @@
 <?php
+session_start();
 // This ajax action allows configuration information to be recorded in the database.  See setting.php.
 
 require_once('inc/photo-config.inc');
@@ -21,6 +22,11 @@ if (have_permission(SET_UP_PERMISSION)) {
   // 'use-subgroups' setting.
   $ok = true;
   $written = array();
+
+  if (!isset($_SESSION['settings'])) {
+    $_SESSION['settings'] = array();
+  }
+  
 
   if (locked_settings()) {
     foreach(array('photo-dir', 'car-photo-dir', 'video-dir') as $post_key) {
@@ -93,10 +99,9 @@ if (have_permission(SET_UP_PERMISSION)) {
     'avoid-same-lane' => array('setting' => 'avoid-same-lane'),
     'group-weighted-cars' => array('setting' => 'group-weighted-cars'),
 
-    // 'show-simulate-results' => array('setting' => 'show-simulate-results', 'type' => 'checkbox'),
+    'test-mode' => array('setting' => 'test-mode', 'type' => 'checkbox'),
 
-  );
-
+  );  
   if ($ok) {
     foreach ($all_settings as $post_key_base => $setting) {
       if (@$setting['type'] == 'checkbox') {
@@ -134,6 +139,8 @@ if (have_permission(SET_UP_PERMISSION)) {
             }
         }
         write_raceinfo($itemkey, $itemvalue);
+        // Record the value in the session, so that it can be used
+        $_SESSION['settings'][$itemkey] = $itemvalue;
         // Check that the value didn't get truncated or something
         if (read_raceinfo($itemkey) != $itemvalue) {
           json_failure('not-written',

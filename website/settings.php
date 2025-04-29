@@ -12,6 +12,13 @@ require_once('inc/name-mangler.inc');
 require_once('inc/photos-on-now-racing.inc');
 require_once('inc/pick_image_set.inc');
 require_once('inc/xbs.inc');
+
+// Load all settings into session
+require_once('inc/util.inc');
+if (!load_all_settings_into_session()) {
+    error_log("Failed to load settings into session");
+}
+
 require_permission(SET_UP_PERMISSION);
 $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
     . ' WHERE COALESCE(completed, \'\') = \'\'');
@@ -431,35 +438,34 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                     </div>
                 </div>
             </div>
-            <!-- <div class="settings_group">
+            <div class="settings_group">
                 <div class="settings_group_image">
                     <img src="img/testing.png" style="width: 100%;" />
                 </div>
                 <div class="settings_group_settings">
                     <h3>Testing & Development</h3>
                     <div class="block_buttons">
-                        <input id="show-simulate-results" name="show-simulate-results" type="checkbox" 
-                            <?php echo read_raceinfo('show-simulate-results', 0) ? 'checked="checked"' : ''; ?>/>
-                        <label for="show-simulate-results">Show Simulate Results Button</label>
+                        <input id="test-mode" name="test-mode" type="checkbox" 
+                            <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
+                        <label for="test-mode">Testing Mode</label>
+                        <span style="font-size:14px;">(Show Simulate Results Button)</span>
+                    </div>
+
+                    <div class="database-status">
+                        <p>Current Database: <strong>
+                            <?php 
+                            if (isset($_SESSION['test-mode']) && $_SESSION['test-mode']) {
+                                echo "TEST DB: " . htmlspecialchars($_SESSION['test_database']);
+                            } else {
+                                echo "PRODUCTION DB: " . htmlspecialchars($db_connection_string);
+                            }
+                            ?>
+                        </strong></p>
                     </div>
                 </div>
-            </div> -->
+            </div>
         </form>
     </div>
     <?php require('inc/chooser.inc'); ?>
 </body>
 </html>
-<!-- 
-<script>
-$(function() {
-    $('#show-simulate-results').change(function() {
-        $.ajax('action.php', {
-            type: 'POST',
-            data: {
-                action: 'settings.write',
-                show-simulate-results: $(this).prop('checked') ? 1 : 0
-            }
-        });
-    });
-});
-</script> -->

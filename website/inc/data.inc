@@ -6,9 +6,25 @@ try {
 }
 
 if (!isset($db)) {
-  $_SESSION['setting_up'] = 1;
-  header('Location: setup.php');
-  exit();
+    $_SESSION['setting_up'] = 1;
+    header('Location: setup.php');
+    exit();
+}
+
+// Check if we should be using test database
+if (isset($_SESSION['test-mode']) && $_SESSION['test-mode'] && isset($_SESSION['test_database'])) {
+    try {
+        $test_db = new PDO('sqlite:' . $_SESSION['test_database']);
+        $test_db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Switch to test database
+        $db = $test_db;
+        error_log("Using test database: " . $_SESSION['test_database']);
+    } catch (Exception $e) {
+        error_log("Failed to connect to test database: " . $e->getMessage());
+        // Fall back to production database
+        $_SESSION['test-mode'] = false;
+    }
 }
 
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

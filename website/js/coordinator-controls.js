@@ -742,3 +742,85 @@ function handleRacerDropout(racerid, roundid) {
     });
   }
 }
+
+function toggleSimulationMode() {
+    const isEnabling = $('#toggle-simulation').val().includes('Enter');
+    
+    $.ajax('action.php', {
+        type: 'POST',
+        data: {
+            action: 'simulation.toggle',
+            enable: isEnabling ? 1 : 0
+        },
+        success: function(response) {
+            if (response.success) {
+                location.reload(); // Refresh to show simulation controls
+            } else {
+                alert('Failed to toggle simulation mode: ' + response.message);
+            }
+        }
+    });
+}
+
+function simulateRaceResults() {
+  console.log('Simulating...!');
+  
+    if (confirm('This will simulate race results with random finish times. Continue?')) {
+        return;
+    }
+
+    // // Start the race
+    // $.ajax('action.php', {
+    //     type: 'POST',
+    //     data: {
+    //         action: 'timer-message',
+    //         message: 'STARTED'
+    //     },
+    //     success: function(response) {
+    //         // Generate results after 2 seconds
+    //         setTimeout(generateRandomResults, 2000);
+    //     }
+    // });
+}
+
+function generateRandomResults() {
+    let results = {};
+    $('#now-racing-group .heat-table tr').each(function(index) {
+        if (index > 0) { // Skip header row
+            let lane = $(this).find('td:first').text();
+            if (lane) {
+                // Generate random time between 40 and 60 seconds
+                let time = (40 + Math.random() * 20).toFixed(3);
+                results['lane' + lane] = time;
+            }
+        }
+    });
+
+    // Send simulated results
+    $.ajax('action.php', {
+        type: 'POST',
+        data: {
+            action: 'timer-message',
+            message: 'FINISHED',
+            ...results
+        },
+        success: function() {
+            // Wait 1 second then advance to next heat
+            setTimeout(function() {
+                $.ajax('action.php', {
+                    type: 'POST',
+                    data: {
+                        action: 'heat.select',
+                        heat: 'next'
+                    },
+                    success: function() {
+                        // If more heats exist, continue simulation
+                        if ($('#now-racing-group .heat-table tr').length > 1) {
+                            setTimeout(simulateRaceResults, 2000);
+                        }
+                    }
+                });
+            }, 1000);
+        }
+    });
+}
