@@ -5,6 +5,7 @@ session_start();
 require_once('inc/photo-config.inc');
 require_once('inc/schema_version.inc');
 require_once('inc/locked.inc');
+require_once('inc/error-logging.inc');
 
 // To preclude problems with misspelled parameters, we want to be sure that we
 // account for every parameter passed.  We do that by just counting the number
@@ -148,12 +149,13 @@ if (have_permission(SET_UP_PERMISSION)) {
   );
   if ($ok) {
     foreach ($all_settings as $post_key_base => $setting) {
-      if (isset($setting['type']) == 'checkbox') {
+      if (isset($setting['type']) && $setting['type'] === 'checkbox') {
         $post_key = $post_key_base . '-checkbox';
       } else {
         $post_key = $post_key_base;
       }
       if (isset($_POST[$post_key])) {
+        error_log("Setting: $post_key");
         $itemkey = $setting['setting'];
         $itemvalue = $_POST[$post_key];
         ++$num_picked;
@@ -217,6 +219,7 @@ if (have_permission(SET_UP_PERMISSION)) {
     }
   }
 
+  error_log("Settings written: " . json_encode($written));
   json_out('written', $written);
 
   if ($ok) {
