@@ -1,4 +1,4 @@
-'use strict';
+// 'use strict';
 
 function on_lane_count_change() {
   $("#lanes-in-use").empty();
@@ -331,29 +331,33 @@ $(document).ready(function () {
   });
 });
 function refreshDatabaseStatus() {
-  console.log('Refreshing database status...');
+  return new Promise((resolve, reject) => {
+    console.log('Refreshing database status...');
 
-  $.ajax({
-    url: 'action.php',
-    method: 'POST',
-    dataType: 'json',
-    data: {
-      action: 'database.status',
-    },
-    success: function (response) {
-      console.log('Database status response:', response);
-      if (response.status == 'success') {
-        console.log('Database status:', response);
-        updateDatabaseStatusUI(response);
-      } else {
-        console.error('Database status check failed:', response.message);
-        showError('Failed to check database status: ' + response.message);
-      }
-    },
-    error: function (xhr, status, error) {
-      console.error('Ajax error:', { xhr, status, error });
-      showError('Error checking database status: ' + error);
-    }
+    $.ajax({
+      url: 'action.php',
+      method: 'POST',
+      dataType: 'json',
+      data: {
+        action: 'database.status',
+      },
+      success: function (response) {
+        console.log('Database status response:', response);
+        if (response.status == 'success') {
+          console.log('Database status:', response);
+          updateDatabaseStatusUI(response);
+        } else {
+          console.error('Database status check failed:', response.message);
+          showError('Failed to check database status: ' + response.message);
+        }
+        resolve(response);
+      },
+      error: function (xhr, status, error) {
+        console.error('Ajax error:', { xhr, status, error });
+        showError('Error checking database status: ' + error);
+        reject(error);
+      },
+    });
   });
 }
 

@@ -455,10 +455,14 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                 <div class="settings_group_settings">
                     <h3>Testing & Development</h3>
                     <div class="form-group">
-                        <label>
-                        <input id="test-mode" name="test-mode" type="checkbox" class="do-not-post"
-                        <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
-                            Enable Test Mode
+                        <input type="checkbox" class="flipswitch do-not-post" name="test-mode" id="test-mode"
+                            data-wrapper-class="test-mode-flipswitch"
+                            data-off-text="Production Mode"
+                            data-on-text="Test Mode" <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
+                        <label style="vertical-align: middle;">
+                        <!-- <input id="test-mode" name="test-mode" type="checkbox" class="do-not-post"
+                            <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/> -->
+                                Enabled
                         </label>
                         <p class="help-block">When enabled, operations will use a test database instead of production.</p>
                     </div>

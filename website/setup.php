@@ -21,6 +21,7 @@ require_permission(SET_UP_PERMISSION);
   <script type="text/javascript" src="js/mobile.js"></script>
   <script type="text/javascript" src="js/modal.js"></script>
   <script type="text/javascript" src="js/chooser.js"></script>
+  <script type="text/javascript" src="js/settings.js"></script>
   <script type="text/javascript" src="js/setup.js"></script>
 </head>
 <body>

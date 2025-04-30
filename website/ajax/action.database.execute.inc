@@ -51,101 +51,83 @@ try {
     $prodDb = "$prod_dir/derbynet.sqlite3";
     $testDb = "$test_dir/derbynet.sqlite3";
 
-    // Define test directories under the test path
-    $testDirs = [
-        'database' => $test_dir,
-        'racers' => "$test_dir/racers",
-        'cars' => "$test_dir/cars",
-        'videos' => "$test_dir/videos",
-        'logs' => "$test_dir/logs",
-        'imagery' => "$test_dir/imagery",
-        'slides' => "$test_dir/slides"
-    ];
-
-    // Ensure directories exist before use
+    // Get current test mode state
+    $test_mode = isset($_SESSION['test-mode']) ? $_SESSION['test-mode'] : false;
+    
+    // If initializing test database, temporarily switch mode
     if ($for_test) {
-        ensure_directories_exist($testDirs);
-    } else {
-        ensure_directories_exist([$prod_dir]);
+        $_SESSION['test-mode'] = true;
+        $_SESSION['settings']['test-mode'] = '1';
     }
 
-    if ($for_test && !file_exists($testDb)) {
-        if (file_exists($prodDb)) {
-            if (!copy($prodDb, $testDb)) {
-                throw new Exception("Failed to copy production DB to test DB.");
-            }
-            chmod($testDb, 0777);
-            error_log("Initialized test DB: $testDb");
-        } else {
-            $pdo = new PDO("sqlite:$testDb");
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            chmod($testDb, 0777);
-        }
-    }
-
-    $_SESSION['test_database'] = $testDb;
-    $_SESSION['test_directories'] = $testDirs;
-
-    $_SESSION['prod_database'] = $prodDb;
-    $_SESSION['prod_directories'] = [
-        'database' => $prod_dir,
-        'racers' => "$prod_dir/racers",
-        'cars' => "$prod_dir/cars",
-        'videos' => "$prod_dir/videos",
-        'logs' => "$prod_dir/logs",
-        'imagery' => "$prod_dir/imagery",
-        'slides' => "$prod_dir/slides"
-    ];
-
+    // Define directories for current mode
+    $current_dir = $for_test ? $test_dir : $prod_dir;
     $dbPath = $for_test ? $testDb : $prodDb;
     
-    // Validate database exists
-    if (!file_exists($dbPath)) {
-        throw new Exception(($for_test ? "Test" : "Production") . " DB not found at $dbPath");
-    }
+    // Ensure directories exist
+    $dirs = [
+        'database' => $current_dir,
+        'racers' => "$current_dir/racers",
+        'cars' => "$current_dir/cars", 
+        'videos' => "$current_dir/videos",
+        'logs' => "$current_dir/logs",
+        'imagery' => "$current_dir/imagery",
+        'slides' => "$current_dir/slides"
+    ];
 
+    ensure_directories_exist(array_values($dirs));
+
+    // Initialize database connection
     $db = new PDO("sqlite:$dbPath");
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    error_log("Using " . ($for_test ? "test" : "production") . " database: $dbPath");
-
-    if ($for_test) {
-        $db->exec("
-            INSERT OR REPLACE INTO RaceInfo (itemkey, itemvalue) VALUES
-                ('photo-directory', '{$testDirs['racers']}'),
-                ('car-photo-directory', '{$testDirs['cars']}'),
-                ('video-directory', '{$testDirs['videos']}'),
-                ('logs-directory', '{$testDirs['logs']}')
-        ");
-    }
-
-    try {
-        $originalSchema = schema_version();
-    } catch (PDOException $e) {
-        $originalSchema = null;
-    }
-
-    $jsonOut = [];
 
     if ($script === 'schema') {
+        // Store current settings before reinit
         $savedInfo = save_selected_race_info_values(RACE_INFO_KEYS_FOR_SCHEMA_SCRIPT);
-        error_log("Running SQL script for " . ($for_test ? "test" : "production") . " DB");
-
+        
         [$ok, $executed] = run_sql_script($script, $db);
-
+        
         if (!$ok) {
-            throw new Exception("Failed to execute schema script");
+            throw new Exception("Schema initialization failed");
         }
 
+        // Update test mode and paths in new database
+        $db->beginTransaction();
+        try {
+            $db->exec("DELETE FROM RaceInfo WHERE itemkey = 'test-mode'");
+            $db->exec("INSERT INTO RaceInfo (itemkey, itemvalue) VALUES ('test-mode', '".($for_test ? "1" : "0")."')");
+            
+            // Update directory paths
+            foreach ($dirs as $key => $path) {
+                $db->exec("INSERT OR REPLACE INTO RaceInfo (itemkey, itemvalue) VALUES 
+                    ('".($key === 'racers' ? 'photo-directory' : 
+                         ($key === 'cars' ? 'car-photo-directory' : 
+                          "$key-directory"))."', '$path')");
+            }
+            
+            $db->commit();
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw new Exception("Failed to update database settings: " . $e->getMessage());
+        }
+
+        // Restore saved settings with proper paths
         if (!empty($savedInfo)) {
             restore_saved_race_info_values($savedInfo);
         }
 
+        // Update session state
+        $_SESSION['current_database'] = $dbPath;
+        $_SESSION['current_directories'] = $dirs;
+        
         $jsonOut = [
             'executed' => $executed,
             'outcome' => [
                 'summary' => 'success',
-                'description' => "Schema initialized successfully for " . ($for_test ? 'test' : 'production') . " database"
+                'description' => "Schema initialized successfully for " . ($for_test ? 'test' : 'production') . " database",
+                'test_mode' => $for_test
             ],
+            'current_db' => $dbPath,
             'details' => build_setup_page_details()
         ];
     } elseif ($script === 'update-schema') {
@@ -169,11 +151,17 @@ try {
         ];
     }
 } catch (Exception $e) {
-    error_log("Database error: " . $e->getMessage());
+    // Restore original test mode state if needed
+    if ($for_test) {
+        $_SESSION['test-mode'] = $test_mode;
+        $_SESSION['settings']['test-mode'] = $test_mode ? '1' : '0';
+    }
+    
+    error_log("Database initialization error: " . $e->getMessage());
     $jsonOut = [
         'outcome' => [
             'summary' => 'failure',
-            'code' => 'database_error',
+            'code' => 'database_error', 
             'description' => $e->getMessage()
         ]
     ];

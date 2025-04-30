@@ -290,49 +290,30 @@ function handle_initialize_schema(isTestDb = false) {
             },
             dataType: 'json',
             success: function(data) {
-                console.log('Response:', data); // Debug logging
+                console.log('Schema initialization response:', data);
                 
                 try {
-                    if (data && data.outcome) {
-                        if (data.outcome.summary === 'success') {
+                    if (data.outcome.summary === 'success') {
+                        // Update database status after successful initialization
+                        refreshDatabaseStatus().then(() => {
                             report_success_json(data);
                             resolve(data);
-                        } else {
-                            const errorMsg = `Database ${isTestDb ? 'test ' : ''}initialization failed: ${data.outcome.description}`;
-                            console.error('Error:', errorMsg); // Debug logging
-                            report_failure(errorMsg);
-                            reject(new Error(errorMsg));
-                        }
+                        });
                     } else {
-                        throw new Error('Invalid response format from server');
+                        const errorMsg = `Database initialization failed: ${data.outcome.description}`;
+                        report_failure(errorMsg);
+                        reject(new Error(errorMsg));
                     }
                 } catch (e) {
-                    console.error('Error processing response:', e, data); // Debug logging
-                    report_failure(`Error processing server response: ${e.message}`);
+                    console.error('Error handling response:', e);
                     reject(e);
                 }
             },
             error: function(xhr, status, error) {
-              console.error('AJAX Error:', {
-                  status: status,
-                  error: error,
-                  responseText: xhr.responseText,
-                  headers: xhr.getAllResponseHeaders()
-              });
-          
-              // let errorMsg;
-              // try {
-              //     const response = JSON.parse(xhr.responseText);
-              //     errorMsg = response.outcome?.description || error;
-              // } catch (e) {
-              //     console.error('Error parsing response:', e);
-              //     errorMsg = `Failed to parse server response: ${error}`;
-              // }
-          
-              // report_failure(`Database ${isTestDb ? 'test ' : ''}initialization failed: ${errorMsg}`);
-              // reject(new Error(errorMsg));
-          }
-          
+                const errorMsg = `Database initialization failed: ${error}`;
+                report_failure(errorMsg);
+                reject(new Error(errorMsg));
+            }
         });
     });
 }
@@ -453,7 +434,7 @@ function getDatabaseStatusText(dbStatus) {
 }
 
 // CSS styles for the UI
-const styleSheet = `
+const styleSheett = `
 .database-status {
   padding: 15px;
   margin: 10px 0;
@@ -494,7 +475,7 @@ const styleSheet = `
 
 // Append styles to the document
 const styleElement = document.createElement('style');
-styleElement.textContent = styleSheet;
+styleElement.textContent = styleSheett;
 document.head.appendChild(styleElement);
 
 // Run status check on load and every 5 seconds
