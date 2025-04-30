@@ -508,6 +508,6 @@ div.block_buttons[data-name=buttons] {
     font-weight: bold;
 }
 
-.block_buttons {
+.heat_control_group .block_buttons {
   justify-self: center;
 }

@@ -9,6 +9,9 @@ if (!isset($db)) {
     $_SESSION['setting_up'] = 1;
     header('Location: setup.php');
     exit();
+} else {
+   // Initialize partition rule if needed
+   initialize_default_partition_rule();
 }
 
 // Check if we should be using test database
@@ -509,5 +512,36 @@ function is_windows_server() {
 function is_no_such_table_exception(/* PDOException */ $p) {
   return $p->getCode() == '42S02' ||
       ($p->getCode() == 'HY000' && stripos($p->getMessage(), "no such table") !== false);
+}
+
+// Apply by-partition rule on Database Initailization
+function initialize_default_partition_rule() {
+  global $db;
+  
+  try {
+      // Check if partition rule is set
+      $current_rule = read_raceinfo('group-formation-rule', '');
+      
+      // If not set, initialize with by-partition
+      if (empty($current_rule)) {
+          write_raceinfo('group-formation-rule', 'by-partition');
+          write_raceinfo('use-subgroups', '0'); // by-partition doesn't use subgroups
+          
+          require_once('inc/form_groups_by_rule.inc');
+          require_once('inc/class_add_or_delete.inc');
+          require_once('inc/rank_add_or_delete.inc');
+          // Apply the rule
+          form_groups_by_rule('by-partition');
+          clean_up_empty_classes_and_ranks();
+          record_action_partition_structure();
+          
+          error_log("Initialized default partition rule: by-partition");
+          return true;
+      }
+      return false;
+  } catch (Exception $e) {
+      error_log("Failed to initialize partition rule: " . $e->getMessage());
+      return false;
+  }
 }
 ?>

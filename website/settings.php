@@ -26,6 +26,12 @@ if (!load_all_settings_into_session()) {
     error_log("Failed to load settings into session");
 }
 
+// Ensure partition rule is set
+$partition_rule = read_raceinfo('group-formation-rule', '');
+if (empty($partition_rule)) {
+    initialize_default_partition_rule();
+}
+
 // Store current database path for validation
 $_SESSION['current_database'] = $db->query("SELECT file FROM pragma_database_list WHERE name='main'")->fetchColumn();
 

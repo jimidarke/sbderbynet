@@ -104,6 +104,8 @@ try {
                          ($key === 'cars' ? 'car-photo-directory' : 
                           "$key-directory"))."', '$path')");
             }
+
+            initialize_default_partition_rule();
             
             $db->commit();
         } catch (Exception $e) {
