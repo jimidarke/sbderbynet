@@ -35,7 +35,7 @@ function json_timer_state() {
       // error_log("Fetched timer status: " . print_r($row, true)); // Debugging
       $timers[] = array(
           'lane' => $row['lane'],
-          'timerID' => $row['timerid'],
+          'timerID' => $row['timerID'],
           'last_heartbeat' => $row['last_heartbeat'],
           'ready' => $row['ready'],
           'is_starter' => (bool)$row['is_starter'],
