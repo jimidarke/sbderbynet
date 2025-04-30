@@ -13,6 +13,46 @@ require_once('inc/locked.inc');
 $num_picked = 1;  // 1, not 0, to account for the 'action' key
 
 if (have_permission(SET_UP_PERMISSION)) {
+
+  if (isset($_POST['test-mode-only']) && $_POST['test-mode-only'] == '1') {
+    $use_test_mode = isset($_POST['test-mode']) && $_POST['test-mode'] === '1';
+
+    try {
+      header('Content-Type: application/json');
+
+      // Store current settings before switch
+      $current_settings = $_SESSION['settings'];
+
+      if (!switch_database($use_test_mode)) {
+        throw new Exception("Failed to switch database");
+      }
+
+      // Reload settings from new database
+      // load_all_settings_into_session();
+
+      // Return success with current settings
+      echo json_encode([
+        'status' => 'success',
+        'message' => 'Database switched successfully',
+        'refresh' => true,
+        'mode' => $use_test_mode ? 'test' : 'production',
+        'settings' => $_SESSION['settings']
+      ]);
+      exit;
+
+    } catch (Exception $e) {
+      error_log("Database switch failed: " . $e->getMessage());
+      // Revert session state on failure
+      $_SESSION['settings'] = $current_settings;
+
+      echo json_encode([
+        'status' => 'error',
+        'message' => "Failed to switch database mode: " . $e->getMessage()
+      ]);
+      exit;
+    }
+  }
+
   // For checkbox controls, no parameter is passed if the checkbox is unchecked.
   // To avoid accidentally reseting values by forgetting to pass them, we adopt
   // a convention of sending a hidden field, named with a '-checkbox' suffix,
@@ -26,10 +66,10 @@ if (have_permission(SET_UP_PERMISSION)) {
   if (!isset($_SESSION['settings'])) {
     $_SESSION['settings'] = array();
   }
-  
+
 
   if (locked_settings()) {
-    foreach(array('photo-dir', 'car-photo-dir', 'video-dir') as $post_key) {
+    foreach (array('photo-dir', 'car-photo-dir', 'video-dir') as $post_key) {
       if (isset($_POST[$post_key])) {
         json_failure('locked', "Directory settings are locked and cannot be changed.");
         $ok = false;
@@ -37,12 +77,16 @@ if (have_permission(SET_UP_PERMISSION)) {
     }
   }
 
-  if ((isset($_POST['n-lanes']) &&
-       $_POST['n-lanes'] != read_raceinfo('lane_count')) ||
-      (isset($_POST['unused-lane-mask']) &&
-       $_POST['unused-lane-mask'] != read_raceinfo('unused-lane-mask'))) {
-    if (read_single_value('SELECT COUNT(*) FROM RaceChart'
-                          .' WHERE COALESCE(completed, \'\') = \'\'') > 0) {
+  if (
+    (isset($_POST['n-lanes']) &&
+      $_POST['n-lanes'] != read_raceinfo('lane_count')) ||
+    (isset($_POST['unused-lane-mask']) &&
+      $_POST['unused-lane-mask'] != read_raceinfo('unused-lane-mask'))
+  ) {
+    if (
+      read_single_value('SELECT COUNT(*) FROM RaceChart'
+        . ' WHERE COALESCE(completed, \'\') = \'\'') > 0
+    ) {
       json_failure('already-scheduled', "Remove unraced schedules before changing lane counts.");
       $ok = false;
     }
@@ -101,11 +145,11 @@ if (have_permission(SET_UP_PERMISSION)) {
 
     'test-mode' => array('setting' => 'test-mode', 'type' => 'checkbox'),
 
-  );  
+  );
   if ($ok) {
     foreach ($all_settings as $post_key_base => $setting) {
-      if (@$setting['type'] == 'checkbox') {
-        $post_key = $post_key_base.'-checkbox';
+      if (isset($setting['type']) == 'checkbox') {
+        $post_key = $post_key_base . '-checkbox';
       } else {
         $post_key = $post_key_base;
       }
@@ -130,23 +174,43 @@ if (have_permission(SET_UP_PERMISSION)) {
           }
         }
         // Validate heat ordering values
-        if (in_array($post_key, ['heat-counts', 'avoid-consecutive','group-weighted-cars', 'avoid-same-lane'])) {
-            $validValues = ['0', '50', '300', '1000'];
-            if (!in_array($itemvalue, $validValues)) {
-                json_failure('invalid-value', "Invalid value for $post_key.");
-                $ok = false;
-                continue;
-            }
+        if (in_array($post_key, ['heat-counts', 'avoid-consecutive', 'group-weighted-cars', 'avoid-same-lane'])) {
+          $validValues = ['0', '50', '300', '1000'];
+          if (!in_array($itemvalue, $validValues)) {
+            json_failure('invalid-value', "Invalid value for $post_key.");
+            $ok = false;
+            continue;
+          }
         }
+
+
+        // error_log("test-mode: $post_key_base");
+        // // Special handling for test-mode
+        // if ($post_key_base === 'test-mode') {
+        //   $use_test_mode = isset($_POST[$post_key_base]) && $_POST[$post_key_base] === '1';
+        //   if (!switch_database($use_test_mode)) {
+        //     json_failure('database-switch', "Failed to switch database mode");
+        //     $ok = false;
+        //     continue;
+        //   }
+
+        //   $_SESSION['settings'][$itemkey] = $use_test_mode ? '1' : '0';
+
+        //   // json_success(['refresh' => true]);
+        //   // exit;
+        // }
+
         write_raceinfo($itemkey, $itemvalue);
         // Record the value in the session, so that it can be used
         $_SESSION['settings'][$itemkey] = $itemvalue;
         // Check that the value didn't get truncated or something
         if (read_raceinfo($itemkey) != $itemvalue) {
-          json_failure('not-written',
-                       "Value for $itemkey could not be written."
-                       .(schema_version() != expected_schema_version()
-                         ? "<b>Upgrading the database schema may help.</b>" : ""));
+          json_failure(
+            'not-written',
+            "Value for $itemkey could not be written."
+            . (schema_version() != expected_schema_version()
+              ? "<b>Upgrading the database schema may help.</b>" : "")
+          );
           $ok = false;
         }
       }
@@ -159,7 +223,7 @@ if (have_permission(SET_UP_PERMISSION)) {
     if ($num_picked == count($_POST)) {
       json_success();
     } else {
-      json_failure('unrecognized', (count($_POST) - $num_picked)." unrecognized setting(s)");
+      json_failure('unrecognized', (count($_POST) - $num_picked) . " unrecognized setting(s)");
     }
   }
 } else {

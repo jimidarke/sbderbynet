@@ -1,7 +1,14 @@
-<?php session_start();
+<?php 
+session_start();
 require_once('inc/data.inc');
+require_once('inc/util.inc');
 require_once('inc/authorize.inc');
-session_write_close();
+// require_once('inc/util.inc');
+
+// Don't close session write here to allow settings updates
+// session_write_close();
+
+// Rest of your includes
 require_once('inc/banner.inc');
 require_once('inc/car-numbering.inc');
 require_once('inc/partitions.inc');
@@ -13,11 +20,14 @@ require_once('inc/photos-on-now-racing.inc');
 require_once('inc/pick_image_set.inc');
 require_once('inc/xbs.inc');
 
-// Load all settings into session
-require_once('inc/util.inc');
+
+// Always load settings to ensure they're up to date
 if (!load_all_settings_into_session()) {
     error_log("Failed to load settings into session");
 }
+
+// Store current database path for validation
+$_SESSION['current_database'] = $db->query("SELECT file FROM pragma_database_list WHERE name='main'")->fetchColumn();
 
 require_permission(SET_UP_PERMISSION);
 $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
@@ -444,23 +454,42 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                 </div>
                 <div class="settings_group_settings">
                     <h3>Testing & Development</h3>
-                    <div class="block_buttons">
-                        <input id="test-mode" name="test-mode" type="checkbox" 
-                            <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
-                        <label for="test-mode">Testing Mode</label>
-                        <span style="font-size:14px;">(Show Simulate Results Button)</span>
+                    <div class="form-group">
+                        <label>
+                        <input id="test-mode" name="test-mode" type="checkbox" class="do-not-post"
+                        <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
+                            Enable Test Mode
+                        </label>
+                        <p class="help-block">When enabled, operations will use a test database instead of production.</p>
                     </div>
-
+                    
                     <div class="database-status">
-                        <p>Current Database: <strong>
-                            <?php 
-                            if (isset($_SESSION['test-mode']) && $_SESSION['test-mode']) {
-                                echo "TEST DB: " . htmlspecialchars($_SESSION['test_database']);
-                            } else {
-                                echo "PRODUCTION DB: " . htmlspecialchars($db_connection_string);
-                            }
-                            ?>
-                        </strong></p>
+                        <?php
+                        $connInfo = get_active_connection_info();
+                        $mode = $_SESSION['settings']['test-mode'] == 1 ? 'Test' : 'Production';
+                        $badgeClass = $connInfo['is_test_mode'] ? 'bg-warning text-dark' : 'bg-primary';
+                        $statusClass = $connInfo['status'] === 'valid' ? 'text-success' : 'text-danger';
+                        ?>
+
+                        <div class="d-flex align-items-center">
+                            <h2 class="mb-0 me-2" style="margin:initial;"><?php echo $mode; ?> Mode: </h2>
+                            <span class="me-2 badge <?php echo $badgeClass; ?>">Active</span>
+                            <?php if ($connInfo['status'] !== 'valid'): ?>
+                                <span class="badge bg-danger">Connection Mismatch</span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <p class="mb-0 me-2">
+                            <h2 class="mb-0 me-2" style="margin:initial;">Current Database: </h2>
+                            <code class="<?php echo $statusClass; ?>"><?php echo htmlspecialchars($connInfo['current_path']); ?></code>
+                        </p>
+                        
+                        <?php if ($connInfo['status'] !== 'valid'): ?>
+                            <p class="mb-0 me-2 text-danger">
+                                <strong>Expected Database: </strong>
+                                <code><?php echo htmlspecialchars($connInfo['expected_path']); ?></code>
+                            </p>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

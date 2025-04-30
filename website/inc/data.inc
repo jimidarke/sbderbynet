@@ -38,6 +38,137 @@ if ($dbtype == 'odbc') {
 	$dbtype = 'access';
 }
 
+
+function switch_database($use_test_mode = false) {
+  global $db;
+  
+  try {
+      $base_dir = dirname(dirname(__FILE__)); 
+      $year = date('Y');
+      
+      // Define paths consistently
+      $prod_dir = "$base_dir/Data/$year/derbynet_rms";
+      $test_dir = "$base_dir/Data/test/$year/derbynet_rms";
+      
+      // Ensure base directories exist
+      foreach ([$prod_dir, $test_dir] as $dir) {
+          if (!file_exists($dir)) {
+              mkdir($dir, 0777, true);
+          }
+      }
+
+      // Define subdirectories structure
+      $subdirs = ['racers', 'cars', 'videos', 'logs', 'imagery', 'slides'];
+      
+      // Create subdirectories for both production and test
+      foreach ([$prod_dir, $test_dir] as $base) {
+          foreach ($subdirs as $sub) {
+              $path = "$base/$sub";
+              if (!file_exists($path)) {
+                  mkdir($path, 0777, true);
+              }
+          }
+      }
+
+      // Set target paths
+      $target_dir = $use_test_mode ? $test_dir : $prod_dir;
+      $db_path = $use_test_mode ? "$test_dir/derbynet.sqlite3" : "$prod_dir/derbynet.sqlite3";
+      
+      // Store current settings before switch
+      $current_settings = null;
+      if ($db) {
+          try {
+              $stmt = $db->query('SELECT itemkey, itemvalue FROM RaceInfo');
+              $current_settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+          } catch (Exception $e) {
+              error_log("Failed to backup settings: " . $e->getMessage());
+          }
+      }
+
+      // If switching to test mode and test DB doesn't exist, copy from production
+      if ($use_test_mode && !file_exists($db_path) && file_exists("$prod_dir/derbynet.sqlite3")) {
+          if (!copy("$prod_dir/derbynet.sqlite3", $db_path)) {
+              throw new Exception("Failed to initialize test database");
+          }
+          chmod($db_path, 0777);
+      }
+
+      // Close existing connection
+      if ($db) {
+          $db = null;
+      }
+      
+      // Create new connection
+      $new_db = new PDO("sqlite:$db_path");
+      $new_db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+      $db = $new_db;
+
+      // Build directory structure for current mode
+      $current_directories = [
+          'database' => $target_dir,
+          'racers' => "$target_dir/racers",
+          'cars' => "$target_dir/cars",
+          'videos' => "$target_dir/videos",
+          'logs' => "$target_dir/logs",
+          'imagery' => "$target_dir/imagery",
+          'slides' => "$target_dir/slides"
+      ];
+
+      // Update session state
+      $_SESSION['test-mode'] = $use_test_mode;
+      $_SESSION['settings']['test-mode'] = $use_test_mode ? '1' : '0';
+      $_SESSION['current_database'] = $db_path;
+      $_SESSION['current_directories'] = $current_directories;
+
+      // Update database test mode
+      $db->beginTransaction();
+      try {
+          // Update test mode flag
+          $db->exec("DELETE FROM RaceInfo WHERE itemkey = 'test-mode'");
+          $db->exec("INSERT INTO RaceInfo (itemkey, itemvalue) VALUES ('test-mode', '".($use_test_mode ? "1" : "0")."')");
+          
+          // Update directory paths
+          $db->exec("UPDATE RaceInfo SET itemvalue = '{$current_directories['racers']}' WHERE itemkey = 'photo-directory'");
+          $db->exec("UPDATE RaceInfo SET itemvalue = '{$current_directories['cars']}' WHERE itemkey = 'car-photo-directory'");
+          $db->exec("UPDATE RaceInfo SET itemvalue = '{$current_directories['videos']}' WHERE itemkey = 'video-directory'");
+          $db->exec("UPDATE RaceInfo SET itemvalue = '{$current_directories['logs']}' WHERE itemkey = 'logs-directory'");
+          
+          $db->commit();
+      } catch (Exception $e) {
+          $db->rollBack();
+          throw new Exception("Failed to update database settings: " . $e->getMessage());
+      }
+
+      // Transfer settings if switching to test mode
+      if ($use_test_mode && $current_settings) {
+          try {
+              $db->beginTransaction();
+              
+              foreach ($current_settings as $key => $value) {
+                  // Skip certain settings that shouldn't be copied
+                  if (!in_array($key, ['test-mode', 'schema'])) {
+                      $stmt = $db->prepare('INSERT OR REPLACE INTO RaceInfo (itemkey, itemvalue) VALUES (:key, :value)');
+                      $stmt->execute([':key' => $key, ':value' => $value]);
+                  }
+              }
+              
+              $db->commit();
+          } catch (Exception $e) {
+              $db->rollBack();
+              error_log("Failed to transfer settings: " . $e->getMessage());
+          }
+      }
+
+      error_log("Successfully switched to " . ($use_test_mode ? "test" : "production") . " database at: $db_path");
+      return true;
+      
+  } catch (Exception $e) {
+      error_log("Failed to switch database: " . $e->getMessage());
+      return false;
+  }
+}
+
+
 function dbnow_expr() {
   global $dbtype;
   if ($dbtype == 'sqlite') {

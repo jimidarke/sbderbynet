@@ -102,7 +102,7 @@ function populate_details(details) {
       $('<div id="database_status_container" class="status-info"></div>').insertAfter("#database_step");
   }
 
-  // checkDatabaseStatus();
+  checkDatabaseStatus();
 }
 
 function hide_reporting_box() {
@@ -389,113 +389,116 @@ $(function () {
   $('#sqlite_path').on('keyup', update_sqlite_path);
 });
 
-
 function checkDatabaseStatus() {
-    $.ajax('action.php', {
-        type: 'POST',
-        data: { action: 'database.status' },
-        success: function(data) {
-            console.log('Database status response:', data);
-            
-            let statusHtml = '<div class="database-status">';
-            
-            // Production Database Status
-            // statusHtml += '<div class="prod-db-status' + 
-            //              (data.status.production.active ? ' active-db' : '') + '">';
-            // statusHtml += '<h3>Production Database:</h3>';
-            // statusHtml += '<p>Path: ' + data.status.production.path + '</p>';
-            // statusHtml += '<p>Status: ' + getDatabaseStatusText(data.status.production) + '</p>';
-            // if (data.status.production.schema_version) {
-            //     statusHtml += '<p>Schema Version: ' + data.status.production.schema_version + '</p>';
-            // }
-            // statusHtml += '</div>';
+  $.ajax('action.php', {
+      type: 'POST',
+      data: { action: 'database.status' },
+      success: function(data) {
+          console.log('Database status response:', data);
 
-            // // Test Database Status
-            // statusHtml += '<div class="test-db-status' + 
-            //              (data.status.test.active ? ' active-db' : '') + '">';
-            // statusHtml += '<h3>Test Database:</h3>';
-            // if (data.status.test.exists) {
-            //     statusHtml += '<p>Path: ' + data.status.test.path + '</p>';
-            //     statusHtml += '<p>Status: ' + getDatabaseStatusText(data.status.test) + '</p>';
-            //     if (data.status.test.schema_version) {
-            //         statusHtml += '<p>Schema Version: ' + data.status.test.schema_version + '</p>';
-            //     }
-            // } else {
-            //     statusHtml += '<p>Status: Not Configured</p>';
-            // }
-            // statusHtml += '</div>';
-            
-            // Active Connection Indicator
-            statusHtml += '<div class="active-connection">';
-            statusHtml += '<p>Currently Active: ' + 
-                         (data.status.test.active ? 'Test Database' : 'Production Database') + 
-                         '</p>';
-            statusHtml += '</div>';
-            
-            statusHtml += '</div>';
+          let statusHtml = '<div class="database-status">';
 
-            $('#database_status_container').html(statusHtml);
-        },
-        error: function(xhr, status, error) {
-            console.error('Failed to fetch database status:', error);
-            $('#database_status_container').html(
-                '<p class="error">Failed to fetch database status: ' + error + '</p>'
-            );
-        }
-    });
+          // Production Database Status
+          statusHtml += '<div class="prod-db-status' + 
+                        (data.production.active ? ' active-db' : '') + '">';
+          statusHtml += '<h3>Production Database</h3>';
+          statusHtml += '<p>Path: ' + data.production.path + '</p>';
+          statusHtml += '<p>Status: ' + getDatabaseStatusText(data.production) + '</p>';
+          if (data.production.schema_version !== null) {
+              statusHtml += '<p>Schema Version: ' + data.production.schema_version + '</p>';
+          }
+          statusHtml += '</div>';
+
+          // Test Database Status
+          statusHtml += '<div class="test-db-status' + 
+                        (data.test.active ? ' active-db' : '') + '">';
+          statusHtml += '<h3>Test Database</h3>';
+          if (data.test.exists) {
+              statusHtml += '<p>Path: ' + data.test.path + '</p>';
+              statusHtml += '<p>Status: ' + getDatabaseStatusText(data.test) + '</p>';
+              if (data.test.schema_version !== null) {
+                  statusHtml += '<p>Schema Version: ' + data.test.schema_version + '</p>';
+              }
+          } else {
+              statusHtml += '<p>Status: Not Configured</p>';
+          }
+          statusHtml += '</div>';
+
+          // Active Connection Indicator
+          statusHtml += '<div class="active-connection">';
+          statusHtml += '<p style="font-weight: bold;">Currently Active: ' + 
+                       (data.current.mode === 'test' ? 'Test Database' : 'Production Database') + 
+                       '</p>';
+          statusHtml += '<p>Current DB Path: ' + data.current.path + '</p>';
+          statusHtml += '<p>Schema Version: ' + data.current.schema_version + '</p>';
+          statusHtml += '</div>';
+
+          statusHtml += '</div>';
+
+          $('#database_status_container').html(statusHtml);
+      },
+      error: function(xhr, status, error) {
+          console.error('Failed to fetch database status:', error);
+          $('#database_status_container').html(
+              '<p class="error">Failed to fetch database status: ' + error + '</p>'
+          );
+      }
+  });
 }
 
 function getDatabaseStatusText(dbStatus) {
-    if (!dbStatus.exists) return 'Not Found';
-    if (!dbStatus.connected) return 'Not Connected';
-    return dbStatus.active ? 'Connected (Active)' : 'Connected';
+  if (!dbStatus.exists) return 'Not Found';
+  if (!dbStatus.connected) return 'Not Connected';
+  return dbStatus.active ? 'Connected (Active)' : 'Connected';
 }
 
-// Add CSS for styling
+// CSS styles for the UI
 const styleSheet = `
 .database-status {
-    padding: 15px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+  padding: 15px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: sans-serif;
+  background: #fff;
 }
 
 .prod-db-status, .test-db-status {
-    padding: 10px;
-    margin: 5px 0;
-    background: #f8f9fa;
-    border-left: 4px solid #ddd;
+  padding: 10px;
+  margin: 5px 0;
+  background: #f8f9fa;
+  border-left: 4px solid #ccc;
 }
 
 .active-db {
-    border-left: 4px solid #28a745;
-    background: #f0fff0;
+  border-left-color: #28a745;
+  background: #f0fff0;
 }
 
 .active-connection {
-    margin-top: 15px;
-    padding: 10px;
-    background: #e9ecef;
-    border-radius: 4px;
-    text-align: center;
-    font-weight: bold;
+  margin-top: 15px;
+  padding: 10px;
+  background: #e9ecef;
+  border-radius: 4px;
+  // text-align: center;
+  // font-weight: bold;
 }
 
 .error {
-    color: #dc3545;
-    padding: 10px;
-    background: #f8d7da;
-    border-radius: 3px;
+  color: #dc3545;
+  padding: 10px;
+  background: #f8d7da;
+  border-radius: 3px;
 }
 `;
 
-// Add the styles to the document
+// Append styles to the document
 const styleElement = document.createElement('style');
 styleElement.textContent = styleSheet;
 document.head.appendChild(styleElement);
 
-// Update status every 5 seconds
+// Run status check on load and every 5 seconds
 $(document).ready(function() {
-    checkDatabaseStatus();
-    setInterval(checkDatabaseStatus, 5000);
+  checkDatabaseStatus();
+  setInterval(checkDatabaseStatus, 5000);
 });
