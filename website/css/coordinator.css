@@ -61,7 +61,8 @@ div.adjustment-needed input.late-arrival-button[disabled] {
 }
 
 .heat-lineup {
-  display: inline-block;
+  /* display: inline-block; */
+  display: contents;
   width: 730px;
   margin-right: 0px;
 
@@ -478,36 +479,35 @@ div.block_buttons[data-name=buttons] {
 }
 
 .simulation-controls {
-    margin: 10px 0;
-    position: relative;
-}
-
-#simulate-results-btn {
-    background-color: #ff9800;
-    color: white;
-    font-weight: bold;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#simulate-results-btn:hover {
-    background-color: #f57c00;
+  margin: 10px 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
 }
 
 .simulation-indicator {
-    position: absolute;
-    top: -15px;
-    right: 0;
-    background: #ff5722;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: bold;
+  color: #856404;
+  background-color: #fff3cd;
+  padding: 5px 10px;
+  border-radius: 3px;
+  margin-right: 10px;
 }
 
+#simulate-results-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#simulate-results-btn:hover {
+  background-color: #218838;
+}
 .heat_control_group .block_buttons {
   justify-self: center;
+}
+div#now-racing-group {
+  width: 1040px;
 }

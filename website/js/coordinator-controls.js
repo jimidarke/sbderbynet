@@ -744,83 +744,45 @@ function handleRacerDropout(racerid, roundid) {
 }
 
 function toggleSimulationMode() {
-    const isEnabling = $('#toggle-simulation').val().includes('Enter');
+    // Open fake timer in new tab
+    const fakeTimerWindow = window.open('fake-timer.php', '_blank');
     
-    $.ajax('action.php', {
-        type: 'POST',
-        data: {
-            action: 'simulation.toggle',
-            enable: isEnabling ? 1 : 0
-        },
-        success: function(response) {
-            if (response.success) {
-                location.reload(); // Refresh to show simulation controls
-            } else {
-                alert('Failed to toggle simulation mode: ' + response.message);
-            }
-        }
-    });
-}
-
-function simulateRaceResults() {
-  console.log('Simulating...!');
-  
-    if (confirm('This will simulate race results with random finish times. Continue?')) {
-        return;
-    }
-
-    // // Start the race
-    // $.ajax('action.php', {
-    //     type: 'POST',
-    //     data: {
-    //         action: 'timer-message',
-    //         message: 'STARTED'
-    //     },
-    //     success: function(response) {
-    //         // Generate results after 2 seconds
-    //         setTimeout(generateRandomResults, 2000);
-    //     }
-    // });
-}
-
-function generateRandomResults() {
-    let results = {};
-    $('#now-racing-group .heat-table tr').each(function(index) {
-        if (index > 0) { // Skip header row
-            let lane = $(this).find('td:first').text();
-            if (lane) {
-                // Generate random time between 40 and 60 seconds
-                let time = (40 + Math.random() * 20).toFixed(3);
-                results['lane' + lane] = time;
-            }
-        }
-    });
-
-    // Send simulated results
-    $.ajax('action.php', {
-        type: 'POST',
-        data: {
-            action: 'timer-message',
-            message: 'FINISHED',
-            ...results
-        },
-        success: function() {
-            // Wait 1 second then advance to next heat
-            setTimeout(function() {
-                $.ajax('action.php', {
+    // Store window reference 
+    window.fakeTimerWindow = fakeTimerWindow;
+    
+    // Enable racing mode on coordinator page
+    $("#is-currently-racing").prop('checked', true).trigger('change');
+    
+    // Initialize simulation after brief delay to ensure fake timer loads
+    setTimeout(() => {
+        $.ajax(g_action_url, {
+            type: 'POST',
+            data: {
+                action: 'timer-message',
+                message: 'HELLO'
+            },
+            success: function(response) {
+                // Send IDENTIFIED message
+                $.ajax(g_action_url, {
                     type: 'POST',
                     data: {
-                        action: 'heat.select',
-                        heat: 'next'
+                        action: 'timer-message',
+                        message: 'IDENTIFIED',
+                        nlanes: 4
                     },
-                    success: function() {
-                        // If more heats exist, continue simulation
-                        if ($('#now-racing-group .heat-table tr').length > 1) {
-                            setTimeout(simulateRaceResults, 2000);
+                    success: function(response) {
+                        console.log('Simulation mode initialized');
+                        // Initialize fake timer window
+                        if (window.fakeTimerWindow) {
+                            window.fakeTimerWindow.addEventListener('load', function() {
+                                this.g_auto_mode = true;
+                                this.$('#auto-mode-checkbox').prop('checked', true);
+                                this.initializeSimulation();
+                            });
                         }
                     }
                 });
-            }, 1000);
-        }
-    });
+            }
+        });
+    }, 1000);
 }

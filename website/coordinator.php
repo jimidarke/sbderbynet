@@ -12,6 +12,7 @@ $warn_no_timer = warn_no_timer();
 
 ?><!DOCTYPE html>
 <html>
+
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <title>Race Coordinator Page</title>
@@ -84,20 +85,17 @@ $warn_no_timer = warn_no_timer();
         <div id="start_race_button_div" class="block_buttons hidden">
           <input type="button" value="Start Race" onclick="handle_start_race_button()" />
         </div>
-        
+
         <?php if (have_permission(CONTROL_RACE_PERMISSION)) { ?>
-            <div class="simulation-controls" <?php echo read_raceinfo('test-mode', 0) ? '' : 'style="display:none;"'; ?>>
-                <div class="block_buttons">
-                    <?php if (read_raceinfo('using_simulation', 0)) { ?>
-                        <span class="simulation-indicator">SIMULATION MODE</span>
-                    <?php } ?>
-                    <input type="button" 
-                           id="simulate-results-btn"
-                           value="Simulate Results" 
-                           onclick="simulateRaceResults();"
-                           class="btn btn-warning"/>
-                </div>
+          <div class="simulation-controls" <?php echo read_raceinfo('test-mode', 0) ? '' : 'style="display:none;"'; ?>>
+            <div class="block_buttons">
+              <?php if (read_raceinfo('using_simulation', 0)) { ?>
+                <span class="simulation-indicator">SIMULATION MODE</span>
+              <?php } ?>
+              <input type="button" id="simulate-results-btn" value="Simulate Results" onclick="toggleSimulationMode()"
+                class="btn btn-warning" />
             </div>
+          </div>
         <?php } ?>
 
         <div class="centered_flipswitch">
@@ -406,4 +404,5 @@ $warn_no_timer = warn_no_timer();
     </form>
   </div>
 </body>
+
 </html>

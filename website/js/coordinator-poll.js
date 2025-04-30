@@ -325,10 +325,28 @@ function generate_scheduling_control_group(round, current, timer_state) {
 
 // This is the double-wide section describing the current round, at the top of the page
 function generate_current_round_control_group(round, current, timer_state) {
+
+
+  // This is the double-wide section describing the current round, at the top of the page
+  var $roundTitle = $('<h3 class="roundclass" style="width: max-content;"></h3>');
+  $roundTitle.append('<img data-name="triangle" src="img/triangle_east.png"/>');
+
+  // Capitalize and wrap each word in a span
+  var spanified = round.name.split(/\s+/).map(word => {
+    // Retain punctuation like commas, but capitalize cleanly
+    let base = word.replace(/[^a-zA-Z]/g, '');
+    let cap = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
+    let suffix = word.match(/[^a-zA-Z]+$/); // punctuation like ","
+    return `<span class="word">${cap}${suffix ? suffix[0] : ''}</span>`;
+  }).join(' ');
+
+  $roundTitle.append(spanified);
+
   var control_group = $('<div class="control_group scheduling_control"></div>')
     .attr("data-roundid", round.roundid)
     .appendTo("#now-racing-group")
-    .append($('<h3 class="roundclass"></h3>').text(round.name))
+    // .append($('<h3 class="roundclass"></h3>').text(round.name))
+    .append($roundTitle)
     .append(
       $("<div class='heat-text'/>")
         .append(
@@ -659,7 +677,7 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
         // Only show remove button if round not completed and racer exists
         (r && !isRoundCompleted(current.roundid) ? 
             '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid + 
-            ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove from Race</button></td>' : 
+            ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove</button></td>' : 
             '<td></td>') +
         "</tr>"
     );
