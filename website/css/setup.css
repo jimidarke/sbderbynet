@@ -253,28 +253,38 @@ span.trouble {
     float: left;
 }
 
+#database_status_container {
+  margin-left: 425px;
+  width: max-content;
+}
+
 .database-status {
-  margin: 15px 0;
-  padding: 10px;
+  width: 645px;
+  padding: 15px;
+  margin: 10px 0;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-family: sans-serif;
+  background: #fff;
 }
 
 .prod-db-status, .test-db-status {
   padding: 10px;
   margin: 5px 0;
-  background: #f5f5f5;
-  border-radius: 3px;
+  background: #f8f9fa;
+  border-left: 4px solid #ccc;
 }
 
-.prod-db-status h3, .test-db-status h3 {
-  color: #333;
-  margin-bottom: 5px;
+.active-db {
+  border-left-color: #28a745;
+  background: #f0fff0;
 }
 
-.database-status p {
-  margin: 3px 0;
-  font-size: 14px;
+.active-connection {
+  margin-top: 15px;
+  padding: 10px;
+  background: #e9ecef;
+  border-radius: 4px;
 }
 
 .error {
@@ -284,7 +294,6 @@ span.trouble {
   border-radius: 3px;
 }
 
-div#database_status_container {
-  width: fit-content;
-  margin-left: 426px;
+p.path-text {
+  overflow-wrap: anywhere;
 }

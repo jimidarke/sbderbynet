@@ -383,8 +383,8 @@ function checkDatabaseStatus() {
           statusHtml += '<div class="prod-db-status' + 
                         (data.production.active ? ' active-db' : '') + '">';
           statusHtml += '<h3>Production Database</h3>';
-          statusHtml += '<p>Path: ' + data.production.path + '</p>';
-          statusHtml += '<p>Status: ' + getDatabaseStatusText(data.production) + '</p>';
+          statusHtml += '<p class="path-text">Path: ' + data.production.path + '</p>';
+          statusHtml += '<p class="status-text">Status: ' + getDatabaseStatusText(data.production) + '</p>';
           if (data.production.schema_version !== null) {
               statusHtml += '<p>Schema Version: ' + data.production.schema_version + '</p>';
           }
@@ -395,13 +395,13 @@ function checkDatabaseStatus() {
                         (data.test.active ? ' active-db' : '') + '">';
           statusHtml += '<h3>Test Database</h3>';
           if (data.test.exists) {
-              statusHtml += '<p>Path: ' + data.test.path + '</p>';
-              statusHtml += '<p>Status: ' + getDatabaseStatusText(data.test) + '</p>';
+              statusHtml += '<p class="path-text">Path: ' + data.test.path + '</p>';
+              statusHtml += '<p class="status-text">Status: ' + getDatabaseStatusText(data.test) + '</p>';
               if (data.test.schema_version !== null) {
                   statusHtml += '<p>Schema Version: ' + data.test.schema_version + '</p>';
               }
           } else {
-              statusHtml += '<p>Status: Not Configured</p>';
+              statusHtml += '<p class="status-text">Status: Not Configured</p>';
           }
           statusHtml += '</div>';
 
@@ -410,8 +410,8 @@ function checkDatabaseStatus() {
           statusHtml += '<p style="font-weight: bold;">Currently Active: ' + 
                        (data.current.mode === 'test' ? 'Test Database' : 'Production Database') + 
                        '</p>';
-          statusHtml += '<p>Current DB Path: ' + data.current.path + '</p>';
-          statusHtml += '<p>Schema Version: ' + data.current.schema_version + '</p>';
+          statusHtml += '<p class="path-text">Current DB Path: ' + data.current.path + '</p>';
+          statusHtml += '<p class="schema-text">Schema Version: ' + data.current.schema_version + '</p>';
           statusHtml += '</div>';
 
           statusHtml += '</div>';
@@ -433,53 +433,8 @@ function getDatabaseStatusText(dbStatus) {
   return dbStatus.active ? 'Connected (Active)' : 'Connected';
 }
 
-// CSS styles for the UI
-const styleSheett = `
-.database-status {
-  padding: 15px;
-  margin: 10px 0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-family: sans-serif;
-  background: #fff;
-}
-
-.prod-db-status, .test-db-status {
-  padding: 10px;
-  margin: 5px 0;
-  background: #f8f9fa;
-  border-left: 4px solid #ccc;
-}
-
-.active-db {
-  border-left-color: #28a745;
-  background: #f0fff0;
-}
-
-.active-connection {
-  margin-top: 15px;
-  padding: 10px;
-  background: #e9ecef;
-  border-radius: 4px;
-  // text-align: center;
-  // font-weight: bold;
-}
-
-.error {
-  color: #dc3545;
-  padding: 10px;
-  background: #f8d7da;
-  border-radius: 3px;
-}
-`;
-
-// Append styles to the document
-const styleElement = document.createElement('style');
-styleElement.textContent = styleSheett;
-document.head.appendChild(styleElement);
-
 // Run status check on load and every 5 seconds
 $(document).ready(function() {
   checkDatabaseStatus();
-  setInterval(checkDatabaseStatus, 5000);
+  // setInterval(checkDatabaseStatus, 5000);
 });

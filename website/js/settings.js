@@ -367,21 +367,21 @@ function updateDatabaseStatusUI(data) {
           <div class="current-mode ${data.current.mode === 'test' ? 'test-mode' : 'prod-mode'}">
               <h3>Current Mode: ${data.current.mode.toUpperCase()}</h3>
               <p class="db-path">Database: ${data.current.path}</p>
-              <p>Schema Version: ${data.current.schema_version}</p>
+              <p class="schema-text">Schema Version: ${data.current.schema_version}</p>
               ${data.warning ? `<p class="warning">${data.warning}</p>` : ''}
           </div>
           
           <div class="connection-details">
               <div class="production-status">
                   <h4>Production Database</h4>
-                  <p>Path: ${data.production.path}</p>
-                  <p>Status: ${getConnectionStatus(data.production)}</p>
+                  <p class="path-text">Path: ${data.production.path}</p>
+                  <p class="status-text">Status: ${getConnectionStatus(data.production)}</p>
               </div>
               
               <div class="test-status">
                   <h4>Test Database</h4>
-                  <p>Path: ${data.test.path}</p>
-                  <p>Status: ${getConnectionStatus(data.test)}</p>
+                  <p class="path-text">Path: ${data.test.path}</p>
+                  <p class="status-text">Status: ${getConnectionStatus(data.test)}</p>
               </div>
           </div>
           
@@ -423,49 +423,6 @@ function showError(message) {
       </div>
   `);
 }
-
-// Add CSS
-const styles = `
-  .database-status {
-      width: max-content;
-      padding: 15px;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-  }
-  
-  .test-mode { background-color: #fff3cd; }
-  .prod-mode { background-color: #d1e7dd; }
-  
-  .warning {
-      color: #856404;
-      background-color: #fff3cd;
-      padding: 10px;
-      border-radius: 4px;
-      margin: 10px 0;
-  }
-  
-  .error-message {
-      color: #721c24;
-      background-color: #f8d7da;
-      padding: 10px;
-      border-radius: 4px;
-  }
-  
-  .directory-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 2px 0;
-  }
-  
-  .valid { color: #28a745; }
-  .invalid { color: #dc3545; }
-`;
-
-// Add styles to document
-const styleSheet = document.createElement('style');
-styleSheet.textContent = styles;
-document.head.appendChild(styleSheet);
 
 // Initialize on page load
 // $(document).ready(function() {
