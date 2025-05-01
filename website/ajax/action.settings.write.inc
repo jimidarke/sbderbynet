@@ -146,6 +146,8 @@ if (have_permission(SET_UP_PERMISSION)) {
 
     'test-mode' => array('setting' => 'test-mode', 'type' => 'checkbox'),
 
+    // HLS Stream Settings
+    'hls-stream-url' => array('setting' => 'hls-stream-url'),
   );
   if ($ok) {
     foreach ($all_settings as $post_key_base => $setting) {

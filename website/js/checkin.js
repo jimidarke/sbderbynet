@@ -886,9 +886,9 @@ function make_table_row(racer, xbs) {
       ')'));
   if (racer.scheduled) {
     if (racer.passed) {
-      checkin.append(' Racing!');
+      checkin.append('<span> Racing!</span>');
     } else {
-      checkin.append(' Scheduled but not passed');
+      checkin.append('<span> Scheduled but not passed </span>');
     }
   } else if (racer.denscheduled) {
     // denscheduled means their racing group has a schedule

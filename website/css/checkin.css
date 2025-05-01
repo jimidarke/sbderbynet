@@ -315,3 +315,9 @@ div.delete-extension {
 .buttons-container input[type="button"] {
   height: 53px;
 }
+
+td.checkin-status {
+  display: flex !important;
+  flex-flow: column !important;
+  text-align-last: auto !important;
+}

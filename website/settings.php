@@ -131,6 +131,55 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
     ?>
     <div class="block_buttons">
         <form id="settings_form">
+        <div class="settings_group">
+                <div class="settings_group_image">
+                    <img src="img/testing.png" style="width: 100%;" />
+                </div>
+                <div class="settings_group_settings">
+                    <h3>Testing & Development</h3>
+                    <div class="form-group">
+                        <input type="checkbox" class="flipswitch do-not-post" name="test-mode" id="test-mode"
+                            data-wrapper-class="test-mode-flipswitch"
+                            data-off-text="Production Mode"
+                            data-on-text="Test Mode" <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
+                        <label style="vertical-align: middle;">
+                        <!-- <input id="test-mode" name="test-mode" type="checkbox" class="do-not-post"
+                            <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/> -->
+                                Enabled
+                        </label>
+                        <p class="help-block">When enabled, operations will use a test database instead of production.</p>
+                    </div>
+                    
+                    <div class="database-status">
+                        <?php
+                        $connInfo = get_active_connection_info();
+                        $mode = $_SESSION['settings']['test-mode'] == 1 ? 'Test' : 'Production';
+                        $badgeClass = $connInfo['is_test_mode'] ? 'bg-warning text-dark' : 'bg-primary';
+                        $statusClass = $connInfo['status'] === 'valid' ? 'text-success' : 'text-danger';
+                        ?>
+
+                        <div class="d-flex align-items-center">
+                            <h2 class="mb-0 me-2" style="margin:initial;"><?php echo $mode; ?> Mode: </h2>
+                            <span class="me-2 badge <?php echo $badgeClass; ?>">Active</span>
+                            <?php if ($connInfo['status'] !== 'valid'): ?>
+                                <span class="badge bg-danger">Connection Mismatch</span>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <p class="mb-0 me-2">
+                            <h2 class="mb-0 me-2" style="margin:initial;">Current Database: </h2>
+                            <code class="<?php echo $statusClass; ?>"><?php echo htmlspecialchars($connInfo['current_path']); ?></code>
+                        </p>
+                        
+                        <?php if ($connInfo['status'] !== 'valid'): ?>
+                            <p class="mb-0 me-2 text-danger">
+                                <strong>Expected Database: </strong>
+                                <code><?php echo htmlspecialchars($connInfo['expected_path']); ?></code>
+                            </p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
             <div class="settings_group">
                 <div class="settings_group_image">
                     <img src="img/settings-timer.png" />
@@ -456,50 +505,19 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
             </div>
             <div class="settings_group">
                 <div class="settings_group_image">
-                    <img src="img/testing.png" style="width: 100%;" />
+                    <img src="img/replay.png" style="width: 100%;" />
                 </div>
                 <div class="settings_group_settings">
-                    <h3>Testing & Development</h3>
+                    <h3>Video Replay Settings</h3>
                     <div class="form-group">
-                        <input type="checkbox" class="flipswitch do-not-post" name="test-mode" id="test-mode"
-                            data-wrapper-class="test-mode-flipswitch"
-                            data-off-text="Production Mode"
-                            data-on-text="Test Mode" <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
-                        <label style="vertical-align: middle;">
-                        <!-- <input id="test-mode" name="test-mode" type="checkbox" class="do-not-post"
-                            <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/> -->
-                                Enabled
-                        </label>
-                        <p class="help-block">When enabled, operations will use a test database instead of production.</p>
-                    </div>
-                    
-                    <div class="database-status">
-                        <?php
-                        $connInfo = get_active_connection_info();
-                        $mode = $_SESSION['settings']['test-mode'] == 1 ? 'Test' : 'Production';
-                        $badgeClass = $connInfo['is_test_mode'] ? 'bg-warning text-dark' : 'bg-primary';
-                        $statusClass = $connInfo['status'] === 'valid' ? 'text-success' : 'text-danger';
-                        ?>
-
-                        <div class="d-flex align-items-center">
-                            <h2 class="mb-0 me-2" style="margin:initial;"><?php echo $mode; ?> Mode: </h2>
-                            <span class="me-2 badge <?php echo $badgeClass; ?>">Active</span>
-                            <?php if ($connInfo['status'] !== 'valid'): ?>
-                                <span class="badge bg-danger">Connection Mismatch</span>
-                            <?php endif; ?>
-                        </div>
-                        
-                        <p class="mb-0 me-2">
-                            <h2 class="mb-0 me-2" style="margin:initial;">Current Database: </h2>
-                            <code class="<?php echo $statusClass; ?>"><?php echo htmlspecialchars($connInfo['current_path']); ?></code>
-                        </p>
-                        
-                        <?php if ($connInfo['status'] !== 'valid'): ?>
-                            <p class="mb-0 me-2 text-danger">
-                                <strong>Expected Database: </strong>
-                                <code><?php echo htmlspecialchars($connInfo['expected_path']); ?></code>
-                            </p>
-                        <?php endif; ?>
+                        <label for="hls-stream-url">HLS Stream URL:</label>
+                        <input type="text" 
+                            id="hls-stream-url" 
+                            name="hls-stream-url" 
+                            class="form-control"
+                            value="<?php echo htmlspecialchars(read_raceinfo('hls-stream-url', '')); ?>"
+                            placeholder="http://derbynetpi:8081/stream/stream.m3u8">
+                        <small class="form-text text-muted">Enter the HLS video feed URL (e.g., http://derbynetpi:8081/stream/stream.m3u8)</small>
                     </div>
                 </div>
             </div>

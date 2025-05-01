@@ -106,7 +106,20 @@ function handle_rerun(button) {
 
 // Controls for Replay
 function handle_test_replay() {
-  $.ajax(g_action_url, { type: "POST", data: { action: "replay.test" } });
+    // Check if using HLS stream
+    const devicePicker = $("#device-picker");
+    if (devicePicker.val() === 'hls-stream') {
+        const hlsUrl = devicePicker.data('hls-url');
+        if (!hlsUrl) {
+            console.error('No HLS stream URL configured');
+            return;
+        }
+    }
+    
+    $.ajax(g_action_url, { 
+        type: "POST", 
+        data: { action: "replay.test" } 
+    });
 }
 
 function trigger_replay() {
@@ -772,17 +785,65 @@ function toggleSimulationMode() {
                     },
                     success: function(response) {
                         console.log('Simulation mode initialized');
-                        // Initialize fake timer window
-                        if (window.fakeTimerWindow) {
-                            window.fakeTimerWindow.addEventListener('load', function() {
-                                this.g_auto_mode = true;
-                                this.$('#auto-mode-checkbox').prop('checked', true);
-                                this.initializeSimulation();
-                            });
-                        }
+                        // // Initialize fake timer window
+                        // if (window.fakeTimerWindow) {
+                        //     window.fakeTimerWindow.addEventListener('load', function() {
+                        //       console.log(this);
+                        //       console.log(this.auto_mode);
+                              
+                        //         this.g_auto_mode = true;
+                        //         this.$('#auto-mode-checkbox').prop('checked', true);
+                        //         this.initializeSimulation();
+                        //     });
+                        // }
+                        console.log('Simulation mode initialized');
+
+                        // Poll until the fake timer window is ready
+                        // const pollTimer = setInterval(() => {
+                          try {
+                              if (
+                                  fakeTimerWindow &&
+                                  fakeTimerWindow.g_auto_mode !== undefined &&
+                                  fakeTimerWindow.$ &&
+                                  fakeTimerWindow.initializeSimulation
+                              ) {
+                                  fakeTimerWindow.g_auto_mode = true;
+                                  fakeTimerWindow.$('#auto-mode-checkbox').prop('checked', true).trigger('change');
+                                  fakeTimerWindow.initializeSimulation();
+                                  clearInterval(pollTimer);
+                                  console.log('Auto mode enabled');
+                              }
+                          } catch (e) {
+                              console.warn('Waiting for fake timer window to be ready...');
+                          }
+                      // }, 100);
+                      
                     }
                 });
             }
         });
     }, 1000);
+}
+
+
+// function to init the HLS stream
+function initVideoSource(selectq) {
+  const deviceId = selectq.find(':selected').prop('value');
+  
+  if (deviceId === 'hls-stream') {
+      const hlsUrl = selectq.data('hls-url');
+      const videoElement = document.getElementById("preview");
+      
+      // Stop any existing streams
+      if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach(track => track.stop());
+      }
+      
+      // Initialize HLS stream
+      initHLSStream(videoElement, hlsUrl);
+      return true;
+  }
+  
+  // Continue with existing device handling
+  return false;
 }

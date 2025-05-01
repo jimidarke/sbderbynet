@@ -137,7 +137,7 @@ $warn_no_timer = warn_no_timer();
 
           <div id='timer-test' class="block_buttons">
             <a class="button_link" onclick="open_timer_window();">Timer</a>
-            <a class='button_link' href='timer-test.php'>Test</a>
+            <!-- <a class='button_link' href='timer-test.php'>Test</a> -->
           </div>
 
           <h3>Timer Status</h3>
