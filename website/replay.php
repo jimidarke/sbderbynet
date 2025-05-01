@@ -283,7 +283,7 @@ session_write_close();
 
       // Handle HLS stream selection
       if (device_id === 'hls-stream') {
-        const hlsUrl = g_hlsStreamUrl + '/streams/stream.m3u8';
+        const hlsUrl = g_hlsStreamUrl;
         const video = document.getElementById("preview");
 
         if (Hls.isSupported()) {
@@ -298,6 +298,8 @@ session_write_close();
               xhr.withCredentials = false;
             }
           });
+
+          $("#waiting-for-remote").addClass('hidden');
 
           // Error handling
           hls.on(Hls.Events.ERROR, function (event, data) {
