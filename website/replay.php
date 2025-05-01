@@ -563,8 +563,8 @@ session_write_close();
     </div>
 
     <div id="preview-container">
-      <video id="preview" autoplay="true" muted="true" playsinline="true">
-      </video>
+      <video id="preview" autoplay="true" muted="true" playsinline="true"></video>
+      <!-- <video id="preview" autoplay="true" muted="true" playsinline="true" crossorigin="anonymous" type="application/x-mpegURL"></video> -->
       <div id="waiting-for-remote" class="hidden">
         <p>Waiting for remote camera to connect...</p>
       </div>

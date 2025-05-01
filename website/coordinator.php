@@ -92,7 +92,7 @@ $warn_no_timer = warn_no_timer();
               <?php if (read_raceinfo('using_simulation', 0)) { ?>
                 <span class="simulation-indicator">SIMULATION MODE</span>
               <?php } ?>
-              <input type="button" id="simulate-results-btn" value="Simulate Results" onclick="toggleSimulationMode()"
+              <input type="button" id="simulate-results-btn" value="Simulate Race" onclick="toggleSimulationMode()"
                 class="btn btn-warning" />
             </div>
           </div>

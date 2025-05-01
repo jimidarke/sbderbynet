@@ -386,17 +386,16 @@ function on_auto_mode_change() {
   }
 }
 
-$(function () {
-  $('#auto-mode-checkbox').on('change', on_auto_mode_change);
-});
+// $(function () {
+//   $('#auto-mode-checkbox').on('change', on_auto_mode_change);
+// });
 
 
 // Initialize simulation state
 function initializeSimulation() {
     // Set auto mode
     g_auto_mode = true;
-    $('#auto-mode-checkbox').prop('checked', true);
-    
+    $('#auto-mode-checkbox').prop('checked', true).trigger('change', on_auto_mode_change);
     // Send initial messages
     send_hello();
     send_identified();
@@ -405,7 +404,7 @@ function initializeSimulation() {
     setInterval(send_heartbeat, 1000);
     
     // Update summary display
-    $('#summary').text('Auto Mode: Running');
+    // $('#summary').text('Auto Mode: Running');
 }
 
 
@@ -421,6 +420,6 @@ $(function() {
   // Handle auto mode checkbox changes
   $('#auto-mode-checkbox').on('change', function() {
       g_auto_mode = $(this).is(':checked');
-      $('#summary').text(g_auto_mode ? 'Auto Mode: Running' : 'Not racing.');
+      on_auto_mode_change();
   });
 });

@@ -5,14 +5,14 @@
 }
 
 .double_control_column {
-  width: 975px;
+  width: 1095px;
   margin-left: auto;
   margin-right: auto;
 }
 
 .control_column_container {
   display: flex;
-  width: 975px;
+  width: 1095px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -147,7 +147,7 @@ div.adjustment-needed input.late-arrival-button[disabled] {
 }
 
 #not-racing-warning {
-  width: 1023px;
+  width: 1080px;
   margin: 5px;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -211,7 +211,7 @@ p.last_contact {
 #playlist-group input[type='button'] {
   color: white;
   height: 20px;
-  width: 440px;
+  width: 500px;
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 1px;
@@ -345,7 +345,7 @@ p.last_contact {
 }
 
 .progress {
-    width: 450px;
+    width: autossize; 
     height: 15px;
     border: 1px solid black;
     overflow: hidden;
@@ -509,5 +509,5 @@ div.block_buttons[data-name=buttons] {
   justify-self: center;
 }
 div#now-racing-group {
-  width: 1040px;
+  width: 1095px;
 }
