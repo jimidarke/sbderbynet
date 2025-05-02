@@ -431,7 +431,9 @@ div.block_buttons[data-name=buttons] {
   background-color: #cc0000;
   color: #ffffff;
 }
-
+.timer-staging {
+  background-color: #F7D117;
+}
 .timer-ready, .timer-running {
   background-color: #008000;
   color: #ffffff;

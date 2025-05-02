@@ -922,7 +922,23 @@ function process_coordinator_poll_json(json) {
   // Get the number of lanes and current time
   const lanesCount = json["timer-state"].lanes || 0;
   const currentTime = Date.now();
-  // console.log(json);
+  let message = json["timer-state"].message;
+  let status = message.split(" ")[0];
+  let timerStatus = "NOT READY";
+  // Check for different states and log accordingly
+  if (status === "CONNECTED") {
+    // console.log("Connected");
+    timerStatus = "Ready";
+  } else if (status === "Staging") {
+    // console.log("Staging");
+    timerStatus = "Staging";
+  } else if (status === "Race") {
+    // console.log("Running");
+    timerStatus = "Running";
+  } else {
+    // console.log("Disconnected");
+    timerStatus = "NOT READY";
+  }
 
   // Check if a race is currently running
   const nowRacing = json["current-heat"]["now_racing"] || false;
@@ -933,11 +949,26 @@ function process_coordinator_poll_json(json) {
     const isOnline = timeSinceHeartbeat <= 10; // 10 seconds thresholds
     const isReady = timer.ready || false;
 
+    // Assign lane status based on its online state and the global race status
+    let laneStatus = "NOT READY";
+    if (isOnline) {
+      if (nowRacing && status === "Race") {
+        laneStatus = "Running";
+      } else if (status === "Staging") {
+        laneStatus = "Staging";
+      } else if (isReady) {
+        laneStatus = "Ready";
+      }
+    } else {
+      laneStatus = "NOT READY";
+    }
+
     return {
       lane: `Lane ${timer.lane} Timer (${timer.timerID || "Unknown"})`,
       ready: isReady,
       online: isOnline,
-      status: isOnline ? (nowRacing ? "Running" : (isReady ? 'Ready' : 'NOT READY')) : "NOT READY",
+      // status: isOnline ? (nowRacing ? "Running" : (isReady ? 'Ready' : 'NOT READY')) : "NOT READY",
+      status: laneStatus,
       lastHeartbeat: isNaN(timeSinceHeartbeat)
         ? "Unknown"
         : `${Math.round(timeSinceHeartbeat)}`,
@@ -988,6 +1019,8 @@ function process_coordinator_poll_json(json) {
         statusCell.className = "timer-online"
       } else if (!timer.online) {
         statusCell.className = "timer-offline";
+      } else if (timer.status === "Staging") {
+        statusCell.className = "timer-staging";
       } else if (timer.status === "Running") {
         statusCell.className = "timer-running";
       } else if (timer.status === "Ready") {
@@ -1139,7 +1172,7 @@ function coordinator_poll() {
 }
 
 $(function () {
-  g_polling_interval = setInterval(coordinator_poll, 2000);
+  g_polling_interval = setInterval(coordinator_poll, 1000);
   coordinator_poll();
 });
 
