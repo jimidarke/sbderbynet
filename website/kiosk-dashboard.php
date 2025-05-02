@@ -84,7 +84,7 @@ var g_url = <?php echo json_encode($urls[0],
         } else {
             $cat_entry = json_decode($current_catalog_entry, /* assoc */true);
             $count = isset($standings->catalog_counts[$cat_entry['key']]) 
-                ? $standings->catalog_counts[$cat_entry['key']] 
+                ? @$standings->catalog_counts[$cat_entry['key']] 
                 : 0;
             
             if ($current_exposed > $count) {
