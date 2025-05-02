@@ -1,5 +1,5 @@
 <?php
-
+require_once 'error-logging.inc';
 function sql_file_path($stem) {
   global $dbtype;
   return 'sql'.DIRECTORY_SEPARATOR.$dbtype.DIRECTORY_SEPARATOR.$stem.'.inc';
@@ -7,51 +7,54 @@ function sql_file_path($stem) {
 
 // Returns two values, a bool (true for successful execution) and a list of results
 function run_sql_script($scriptname) {
-  global $db;
-  global $dbtype;
-  $ok = true;
-  $executed = array();
-  try {
-    $sql_script = @include(sql_file_path($scriptname));
-    if ($sql_script !== false) {
-      foreach ($sql_script as $sql_stmt) {
-        try {
-          $sql_result = $db->exec($sql_stmt);
-          if ($sql_result !== false) {
-            $executed[] = array('sql' => $sql_stmt, 'result' => $sql_result);
-          } else {
-            json_sql_failure($sql_stmt);
-            $ok = false;
-            break;
-          }
-        } catch (PDOException $p) {
-          $executed[] = array('sql' => $sql_stmt, 'result' => $sql_result);
+    global $db;
+    global $dbtype;
+    $ok = true;
+    $executed = array();
+    try {
+        $sql_script = @include(sql_file_path($scriptname));
+        if ($sql_script !== false) {
+            foreach ($sql_script as $sql_stmt) {
+                try {
+                    // Add logging for each statement
+                    error_log("Executing SQL: " . $sql_stmt);
+                    
+                    $sql_result = $db->exec($sql_stmt);
+                    if ($sql_result !== false) {
+                        $executed[] = array('sql' => $sql_stmt, 'result' => $sql_result);
+                    } else {
+                        $error = $db->errorInfo();
+                        error_log("SQL Error: " . print_r($error, true));
+                        json_sql_failure($sql_stmt);
+                        $ok = false;
+                        break;
+                    }
+                } catch (PDOException $p) {
+                    error_log("PDO Exception: " . $p->getMessage());
+                    $executed[] = array('sql' => $sql_stmt, 'result' => null, 'error' => $p->getMessage());
 
-          // Hack to work around the fact that Access doesn't provide a "drop if
-          // exists" statement -- you have to attempt a table drop and catch the
-          // failure if the table didn't already exist.
-          if ($dbtype == 'access' && substr($sql_stmt, 0, 4) == 'DROP') {
-          } else {
-            json_sql_failure($sql_stmt);
+                    if ($dbtype == 'access' && substr($sql_stmt, 0, 4) == 'DROP') {
+                        // This is expected for Access DB
+                        continue;
+                    } else {
+                        json_sql_failure($sql_stmt);
+                        $ok = false;
+                        break;
+                    }
+                }
+            }
+        } else {
+            error_log("SQL script not found: " . sql_file_path($scriptname));
+            json_failure('sqlnoscript', "SQL script $scriptname not found.");
             $ok = false;
-            break;
-          }
         }
-      }
-    } else {
-      json_failure('sqlnoscript', "SQL script ".@$_POST['script']." not found.");
-      $ok = false;
+    } catch (PDOException $p) {
+        error_log("Database Error: " . $p->getMessage());
+        json_failure('sqlfailure', $p->getMessage());
+        $ok = false;
     }
-  } catch (PDOException $p) {
-    json_failure('sqlfailure', $p->getMessage());
-    $ok = false;
-  }
 
-  if ($ok) {
-    json_success();
-  }
-
-  return array($ok, $executed);
+    return array($ok, $executed);
 }
 
 function save_selected_race_info_values($keys) {

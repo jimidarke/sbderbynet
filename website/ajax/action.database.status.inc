@@ -58,7 +58,7 @@ function check_database_status() {
             ]
         ];
 
-        error_log("Database status: " . print_r($result, true));
+        // error_log("Database status: " . print_r($result, true));
 
         header('Content-Type: application/json');
         echo json_encode($result);

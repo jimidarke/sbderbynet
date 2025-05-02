@@ -1,4 +1,3 @@
-
 .flying {
     position: fixed;
     background-color: red;
@@ -183,6 +182,17 @@ td.test-only img {
   opacity: 0.75;
 }
 
+.race-status-wrapper {
+  transition: background-color 0.3s ease;
+}
+
+.race-started {
+  background-color: #e8f5e9; /* Light green color for racing */
+}
+
+.race-staging {
+  background-color: #fff3e0; /* Light yellow/orange color for staging */
+}
 
 .banner_version { display: none; }
 

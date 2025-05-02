@@ -44,13 +44,13 @@ function populate_details(details) {
     $("#schema_button").prop('disabled', true).attr('value', 'Initialize');
   } else if (details.schema.button == 'initialize') {
     $("#schema_button").prop('disabled', false).attr('value', 'Initialize')
-      .off('click').on('click', function() { show_initialize_schema_modal(); });
+      .off('click').on('click', function () { show_initialize_schema_modal(); });
   } else if (details.schema.button == 'update') {
     $("#schema_button").prop('disabled', false).attr('value', 'Update Schema')
-      .off('click').on('click', function() { show_update_schema_modal(); });
+      .off('click').on('click', function () { show_update_schema_modal(); });
   } else /* 're-initialize' */ {
     $("#schema_button").prop('disabled', false).attr('value', 'Re-Initialize')
-      .off('click').on('click', function() { show_initialize_schema_modal(); });
+      .off('click').on('click', function () { show_initialize_schema_modal(); });
   }
 
   $("#database_step div.step_details").html(details.database.details);
@@ -99,7 +99,7 @@ function populate_details(details) {
 
   // Add database status information div if it doesn't exist
   if (!$('#database_status_container').length) {
-      $('<div id="database_status_container" class="status-info"></div>').insertAfter("#database_step");
+    $('<div id="database_status_container" class="status-info"></div>').insertAfter("#database_step");
   }
 
   checkDatabaseStatus();
@@ -264,96 +264,97 @@ function confirm_purge(purge) {
 }
 
 function show_initialize_schema_modal() {
-    show_secondary_modal("#initialize_schema_modal", function(event) {
-        // First initialize production DB
-        handle_initialize_schema(false).then(() => {
-            // Then initialize test DB
-            return handle_initialize_schema(true);
-        });
-        return false;
+  show_secondary_modal("#initialize_schema_modal", function (event) {
+    // First initialize production DB
+    handle_initialize_schema(false).then(() => {
+      // Then initialize test DB
+      return handle_initialize_schema(true);
     });
+    return false;
+  });
 }
 
 function handle_initialize_schema(isTestDb = false) {
-    if (!isTestDb) {
-        close_secondary_modal("#initialize_schema_modal");
-    }
-    report_in_progress();
+  if (!isTestDb) {
+    close_secondary_modal("#initialize_schema_modal");
+  }
+  report_in_progress();
 
-    return new Promise((resolve, reject) => {
-        $.ajax('action.php', {
-            type: 'POST',
-            data: {
-                action: 'database.execute',
-                script: 'schema',
-                for_test: isTestDb ? 1 : 0
-            },
-            dataType: 'json',
-            success: function(data) {
-                console.log('Schema initialization response:', data);
-                
-                try {
-                    if (data.outcome.summary === 'success') {
-                        // Update database status after successful initialization
-                        refreshDatabaseStatus().then(() => {
-                            report_success_json(data);
-                            resolve(data);
-                        });
-                    } else {
-                        const errorMsg = `Database initialization failed: ${data.outcome.description}`;
-                        report_failure(errorMsg);
-                        reject(new Error(errorMsg));
-                    }
-                } catch (e) {
-                    console.error('Error handling response:', e);
-                    reject(e);
-                }
-            },
-            error: function(xhr, status, error) {
-                const errorMsg = `Database initialization failed: ${error}`;
-                report_failure(errorMsg);
-                reject(new Error(errorMsg));
-            }
-        });
+  return new Promise((resolve, reject) => {
+    $.ajax('action.php', {
+      type: 'POST',
+      data: {
+        action: 'database.execute',
+        script: 'schema',
+        for_test: isTestDb ? 1 : 0
+      },
+      dataType: 'json',
+      success: function (data) {
+        console.log('Schema initialization response:', data);
+
+        try {
+          if (data.outcome && data.outcome.summary === 'success') {
+            refreshDatabaseStatus().then(() => {
+              resolve(data);
+              report_success_json(data);
+            });
+          } else {
+            const errorMsg = `Database initialization failed: ${data.outcome ? data.outcome.description : 'Unknown error'}`;
+            // console.error(errorMsg);
+            // reject(new Error(errorMsg));
+            report_failure(errorMsg);
+          }
+        } catch (e) {
+          console.error('Error handling response:', e);
+          reject(e);
+        }
+      },
+      error: function (xhr, status, error) {
+        const errorMsg = `Database initialization failed: ${error}\nStatus: ${status}\nResponse: ${xhr.responseText}`;
+        console.error(errorMsg);
+        report_failure(errorMsg);
+        reject(new Error(errorMsg));
+      }
     });
+  });
 }
 
 // Similar updates for update schema functions
 function show_update_schema_modal() {
-    show_modal("#update_schema_modal", function(event) {
-        // First update production DB
-        handle_update_schema(false).then(() => {
-            // Then update test DB  
-            return handle_update_schema(true);
-        });
-        return false;
+  show_modal("#update_schema_modal", function (event) {
+    // First update production DB
+    handle_update_schema(false).then(() => {
+      // Then update test DB  
+      return handle_update_schema(true);
     });
+    return false;
+  });
 }
 
 function handle_update_schema(isTestDb = false) {
-    if (!isTestDb) {
-        close_modal("#update_schema_modal");
-    }
-    report_in_progress();
+  if (!isTestDb) {
+    close_modal("#update_schema_modal");
+  }
+  report_in_progress();
 
-    return new Promise((resolve, reject) => {
-        $.ajax('action.php', {
-            type: 'POST', 
-            data: {
-                action: 'database.execute',
-                script: 'update-schema',
-                for_test: isTestDb ? 1 : 0
-            },
-            success: function(data) {
-                report_success_json(data);
-                resolve();
-            },
-            error: function(event, jqXHR, ajaxSettings, thrownError) {
-                report_failure(thrownError);
-                reject(thrownError);
-            }
-        });
+  return new Promise((resolve, reject) => {
+    $.ajax('action.php', {
+      type: 'POST',
+      data: {
+        action: 'database.execute',
+        script: 'update-schema',
+        for_test: isTestDb ? 1 : 0
+      },
+      success: function (data) {
+        report_success_json(data);
+        resolve();
+      },
+      error: function (event, jqXHR, ajaxSettings, thrownError) {
+        report_failure(thrownError);
+        reject(thrownError);
+      }
     });
+  });
 }
 
 $(function () {
@@ -372,58 +373,58 @@ $(function () {
 
 function checkDatabaseStatus() {
   $.ajax('action.php', {
-      type: 'POST',
-      data: { action: 'database.status' },
-      success: function(data) {
-          console.log('Database status response:', data);
+    type: 'POST',
+    data: { action: 'database.status' },
+    success: function (data) {
+      console.log('Database status response:', data);
 
-          let statusHtml = '<div class="database-status">';
+      let statusHtml = '<div class="database-status">';
 
-          // Production Database Status
-          statusHtml += '<div class="prod-db-status' + 
-                        (data.production.active ? ' active-db' : '') + '">';
-          statusHtml += '<h3>Production Database</h3>';
-          statusHtml += '<p class="path-text">Path: ' + data.production.path + '</p>';
-          statusHtml += '<p class="status-text">Status: ' + getDatabaseStatusText(data.production) + '</p>';
-          if (data.production.schema_version !== null) {
-              statusHtml += '<p>Schema Version: ' + data.production.schema_version + '</p>';
-          }
-          statusHtml += '</div>';
-
-          // Test Database Status
-          statusHtml += '<div class="test-db-status' + 
-                        (data.test.active ? ' active-db' : '') + '">';
-          statusHtml += '<h3>Test Database</h3>';
-          if (data.test.exists) {
-              statusHtml += '<p class="path-text">Path: ' + data.test.path + '</p>';
-              statusHtml += '<p class="status-text">Status: ' + getDatabaseStatusText(data.test) + '</p>';
-              if (data.test.schema_version !== null) {
-                  statusHtml += '<p>Schema Version: ' + data.test.schema_version + '</p>';
-              }
-          } else {
-              statusHtml += '<p class="status-text">Status: Not Configured</p>';
-          }
-          statusHtml += '</div>';
-
-          // Active Connection Indicator
-          statusHtml += '<div class="active-connection">';
-          statusHtml += '<p style="font-weight: bold;">Currently Active: ' + 
-                       (data.current.mode === 'test' ? 'Test Database' : 'Production Database') + 
-                       '</p>';
-          statusHtml += '<p class="path-text">Current DB Path: ' + data.current.path + '</p>';
-          statusHtml += '<p class="schema-text">Schema Version: ' + data.current.schema_version + '</p>';
-          statusHtml += '</div>';
-
-          statusHtml += '</div>';
-
-          $('#database_status_container').html(statusHtml);
-      },
-      error: function(xhr, status, error) {
-          console.error('Failed to fetch database status:', error);
-          $('#database_status_container').html(
-              '<p class="error">Failed to fetch database status: ' + error + '</p>'
-          );
+      // Production Database Status
+      statusHtml += '<div class="prod-db-status' +
+        (data.production.active ? ' active-db' : '') + '">';
+      statusHtml += '<h3>Production Database</h3>';
+      statusHtml += '<p class="path-text">Path: ' + data.production.path + '</p>';
+      statusHtml += '<p class="status-text">Status: ' + getDatabaseStatusText(data.production) + '</p>';
+      if (data.production.schema_version !== null) {
+        statusHtml += '<p>Schema Version: ' + data.production.schema_version + '</p>';
       }
+      statusHtml += '</div>';
+
+      // Test Database Status
+      statusHtml += '<div class="test-db-status' +
+        (data.test.active ? ' active-db' : '') + '">';
+      statusHtml += '<h3>Test Database</h3>';
+      if (data.test.exists) {
+        statusHtml += '<p class="path-text">Path: ' + data.test.path + '</p>';
+        statusHtml += '<p class="status-text">Status: ' + getDatabaseStatusText(data.test) + '</p>';
+        if (data.test.schema_version !== null) {
+          statusHtml += '<p>Schema Version: ' + data.test.schema_version + '</p>';
+        }
+      } else {
+        statusHtml += '<p class="status-text">Status: Not Configured</p>';
+      }
+      statusHtml += '</div>';
+
+      // Active Connection Indicator
+      statusHtml += '<div class="active-connection">';
+      statusHtml += '<p style="font-weight: bold;">Currently Active: ' +
+        (data.current.mode === 'test' ? 'Test Database' : 'Production Database') +
+        '</p>';
+      statusHtml += '<p class="path-text">Current DB Path: ' + data.current.path + '</p>';
+      statusHtml += '<p class="schema-text">Schema Version: ' + data.current.schema_version + '</p>';
+      statusHtml += '</div>';
+
+      statusHtml += '</div>';
+
+      $('#database_status_container').html(statusHtml);
+    },
+    error: function (xhr, status, error) {
+      console.error('Failed to fetch database status:', error);
+      $('#database_status_container').html(
+        '<p class="error">Failed to fetch database status: ' + error + '</p>'
+      );
+    }
   });
 }
 
@@ -434,7 +435,7 @@ function getDatabaseStatusText(dbStatus) {
 }
 
 // Run status check on load and every 5 seconds
-$(document).ready(function() {
+$(document).ready(function () {
   checkDatabaseStatus();
   // setInterval(checkDatabaseStatus, 5000);
 });
