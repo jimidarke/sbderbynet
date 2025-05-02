@@ -6,6 +6,7 @@ require_permission(SET_UP_PERMISSION);
 
 ?><!DOCTYPE html>
 <html>
+
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <title>DerbyNet Set-Up</title>
@@ -24,6 +25,7 @@ require_permission(SET_UP_PERMISSION);
   <script type="text/javascript" src="js/settings.js"></script>
   <script type="text/javascript" src="js/setup.js"></script>
 </head>
+
 <body>
   <?php make_banner('Set-Up'); ?>
   <?php
@@ -57,6 +59,13 @@ require_permission(SET_UP_PERMISSION);
   $initial_details = build_setup_page_details();
 
   $ez_configs = list_standard_configs(default_database_directory());
+
+  $ez_configs = list_standard_configs(default_database_directory());
+
+  // Filter out test databases by checking the database name or path
+  $ez_configs = array_filter($ez_configs, function ($config) {
+    return strpos($config['relpath'], 'test') === false;  // Exclude any config paths containing 'test'
+  });
 
   if (defined('JSON_PARTIAL_OUTPUT_ON_ERROR')) {
     $initial_details = json_encode($initial_details, JSON_PARTIAL_OUTPUT_ON_ERROR);
