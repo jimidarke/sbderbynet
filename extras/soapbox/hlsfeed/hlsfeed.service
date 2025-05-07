@@ -1,0 +1,12 @@
+[Unit]
+Description=RTSP to HLS Stream via Shell Script
+After=network.target
+
+[Service]
+ExecStart=/opt/hlsfeed/hlsfeed.sh
+Restart=always
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target
