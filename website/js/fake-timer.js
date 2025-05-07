@@ -386,7 +386,40 @@ function on_auto_mode_change() {
   }
 }
 
-$(function () {
-  $('#auto-mode-checkbox').on('change', on_auto_mode_change);
-});
+// $(function () {
+//   $('#auto-mode-checkbox').on('change', on_auto_mode_change);
+// });
 
+
+// Initialize simulation state
+function initializeSimulation() {
+    // Set auto mode
+    g_auto_mode = true;
+    $('#auto-mode-checkbox').prop('checked', true).trigger('change', on_auto_mode_change);
+    // Send initial messages
+    send_hello();
+    send_identified();
+    
+    // Start heartbeat
+    setInterval(send_heartbeat, 1000);
+    
+    // Update summary display
+    // $('#summary').text('Auto Mode: Running');
+}
+
+
+$(function() {
+  // Reset timer on load
+  reset_timer();
+  
+  // Auto initialize if opened from coordinator
+  if (window.opener && window.opener.fakeTimerWindow === window) {
+      initializeSimulation();
+  }
+  
+  // Handle auto mode checkbox changes
+  $('#auto-mode-checkbox').on('change', function() {
+      g_auto_mode = $(this).is(':checked');
+      on_auto_mode_change();
+  });
+});

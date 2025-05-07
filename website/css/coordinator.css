@@ -1,17 +1,18 @@
 .control_column {
   display: inline-block;
   vertical-align: top;
-  width: 485px;
+  width: 560px;
 }
 
 .double_control_column {
-  width: 975px;
+  width: 1095px;
   margin-left: auto;
   margin-right: auto;
 }
 
 .control_column_container {
-  width: 975px;
+  display: flex;
+  width: 1095px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -60,7 +61,8 @@ div.adjustment-needed input.late-arrival-button[disabled] {
 }
 
 .heat-lineup {
-  display: inline-block;
+  /* display: inline-block; */
+  display: contents;
   width: 730px;
   margin-right: 0px;
 
@@ -145,7 +147,7 @@ div.adjustment-needed input.late-arrival-button[disabled] {
 }
 
 #not-racing-warning {
-  width: 960px;
+  width: 1080px;
   margin: 5px;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -209,7 +211,7 @@ p.last_contact {
 #playlist-group input[type='button'] {
   color: white;
   height: 20px;
-  width: 440px;
+  width: 500px;
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 1px;
@@ -343,7 +345,7 @@ p.last_contact {
 }
 
 .progress {
-    width: 450px;
+    width: autossize; 
     height: 15px;
     border: 1px solid black;
     overflow: hidden;
@@ -429,7 +431,9 @@ div.block_buttons[data-name=buttons] {
   background-color: #cc0000;
   color: #ffffff;
 }
-
+.timer-staging {
+  background-color: #F7D117;
+}
 .timer-ready, .timer-running {
   background-color: #008000;
   color: #ffffff;
@@ -438,7 +442,6 @@ div.block_buttons[data-name=buttons] {
   background-color: #cc0000;
   color: #ffffff;
 }
-
 
 /* Update AS OF 17-04-2025 */
 .status-error {
@@ -474,4 +477,38 @@ div.block_buttons[data-name=buttons] {
       transform: translateX(0);
       opacity: 1;
   }
+}
+
+.simulation-controls {
+  margin: 10px 0;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.simulation-indicator {
+  color: #856404;
+  background-color: #fff3cd;
+  padding: 5px 10px;
+  border-radius: 3px;
+  margin-right: 10px;
+}
+
+#simulate-results-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#simulate-results-btn:hover {
+  background-color: #218838;
+}
+.heat_control_group .block_buttons {
+  justify-self: center;
+}
+div#now-racing-group {
+  width: 1095px;
 }

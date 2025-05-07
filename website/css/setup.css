@@ -252,3 +252,48 @@ span.trouble {
     width: 260px;
     float: left;
 }
+
+#database_status_container {
+  margin-left: 425px;
+  width: max-content;
+}
+
+.database-status {
+  width: 645px;
+  padding: 15px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: sans-serif;
+  background: #fff;
+}
+
+.prod-db-status, .test-db-status {
+  padding: 10px;
+  margin: 5px 0;
+  background: #f8f9fa;
+  border-left: 4px solid #ccc;
+}
+
+.active-db {
+  border-left-color: #28a745;
+  background: #f0fff0;
+}
+
+.active-connection {
+  margin-top: 15px;
+  padding: 10px;
+  background: #e9ecef;
+  border-radius: 4px;
+}
+
+.error {
+  color: #dc3545;
+  padding: 10px;
+  background: #f8d7da;
+  border-radius: 3px;
+}
+
+p.path-text {
+  overflow-wrap: anywhere;
+}

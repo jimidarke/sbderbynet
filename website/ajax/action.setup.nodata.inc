@@ -29,7 +29,8 @@ set_error_handler('error_handler');
 // where <string-or-null> can take the values:
 // 'cant_connect'
 // 'acess_denied'
-function attempt_to_connect_to_database($connection_string, $dbuser, $dbpass, $options) {
+function attempt_to_connect_to_database($connection_string, $dbuser, $dbpass, $options)
+{
   $result = array('pdo' => null, 'exception' => null, 'error' => null);
   try {
     $result['pdo'] = new PDO($connection_string, $dbuser, $dbpass, $options);
@@ -51,7 +52,8 @@ function attempt_to_connect_to_database($connection_string, $dbuser, $dbpass, $o
 // 'empty'
 // 'not_a_database'
 // 'unknown'
-function attempt_to_count_racers($trial_db) {
+function attempt_to_count_racers($trial_db)
+{
   $result = array('count' => null, 'exception' => null, 'error' => null);
   try {
     $trial_db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -107,7 +109,7 @@ if (locked_settings()) {
     $directory = $superdir . DIRECTORY_SEPARATOR . $_POST['ez-new'];
 
     error_reporting(E_ALL);
-    
+
     if (is_dir($directory)) {
       json_failure('already_exists', "Directory already exists.");
       $ok = false;
@@ -118,70 +120,74 @@ if (locked_settings()) {
     if ($ok) {
       if (!@mkdir($directory, 0777, true)) {
         $error = error_get_last();
-        json_failure('mkdir', $directory.':  '.$error['message']);
+        json_failure('mkdir', $directory . ':  ' . $error['message']);
         $ok = false;
       }
     }
-    // Create subdirectories.  Recording them in the database happens after the
-    // database is opened and initialized.
-    $racers_subdir = $directory . DIRECTORY_SEPARATOR . 'racers';
-    $cars_subdir = $directory . DIRECTORY_SEPARATOR . 'cars';
-    $videos_subdir = $directory . DIRECTORY_SEPARATOR . 'videos';
-    $logs_subdir = $directory . DIRECTORY_SEPARATOR . 'logs';
-    $imagery_subdir = $directory . DIRECTORY_SEPARATOR . 'imagery';
-    $slides_subdir = $directory . DIRECTORY_SEPARATOR . 'slides';
-    if ($ok) {
-      if (!@mkdir($racers_subdir)) {
-        json_failure('mkdir-racers', "Unable to create racers subdirectory.");
+
+    // Define subdirectories
+    $subdirectories = [
+      'racers' => 'racers',
+      'cars' => 'cars',
+      'videos' => 'videos',
+      'logs' => 'logs',
+      'imagery' => 'imagery',
+      'slides' => 'slides',
+    ];
+
+    // Create each subdirectory and handle failure
+    foreach ($subdirectories as $key => $subdir) {
+      $path = $directory . DIRECTORY_SEPARATOR . $subdir;
+
+      if ($ok && !@mkdir($path)) {
+        json_failure('mkdir-' . $key, "Unable to create {$subdir} subdirectory.");
         $ok = false;
       }
     }
-    if ($ok) {
-      if (!@mkdir($cars_subdir)) {
-        json_failure('mkdir-cars', "Unable to create cars subdirectory.");
-        $ok = false;
-      }
-    }
-    if ($ok) {
-      if (!@mkdir($videos_subdir)) {
-        json_failure('mkdir-videos', "Unable to create videos subdirectory.");
-        $ok = false;
-      }
-    }
-    if ($ok) {
-      if (!@mkdir($logs_subdir)) {
-        json_failure('mkdir-logs', "Unable to create logs subdirectory.");
-        $ok = false;
-      }
-    }
-    if ($ok) {
-      if (!@mkdir($imagery_subdir)) {
-        json_failure('mkdir-imagery', "Unable to create imagery subdirectory.");
-        $ok = false;
-      }
-    }
-    if ($ok) {
-      if (!@mkdir($slides_subdir)) {
-        json_failure('mkdir-slides', "Unable to create slides subdirectory.");
-        $ok = false;
-      }
-    }
+
 
     umask($old_umask);
 
     if ($ok) {
       $new_database_path = $directory . DIRECTORY_SEPARATOR . 'derbynet.sqlite3';
-      $connection_string = 'sqlite:'. $new_database_path;
+      $connection_string = 'sqlite:' . $new_database_path;
       $homedir = $directory;
       $dbuser = $dbpass = "";
     }
+
+    // Create subdirectories for the test directory.
+    $year = date('Y');
+    $baseDir = dirname(__DIR__);
+    $prod_dir = $directory;
+    $test_dir = "$baseDir/Data/test/$year/" . $_POST['ez-new'];
+
+    $test_subdirs = [
+      $test_dir,
+      "$test_dir/racers",
+      "$test_dir/cars",
+      "$test_dir/videos",
+      "$test_dir/logs",
+      "$test_dir/imagery",
+      "$test_dir/slides"
+    ];
+
+    foreach ($test_subdirs as $dir) {
+      if (!is_dir($dir)) {
+        if (!@mkdir($dir, 0777, true)) {
+          json_failure('mkdir-test-dir', "Unable to create test subdirectory: $dir");
+          $ok = false;
+          break;
+        }
+      }
+    }
+
   } else if (isset($_POST['ez-old']) && $_POST['ez-old'] != "") {
     $config = is_standard_config(default_database_directory(), $_POST['ez-old']);
     if ($config === false) {
-      json_failure('not-recognized', $_POST['ez-old'].' is not a recognized configuration.');
+      json_failure('not-recognized', $_POST['ez-old'] . ' is not a recognized configuration.');
       $ok = false;
     } else {
-      $connection_string = 'sqlite:'.$config['database'];
+      $connection_string = 'sqlite:' . $config['database'];
       $homedir = $config['homedir'];
       $dbuser = $dbpass = "";
     }
@@ -200,7 +206,7 @@ if (locked_settings()) {
       $trial_db = $trial['pdo'];
       if ($new_database_path) {
         // By default, a newly-created sqlite database will offer write
-        // permissions only to the creator, i.e., the www user.  This can
+        // permissions only to the creator, i.e., the www user. This can
         // frustrate the actual human user if they ever have occasion to want to
         // access the database directly.
         $old_umask = umask(0);
@@ -214,24 +220,26 @@ if (locked_settings()) {
   }
 
   // Check database integrity; initialize an empty database
-  // Needs $trial_db, $connection_string
   if ($ok) {
     $count = attempt_to_count_racers($trial_db);
 
-    if ($count['count'] !== null) {
-    } else {
+    if ($count['count'] === null) {
       $ok = false;
       if ($count['error'] == 'empty') {
-        // There's no reason not to just initialize an empty database
         $parsed = parse_connection_string($connection_string);
         $db = $trial_db;
         $dbtype = $parsed['scheme'];
         list($ok, $executed) = run_sql_script('schema');
-        json_out('executed', $executed);
+
+        if ($ok) {
+          json_out('executed', $executed);
+        } else {
+          json_failure('database_creation', 'Failed to initialize the database schema.');
+        }
       } else if ($count['error'] == 'not_a_database') {
         $parsed = parse_connection_string($connection_string);
         $sqlite_path = $parsed['sqlite_path'];
-        json_failure('not-a-database', $sqlite_path."\nis not a database.");
+        json_failure('not-a-database', $sqlite_path . "\nis not a database.");
       } else {
         $p = $count['exception'];
         json_failure('sql', $p->getMessage());
