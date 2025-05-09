@@ -27,7 +27,7 @@ timer/.idea/encodings.xml
 
 website/css/timer.css
 
-website/inc/banner.inc
+#website/inc/banner.inc
 website/inc/generated-*.inc
 website/quickref.pdf
 website/js/adapter.js
@@ -51,5 +51,5 @@ UniServerZ
 UniServerZ/*
 .htaccess
 *.zip
-index.php
+#index.php
 settings.jsonsw

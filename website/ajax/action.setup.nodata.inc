@@ -101,6 +101,7 @@ if (locked_settings()) {
   $videos_subdir = '';
   $imagery_subdir = '';
   $slides_subdir = '';
+  $logs_subdir = '';
 
   $new_database_path = '';
 

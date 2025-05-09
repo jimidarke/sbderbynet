@@ -4,10 +4,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Set up error logging
-$log_dir = __DIR__ . '/../error/error-logs';
-if (!is_dir($log_dir)) {
-    mkdir($log_dir, 0777, true); // Create directory with full permissions
-}
+$log_dir = __DIR__ . '/logs';
 
 ini_set('log_errors', 1);
 ini_set('error_log', $log_dir . '/error.log');
