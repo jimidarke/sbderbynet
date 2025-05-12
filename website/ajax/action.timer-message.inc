@@ -10,7 +10,7 @@ require_once('inc/events.inc');
 require_once('inc/timer-flags.inc');
 require_once('inc/event-lane-details.inc');
 require_once('inc/timer-logging.inc');
-require_once('inc/error-logging.inc');
+// require_once('inc/error-logging.inc');
 
 // Timer-controller-to-web-service messages:
 //
@@ -212,7 +212,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		// }
 
 
-		error_log("HEARTBEAT POST data: " . print_r($_POST, true));
+		// error_log("HEARTBEAT POST data: " . print_r($_POST, true));
 
 		// foreach ($_POST as $key => $value) {
 		// 	if (preg_match('/^lane(\d+)$/', $key, $matches)) {
@@ -257,7 +257,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 				':ready' => $ready
 			]);
 
-			error_log("Starter status saved: TimerID $timerID, Ready $ready");
+			// error_log("Starter status saved: TimerID $timerID, Ready $ready");
 		}
 
 		// Updated code for mark stale timers and delete them
@@ -269,7 +269,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 				$ready = isset($_POST["ready{$laneIndex}"]) ? intval($_POST["ready{$laneIndex}"]) : 0;
 
 				if ($lane && $timerID) {
-					error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
+					// error_log("Processing lane $lane with TimerID $timerID and Ready $ready");
 
 					// Update or insert the timer status in the database
 					$stmt = $db->prepare('REPLACE INTO TimerStatus (lane, timerID, last_heartbeat, ready) 
@@ -284,7 +284,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 					if (!$success) {
 						error_log("Database error: " . print_r($stmt->errorInfo(), true));
 					} else {
-						error_log("Timer status saved: Lane $lane, TimerID $timerID, Ready $ready");
+						// error_log("Timer status saved: Lane $lane, TimerID $timerID, Ready $ready");
 					}
 				}
 			}

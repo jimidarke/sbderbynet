@@ -1,7 +1,7 @@
 <?php @session_start();
 require_once('inc/banner.inc');
 require_once('inc/data.inc');
-require_once('inc/error-logging.inc');
+// require_once('inc/error-logging.inc');
 session_write_close();
 ?><!DOCTYPE html>
 <html>

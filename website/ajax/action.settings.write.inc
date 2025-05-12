@@ -5,7 +5,7 @@ session_start();
 require_once('inc/photo-config.inc');
 require_once('inc/schema_version.inc');
 require_once('inc/locked.inc');
-require_once('inc/error-logging.inc');
+// require_once('inc/error-logging.inc');
 
 // To preclude problems with misspelled parameters, we want to be sure that we
 // account for every parameter passed.  We do that by just counting the number

@@ -894,7 +894,21 @@ function toggleSimulationMode() {
 }
 
 
-
+// function to disable Simulation Mode
+function disableSimulationMode() {
+  // Uncheck the simulation switch
+  $("#simulate-results-switch").prop('checked', false);
+  
+  // Close the fake timer window if it exists
+  if (window.fakeTimerWindow && !window.fakeTimerWindow.closed) {
+      window.fakeTimerWindow.close();
+  }
+  
+  // Reset racing mode
+  $("#is-currently-racing").prop('checked', false).trigger('change');
+  
+  // console.log('Simulation mode disabled');
+}
 
 // function to init the HLS stream
 function initVideoSource(selectq) {

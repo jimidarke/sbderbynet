@@ -376,7 +376,7 @@ function checkDatabaseStatus() {
     type: 'POST',
     data: { action: 'database.status' },
     success: function (data) {
-      console.log('Database status response:', data);
+      // console.log('Database status response:', data);
 
       let statusHtml = '<div class="database-status">';
 

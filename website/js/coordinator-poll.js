@@ -634,6 +634,10 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
       async: false,
       success: function(data) {
         completed = data.completed;
+        // console.log("Round completion check response:", completed);
+        if (completed === true) {
+          disableSimulationMode();
+        }
       }
     });
     return completed;
