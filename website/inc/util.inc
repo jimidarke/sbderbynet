@@ -28,7 +28,7 @@ function load_all_settings_into_session() {
         $current_db = $db->query("SELECT file FROM pragma_database_list WHERE name='main'")->fetchColumn();
         $_SESSION['current_database'] = $current_db;
         
-        error_log("Session settings updated, test_mode: " . ($test_mode ? "1" : "0") . ", db: $current_db");
+        // error_log("Session settings updated, test_mode: " . ($test_mode ? "1" : "0") . ", db: $current_db");
         return true;
         
     } catch (PDOException $e) {

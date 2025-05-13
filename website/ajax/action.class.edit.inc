@@ -7,7 +7,7 @@
 require_once('inc/classes.inc');
 require_once('inc/partitions.inc');
 require_once(sql_file_path('column-widths'));
-require_once("inc/error-logging.inc");
+// require_once("inc/error-logging.inc");
 
 if (have_permission(SET_UP_PERMISSION)) {
   if (isset($_POST['classid']) && isset($_POST['name'])) {

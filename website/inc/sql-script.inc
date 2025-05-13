@@ -17,7 +17,7 @@ function run_sql_script($scriptname) {
             foreach ($sql_script as $sql_stmt) {
                 try {
                     // Add logging for each statement
-                    error_log("Executing SQL: " . $sql_stmt);
+                    // error_log("Executing SQL: " . $sql_stmt);
                     
                     $sql_result = $db->exec($sql_stmt);
                     if ($sql_result !== false) {

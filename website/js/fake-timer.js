@@ -95,6 +95,7 @@ function start_timer() {
       var t = (new Date()).getTime() - start;
       if (false && t > 5000) {
         end_race();
+        disableSimulationMode();
       }
       t = (t / 1000).toFixed(3);
       tr.find('td').each(function (i, td) {
@@ -144,6 +145,7 @@ function process_timer_messages(data) {
     g_heat_ready_timer_id = 0;
     clearTimeout(g_prepared_heat);
     g_prepared_heat = 0;
+    disableSimulationMode();
   }
 
   var heat = data.find('heat-ready');

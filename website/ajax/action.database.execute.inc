@@ -5,7 +5,7 @@ require_once 'inc/locked.inc';
 require_once 'inc/details-for-setup-page.inc';
 require_once 'inc/fake_images.inc';
 require_once 'inc/schema_version.inc';
-require_once 'inc/error-logging.inc';
+// require_once 'inc/error-logging.inc';
 require_once 'inc/photo-config.inc';
 
 header('Content-Type: application/json');
@@ -86,8 +86,8 @@ try {
         $savedInfo = save_selected_race_info_values(RACE_INFO_KEYS_FOR_SCHEMA_SCRIPT);
 
         [$ok, $executed] = run_sql_script($script, $db);
-        error_log("run_sql_script ok: " . $ok . ", executed: " . print_r($executed, true));
-        error_log("run_sql_script returned: " . ($ok ? "OK" : "FAIL"));
+        // error_log("run_sql_script ok: " . $ok . ", executed: " . print_r($executed, true));
+        // error_log("run_sql_script returned: " . ($ok ? "OK" : "FAIL"));
 
         if (!$ok) {
             error_log("Schema initialization failed. Executed statements: " . print_r($executed, true));

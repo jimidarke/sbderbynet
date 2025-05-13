@@ -1,7 +1,7 @@
 <?php
 require_once('inc/data.inc');
 require_once('inc/racing-state.inc'); 
-require_once('inc/error-logging.inc');
+// require_once('inc/error-logging.inc');
 
 if (!have_permission(CONTROL_RACE_PERMISSION)) {
     json_not_authorized();

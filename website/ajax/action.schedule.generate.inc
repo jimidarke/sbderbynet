@@ -70,7 +70,7 @@ require_once('inc/masterheat.inc');
 require_once('inc/autoadvance.inc');
 require_once('inc/schedule_utils.inc');
 require_once('inc/schedule_one_round.inc');
-require_once('inc/error-logging.inc');
+// require_once('inc/error-logging.inc');
 
 $roundid = $_POST['roundid'];
 $n_times_per_lane = isset($_POST['n_times_per_lane']) ? $_POST['n_times_per_lane'] : 1;

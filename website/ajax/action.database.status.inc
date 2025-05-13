@@ -3,7 +3,7 @@
 require_once('inc/data.inc');
 require_once('inc/authorize.inc');
 
-require_once('inc/error-logging.inc');
+// require_once('inc/error-logging.inc');
 function check_database_status() {
     global $db;
     

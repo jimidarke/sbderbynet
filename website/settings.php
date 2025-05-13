@@ -143,8 +143,6 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                             data-off-text="Production Mode"
                             data-on-text="Test Mode" <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
                         <label style="vertical-align: middle;">
-                        <!-- <input id="test-mode" name="test-mode" type="checkbox" class="do-not-post"
-                            <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/> -->
                                 Enabled
                         </label>
                         <p class="help-block">When enabled, operations will use a test database instead of production.</p>

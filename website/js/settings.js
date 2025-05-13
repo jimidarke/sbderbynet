@@ -314,7 +314,7 @@ $(document).ready(function () {
             updateFormFields(response.settings);
           }
           refreshDatabaseStatus();
-          alert(`Switched to ${response.mode} mode`);
+          // alert(`Switched to ${response.mode} mode`);
           window.location.reload();
         } else {
           console.error('Server response:', response);
@@ -342,7 +342,7 @@ function refreshDatabaseStatus() {
         action: 'database.status',
       },
       success: function (response) {
-        console.log('Database status response:', response);
+        // console.log('Database status response:', response);
         if (response.status == 'success') {
           console.log('Database status:', response);
           updateDatabaseStatusUI(response);

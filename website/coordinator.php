@@ -87,18 +87,21 @@ $warn_no_timer = warn_no_timer();
         </div>
 
         <?php if (have_permission(CONTROL_RACE_PERMISSION)) { ?>
-          <div class="simulation-controls" <?php echo read_raceinfo('test-mode', 0) ? '' : 'style="display:none;"'; ?>>
-            <div class="block_buttons">
-              <?php if (read_raceinfo('using_simulation', 0)) { ?>
+          <div class="" <?php echo read_raceinfo('test-mode', 0) ? '' : 'style="display:none;"'; ?>>
+            <!-- <div class="block_buttons"> -->
+              <!-- <?php if (read_raceinfo('using_simulation', 0)) { ?>
                 <span class="simulation-indicator">SIMULATION MODE</span>
-              <?php } ?>
-              <input type="button" id="simulate-results-btn" value="Simulate Race" onclick="toggleSimulationMode()"
-                class="btn btn-warning" />
-            </div>
+              <?php } ?> -->
+              <div class="centered_flipswitch" style="font-size: larger !important;margin-left: 152px;">
+                <input type="checkbox" class="flipswitch" id="simulate-results-switch"
+                  onchange="toggleSimulationMode()" data-on-text="Simulating" data-off-text="Not Simulating" />
+                <!-- <label for="simulate-results-switch">Simulate Race</label> -->
+              </div>
+            <!-- </div> -->
           </div>
         <?php } ?>
 
-        <div class="centered_flipswitch">
+        <div class="centered_flipswitch" <?php echo read_raceinfo('test-mode', 1) ? 'style="display:none;' : ''; ?>>
           <input type="checkbox" class="flipswitch" name="is-currently-racing" id="is-currently-racing"
             checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
         </div>

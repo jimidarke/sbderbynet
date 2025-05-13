@@ -32,7 +32,7 @@ function json_timer_state() {
   $stmt = $db->query('SELECT lane, timerID, last_heartbeat, ready, is_starter FROM TimerStatus');
   $timers = array();
   while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-      error_log("Fetched timer status: " . print_r($row, true)); // Debugginger
+      // error_log("Fetched timer status: " . print_r($row, true)); // Debugginger
       $timers[] = array(
           'lane' => $row['lane'],
           'timerID' => $row['timerID'] ?? $row['timerid'], // Handle both 'timerID' and 'timerid'
