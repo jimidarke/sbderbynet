@@ -88,6 +88,12 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
     json_failure('results-exist', 'Race results already exist for this round');
   } else {
 
+    // Fetch heat ordering settings
+    $group_weighted_cars = intval(read_raceinfo('group-weighted-cars', 0));
+    $avoid_consecutive = intval(read_raceinfo('avoid-consecutive', 0));
+    $avoid_same_lane = intval(read_raceinfo('avoid-same-lane', 0));
+
+
     // Update the query to handle missing columns gracefully
     $round_info = read_single_row(
       'SELECT r.roundid, r.round, r.roundname, r.classid,
@@ -176,7 +182,7 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
     }
 
     // Continue with schedule generation...
-    if (schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace)) {
+    if (schedule_one_round($roundid, $nlanes, $n_times_per_lane, $trace, $group_weighted_cars, $avoid_consecutive, $avoid_same_lane)) {
       json_success();
       if ($trace) {
         json_out('trace', $trace);
