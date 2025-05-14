@@ -60,8 +60,6 @@ require_permission(SET_UP_PERMISSION);
 
   $ez_configs = list_standard_configs(default_database_directory());
 
-  $ez_configs = list_standard_configs(default_database_directory());
-
   // Filter out test databases by checking the database name or path
   $ez_configs = array_filter($ez_configs, function ($config) {
     return strpos($config['relpath'], 'test') === false;  // Exclude any config paths containing 'test'
