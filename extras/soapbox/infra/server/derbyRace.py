@@ -7,7 +7,7 @@ Service file: /etc/systemd/system/derbyrace.service
 '''
 
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import subprocess
 import time
@@ -15,6 +15,8 @@ import uuid
 import paho.mqtt.client as mqtt # type: ignore
 import random
 import json
+import threading
+import queue
 from derbyapi import DerbyNetClient
 from derbylogger import setup_logger
 import psutil # type: ignore
@@ -24,6 +26,12 @@ logger = setup_logger("derbyRace")
 # MQTT setup
 MQTT_BROKER             = "localhost"
 MQTT_PORT               = 1883
+
+# Race timing and reliability settings
+LANE_FINISH_TIMEOUT     = 10    # seconds to wait for all lanes to finish before auto-completion
+HEARTBEAT_TIMEOUT       = 30    # seconds to consider a timer offline if no heartbeat received
+MQTT_QOS_CRITICAL       = 2     # QoS level for critical race messages
+MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
 
 ##### Subscribe Topics #####
 MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
@@ -61,41 +69,83 @@ class derbyRace:
         logger.debug(f"MQTT Log: {buf}")
 
     def on_connect(self, client, userdata, flags, rc, properties=None): # callback for mqtt connection
-        logger.debug(f"Connected with result code {rc}")        
+        self.mqtt_connected = True
+        logger.info(f"Connected to MQTT broker with result code {rc}")
+        
+        # Subscribe to all required topics
         client.subscribe(MQTT_TOPIC_TELEMETRY)
         logger.info(f"Subscribed to {MQTT_TOPIC_TELEMETRY}")
         client.subscribe(MQTT_TOPIC_STATE)
         logger.info(f"Subscribed to {MQTT_TOPIC_STATE}")
+        
+        # Publish status message with high QoS
+        client.publish("derbynet/status", payload="online", qos=MQTT_QOS_CRITICAL, retain=True)
+        
+    def on_disconnect(self, client, userdata, rc):
+        self.mqtt_connected = False
+        if rc != 0:
+            logger.warning(f"Unexpected MQTT disconnection with code {rc}, initiating reconnection")
+            # Schedule reconnection attempt
+            threading.Timer(5, self.connect_with_retry).start()
     
     def on_message(self, client, userdata, message): # callback for mqtt messages
         topic = message.topic
         payload = message.payload.decode("utf-8")
         logger.debug(f"Received message on {topic} {payload}") 
-        dip = None
+        
+        # Validate message format first
         try:
-            dip = json.loads(payload).get("dip","")
+            payload_data = json.loads(payload)
+            
+            # Extract device identification
+            dip = payload_data.get("dip", "")
+            hwid = payload_data.get("hwid", None)
+            lane = self.getDIPName(dip)  # get the lane number from the dip switch
+            
+            # Store message for sequence tracking and duplicate detection
+            if hwid and "state" in topic:
+                message_id = payload_data.get("timestamp", time.time())
+                if hasattr(self, 'timer_messages') and hasattr(self, 'store_received_message'):
+                    self.store_received_message(hwid, topic, message_id, payload_data)
+            
+            ########### Trigger for START RACE ###########
+            if "state" in topic and self.race_state == "STAGING": # Triggers start only if in staging mode
+                val = payload_data.get("state", False)
+                if val == "GO":
+                    self.startRace()
+                    self.api.send_start()
+            
+            ########### Trigger for LANE FINISH ###########
+            if "state" in topic and self.race_state == "RACING" and lane > 0: 
+                # Extract toggle state and validate
+                toggle = payload_data.get("toggle", None)
+                timestamp = payload_data.get("timestamp", time.time())
+                
+                if toggle is not None and hasattr(self, 'lane_finish_queue'):
+                    # Queue the finish event for processing
+                    self.lane_finish_queue.put((lane, timestamp, payload_data))
+                    logger.info(f"Queued lane {lane} finish event with timestamp {timestamp}")
+                else:
+                    # Fallback to direct processing if queue doesn't exist
+                    self.laneFinish(lane)
+            
+            ########### Trigger for DEVICE TELEMETRY ###########
+            if "telemetry" in topic: 
+                # Extract device state from telemetry
+                if lane > 0 and hasattr(self, 'update_timer_state'):
+                    self.update_timer_state(lane, payload_data)
+                
+                # Send to API
+                self.api.send_device_status(payload_data)
+                
+                # Update heartbeat timestamp
+                if lane > 0:
+                    self.timerHeartbeat(lane)
+        
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error for message on {topic}: {e}")
         except Exception as e:
-            logger.error(f"Error parsing dip from payload: {e}")
-        lane = self.getDIPName(dip) # get the lane number from the dip switch
-        
-        ########### Trigger for START RACE ###########
-        if "state" in topic and self.race_state == "STAGING": # Triggers start only if in staging mode
-            val = json.loads(payload).get("state",False)
-            if val == "GO":
-                self.startRace()
-                self.api.send_start()
-        
-        ########### Trigger for LANE FINISH ###########
-        if "state" in topic and self.race_state == "RACING" and lane > 0: # run through lane finish check
-            self.laneFinish(lane)
-        
-        ########### Trigger for DEVICE TELEMETRY ###########
-        if "telemetry" in topic: # this is the heartbeat from the timer to indicate it is alive and well as well as status telemetry
-            #logger.info(f"Telemetry from {topic}")
-            logger.debug(f"Telemetry from {topic} with payload {payload}")
-            self.api.send_device_status(json.loads(payload))
-            if lane > 0:
-                self.timerHeartbeat(lane)
+            logger.error(f"Error processing message on {topic}: {e}")
 
     def updateFromDerbyAPI(self): 
         # sets online
@@ -167,13 +217,28 @@ class derbyRace:
         }
         return payload
 
-    def startRace(self,timer = None):
-        if timer == None: # set to utc timestamp 
+    def startRace(self, timer=None):
+        """Initialize a new race with start time"""
+        if timer is None:  # set to current timestamp 
             timer = time.time()
-        if self.start_time == 0: # not started yet
+            
+        if self.start_time == 0:  # not started yet
+            # Reset race state
             self.lanesFinished = 0
+            self.lane_times = {}
             self.start_time = timer
-            logger.info("Race Started at " + str(self.start_time))
+            
+            # Log start with precision timestamp
+            logger.info(f"Race started at {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} (UNIX: {timer})")
+            
+            # Announce race start to all timers with high QoS
+            start_payload = {
+                "event": "race_start",
+                "timestamp": timer,
+                "roundid": self.roundid,
+                "heatid": self.heatid
+            }
+            self.client.publish("derbynet/race/event", json.dumps(start_payload), qos=MQTT_QOS_CRITICAL)
         
     def stopRace(self,timer = None):
         if timer == None: # set to utc timestamp 
@@ -187,34 +252,92 @@ class derbyRace:
         self.lane_times = {}
         self.start_time = 0
         
-    def laneFinish(self,lane,timer = None):
-        if timer == None:
+    def laneFinish(self, lane, timer=None, payload=None):
+        if timer is None:
             timer = time.time()
-        self.lane_times[lane] = round(timer - self.start_time,1)
+            
+        # Calculate race time
+        if self.start_time > 0:
+            race_time = round(timer - self.start_time, 3)  # Increased precision to 3 decimal places
+        else:
+            logger.warning(f"Lane {lane} finish detected but no valid start time recorded, using current time")
+            race_time = 0.0
+            
+        # Record the finish time
+        self.lane_times[lane] = race_time
         self.lanesFinished += 1
-        logger.info(f"Lane {lane} Finished at {timer} with time {self.lane_times[lane]}s which is # {self.lanesFinished} to finish")
+        
+        # Log the finish with detailed information
+        logger.info(f"Lane {lane} finished at {timer} with time {race_time}s (#{self.lanesFinished} to finish)")
         logger.debug(f"LaneFinishTimes: {self.lane_times}")
-        self.updateLED("purple",lane) # purple for finished
+        
+        # Update LED to indicate finish
+        self.updateLED("purple", lane)  # purple for finished
+        
+        # Check if race is complete
         if self.lanesFinished == self.lane_count:
             self.stopRace(timer)
             return True
+            
+        # Start timeout for remaining lanes if this is the first finish and we have the method
+        if self.lanesFinished == 1 and hasattr(self, 'start_lane_finish_timeout'):
+            self.start_lane_finish_timeout()
+            
         return False
     
-    def timerHeartbeat(self,lane):
-        self.timer_heartbeat[lane] = time.time()
-        # check if all timers have checked in in the last 30 seconds and then send an api command for heartbeat
-        if all(time.time() - self.timer_heartbeat[lane] < 90 for lane in self.timer_heartbeat):
+    def timerHeartbeat(self, lane):
+        """Update timer heartbeat timestamp and check status"""
+        current_time = time.time()
+        prev_heartbeat = self.timer_heartbeat.get(lane, 0)
+        self.timer_heartbeat[lane] = current_time
+        
+        # If this is the first heartbeat or reconnection after timeout
+        if prev_heartbeat == 0 or (current_time - prev_heartbeat) > HEARTBEAT_TIMEOUT:
+            logger.info(f"Timer for lane {lane} is online")
+            
+        # Check if all active timers have checked in recently
+        active_timers = [l for l in self.timer_heartbeat if l <= self.lane_count]
+        if all(current_time - self.timer_heartbeat[l] < HEARTBEAT_TIMEOUT for l in active_timers):
+            # All timers are online, send heartbeat to API
             self.api.send_timer_heartbeat()
-            logger.debug("Sent Timer Heartbeat")
+            logger.debug("Sent Timer Heartbeat to API")
+            
+        # Check for any timers that might be offline
+        if hasattr(self, 'check_timer_status'):
+            self.check_timer_status()
 
     def close(self,graceful = False):
+        # Send offline status
+        try:
+            if hasattr(self, 'mqtt_connected') and self.mqtt_connected:
+                self.client.publish("derbynet/status", payload="offline", qos=MQTT_QOS_CRITICAL, retain=True)
+        except Exception as e:
+            logger.error(f"Error sending offline status: {e}")
+        
+        # Clean up MQTT
         self.client.loop_stop()
         self.client.disconnect()
         logger.warning("DerbyRace Closed")
+        
+        # Exit with appropriate code
         if not graceful:
             exit(1)
         else:
             exit(0)
+            
+    def connect_with_retry(self):
+        """Connect to MQTT broker with retry mechanism"""
+        try:
+            logger.info(f"Connecting to MQTT broker at {MQTT_BROKER}:{MQTT_PORT}")
+            self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
+            self.client.loop_start()
+            self.mqtt_connected = True
+            return True
+        except Exception as e:
+            logger.error(f"Failed to connect to MQTT broker: {e}")
+            logger.info("Will retry connection in 5 seconds")
+            threading.Timer(5, self.connect_with_retry).start()
+            return False
     
     @staticmethod
     def getDIPName(dip):
