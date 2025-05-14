@@ -11,17 +11,9 @@ The device has the following features:
 - header for a toggle (on/off) to capture finish timing
 - onboard led battery soc indicators (green/yellow/red)
 
-Files:
-- telemetry.py      Gathers data about the device and sends to MQTT (including toggle state)
-- derbynet.py       Receives data from DerbyNet from MQTT (mainly LED colour, Pinny ID, and Lane ID)
-- setup.sh          Shell script to perform inital setup configurations 
-
 setup.sh contains 
 - installs the python files as a system service
 - installs the dependencies and libraries 
 - checks if the hostname matches the boot/derbyid.txt file, if not set the hostname and restart 
 
-
-
-
-
+finishtimer.py is run as a service
