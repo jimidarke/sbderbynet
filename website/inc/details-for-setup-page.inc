@@ -36,22 +36,13 @@ function parse_ini_size($size) {
 
 function connection_string_to_html($conn_string) {
   $parsed = parse_connection_string($conn_string);
-  $output = '';
-  
-  // print_r($_SESSION['test_database']);exit;
   if ($parsed['scheme'] == 'sqlite') {
-    $output = "SQLITE Production DB: " . htmlspecialchars($parsed['sqlite_path'], ENT_QUOTES, 'UTF-8');
-    // Add test database info if available
-    if (isset($_SESSION['test_database'])) {
-      $output .= "<br/>SQLITE Test DB: " . htmlspecialchars($_SESSION['test_database'], ENT_QUOTES, 'UTF-8');
-    }
+    return "SQLITE: ".htmlspecialchars($parsed['sqlite_path'], ENT_QUOTES, 'UTF-8');
   } else if ($parsed['scheme'] == 'odbc') {
-    $output = "ODBC: " . htmlspecialchars($parsed['odbc_dsn_name'], ENT_QUOTES, 'UTF-8'); 
+    return "ODBC: ".htmlspecialchars($parsed['odbc_dsn_name'], ENT_QUOTES, 'UTF-8');
   } else {
-    $output = htmlspecialchars($parsed['connection_string'], ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars($parsed['connection_string'], ENT_QUOTES, 'UTF-8');
   }
-
-  return $output;
 }
 
 function pad3($n) {

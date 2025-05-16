@@ -1,6 +1,5 @@
 <?php
 require_once('inc/data.inc');
-require_once('inc/error-logging.inc');
 
 // Render labels are:
 //  width 'x' height  or
@@ -195,7 +194,6 @@ class PhotoRender {
       mkdir($this->directory());
       umask($old_mask);
     }
-    error_log('target_file_path: '.$this->directory(), $this->file_path($imagename));
     return $this->file_path($imagename);
   }
 
@@ -261,9 +259,11 @@ class PhotoRender {
 
   // Constructs a file URL for the photo whose base name is $imagefile.
   public function render_url($imagefile) {
+    
     if ($imagefile != '') {
       $basename = basename($imagefile);
       $breaker = $this->cache_breaker_value($basename);
+
       return 'photo.php/'.
           $this->repository->name().
           '/file/'.
@@ -502,18 +502,10 @@ function headshots() {
   if (!isset($headshots)) {
     $headshots = new PhotoRepository('head', photo_directory(), 'imagefile');
 
-    // Initialize base renders first
     $headshots->make_render(RENDER_ORIGINAL, 0, 0, '');
     $headshots->make_render(RENDER_CROPPED, 0, 0, RENDER_ORIGINAL);
+    // "Working size" images: big enough to edit, but small enough to fit on screen
     $headshots->make_render(RENDER_WORKING, 600, 600, RENDER_ORIGINAL);
-
-    // Initialize standard size renders
-    $headshots->make_render(RENDER_LISTVIEW, 200, 200, RENDER_CROPPED); 
-    $headshots->make_render(RENDER_THUMBNAIL, 200, 200, RENDER_CROPPED);
-    $headshots->make_render(RENDER_CHECKIN, 200, 200, RENDER_CROPPED);
-    $headshots->make_render(RENDER_JUDGING, 200, 200, RENDER_CROPPED);
-    $headshots->make_render(RENDER_ONDECK, 400, 400, RENDER_CROPPED);
-    $headshots->make_render(RENDER_RACER_RESULTS, 200, 200, RENDER_CROPPED);
   }
 
   return $headshots;
@@ -525,18 +517,10 @@ function car_photo_repository() {
   if (!isset($car_photo_repository)) {
     $car_photo_repository = new PhotoRepository('car', car_photo_directory(), 'carphoto');
 
-    // Initialize base renders first 
     $car_photo_repository->make_render(RENDER_ORIGINAL, 0, 0, '');
     $car_photo_repository->make_render(RENDER_CROPPED, 0, 0, RENDER_ORIGINAL);
+    // "Working size" images: big enough to edit, but small enough to fit on screen
     $car_photo_repository->make_render(RENDER_WORKING, 600, 600, RENDER_ORIGINAL);
-
-    // Initialize standard size renders
-    $car_photo_repository->make_render(RENDER_LISTVIEW, 200, 200, RENDER_CROPPED);
-    $car_photo_repository->make_render(RENDER_THUMBNAIL, 200, 200, RENDER_CROPPED);
-    $car_photo_repository->make_render(RENDER_CHECKIN, 200, 200, RENDER_CROPPED);
-    $car_photo_repository->make_render(RENDER_JUDGING, 200, 200, RENDER_CROPPED);
-    $car_photo_repository->make_render(RENDER_ONDECK, 400, 400, RENDER_CROPPED);
-    $car_photo_repository->make_render(RENDER_RACER_RESULTS, 200, 200, RENDER_CROPPED);
   }
 
   return $car_photo_repository;

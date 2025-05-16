@@ -1,11 +1,9 @@
 <?php
-session_start();
 // This ajax action allows configuration information to be recorded in the database.  See setting.php.
 
 require_once('inc/photo-config.inc');
 require_once('inc/schema_version.inc');
 require_once('inc/locked.inc');
-// require_once('inc/error-logging.inc');
 
 // To preclude problems with misspelled parameters, we want to be sure that we
 // account for every parameter passed.  We do that by just counting the number
@@ -14,46 +12,6 @@ require_once('inc/locked.inc');
 $num_picked = 1;  // 1, not 0, to account for the 'action' key
 
 if (have_permission(SET_UP_PERMISSION)) {
-
-  if (isset($_POST['test-mode-only']) && $_POST['test-mode-only'] == '1') {
-    $use_test_mode = isset($_POST['test-mode']) && $_POST['test-mode'] === '1';
-
-    try {
-      header('Content-Type: application/json');
-
-      // Store current settings before switch
-      $current_settings = $_SESSION['settings'];
-
-      if (!switch_database($use_test_mode)) {
-        throw new Exception("Failed to switch database");
-      }
-
-      // Reload settings from new database
-      // load_all_settings_into_session();
-
-      // Return success with current settings
-      echo json_encode([
-        'status' => 'success',
-        'message' => 'Database switched successfully',
-        'refresh' => true,
-        'mode' => $use_test_mode ? 'test' : 'production',
-        'settings' => $_SESSION['settings']
-      ]);
-      exit;
-
-    } catch (Exception $e) {
-      error_log("Database switch failed: " . $e->getMessage());
-      // Revert session state on failure
-      $_SESSION['settings'] = $current_settings;
-
-      echo json_encode([
-        'status' => 'error',
-        'message' => "Failed to switch database mode: " . $e->getMessage()
-      ]);
-      exit;
-    }
-  }
-
   // For checkbox controls, no parameter is passed if the checkbox is unchecked.
   // To avoid accidentally reseting values by forgetting to pass them, we adopt
   // a convention of sending a hidden field, named with a '-checkbox' suffix,
@@ -63,11 +21,6 @@ if (have_permission(SET_UP_PERMISSION)) {
   // 'use-subgroups' setting.
   $ok = true;
   $written = array();
-
-  if (!isset($_SESSION['settings'])) {
-    $_SESSION['settings'] = array();
-  }
-
 
   if (locked_settings()) {
     foreach (array('photo-dir', 'car-photo-dir', 'video-dir') as $post_key) {
@@ -144,11 +97,13 @@ if (have_permission(SET_UP_PERMISSION)) {
     'avoid-same-lane' => array('setting' => 'avoid-same-lane'),
     'group-weighted-cars' => array('setting' => 'group-weighted-cars'),
 
-    'test-mode' => array('setting' => 'test-mode', 'type' => 'checkbox'),
+    // 'show-simulate-results' => array('setting' => 'show-simulate-results', 'type' => 'checkbox'),
 
     // HLS Stream Settings
     'hls-stream-url' => array('setting' => 'hls-stream-url'),
+
   );
+
   if ($ok) {
     foreach ($all_settings as $post_key_base => $setting) {
       if (isset($setting['type']) && $setting['type'] === 'checkbox') {
@@ -157,7 +112,6 @@ if (have_permission(SET_UP_PERMISSION)) {
         $post_key = $post_key_base;
       }
       if (isset($_POST[$post_key])) {
-        error_log("Setting: $post_key");
         $itemkey = $setting['setting'];
         $itemvalue = $_POST[$post_key];
         ++$num_picked;
@@ -186,27 +140,7 @@ if (have_permission(SET_UP_PERMISSION)) {
             continue;
           }
         }
-
-
-        // error_log("test-mode: $post_key_base");
-        // // Special handling for test-mode
-        // if ($post_key_base === 'test-mode') {
-        //   $use_test_mode = isset($_POST[$post_key_base]) && $_POST[$post_key_base] === '1';
-        //   if (!switch_database($use_test_mode)) {
-        //     json_failure('database-switch', "Failed to switch database mode");
-        //     $ok = false;
-        //     continue;
-        //   }
-
-        //   $_SESSION['settings'][$itemkey] = $use_test_mode ? '1' : '0';
-
-        //   // json_success(['refresh' => true]);
-        //   // exit;
-        // }
-
         write_raceinfo($itemkey, $itemvalue);
-        // Record the value in the session, so that it can be used
-        $_SESSION['settings'][$itemkey] = $itemvalue;
         // Check that the value didn't get truncated or something
         if (read_raceinfo($itemkey) != $itemvalue) {
           json_failure(
@@ -221,7 +155,6 @@ if (have_permission(SET_UP_PERMISSION)) {
     }
   }
 
-  error_log("Settings written: " . json_encode($written));
   json_out('written', $written);
 
   if ($ok) {

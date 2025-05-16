@@ -273,28 +273,28 @@ function generate_scheduling_control_group(round, current, timer_state) {
     .append(
       $('<div class="collapsible"/>').append(
         "<p>" +
-          (show_checkins
-            ? '<span data-name="roster_size"></span> racer(s), ' +
-              '<span data-name="n_passed"></span> passed, ' +
-              '<span data-name="n_registered"></span> registered, ' +
-              '<span data-name="scheduled"></span> in schedule.' +
-              "<br/>"
-            : "") +
-          '<span data-name="n_heats_scheduled"></span> heats scheduled, ' +
-          '<span data-name="n_heats_run"></span> run.' +
-          "</p>"
+        (show_checkins
+          ? '<span data-name="roster_size"></span> racer(s), ' +
+          '<span data-name="n_passed"></span> passed, ' +
+          '<span data-name="n_registered"></span> registered, ' +
+          '<span data-name="scheduled"></span> in schedule.' +
+          "<br/>"
+          : "") +
+        '<span data-name="n_heats_scheduled"></span> heats scheduled, ' +
+        '<span data-name="n_heats_run"></span> run.' +
+        "</p>"
       )
     )
     .append(
       '<div class="racers heats progress">' +
-        (show_checkins
-          ? "<div class='bar2'>" +
-            "<div class='bar1'></div>" +
-            "</div>" +
-            "</div>"
-          : "") +
-        (round.heats_scheduled != 0 ? "<div class='bar1'></div>" : "") +
+      (show_checkins
+        ? "<div class='bar2'>" +
+        "<div class='bar1'></div>" +
+        "</div>" +
         "</div>"
+        : "") +
+      (round.heats_scheduled != 0 ? "<div class='bar1'></div>" : "") +
+      "</div>"
     )
     .append($('<div data-name="buttons" class="block_buttons collapsible"/>'));
 
@@ -352,9 +352,9 @@ function generate_current_round_control_group(round, current, timer_state) {
         .append(
           $(
             "<p>" +
-              '<span data-name="n_heats_scheduled"></span> heats scheduled, ' +
-              '<span data-name="n_heats_run"></span> run.' +
-              "</p>"
+            '<span data-name="n_heats_scheduled"></span> heats scheduled, ' +
+            '<span data-name="n_heats_run"></span> run.' +
+            "</p>"
           )
         )
         .append('<div class="heat_number"/>')
@@ -401,7 +401,7 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
   if (round.roundid == -1) {
     buttons.append(
       '<input type="button"' +
-        ' onclick="handle_master_next_up()" value="Next Up"/>'
+      ' onclick="handle_master_next_up()" value="Next Up"/>'
     );
   } else {
     if (round.heats_scheduled > 0 && round.heats_run == 0) {
@@ -420,31 +420,31 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
       }
       buttons.append(
         '<input type="button"' +
-          ' onclick="handle_unschedule_button(' +
-          round.roundid +
-          ", '" +
-          String(round["class"]).replace(/"/g, "&quot;").replace(/'/, "\\'") +
-          "', " +
-          round.round +
-          ')"' +
-          ' value="Unschedule"/>'
+        ' onclick="handle_unschedule_button(' +
+        round.roundid +
+        ", '" +
+        String(round["class"]).replace(/"/g, "&quot;").replace(/'/, "\\'") +
+        "', " +
+        round.round +
+        ')"' +
+        ' value="Unschedule"/>'
       );
     }
     if (round.heats_scheduled == 0 && round.unscheduled > 0) {
       if (timer_state.lanes != "" && timer_state.lanes > 0) {
         buttons.append(
           '<input type="button"' +
-            ' onclick="show_schedule_modal(' +
-            round.roundid +
-            ')"' +
-            ' value="Schedule"/>'
+          ' onclick="show_schedule_modal(' +
+          round.roundid +
+          ')"' +
+          ' value="Schedule"/>'
         );
       } else {
         buttons.append(
           "<p>Can't schedule heats, because the number of lanes hasn't" +
-            " been determined.<br/>" +
-            "Enter the number of lanes on the " +
-            "<a href='settings.php'>Settings</a> page.</p>"
+          " been determined.<br/>" +
+          "Enter the number of lanes on the " +
+          "<a href='settings.php'>Settings</a> page.</p>"
         );
       }
     }
@@ -461,10 +461,10 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
         )
         .append(
           '<input type="button" class="late-arrival-button"' +
-            ' onclick="handle_reschedule_button(this, ' +
-            round.roundid +
-            ')"' +
-            ' value="Adjust Schedule"/>'
+          ' onclick="handle_reschedule_button(this, ' +
+          round.roundid +
+          ')"' +
+          ' value="Adjust Schedule"/>'
         )
         .append(
           '<div class="adjustment-in-progress-message hidden">Schedule adjustment in progress</div>'
@@ -480,14 +480,14 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
     ) {
       buttons.append(
         '<input type="button"' +
-          ' onclick="handle_delete_round_button(' +
-          round.roundid +
-          ", '" +
-          String(round["class"]).replace(/"/g, "&quot;").replace(/'/, "\\'") +
-          "', " +
-          round.round +
-          ')"' +
-          ' value="Delete Round"/>'
+        ' onclick="handle_delete_round_button(' +
+        round.roundid +
+        ", '" +
+        String(round["class"]).replace(/"/g, "&quot;").replace(/'/, "\\'") +
+        "', " +
+        round.round +
+        ')"' +
+        ' value="Delete Round"/>'
       );
     }
 
@@ -496,10 +496,10 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
       if (round.heats_run > 0) {
         buttons.append(
           '<input type="button"' +
-            ' onclick="handle_make_changes_button(' +
-            round.roundid +
-            ')"' +
-            ' value="Make Changes"/>'
+          ' onclick="handle_make_changes_button(' +
+          round.roundid +
+          ')"' +
+          ' value="Make Changes"/>'
         );
       } else if (
         round.heats_scheduled > 0 &&
@@ -507,22 +507,22 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
       ) {
         buttons.append(
           '<input type="button"' +
-            ' onclick="handle_race_button(' +
-            round.roundid +
-            ')"' +
-            ' value="Race"/>'
+          ' onclick="handle_race_button(' +
+          round.roundid +
+          ')"' +
+          ' value="Race"/>'
         );
       }
     }
     if (round.heats_run > 0) {
       buttons.append(
         '<input type="button"' +
-          ' onclick="handle_purge_button(' +
-          round.roundid +
-          ", " +
-          round.heats_run +
-          ')"' +
-          ' value="Repeat Round"/>'
+        ' onclick="handle_purge_button(' +
+        round.roundid +
+        ", " +
+        round.heats_run +
+        ')"' +
+        ' value="Repeat Round"/>'
       );
     }
 
@@ -537,10 +537,10 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
     ) {
       buttons.append(
         '<input type="button"' +
-          ' onclick="show_new_round_modal(' +
-          round.roundid +
-          ')"' +
-          ' value="New Round"/>'
+        ' onclick="show_new_round_modal(' +
+        round.roundid +
+        ')"' +
+        ' value="New Round"/>'
       );
     }
   }
@@ -559,13 +559,13 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
   ) {
     console.log(
       "Transitioning from " +
-        g_current_heat.roundid +
-        ":" +
-        g_current_heat.heat +
-        " to " +
-        current.roundid +
-        ":" +
-        current.heat
+      g_current_heat.roundid +
+      ":" +
+      g_current_heat.heat +
+      " to " +
+      current.roundid +
+      ":" +
+      current.heat
     );
     g_current_heat.hold_until = Date.now() + 10 * 1000; // 10 seconds
   }
@@ -585,16 +585,16 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
     .append(
       $("<div class='racing'/>").append(
         "<table>" +
-          "<tr>" +
-          "<th>Lane</th>" +
-          "<th>Car</th>" +
-          "<th>Racer</th>" +
-          "<th>" +
-          (current.use_points ? "Place" : "Time") +
-          "<th>Action</th>" +
-          "</th>" +
-          "</tr>" +
-          "</table>"
+        "<tr>" +
+        "<th>Lane</th>" +
+        "<th>Car</th>" +
+        "<th>Racer</th>" +
+        "<th>" +
+        (current.use_points ? "Place" : "Time") +
+        "<th>Action</th>" +
+        "</th>" +
+        "</tr>" +
+        "</table>"
       )
     );
   if (holding) {
@@ -603,10 +603,10 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
       .append(
         $("<div class='staging'/>").append(
           "<table>" +
-            "<tr>" +
-            "<th colspan='2'>Staging</th>" +
-            "</tr>" +
-            "</table>"
+          "<tr>" +
+          "<th colspan='2'>Staging</th>" +
+          "</tr>" +
+          "</table>"
         )
       );
   }
@@ -632,7 +632,7 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
         roundid: roundid
       },
       async: false,
-      success: function(data) {
+      success: function (data) {
         completed = data.completed;
         // console.log("Round completion check response:", completed);
         if (completed === true) {
@@ -667,34 +667,34 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
     }
     racers_table.append(
       "<tr><td>" +
-        lane +
-        "</td>" +
-        "<td>" +
-        (r ? r.carnumber : "") +
-        "</td>" +
-        '<td class="racer-name">' +
-        (r ? r.name : "") +
-        "</td>" +
-        "<td>" +
-        result +
-        "</td>" +
-        // Only show remove button if round not completed and racer exists
-        (r && !isRoundCompleted(current.roundid) ? 
-            '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid + 
-            ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove</button></td>' : 
-            '<td></td>') +
-        "</tr>"
+      lane +
+      "</td>" +
+      "<td>" +
+      (r ? r.carnumber : "") +
+      "</td>" +
+      '<td class="racer-name">' +
+      (r ? r.name : "") +
+      "</td>" +
+      "<td>" +
+      result +
+      "</td>" +
+      // Only show remove button if round not completed and racer exists
+      (r && !isRoundCompleted(current.roundid) ?
+        '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid +
+        ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove</button></td>' :
+        '<td></td>') +
+      "</tr>"
     );
     if (holding) {
       next_table.append(
         "<tr>" +
-          "<td>" +
-          (nr ? nr.carnumber : "&nbsp;") +
-          "</td>" +
-          '<td class="racer-name">' +
-          (nr ? nr.name : "") +
-          "</td>" +
-          "</tr>"
+        "<td>" +
+        (nr ? nr.carnumber : "&nbsp;") +
+        "</td>" +
+        '<td class="racer-name">' +
+        (nr ? nr.name : "") +
+        "</td>" +
+        "</tr>"
       );
     }
   }
@@ -799,8 +799,8 @@ function process_coordinator_poll_json(json) {
       json.rounds[i].heats_scheduled > json.rounds[i].heats_run
         ? "ready-to-race"
         : json.rounds[i].heats_run > 0
-        ? "done-racing"
-        : "not-yet-scheduled";
+          ? "done-racing"
+          : "not-yet-scheduled";
   }
 
   offer_new_rounds(json.rounds, json["classes"]);
@@ -913,8 +913,8 @@ function process_coordinator_poll_json(json) {
           .prependTo(
             $(
               "div.control_group.scheduling_control[data-roundid=" +
-                round.roundid +
-                "]"
+              round.roundid +
+              "]"
             )
           );
       }
@@ -1055,14 +1055,14 @@ function process_coordinator_poll_json(json) {
     if (isNaN(timeAgoInSeconds)) {
       return "Unknown";
     }
-  
+
     const seconds = timeAgoInSeconds % 60;
     const minutes = Math.floor(timeAgoInSeconds / 60) % 60;
     const hours = Math.floor(timeAgoInSeconds / 3600) % 24;
     const days = Math.floor(timeAgoInSeconds / 86400) % 30;
     const months = Math.floor(timeAgoInSeconds / (86400 * 30)) % 12;
     const years = Math.floor(timeAgoInSeconds / (86400 * 365));
-  
+
     let parts = [];
     if (years > 0) parts.push(`${years}y`);
     if (months > 0) parts.push(`${months}mo`);
@@ -1070,10 +1070,10 @@ function process_coordinator_poll_json(json) {
     if (hours > 0) parts.push(`${hours}h`);
     if (minutes > 0) parts.push(`${minutes}m`);
     if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
-  
+
     return parts.join(' ') + ' ago';
   }
-  
+
 
   generate_replay_state_group(json["replay-state"]);
 
@@ -1091,7 +1091,7 @@ function process_coordinator_poll_json(json) {
           "<h3 id='timer-testing-herald'>Simulated racing in progress</h3>"
         ).append(
           "<input class='stop-test' type='button'" +
-            " onclick='handle_stop_testing();' value='Stop'/>"
+          " onclick='handle_stop_testing();' value='Stop'/>"
         )
       );
   } else if (json["refused-results"] > 0) {
@@ -1129,7 +1129,7 @@ function process_coordinator_poll_json(json) {
   $("#supplemental-control-group").toggleClass(
     "hidden",
     $("#add-new-rounds-button").hasClass("hidden") &&
-      $("#now-racing-group-buttons").is(":empty")
+    $("#now-racing-group-buttons").is(":empty")
   );
 
   // Process device statuses
@@ -1182,74 +1182,74 @@ $(function () {
 
 
 // Handle AJAX success events to show notifications
-$(document).ajaxSuccess(function(event, xhr, options, data) {
+$(document).ajaxSuccess(function (event, xhr, options, data) {
   if (data && data.registration_status) {
-      const status = data.registration_status;
-      
-      // Create or get notification container
-      let notificationContainer = $('#registration-notification');
-      if (notificationContainer.length === 0) {
-          notificationContainer = $('<div id="registration-notification"></div>')
-              .css({
-                  'position': 'fixed',
-                  'top': '20px',
-                  'right': '20px',
-                  'padding': '15px',
-                  'border-radius': '5px',
-                  'z-index': '1000',
-                  'max-width': '400px'
-              })
-              .appendTo('body');
-      }
-      
-      // Style based on status
-      const bgColor = status.status === 'error' ? '#ffebee' : '#e8f5e9';
-      const textColor = status.status === 'error' ? '#c62828' : '#2e7d32';
-      const borderColor = status.status === 'error' ? '#ef9a9a' : '#a5d6a7';
-      
-      // Update notification
-      notificationContainer
-          .css({
-              'background-color': bgColor,
-              'color': textColor,
-              'border': `1px solid ${borderColor}`
-          })
-          .html(status.message)
-          .fadeIn();
-      
-      // Auto hide after 5 seconds
-      setTimeout(() => {
-          notificationContainer.fadeOut();
-      }, 5000);
-      
-      // Also update any status display in the racing interface
-      const statusDisplay = $('#racing-status');
-      if (statusDisplay.length > 0) {
-          statusDisplay
-              .removeClass('status-error status-success')
-              .addClass(`status-${status.status}`)
-              .text(status.message);
-      }
+    const status = data.registration_status;
+
+    // Create or get notification container
+    let notificationContainer = $('#registration-notification');
+    if (notificationContainer.length === 0) {
+      notificationContainer = $('<div id="registration-notification"></div>')
+        .css({
+          'position': 'fixed',
+          'top': '20px',
+          'right': '20px',
+          'padding': '15px',
+          'border-radius': '5px',
+          'z-index': '1000',
+          'max-width': '400px'
+        })
+        .appendTo('body');
+    }
+
+    // Style based on status
+    const bgColor = status.status === 'error' ? '#ffebee' : '#e8f5e9';
+    const textColor = status.status === 'error' ? '#c62828' : '#2e7d32';
+    const borderColor = status.status === 'error' ? '#ef9a9a' : '#a5d6a7';
+
+    // Update notification
+    notificationContainer
+      .css({
+        'background-color': bgColor,
+        'color': textColor,
+        'border': `1px solid ${borderColor}`
+      })
+      .html(status.message)
+      .fadeIn();
+
+    // Auto hide after 5 seconds
+    setTimeout(() => {
+      notificationContainer.fadeOut();
+    }, 5000);
+
+    // Also update any status display in the racing interface
+    const statusDisplay = $('#racing-status');
+    if (statusDisplay.length > 0) {
+      statusDisplay
+        .removeClass('status-error status-success')
+        .addClass(`status-${status.status}`)
+        .text(status.message);
+    }
   }
 });
 
 function handleRacerDropout(racerid, roundid) {
-    if (confirm('Are you sure you want to remove this racer from the current round?')) {
-        $.ajax('action.php', {
-            type: 'POST',
-            data: {
-                action: 'racer.dropout',
-                racerid: racerid,
-                roundid: roundid
-            },
-            success: function(data) {
-                if (data.outcome.code == 'success') {
-                    // Reload current round display
-                    location.reload();
-                } else {
-                    alert('Failed to remove racer: ' + data.outcome.description);
-                }
-            }
-        });
-    }
+  if (confirm('Are you sure you want to remove this racer from the current round?')) {
+    $.ajax('action.php', {
+      type: 'POST',
+      data: {
+        action: 'racer.dropout',
+        racerid: racerid,
+        roundid: roundid
+      },
+      success: function (data) {
+        if (data.outcome.code == 'success') {
+          // Reload current round display
+          location.reload();
+        } else {
+          alert('Failed to remove racer: ' + data.outcome.description);
+        }
+      }
+    });
+  }
 }

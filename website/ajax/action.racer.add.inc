@@ -15,7 +15,7 @@ if (have_permission(REGISTER_NEW_RACER_PERMISSION)) {
                    'lastname' => $lastname,
                    'carnumber' => $_POST['carno'],
                    'carweight' => $_POST['carweight'],
-                   'partitionid' => $partitionid,
+                   'partitionid' => @$partitionid,
                    'exclude' => @$_POST['exclude'] ? true : false);
   if (isset($_POST['partitionid']) && $_POST['partitionid'] > 0) {
     $options['partitionid'] = $_POST['partitionid'];

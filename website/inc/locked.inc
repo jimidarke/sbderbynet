@@ -29,7 +29,7 @@ function preferred_urls_from_file() {
 
 function preferred_urls($use_https = false) {
   $urls = preferred_urls_from_file();
-  $scheme = $use_https ? 'https' : (isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : 'http');
+  $scheme = $use_https ? 'https' : @$_SERVER['REQUEST_SCHEME'];
   if ($urls === false) {
     // gethostname() may be something like "instance-1", possibly with a non-routable IP.
     $hostname = gethostname();
