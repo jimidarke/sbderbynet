@@ -2,6 +2,7 @@
 
 require_once('inc/car-numbering.inc');
 require_once('inc/checkin-table.inc');
+// require_once('inc/error-logging.inc');
 require_once('inc/newracer.inc');
 
 // TODO partitionid < 0 or otherwise out of bounds.  "Default" is the partition
@@ -23,7 +24,7 @@ if (have_permission(REGISTER_NEW_RACER_PERMISSION)) {
   
   $racer_id = insert_new_racer($options);
 
-  
+  // error_log('New racer added: ' . $racer_id . ' ' . $firstname . ' ' . $lastname);
   json_success();
 
   json_out('new-row', json_table_row_for_id($racer_id));
