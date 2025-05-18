@@ -1,4 +1,8 @@
 # main.py -- put your code here!
+
+# this runs the main program for the DerbyNet Start Timer an esp32 based device that monitors a start signal and sends telemetry data to a MQTT broker
+# It uses a DHT22 sensor to collect temperature and humidity data, and a watchdog timer to ensure the device remains responsive.
+
 import gc
 import network
 import machine
