@@ -317,7 +317,7 @@ div.delete-extension {
 }
 
 td.checkin-status {
-  display: flex !important;
+  /* display: flex !important; */
   flex-flow: column !important;
   text-align-last: auto !important;
 }

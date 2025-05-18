@@ -12,7 +12,6 @@ $warn_no_timer = warn_no_timer();
 
 ?><!DOCTYPE html>
 <html>
-
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <title>Race Coordinator Page</title>
@@ -85,23 +84,14 @@ $warn_no_timer = warn_no_timer();
         <div id="start_race_button_div" class="block_buttons hidden">
           <input type="button" value="Start Race" onclick="handle_start_race_button()" />
         </div>
-
-        <?php if (have_permission(CONTROL_RACE_PERMISSION)) { ?>
-          <div class="" <?php echo read_raceinfo('test-mode', 0) ? '' : 'style="display:none;"'; ?>>
-            <!-- <div class="block_buttons"> -->
-              <!-- <?php if (read_raceinfo('using_simulation', 0)) { ?>
-                <span class="simulation-indicator">SIMULATION MODE</span>
-              <?php } ?> -->
-              <div class="centered_flipswitch" style="font-size: larger !important;margin-left: 152px;">
-                <input type="checkbox" class="flipswitch" id="simulate-results-switch"
-                  onchange="toggleSimulationMode()" data-on-text="Simulating" data-off-text="Not Simulating" />
-                <!-- <label for="simulate-results-switch">Simulate Race</label> -->
-              </div>
-            <!-- </div> -->
-          </div>
+        
+        <?php if (read_raceinfo('show-simulate-results', 0)) { ?>
+          <!-- <div class="block_buttons">
+            <input type="button" value="Simulate Results" onclick="simulateRaceResults();" id="simulate-results-btn" />
+          </div> -->
         <?php } ?>
 
-        <div class="centered_flipswitch" <?php echo read_raceinfo('test-mode', 1) ? 'style="display:none;' : ''; ?>>
+        <div class="centered_flipswitch">
           <input type="checkbox" class="flipswitch" name="is-currently-racing" id="is-currently-racing"
             checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
         </div>
@@ -140,7 +130,7 @@ $warn_no_timer = warn_no_timer();
 
           <div id='timer-test' class="block_buttons">
             <a class="button_link" onclick="open_timer_window();">Timer</a>
-            <!-- <a class='button_link' href='timer-test.php'>Test</a> -->
+            <a class='button_link' href='timer-test.php'>Test</a>
           </div>
 
           <h3>Timer Status</h3>
@@ -407,5 +397,4 @@ $warn_no_timer = warn_no_timer();
     </form>
   </div>
 </body>
-
 </html>

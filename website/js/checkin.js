@@ -302,6 +302,8 @@ function handle_edit_racer(isEditForm) {
   var inputUnit = getSelectedWeightUnit();
   // Always save in kg
   var carWeight = convertWeight(new_car_weight, inputUnit, "kg");
+  console.log(carWeight);
+  
   var new_car_weight_in_kg = carWeight.kg;
 
   var new_div_id = $("#edit_partition").val();
@@ -334,6 +336,8 @@ function handle_edit_racer(isEditForm) {
         avoid_with: avoidWith
       },
       success: function (data) {
+        console.log(data);
+        
         if (new_div_id <= 0) {
           // Default partition id, used for the first racer (only); load the real partition id
           location.reload(true);

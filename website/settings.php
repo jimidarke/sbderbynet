@@ -1,14 +1,7 @@
-<?php 
-session_start();
+<?php session_start();
 require_once('inc/data.inc');
-require_once('inc/util.inc');
 require_once('inc/authorize.inc');
-// require_once('inc/util.inc');
-
-// Don't close session write here to allow settings updates
-// session_write_close();
-
-// Rest of your includes
+session_write_close();
 require_once('inc/banner.inc');
 require_once('inc/car-numbering.inc');
 require_once('inc/partitions.inc');
@@ -19,22 +12,6 @@ require_once('inc/name-mangler.inc');
 require_once('inc/photos-on-now-racing.inc');
 require_once('inc/pick_image_set.inc');
 require_once('inc/xbs.inc');
-
-
-// Always load settings to ensure they're up to date
-if (!load_all_settings_into_session()) {
-    error_log("Failed to load settings into session");
-}
-
-// Ensure partition rule is set
-$partition_rule = read_raceinfo('group-formation-rule', '');
-if (empty($partition_rule)) {
-    initialize_default_partition_rule();
-}
-
-// Store current database path for validation
-$_SESSION['current_database'] = $db->query("SELECT file FROM pragma_database_list WHERE name='main'")->fetchColumn();
-
 require_permission(SET_UP_PERMISSION);
 $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
     . ' WHERE COALESCE(completed, \'\') = \'\'');
@@ -131,53 +108,6 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
     ?>
     <div class="block_buttons">
         <form id="settings_form">
-        <div class="settings_group">
-                <div class="settings_group_image">
-                    <img src="img/testing.png" style="width: 100%;" />
-                </div>
-                <div class="settings_group_settings">
-                    <h3>Testing & Development</h3>
-                    <div class="form-group">
-                        <input type="checkbox" class="flipswitch do-not-post" name="test-mode" id="test-mode"
-                            data-wrapper-class="test-mode-flipswitch"
-                            data-off-text="Production Mode"
-                            data-on-text="Test Mode" <?php echo read_raceinfo('test-mode', 0) ? 'checked="checked"' : ''; ?>/>
-                        <label style="vertical-align: middle;">
-                                Enabled
-                        </label>
-                        <p class="help-block">When enabled, operations will use a test database instead of production.</p>
-                    </div>
-                    
-                    <div class="database-status">
-                        <?php
-                        $connInfo = get_active_connection_info();
-                        $mode = $_SESSION['settings']['test-mode'] == 1 ? 'Test' : 'Production';
-                        $badgeClass = $connInfo['is_test_mode'] ? 'bg-warning text-dark' : 'bg-primary';
-                        $statusClass = $connInfo['status'] === 'valid' ? 'text-success' : 'text-danger';
-                        ?>
-
-                        <div class="d-flex align-items-center">
-                            <h2 class="mb-0 me-2" style="margin:initial;"><?php echo $mode; ?> Mode: </h2>
-                            <span class="me-2 badge <?php echo $badgeClass; ?>">Active</span>
-                            <?php if ($connInfo['status'] !== 'valid'): ?>
-                                <span class="badge bg-danger">Connection Mismatch</span>
-                            <?php endif; ?>
-                        </div>
-                        
-                        <p class="mb-0 me-2">
-                            <h2 class="mb-0 me-2" style="margin:initial;">Current Database: </h2>
-                            <code class="<?php echo $statusClass; ?>"><?php echo htmlspecialchars($connInfo['current_path']); ?></code>
-                        </p>
-                        
-                        <?php if ($connInfo['status'] !== 'valid'): ?>
-                            <p class="mb-0 me-2 text-danger">
-                                <strong>Expected Database: </strong>
-                                <code><?php echo htmlspecialchars($connInfo['expected_path']); ?></code>
-                            </p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
             <div class="settings_group">
                 <div class="settings_group_image">
                     <img src="img/settings-timer.png" />
@@ -524,3 +454,17 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
     <?php require('inc/chooser.inc'); ?>
 </body>
 </html>
+<!-- 
+<script>
+$(function() {
+    $('#show-simulate-results').change(function() {
+        $.ajax('action.php', {
+            type: 'POST',
+            data: {
+                action: 'settings.write',
+                show-simulate-results: $(this).prop('checked') ? 1 : 0
+            }
+        });
+    });
+});
+</script> -->

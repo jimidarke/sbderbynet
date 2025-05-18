@@ -99,6 +99,7 @@ if (locked_settings()) {
   $racers_subdir = '';
   $cars_subdir = '';
   $videos_subdir = '';
+  $logs_subdir = '';
   $imagery_subdir = '';
   $slides_subdir = '';
   $logs_subdir = '';
@@ -195,8 +196,7 @@ if (locked_settings()) {
   } else {
     $connection_string = $_POST['connection_string'];
     $homedir = false;
-    $dbuser = $_POST['dbuser'];
-    $dbpass = $_POST['dbpass'];
+    $dbuser = $dbpass = "";
   }
 
   if ($ok) {
@@ -232,11 +232,12 @@ if (locked_settings()) {
         $dbtype = $parsed['scheme'];
         list($ok, $executed) = run_sql_script('schema');
 
-        if ($ok) {
-          json_out('executed', $executed);
-        } else {
-          json_failure('database_creation', 'Failed to initialize the database schema.');
-        }
+        json_out('executed', $executed);
+        // if ($ok) {
+        //   json_out('executed', $executed);
+        // } else {
+        //   json_failure('database_creation', 'Failed to initialize the database schema.');
+        // }
       } else if ($count['error'] == 'not_a_database') {
         $parsed = parse_connection_string($connection_string);
         $sqlite_path = $parsed['sqlite_path'];

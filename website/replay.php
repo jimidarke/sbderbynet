@@ -533,6 +533,7 @@ session_write_close();
 
   </script>
 </head>
+
 <body>
   <div id="fps"
     style="position: fixed; bottom: 0; right: 0; width: 80px; height: 20px; z-index: 1000; text-align: right;"></div>
@@ -603,4 +604,5 @@ session_write_close();
   </div>
 
 </body>
+
 </html>

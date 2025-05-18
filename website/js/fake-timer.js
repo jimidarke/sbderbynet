@@ -415,9 +415,9 @@ $(function() {
   reset_timer();
   
   // Auto initialize if opened from coordinator
-  if (window.opener && window.opener.fakeTimerWindow === window) {
-      initializeSimulation();
-  }
+  // if (window.opener && window.opener.fakeTimerWindow === window) {
+  //     initializeSimulation();
+  // }
   
   // Handle auto mode checkbox changes
   $('#auto-mode-checkbox').on('change', function() {

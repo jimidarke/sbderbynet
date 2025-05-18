@@ -58,7 +58,7 @@ function json_table_row_for_id($racerid) {
   $xbs_award_name = xbs_award();
   $schema_version = schema_version();
   $row = read_single_row(
-    checkin_table_SELECT_FROM_sql().' WHERE RegistrationInfo.racerid = :racerid',
+    checkin_table_SELECT_FROM_sql().' WHERE ri.racerid = :racerid',
     array(':racerid' => $racerid,
           ':xbs_award_name' => $xbs_award_name),
     PDO::FETCH_ASSOC);
