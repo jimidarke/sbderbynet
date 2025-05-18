@@ -56,9 +56,15 @@ $(function () {
 // var g_order specified in checkin.php
 
 // This executes when a checkbox for "Passed" is clicked.
-function handlechange_passed(cb, racer) { 
+function handlechange_passed(event, cb, racer) {
+  // Prevent the checkbox from changing immediately
+  event.preventDefault();
   // cb is the checkbox element, with name "passed-" plus the racer id, e.g., passed-1234
-  if (!cb.checked && !confirm("Are you sure you want to unregister " + racer + "?")) {
+  if (cb.checked && !confirm("Are you sure you want to mark " + racer + " as passed?")) {
+    cb.checked = true;
+    return;
+  }
+  if (!cb.checked && !confirm("Are you sure you want to unmark " + racer + " as passed?")) {
     cb.checked = true;
     return;
   }
@@ -77,33 +83,40 @@ function handlechange_passed(cb, racer) {
     });
 }
 
-// This executes when a checkbox for "Registered" is clicked.
-function handlechange_registered(cb, racer) {
-  // Once registered, cannot be unregistered
-  if (!cb.checked) {
-    alert("Once registered, a racer cannot be unregistered.");
-    cb.checked = true;
+// This executes when a checkbox for "Registered/CheckedIn" is clicked.
+function handlechange_registered(event, cb, racer) {
+  // Prevent the checkbox from changing immediately
+  event.preventDefault();
+
+  if (!cb.checked && !alert("You cannot Checkout " + racer + ", Only Check-In")) {
     return;
   }
-
-  var racerId = cb.name.substring(11); // Remove 'registered-' prefix
-  
-  $.ajax(g_action_url, {
-    type: 'POST',
-    data: {
-      action: 'racer.register', 
-      racer: racerId,
-      value: 1
-    },
-    success: function() {
-      // Disable toggle after successful registration
-      cb.disabled = true;
-    },
-    error: function() {
-      alert("Failed to update registration status.");
-      cb.checked = false;
-    }
-  });
+  // Once registered, cannot be unregistered
+  const confirmed = confirm("Once registered, a racer cannot be unregistered. Do you want to proceed?");
+  if (confirmed) {
+    var racerId = cb.name.substring(11); // Remove 'registered-' prefix
+    $.ajax(g_action_url, {
+      type: 'POST',
+      data: {
+        action: 'racer.register',
+        racer: racerId,
+        value: 1
+      },
+      success: function () {
+        cb.checked = true
+        location.reload(true);
+        // Disable toggle after successful registration
+        cb.disabled = true;
+      },
+      error: function () {
+        alert("Failed to update registration status.");
+        cb.checked = false;
+      }
+    });
+    alert("Racer has been registered.");
+  } else {
+    alert("Registration canceled.");
+  }
 }
 
 // This executes when a checkbox for "Exclusively by Scout" is clicked.
@@ -223,13 +236,13 @@ function show_edit_racer_form(racerid) {
     handle_edit_racer(isEditForm = true);
     return false;
   });
-  
+
   // As of 01-04-2025  
   if (isEditForm === true) {
     console.log(isEditForm);
     $('.mutual-inclusion-exclusion').css('display', 'block');
   }
-  
+
   // Retrieve the stored racers data (localStorage)
   const storedRacers = JSON.parse(localStorage.getItem('racersData') || '[]');
   populateMutualInclusionExclusion(storedRacers, racerid);
@@ -268,7 +281,7 @@ function show_new_racer_form() {
 
   if (isEditForm === false) {
     console.log(isEditForm);
-    
+
     $('.mutual-inclusion-exclusion').css('display', 'none');
   }
 }
@@ -289,6 +302,8 @@ function handle_edit_racer(isEditForm) {
   var inputUnit = getSelectedWeightUnit();
   // Always save in kg
   var carWeight = convertWeight(new_car_weight, inputUnit, "kg");
+  console.log(carWeight);
+  
   var new_car_weight_in_kg = carWeight.kg;
 
   var new_div_id = $("#edit_partition").val();
@@ -296,7 +311,7 @@ function handle_edit_racer(isEditForm) {
 
   var exclude = $("#eligible").is(':checked') ? 0 : 1;
 
-  
+
   // Get mutual inclusion and exclusion selections
   var groupedWith = $('#grouped_with').val();
   var avoidWith = $('#avoid_with').val();
@@ -321,6 +336,8 @@ function handle_edit_racer(isEditForm) {
         avoid_with: avoidWith
       },
       success: function (data) {
+        console.log(data);
+        
         if (new_div_id <= 0) {
           // Default partition id, used for the first racer (only); load the real partition id
           location.reload(true);
@@ -859,22 +876,8 @@ function make_table_row(racer, xbs) {
     .attr('data-weight-lbs', weightData.lbs)
     .text(weightData[userPreferredUnit] + ' ' + userPreferredUnit));
 
-  var registered = $('<td class="registered-status"/>').appendTo(tr);
-  registered.append('<br/>');
-  registered.append($('<input type="checkbox" class="flipswitch"/>')
-    .attr('id', 'registered-' + racer.racerid)
-    .attr('name', 'registered-' + racer.racerid)
-    .prop('checked', racer.registered)
-    .attr('disabled', racer.registered === true ? 'disabled' : false)
-    .attr('data-on-text', 'Yes')
-    .attr('data-off-text', 'No')
-    // prop onchange doesn't seem to allow a string, but attr does
-    .attr('onchange', 'handlechange_registered(this, ' +
-      JSON.stringify(racer.firstname + ' ' + racer.lastname) +
-      ')'));
-
   var checkin = $('<td class="checkin-status"/>').appendTo(tr);
-  checkin.append('<br/>');
+  // checkin.append('<br/>');
   checkin.append($('<input type="checkbox" class="flipswitch"/>')
     .attr('id', 'passed-' + racer.racerid)
     .attr('name', 'passed-' + racer.racerid)
@@ -882,19 +885,34 @@ function make_table_row(racer, xbs) {
     .attr('data-on-text', 'Yes')
     .attr('data-off-text', 'No')
     // prop onchange doesn't seem to allow a string, but attr does
-    .attr('onchange', 'handlechange_passed(this, ' +
+    .attr('onchange', 'handlechange_passed(event, this, ' +
       JSON.stringify(racer.firstname + ' ' + racer.lastname) +
       ')'));
   if (racer.scheduled) {
     if (racer.passed) {
-      checkin.append(' Racing!');
+      checkin.append('<span> Racing!</span>');
     } else {
-      checkin.append(' Scheduled but not passed');
+      checkin.append('<span> Scheduled but not passed </span>');
     }
   } else if (racer.denscheduled) {
     // denscheduled means their racing group has a schedule
     checkin.append(' Late!');
   }
+
+  var registered = $('<td class="registered-status"/>').appendTo(tr);
+  // registered.append('<br/>');
+  registered.append($('<input type="checkbox" class="flipswitch"/>')
+    .attr('id', 'registered-' + racer.racerid)
+    .attr('name', 'registered-' + racer.racerid)
+    .prop('checked', racer.registered == 1 || racer.registered === true ? true : false)
+    // .attr('disabled', racer.registered === true ? 'disabled' : false)
+    .attr('data-on-text', 'Yes')
+    .attr('data-off-text', 'No')
+    // prop onchange doesn't seem to allow a string, but attr does
+    .attr('onclick', 'handlechange_registered(event, this, ' +
+      JSON.stringify(racer.firstname + ' ' + racer.lastname) +
+      ')')
+  );
 
   if (xbs) {
     tr.append($('<td/>')
@@ -1092,13 +1110,13 @@ function populateMutualInclusionExclusion(racers, currentRacerId) {
   updateSpanContent(excludeSelect[0], 'avoid_with');
 
   // Add event listeners to update on change
-  includeSelect.off('change').on('change', function() { // Remove previous event handlers
+  includeSelect.off('change').on('change', function () { // Remove previous event handlers
     groupedWith = $(this).val(); // Update groupedWith with selected value
     updateOptions(excludeSelect, racers, false); // Rebuild the other list
     updateSpanContent(this, 'grouped_with');
   });
 
-  excludeSelect.off('change').on('change', function() { // Remove previous event handlers
+  excludeSelect.off('change').on('change', function () { // Remove previous event handlers
     avoidWith = $(this).val(); // Update avoidWith with selected value
     updateOptions(includeSelect, racers, true); // Rebuild the other list
     updateSpanContent(this, 'avoid_with');

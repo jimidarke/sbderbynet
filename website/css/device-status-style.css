@@ -113,3 +113,32 @@
         font-size: 16px;
     }
 }
+
+
+
+/* sorting */
+.sort-header {
+    cursor: pointer;
+    position: relative;
+}
+
+.sort-header:after {
+    content: '';
+    display: inline-block;
+    width: 0;
+    height: 0;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+.sort-header.sorted-asc:after {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid #fff;
+}
+
+.sort-header.sorted-desc:after {
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 4px solid #fff;
+}

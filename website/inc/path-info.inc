@@ -141,24 +141,26 @@ function enumerate_non_title_slides($dir, $current_slide) {
 //      as part of the per-instance configuration).
 //  - The slides directory adjacent to the config file location (applicable to
 //  - all instances on the server)
-function next_slides($f, $subdir = '') {
-  global $homedir;
-  if (empty($subdir)) {
-    $slides_dir = 'slides';
-  } else {
-    $slides_dir = 'slides'.DIRECTORY_SEPARATOR.$subdir;
-  }
+if (!function_exists('next_slides')) {
+  function next_slides($f, $subdir = '') {
+    global $homedir;
+    if (empty($subdir)) {
+      $slides_dir = 'slides';
+    } else {
+      $slides_dir = 'slides'.DIRECTORY_SEPARATOR.$subdir;
+    }
 
-  $result = array_merge(
-    // Instance-specific directory
-    (!isset($homedir) ? array() :
-     enumerate_non_title_slides($homedir.DIRECTORY_SEPARATOR.$slides_dir, $f)),
-    // Global data directory
-    enumerate_non_title_slides(data_folder_file_path($slides_dir), $f)
-    // Image sets provide ONLY a title slide, so no need to look there.
-  );
-  sort($result);
-  return $result;
+    $result = array_merge(
+      // Instance-specific directory
+      (!isset($homedir) ? array() :
+      enumerate_non_title_slides($homedir.DIRECTORY_SEPARATOR.$slides_dir, $f)),
+      // Global data directory
+      enumerate_non_title_slides(data_folder_file_path($slides_dir), $f)
+      // Image sets provide ONLY a title slide, so no need to look there.
+    );
+    sort($result);
+    return $result;
+  }
 }
 
 function enumerate_subdirectories($dir) {

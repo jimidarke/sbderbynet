@@ -23,8 +23,8 @@ if (!have_permission(SET_UP_PERMISSION)) {
     // exist.
     try {
       $saved_raceinfo = save_selected_race_info_values(RACE_INFO_KEYS_FOR_SCHEMA_SCRIPT);
-      remove_fake_images($photo_dir);
-      remove_fake_images($car_photo_dir);
+      // remove_fake_images($photo_dir);
+      // remove_fake_images($car_photo_dir);
     } catch (PDOException $p) {
       // If the database has no schema or the wrong schema, don't worry about
       // this.

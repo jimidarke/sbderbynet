@@ -259,9 +259,11 @@ class PhotoRender {
 
   // Constructs a file URL for the photo whose base name is $imagefile.
   public function render_url($imagefile) {
+    
     if ($imagefile != '') {
       $basename = basename($imagefile);
       $breaker = $this->cache_breaker_value($basename);
+
       return 'photo.php/'.
           $this->repository->name().
           '/file/'.

@@ -193,7 +193,7 @@ function rate_next_heat(&$prev_heat, $n_prev_heats, &$next_heat, &$appearances) 
 // }
 
 // Generates the ordered race schedule
-function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace) {
+function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace, $group_weighted_cars, $avoid_consecutive, $avoid_same_lane) {
     $rough = make_rough_schedule($nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace);
     if (empty($rough)) {
         return $rough;

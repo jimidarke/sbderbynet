@@ -136,6 +136,7 @@ function sql_scoring_expression($finishtime, $finishplace) {
 
 
 class StandingsOracle {
+  public $class_keys = array();  // Maps classid to the key for that class
   function __construct() {
     $this->use_points = read_raceinfo_boolean('use-points');
     $this->use_groups = use_groups();
