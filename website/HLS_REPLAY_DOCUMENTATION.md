@@ -113,6 +113,12 @@ These settings can be configured in the settings page where the `hls-stream-url`
 - The system handles various error conditions like network errors and media errors
 - Low-latency mode is enabled to minimize delay between the live event and the stream
 
+## Recent Changes and Updates
+
+### 2025-05-19 Fix
+- Added null-checks for `g_hlsStreamUrl` in video-device-picker.js to prevent "Uncaught ReferenceError: g_hlsStreamUrl is not defined" errors when accessing photo capture functionality from pages that don't define this variable
+- Made HLS stream URL handling more robust by checking if the variable exists before attempting to use it
+
 ## Comprehensive Troubleshooting
 
 If the HLS replay functionality is not working as expected, follow these troubleshooting steps:
