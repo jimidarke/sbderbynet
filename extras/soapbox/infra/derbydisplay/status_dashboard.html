@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Derby Race Status Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #34495e;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light-color);
+            color: var(--primary-color);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .race-status {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .race-info {
+            flex-grow: 1;
+        }
+        
+        .status-indicator {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-left: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+        
+        .stopped {
+            background-color: var(--danger-color);
+        }
+        
+        .staging {
+            background-color: var(--warning-color);
+        }
+        
+        .racing {
+            background-color: var(--success-color);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .lane-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .lane {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .lane-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .lane-name {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        
+        .lane-pinny {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .lane-led {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .red { background-color: var(--danger-color); }
+        .blue { background-color: var(--secondary-color); }
+        .green { background-color: var(--success-color); }
+        .purple { background-color: #9b59b6; }
+        
+        .lane-time {
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            background-color: var(--light-color);
+            border-radius: 4px;
+        }
+        
+        .system-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-gap: 20px;
+        }
+        
+        .device-card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .device-name {
+            font-weight: bold;
+        }
+        
+        .device-status {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        
+        .online {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .offline {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .device-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 10px;
+            font-size: 14px;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .metric-label {
+            color: var(--dark-color);
+        }
+        
+        .metric-value {
+            font-weight: bold;
+        }
+        
+        .refresh-time {
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        
+        .error-bar {
+            background-color: var(--danger-color);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        /* Dark mode styles */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #121212;
+                color: #ffffff;
+            }
+            
+            .lane, .device-card {
+                background-color: #1e1e1e;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            }
+            
+            .lane-header, .device-header {
+                border-bottom-color: #333;
+            }
+            
+            .lane-time {
+                background-color: #2c2c2c;
+            }
+            
+            .metric-label {
+                color: #bbb;
+            }
+            
+            .refresh-time {
+                color: #aaa;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Derby Race Status Dashboard</h1>
+            <div class="connection-status" id="connection-status">Connecting...</div>
+        </div>
+        
+        <div class="error-bar" id="error-bar">
+            Connection lost. Attempting to reconnect...
+        </div>
+        
+        <div class="race-status">
+            <div class="race-info">
+                <h2 id="current-race">Current Race: <span id="round-id">--</span> / <span id="heat-id">--</span></h2>
+                <p id="class-name">Class: <span>--</span></p>
+                <p id="race-timer">Time: <span>00:00.000</span></p>
+            </div>
+            <div id="status-indicator" class="status-indicator stopped">
+                STOPPED
+            </div>
+        </div>
+        
+        <h2>Lane Status</h2>
+        <div class="lane-status" id="lane-status">
+            <!-- Lanes will be populated here by JavaScript -->
+        </div>
+        
+        <h2>System Status</h2>
+        <div class="system-status" id="system-status">
+            <!-- Device cards will be populated here by JavaScript -->
+        </div>
+        
+        <div class="refresh-time" id="last-updated">
+            Last updated: Never
+        </div>
+    </div>
+    
+    <script>
+        // Configuration
+        const MQTT_BROKER_URL = "ws://192.168.100.10:9001"; // WebSocket endpoint for MQTT
+        const LANE_COUNT = 3;
+        let client = null;
+        let raceState = "STOPPED";
+        let raceStartTime = 0;
+        let raceTimer = null;
+        
+        // Device and lane status tracking
+        const devices = new Map();
+        const lanes = new Map();
+        
+        // Connect to MQTT broker over WebSocket
+        function connectMQTT() {
+            if (typeof mqtt === 'undefined') {
+                document.getElementById('error-bar').style.display = 'block';
+                document.getElementById('error-bar').innerText = 'MQTT client not available. Make sure mqtt.js is loaded correctly.';
+                updateConnectionStatus('Disconnected');
+                return;
+            }
+            
+            updateConnectionStatus('Connecting...');
+            
+            client = mqtt.connect(MQTT_BROKER_URL, {
+                clientId: 'derby_dashboard_' + Math.random().toString(16).substr(2, 8),
+                clean: true
+            });
+            
+            client.on('connect', function() {
+                updateConnectionStatus('Connected');
+                document.getElementById('error-bar').style.display = 'none';
+                
+                // Subscribe to topics
+                client.subscribe('derbynet/race/state');
+                client.subscribe('derbynet/race/event');
+                client.subscribe('derbynet/device/+/status');
+                client.subscribe('derbynet/device/+/telemetry');
+                client.subscribe('derbynet/lane/+/led');
+                client.subscribe('derbynet/lane/+/pinny');
+            });
+            
+            client.on('message', function(topic, message) {
+                processMessage(topic, message.toString());
+                updateLastUpdated();
+            });
+            
+            client.on('close', function() {
+                updateConnectionStatus('Disconnected');
+                document.getElementById('error-bar').style.display = 'block';
+                setTimeout(connectMQTT, 5000); // Try to reconnect after 5 seconds
+            });
+            
+            client.on('error', function(error) {
+                console.error('MQTT Error:', error);
+                updateConnectionStatus('Error');
+                document.getElementById('error-bar').style.display = 'block';
+                document.getElementById('error-bar').innerText = 'Connection error: ' + error.message;
+            });
+        }
+        
+        // Process incoming MQTT messages
+        function processMessage(topic, message) {
+            const topicParts = topic.split('/');
+            
+            if (topic === 'derbynet/race/state') {
+                updateRaceState(message);
+            } 
+            else if (topic === 'derbynet/race/event') {
+                try {
+                    const eventData = JSON.parse(message);
+                    if (eventData.event === 'race_start') {
+                        handleRaceStart(eventData);
+                    }
+                } catch (e) {
+                    console.error('Error parsing race event:', e);
+                }
+            }
+            else if (topicParts[1] === 'device' && topicParts[3] === 'status') {
+                const deviceId = topicParts[2];
+                updateDeviceStatus(deviceId, message);
+            }
+            else if (topicParts[1] === 'device' && topicParts[3] === 'telemetry') {
+                const deviceId = topicParts[2];
+                try {
+                    const telemetry = JSON.parse(message);
+                    updateDeviceTelemetry(deviceId, telemetry);
+                } catch (e) {
+                    console.error('Error parsing telemetry:', e);
+                }
+            }
+            else if (topicParts[1] === 'lane' && topicParts[3] === 'led') {
+                const lane = topicParts[2];
+                updateLaneLED(lane, message);
+            }
+            else if (topicParts[1] === 'lane' && topicParts[3] === 'pinny') {
+                const lane = topicParts[2];
+                updateLanePinny(lane, message);
+            }
+        }
+        
+        // Update race state display
+        function updateRaceState(state) {
+            raceState = state;
+            const indicator = document.getElementById('status-indicator');
+            
+            indicator.className = 'status-indicator ' + state.toLowerCase();
+            indicator.innerText = state;
+            
+            if (state === 'STOPPED' && raceTimer) {
+                clearInterval(raceTimer);
+                raceTimer = null;
+            }
+        }
+        
+        // Handle race start event
+        function handleRaceStart(eventData) {
+            // Update round/heat info
+            document.querySelector('#round-id').innerText = eventData.roundid || '--';
+            document.querySelector('#heat-id').innerText = eventData.heatid || '--';
+            
+            // Start the race timer
+            raceStartTime = eventData.timestamp * 1000; // Convert to milliseconds
+            
+            if (raceTimer) {
+                clearInterval(raceTimer);
+            }
+            
+            raceTimer = setInterval(updateRaceTimer, 50); // Update timer 20 times per second for smoothness
+            
+            // Reset lane times
+            for (let i = 1; i <= LANE_COUNT; i++) {
+                const laneTimeElement = document.querySelector(`#lane-${i} .lane-time`);
+                if (laneTimeElement) {
+                    laneTimeElement.innerText = '--.---;
+                }
+            }
+        }
+        
+        // Update the race timer display
+        function updateRaceTimer() {
+            if (raceState !== 'RACING' || !raceStartTime) {
+                return;
+            }
+            
+            const now = Date.now();
+            const elapsed = now - raceStartTime;
+            
+            // Format time as MM:SS.mmm
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            const milliseconds = Math.floor(elapsed % 1000);
+            
+            const formattedTime = 
+                (minutes < 10 ? '0' : '') + minutes + ':' +
+                (seconds < 10 ? '0' : '') + seconds + '.' +
+                (milliseconds < 100 ? '0' : '') + (milliseconds < 10 ? '0' : '') + milliseconds;
+            
+            document.querySelector('#race-timer span').innerText = formattedTime;
+        }
+        
+        // Update lane LED status
+        function updateLaneLED(lane, color) {
+            if (!lanes.has(lane)) {
+                lanes.set(lane, {});
+                createLaneElement(lane);
+            }
+            
+            const laneData = lanes.get(lane);
+            laneData.led = color;
+            lanes.set(lane, laneData);
+            
+            const ledElement = document.querySelector(`#lane-${lane} .lane-led`);
+            if (ledElement) {
+                ledElement.className = 'lane-led ' + color;
+            }
+        }
+        
+        // Update lane pinny (racer number)
+        function updateLanePinny(lane, pinny) {
+            if (!lanes.has(lane)) {
+                lanes.set(lane, {});
+                createLaneElement(lane);
+            }
+            
+            const laneData = lanes.get(lane);
+            laneData.pinny = pinny;
+            lanes.set(lane, laneData);
+            
+            const pinnyElement = document.querySelector(`#lane-${lane} .lane-pinny`);
+            if (pinnyElement) {
+                pinnyElement.innerText = pinny;
+            }
+        }
+        
+        // Create lane display element
+        function createLaneElement(lane) {
+            const laneStatus = document.getElementById('lane-status');
+            
+            const laneElement = document.createElement('div');
+            laneElement.id = `lane-${lane}`;
+            laneElement.className = 'lane';
+            
+            laneElement.innerHTML = `
+                <div class="lane-header">
+                    <div class="lane-name">Lane ${lane}</div>
+                    <div class="lane-pinny">----</div>
+                    <div class="lane-led red"></div>
+                </div>
+                <div class="lane-time">--.---</div>
+            `;
+            
+            laneStatus.appendChild(laneElement);
+        }
+        
+        // Update device online/offline status
+        function updateDeviceStatus(deviceId, status) {
+            if (!devices.has(deviceId)) {
+                devices.set(deviceId, {
+                    status: status,
+                    telemetry: {}
+                });
+                createDeviceElement(deviceId);
+            } else {
+                const deviceData = devices.get(deviceId);
+                deviceData.status = status;
+                devices.set(deviceId, deviceData);
+            }
+            
+            const statusElement = document.querySelector(`#device-${deviceId} .device-status`);
+            if (statusElement) {
+                statusElement.className = 'device-status ' + status.toLowerCase();
+                statusElement.innerText = status.toUpperCase();
+            }
+        }
+        
+        // Update device telemetry data
+        function updateDeviceTelemetry(deviceId, telemetry) {
+            if (!devices.has(deviceId)) {
+                devices.set(deviceId, {
+                    status: 'unknown',
+                    telemetry: telemetry
+                });
+                createDeviceElement(deviceId);
+            } else {
+                const deviceData = devices.get(deviceId);
+                deviceData.telemetry = telemetry;
+                devices.set(deviceId, deviceData);
+            }
+            
+            // Update device name if we have hostname
+            const nameElement = document.querySelector(`#device-${deviceId} .device-name`);
+            if (nameElement && telemetry.hostname) {
+                nameElement.innerText = telemetry.hostname;
+            }
+            
+            // Update metrics
+            updateMetric(deviceId, 'cpu-temp', telemetry.cpu_temp ? telemetry.cpu_temp + '°C' : '--');
+            updateMetric(deviceId, 'memory', telemetry.memory_usage ? telemetry.memory_usage + '%' : '--');
+            updateMetric(deviceId, 'disk', telemetry.disk ? telemetry.disk + '%' : '--');
+            updateMetric(deviceId, 'wifi', telemetry.wifi_rssi ? telemetry.wifi_rssi + ' dBm' : '--');
+            updateMetric(deviceId, 'uptime', formatUptime(telemetry.uptime));
+            updateMetric(deviceId, 'battery', telemetry.battery_level ? telemetry.battery_level + '%' : '--');
+        }
+        
+        // Update a specific device metric
+        function updateMetric(deviceId, metric, value) {
+            const metricElement = document.querySelector(`#device-${deviceId} .metric-${metric} .metric-value`);
+            if (metricElement) {
+                metricElement.innerText = value;
+            }
+        }
+        
+        // Create device card element
+        function createDeviceElement(deviceId) {
+            const systemStatus = document.getElementById('system-status');
+            const deviceData = devices.get(deviceId);
+            
+            const deviceElement = document.createElement('div');
+            deviceElement.id = `device-${deviceId}`;
+            deviceElement.className = 'device-card';
+            
+            const deviceName = deviceData.telemetry.hostname || deviceId;
+            const deviceStatus = deviceData.status || 'unknown';
+            
+            deviceElement.innerHTML = `
+                <div class="device-header">
+                    <div class="device-name">${deviceName}</div>
+                    <div class="device-status ${deviceStatus}">${deviceStatus.toUpperCase()}</div>
+                </div>
+                <div class="device-metrics">
+                    <div class="metric metric-cpu-temp">
+                        <div class="metric-label">CPU Temp</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-memory">
+                        <div class="metric-label">Memory</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-disk">
+                        <div class="metric-label">Disk</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-wifi">
+                        <div class="metric-label">WiFi</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-uptime">
+                        <div class="metric-label">Uptime</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-battery">
+                        <div class="metric-label">Battery</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                </div>
+            `;
+            
+            systemStatus.appendChild(deviceElement);
+            
+            // Apply initial telemetry if we have it
+            if (deviceData.telemetry) {
+                updateDeviceTelemetry(deviceId, deviceData.telemetry);
+            }
+        }
+        
+        // Format uptime in a human-readable way
+        function formatUptime(seconds) {
+            if (!seconds) return '--';
+            
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (days > 0) {
+                return `${days}d ${hours}h`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else {
+                return `${minutes}m`;
+            }
+        }
+        
+        // Update connection status display
+        function updateConnectionStatus(status) {
+            const connectionStatus = document.getElementById('connection-status');
+            connectionStatus.innerText = status;
+        }
+        
+        // Update timestamp of last data refresh
+        function updateLastUpdated() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('last-updated').innerText = `Last updated: ${timeString}`;
+        }
+        
+        // Initialize lanes
+        function initializeLanes() {
+            const laneStatus = document.getElementById('lane-status');
+            laneStatus.innerHTML = '';
+            
+            for (let i = 1; i <= LANE_COUNT; i++) {
+                lanes.set(i.toString(), {});
+                createLaneElement(i);
+            }
+        }
+        
+        // Initialize dashboard when page loads
+        window.onload = function() {
+            initializeLanes();
+            // Load MQTT client script dynamically 
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/mqtt/dist/mqtt.min.js';
+            script.onload = function() {
+                connectMQTT();
+            };
+            script.onerror = function() {
+                updateConnectionStatus('Failed to load MQTT client');
+                document.getElementById('error-bar').style.display = 'block';
+                document.getElementById('error-bar').innerText = 'Failed to load MQTT client library.';
+            };
+            document.head.appendChild(script);
+        };
+    </script>
+</body>
+</html>

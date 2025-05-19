@@ -1,19 +1,22 @@
 '''
 Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library and communicates over MQTT
+Uses service discovery for improved resilience
 '''
-
 
 import json
 import time
-import paho.mqtt.client as mqtt # type: ignore
 import random
 import os
 import queue
 import threading
+import sys
 from datetime import datetime
 
+# Add parent directory to path for importing common modules
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
 from derbynetPCBv1 import derbyPCBv1
 from derbylogger import setup_logger
+from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
 ###########################    SETUP    ###########################
 logger = setup_logger(__name__)
@@ -28,15 +31,27 @@ except Exception as e:
     exit(1)
 
 ###########################    MQTT    ###########################
-MQTT_BROKER         = "192.168.100.10"
-MQTT_PORT           = 1883
-MQTT_KEEPALIVE      = 10 # seconds
-TELEMETRY_INTERVAL  = 2 # seconds
+# Default values - will be overridden by service discovery
+DEFAULT_MQTT_BROKER = "192.168.100.10"
+DEFAULT_MQTT_PORT = 1883
+TELEMETRY_INTERVAL = 2 # seconds
 
-# Connection resilience settings
-MQTT_MAX_RETRIES    = 10  # Maximum number of connection retry attempts
-MQTT_RETRY_DELAY    = 5   # Initial delay between retries in seconds
-MQTT_MAX_DELAY      = 300 # Maximum delay between retries in seconds
+# First, try to discover MQTT broker using service discovery
+logger.info("Attempting to discover MQTT broker using mDNS...")
+services = discover_services("_derbynet._tcp.local.", timeout=3)
+mqtt_broker = DEFAULT_MQTT_BROKER
+mqtt_port = DEFAULT_MQTT_PORT
+
+if services:
+    # Find MQTT service
+    for name, service in services.items():
+        if "mqtt" in name.lower() or "broker" in name.lower():
+            mqtt_broker = service["ip"]
+            mqtt_port = service["port"]
+            logger.info(f"Discovered MQTT broker: {mqtt_broker}:{mqtt_port}")
+            break
+else:
+    logger.warning(f"No services discovered, using default broker: {mqtt_broker}:{mqtt_port}")
 
 # Topics to publish to
 TOGGLE_TOPIC        = "derbynet/device/{}/state"        # toggle state and timestamp
@@ -48,79 +63,67 @@ LED_TOPIC           = "derbynet/lane/{}/led"            # set LED color
 PINNY_TOPIC         = "derbynet/lane/{}/pinny"          # set pinny display
 UPDATE_TOPIC        = "derbynet/device/{}/update"       # firmware update trigger message="update"
 
-# Setup
-clientid = f"{pcb.gethwid()}"#-{random.randint(1000, 9999)}"
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, clientid)
-logger.debug(f"MQTT Client ID: {clientid}")
+# Default display values
+pinny = "errr" # default pinny display
+led = "white" # default LED color
 
-pinny   = "errr" # default pinny display
-led     = "white" # default LED color
+# Globals for state management
+mqtt_connected = False
 
+###########################    MQTT SETUP    ###########################
 
-###########################    CALLBACKS    ###########################
-def on_connect(client, userdata, flags, rc, properties=None):
-    global mqtt_connected, mqtt_reconnect_timer
-    if rc == 0:
-        logger.info(f"Connected to MQTT broker at {MQTT_BROKER}:{MQTT_PORT}")
-        mqtt_connected = True
-        mqtt_reconnect_timer = None
-        
-        # Subscribe to topics
-        client.subscribe(LED_TOPIC.format(pcb.get_Lane()))
-        client.subscribe(PINNY_TOPIC.format(pcb.get_Lane()))
-        client.subscribe(UPDATE_TOPIC.format(pcb.gethwid()))
-        
-        # Announce we're online
-        client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", retain=True)
-        
-        # Sync state after reconnection
-        sync_state_after_reconnect()
-        
-        # Process any queued messages
-        process_offline_messages()
+# Create data directory for offline storage if it doesn't exist
+os.makedirs("/var/lib/finishtimer/offline", exist_ok=True)
+
+# Setup MQTTClient from derbynet library with auto-reconnect
+client = MQTTClient(pcb.gethwid(), broker=mqtt_broker, port=mqtt_port)
+
+# Define callbacks for specific topics
+def on_led_message(topic, payload):
+    global led
+    if isinstance(payload, str):
+        led_value = payload.lower()
     else:
-        logger.warning(f"Failed to connect to MQTT broker, return code: {rc}")
-        # Connection failed, will retry automatically
+        led_value = str(payload).lower()
+    logger.debug(f"Setting LED to: {led_value}")
+    led = led_value
+    pcb.setLED(led)
 
-def on_message(client, userdata, msg):
-    logger.debug(f"Received message on topic {msg.topic} with payload {msg.payload}")
-    parse_message(msg)
-
-def on_disconnect(client, userdata, rc, properties=None):
-    global mqtt_connected
-    mqtt_connected = False
-    
-    if rc != 0:
-        logger.warning(f"Unexpected disconnection from MQTT broker, code: {rc}")
+def on_pinny_message(topic, payload):
+    global pinny
+    if isinstance(payload, str):
+        pinny_value = payload.lower()
     else:
-        logger.info("Disconnected from MQTT broker")
-        
-    # Will attempt to reconnect automatically via connect_with_retry()
+        pinny_value = str(payload).lower()
+    logger.debug(f"Setting pinny to: {pinny_value}")
+    pinny = pinny_value
+    pcb.setPinny(pinny)
+
+def on_update_message(topic, payload):
+    if isinstance(payload, str) and "update" in payload.lower():
+        logger.warning("Update requested")
+        try:
+            client.publish(STATUS_TOPIC.format(pcb.gethwid()), "updating", retain=True)
+            pcb.update_pcb()
+        except Exception as e:
+            logger.error(f"Update failed: {e}")
 
 def initMQTT():
-    global mqtt_connected, mqtt_reconnect_timer, mqtt_offline_queue
+    global mqtt_connected
     
-    # Initialize message queue for offline storage
-    mqtt_offline_queue = queue.Queue()
-    mqtt_connected = False
-    mqtt_reconnect_timer = None
+    # Subscribe to topics
+    client.subscribe(LED_TOPIC.format(pcb.get_Lane()), on_led_message)
+    client.subscribe(PINNY_TOPIC.format(pcb.get_Lane()), on_pinny_message)
+    client.subscribe(UPDATE_TOPIC.format(pcb.gethwid()), on_update_message)
     
-    # Set up client with persistent session
-    client.will_set(STATUS_TOPIC.format(pcb.gethwid()), "offline", retain=True)
-    client.on_connect = on_connect  
-    client.on_message = on_message
-    client.on_disconnect = on_disconnect
+    # Connect with auto-reconnect
+    client.connect()
     
-    # Create data directory for offline storage if it doesn't exist
-    os.makedirs("/var/lib/finishtimer/offline", exist_ok=True)
-    
-    # Start connection attempts with exponential backoff
-    connect_with_retry()
+    # Initial status
+    client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", retain=True)
     
     logger.debug("MQTT Client Initialized")
-    
-    # Start background thread for processing offline messages
-    threading.Thread(target=process_offline_queue, daemon=True).start()
+    mqtt_connected = True
 
 ###########################    HELPERS    ###########################
 def toggle_callback():
@@ -139,43 +142,29 @@ def toggle_callback():
     }
     logger.debug(f"Sending Toggle: {json.dumps(payload)}")
     
-    # Store event before attempting to send
-    store_critical_event("toggle", payload)
-    
     # Publish with QoS 2 to ensure delivery
-    publish_with_offline_support(TOGGLE_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=2, retain=True)
+    client.publish(TOGGLE_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=2, retain=True)
+    
+    # Update telemetry 
     send_telemetry()
 
 def send_telemetry():
-    payload = pcb.packageTelemetry()
-    logger.debug(f"Sending Telemetry: {json.dumps(payload)}")
+    # Get device telemetry
+    telemetry = DeviceTelemetry(pcb.gethwid(), "finishtimer")
+    payload = telemetry.collect()
     
-    # Add timestamp to payload
+    # Add PCB-specific telemetry
+    pcb_telemetry = pcb.packageTelemetry()
+    payload.update(pcb_telemetry)
+    
+    # Add timestamp
     payload["sent_timestamp"] = int(time.time())
     
-    # Publish with offline support
-    publish_with_offline_support(TELEMETRY_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=1, retain=True)
-    publish_with_offline_support(STATUS_TOPIC.format(pcb.gethwid()), "online", qos=1, retain=True)
-
-def parse_message(msg):
-    # Parses out the subscribed topic and sets the appropriate value
-    global led, pinny
-    topic = msg.topic.split("/")[-1]
-    if topic == "led":
-        led = msg.payload.decode("utf-8").lower()
-        pcb.setLED(led)
-    elif topic == "pinny":
-        pinny = msg.payload.decode("utf-8").lower()
-        pcb.setPinny(pinny)
-    elif topic == "update": # 
-        logger.warning("Update requested")
-        try:
-            client.publish(STATUS_TOPIC.format(pcb.gethwid()), "updating", retain=True)
-            pcb.update_pcb()
-        except Exception as e:
-            logger.error(f"Update failed: {e}")
-    else:
-        logger.warning(f"Unknown topic: {topic}")
+    logger.debug(f"Sending Telemetry: {json.dumps(payload)}")
+    
+    # Publish using MQTTClient (handles offline queuing automatically)
+    client.publish(TELEMETRY_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=1, retain=True)
+    client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", qos=1, retain=True)
 
 def post_sequence(): # runs through a sequence of LED colors and pinny displays 
     logger.debug("Running post sequence")
@@ -193,15 +182,22 @@ def post_sequence(): # runs through a sequence of LED colors and pinny displays
 ###########################     MAIN     ###########################
 def main():
     global led, pinny
+    
     logger.info("Starting Finish Timer Main Loop")
     logger.debug("Running post sequence")
     post_sequence()
+    
     logger.debug("Setting up PCB Callbacks")
     lane = pcb.get_Lane()
     logger.info(f"Lane: {lane}")
     pcb.setPinny("LAN" + str(int(lane)))
+    
+    # Initialize MQTT connection
     initMQTT()
-    pcb.begin_toggle_watch(toggle_callback) #must init mqtt first
+    
+    # Set up toggle watch callback
+    pcb.begin_toggle_watch(toggle_callback)
+    
     try:
         while True:
             # Send regular telemetry updates
@@ -211,21 +207,9 @@ def main():
             pcb.setLED(led)
             pcb.setPinny(pinny)
             
-            # Check connection status and attempt reconnection if needed
-            if not mqtt_connected and client.is_connected():
-                logger.info("MQTT connection reestablished")
-                mqtt_connected = True
-            elif not client.is_connected() and mqtt_connected:
-                logger.warning("MQTT connection lost, initiating reconnection")
-                mqtt_connected = False
-                connect_with_retry()
-                
-            # Visual indicator of connection status
-            if not mqtt_connected:
+            # Visual indicator if not connected
+            if not client.connected:
                 flash_connection_status()
-                
-            # Check for any offline messages that need to be sent
-            process_offline_messages()
                 
             time.sleep(TELEMETRY_INTERVAL)
     except KeyboardInterrupt:
@@ -237,61 +221,6 @@ def main():
         shutdown(graceful=True)
 
 ###########################  RESILIENCE FUNCTIONS  ########################
-
-# Maintains MQTT connection with exponential backoff
-def connect_with_retry(first_attempt=True):
-    global mqtt_reconnect_timer
-    
-    # Cancel any existing timer
-    if mqtt_reconnect_timer:
-        mqtt_reconnect_timer.cancel()
-        mqtt_reconnect_timer = None
-        
-    # Set visual indicator of connection attempt
-    if not first_attempt:
-        pcb.setLED("yellow")
-        pcb.setPinny("COnn")
-        
-    # Attempt connection
-    try:
-        logger.info(f"Connecting to MQTT Broker: {MQTT_BROKER}:{MQTT_PORT}")
-        client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
-        client.loop_start()  # Start the network loop
-        return True
-    except Exception as e:
-        # First connection attempt failure handling
-        if first_attempt:
-            logger.warning(f"Initial connection to MQTT broker failed: {e}, will retry")
-            # Schedule first retry with initial delay
-            mqtt_reconnect_timer = threading.Timer(MQTT_RETRY_DELAY, lambda: connect_with_retry(False))
-            mqtt_reconnect_timer.daemon = True
-            mqtt_reconnect_timer.start()
-        else:
-            # Subsequent failures - use exponential backoff
-            retry_count = getattr(connect_with_retry, 'retry_count', 0) + 1
-            connect_with_retry.retry_count = retry_count
-            
-            # Calculate delay with exponential backoff
-            delay = min(MQTT_RETRY_DELAY * (2 ** (retry_count - 1)), MQTT_MAX_DELAY)
-            
-            logger.warning(f"MQTT connection attempt {retry_count}/{MQTT_MAX_RETRIES} failed: {e}")
-            logger.info(f"Will retry in {delay} seconds")
-            
-            # Visual indicator of retry count
-            pcb.setPinny(f"rt{retry_count:02d}")
-            
-            # Check if we've reached the retry limit
-            if retry_count >= MQTT_MAX_RETRIES:
-                logger.error("Maximum MQTT connection retries reached")
-                # Reset retry count but continue trying with max delay
-                connect_with_retry.retry_count = 0
-                delay = MQTT_MAX_DELAY
-            
-            # Schedule next retry
-            mqtt_reconnect_timer = threading.Timer(delay, lambda: connect_with_retry(False))
-            mqtt_reconnect_timer.daemon = True
-            mqtt_reconnect_timer.start()
-        return False
 
 # Flash LED to indicate connection status
 def flash_connection_status():
@@ -307,14 +236,12 @@ def shutdown(graceful=True, error_code=None):
     
     # Send offline status if possible
     try:
-        if client.is_connected():
-            client.publish(STATUS_TOPIC.format(pcb.gethwid()), "offline", qos=1, retain=True)
+        client.publish(STATUS_TOPIC.format(pcb.gethwid()), "offline", qos=1, retain=True)
     except Exception as e:
         logger.warning(f"Could not publish offline status: {e}")
     
     # Clean up resources
     pcb.close()
-    client.loop_stop()
     client.disconnect()
     
     # Set final visual indicator
@@ -328,161 +255,6 @@ def shutdown(graceful=True, error_code=None):
     
     # Exit with appropriate code
     exit(0 if graceful else 1)
-
-# Queue message when offline and send when online
-def publish_with_offline_support(topic, payload, qos=0, retain=False):
-    global mqtt_offline_queue
-    
-    # Try to publish immediately if connected
-    if client.is_connected():
-        result = client.publish(topic, payload, qos, retain)
-        if result.rc != 0:
-            logger.warning(f"Failed to publish to {topic}, queuing message. Error: {result.rc}")
-            mqtt_offline_queue.put((topic, payload, qos, retain, time.time()))
-    else:
-        # Queue the message for later
-        logger.debug(f"MQTT disconnected, queuing message for topic {topic}")
-        mqtt_offline_queue.put((topic, payload, qos, retain, time.time()))
-        
-        # Also store to disk if it's a critical message
-        if qos >= 1:
-            store_message_to_disk(topic, payload, qos, retain)
-
-# Process the offline message queue
-def process_offline_messages():
-    global mqtt_offline_queue
-    
-    if not client.is_connected():
-        return
-    
-    # Process queued messages
-    messages_processed = 0
-    while not mqtt_offline_queue.empty() and messages_processed < 10:  # Process in batches
-        try:
-            topic, payload, qos, retain, timestamp = mqtt_offline_queue.get_nowait()
-            age = time.time() - timestamp
-            
-            # Skip very old non-critical messages
-            if age > 300 and qos == 0:  # 5 minutes for QoS 0
-                logger.debug(f"Skipping old non-critical message for {topic}, age: {age:.1f}s")
-                mqtt_offline_queue.task_done()
-                continue
-                
-            # Publish the message
-            logger.debug(f"Publishing queued message for {topic}, age: {age:.1f}s")
-            result = client.publish(topic, payload, qos, retain)
-            
-            if result.rc != 0:
-                logger.warning(f"Failed to publish queued message to {topic}, requeueing")
-                mqtt_offline_queue.put((topic, payload, qos, retain, timestamp))
-            
-            mqtt_offline_queue.task_done()
-            messages_processed += 1
-            
-        except queue.Empty:
-            break
-
-# Background thread for processing offline queue
-def process_offline_queue():
-    while True:
-        time.sleep(5)  # Check periodically
-        if client.is_connected():
-            process_offline_messages()
-            
-            # Also check for stored messages
-            process_stored_messages()
-
-# Store critical event for later recovery
-def store_critical_event(event_type, payload):
-    # Store locally with timestamp for later reconciliation
-    event_data = {
-        "type": event_type,
-        "payload": payload,
-        "stored_time": time.time(),
-        "processed": False
-    }
-    
-    # Create unique filename based on timestamp
-    filename = f"/var/lib/finishtimer/offline/{event_type}_{int(time.time()*1000)}.json"
-    
-    try:
-        with open(filename, 'w') as f:
-            json.dump(event_data, f)
-        logger.debug(f"Stored critical {event_type} event to {filename}")
-    except Exception as e:
-        logger.error(f"Failed to store critical event: {e}")
-
-# Store MQTT message to disk
-def store_message_to_disk(topic, payload, qos, retain):
-    message_data = {
-        "topic": topic,
-        "payload": payload,
-        "qos": qos,
-        "retain": retain,
-        "timestamp": time.time()
-    }
-    
-    filename = f"/var/lib/finishtimer/offline/mqtt_{int(time.time()*1000)}.json"
-    
-    try:
-        with open(filename, 'w') as f:
-            json.dump(message_data, f)
-    except Exception as e:
-        logger.error(f"Failed to store message to disk: {e}")
-
-# Process stored messages from disk
-def process_stored_messages():
-    if not client.is_connected():
-        return
-        
-    # Find all stored message files
-    try:
-        files = os.listdir("/var/lib/finishtimer/offline/")
-        mqtt_files = [f for f in files if f.startswith("mqtt_") and f.endswith(".json")]
-        
-        for file in mqtt_files[:10]:  # Process in batches
-            filepath = f"/var/lib/finishtimer/offline/{file}"
-            try:
-                with open(filepath, 'r') as f:
-                    message_data = json.load(f)
-                    
-                # Publish the message
-                topic = message_data["topic"]
-                payload = message_data["payload"]
-                qos = message_data["qos"]
-                retain = message_data["retain"]
-                
-                logger.info(f"Publishing stored message for {topic} from {filepath}")
-                result = client.publish(topic, payload, qos, retain)
-                
-                if result.rc == 0:
-                    # Successfully published, remove the file
-                    os.remove(filepath)
-                else:
-                    logger.warning(f"Failed to publish stored message, keeping file {filepath}")
-            except Exception as e:
-                logger.error(f"Error processing stored message {filepath}: {e}")
-    except Exception as e:
-        logger.error(f"Error accessing stored messages: {e}")
-
-# Sync state after reconnection
-def sync_state_after_reconnect():
-    logger.info("Synchronizing state after reconnection")
-    
-    # Send current status information
-    payload = pcb.packageTelemetry()
-    payload["reconnection"] = True
-    payload["offline_duration"] = getattr(sync_state_after_reconnect, 'last_disconnect_time', 0)
-    
-    # Publish with high QoS to ensure delivery
-    client.publish(TELEMETRY_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=2)
-    
-    # Send current toggle state with high priority
-    toggle_callback()
-
-# Keep track of when we disconnect
-def set_disconnect_time():
-    sync_state_after_reconnect.last_disconnect_time = time.time()
 
 ###########################  MAIN ENTRY POINT  ########################
 

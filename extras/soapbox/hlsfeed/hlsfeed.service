@@ -3,8 +3,13 @@ Description=HLS Feed From RTSP Camera
 After=network.target
 
 [Service]
+# Decrypt config before starting the service
+ExecStartPre=/opt/hlsfeed/secure_config.sh decrypt
 ExecStart=/opt/hlsfeed/hlsfeed.sh
+# Start the monitoring service
+ExecStartPost=/bin/bash -c "sleep 10 && /opt/hlsfeed/stream_monitor.sh --daemon &"
 Restart=always
+RestartSec=5
 User=www-data
 Group=www-data
 
