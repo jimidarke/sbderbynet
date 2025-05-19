@@ -1,0 +1,214 @@
+<?php @session_start();
+require_once('inc/banner.inc');
+require_once('inc/data.inc');
+?><!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <title>Derby Live Video Stream</title>
+  <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css"/>
+  <link rel="stylesheet" type="text/css" href="css/global.css"/>
+  <link rel="stylesheet" type="text/css" href="css/kiosks.css"/>
+  <script type="text/javascript" src="js/jquery.js"></script>
+  <script type="text/javascript" src="js/jquery-ui.min.js"></script>
+  <script type="text/javascript" src="js/screenfull.min.js"></script>
+  <!-- HLS.js library for HLS stream playback -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <?php require('inc/kiosk-poller.inc'); ?>
+  <style>
+    #video-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-color: #000;
+    }
+    #hls-video {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+    }
+    .video-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      padding: 10px;
+      background-color: rgba(0,0,0,0.5);
+      transition: opacity 0.3s;
+      opacity: 0;
+    }
+    #video-container:hover .video-controls {
+      opacity: 1;
+    }
+    .fullscreen-btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .status-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0,0,0,0.7);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      font-size: 18px;
+      text-align: center;
+      display: none;
+    }
+  </style>
+  <script type="text/javascript">
+    $(function() {
+      // Get HLS stream URL from database
+      const hlsStreamUrl = <?php echo json_encode(read_raceinfo('hls-stream-url', 'http://derbynetpi:8037/hls/stream.m3u8')); ?>;
+      const video = document.getElementById('hls-video');
+      
+      // Display error message function
+      function showError(message) {
+        $('#loading-message').hide();
+        $('#error-message').text(message).show();
+      }
+      
+      // Initialize HLS video stream
+      function initHlsStream() {
+        $('#loading-message').show();
+        $('#error-message').hide();
+        
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            debug: false,
+            enableWorker: true,
+            lowLatencyMode: true,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 600,
+            maxBufferSize: 60 * 1000 * 1000,
+            xhrSetup: function(xhr) {
+              xhr.withCredentials = false;
+            }
+          });
+          
+          // Error handling
+          hls.on(Hls.Events.ERROR, function(event, data) {
+            console.log('HLS Error:', data);
+            if (data.fatal) {
+              switch(data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.log("Network error - attempting recovery");
+                  showError("Network error - attempting to reconnect...");
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.log("Media error - attempting recovery");
+                  showError("Media error - attempting to recover...");
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  showError("Fatal error: " + data.details);
+                  console.error("Fatal error:", data);
+                  break;
+              }
+            }
+          });
+          
+          try {
+            hls.loadSource(hlsStreamUrl);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+              console.log("HLS Manifest loaded");
+              $('#loading-message').hide();
+              video.play().catch(function(error) {
+                console.log("Play failed:", error);
+                showError("Video playback failed. Please check if the stream is available.");
+              });
+            });
+            
+            // Store HLS instance for cleanup if needed
+            video.hlsInstance = hls;
+          } catch (e) {
+            console.error("HLS initialization error:", e);
+            showError("Failed to initialize video stream: " + e.message);
+          }
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // For Safari and iOS which have native HLS support
+          video.src = hlsStreamUrl;
+          video.addEventListener('loadedmetadata', function() {
+            $('#loading-message').hide();
+            video.play().catch(function(error) {
+              console.log("Play failed:", error);
+              showError("Video playback failed. Please check if the stream is available.");
+            });
+          });
+          video.addEventListener('error', function() {
+            showError("Video playback failed. Please check if the stream is available.");
+          });
+        } else {
+          showError("Your browser doesn't support HLS video playback.");
+        }
+      }
+      
+      // Handle fullscreen toggle
+      $('#fullscreen-btn').on('click', function() {
+        if (screenfull.isEnabled) {
+          screenfull.toggle(document.getElementById('video-container'));
+        }
+      });
+      
+      // Initialize stream on page load
+      initHlsStream();
+      
+      // Listen for messages from other pages (like replay.php)
+      window.addEventListener('message', function(event) {
+        if (event.data === 'replay-started') {
+          // Pause the stream when replay starts
+          if (video.hlsInstance) {
+            video.pause();
+          }
+        } else if (event.data === 'replay-ended') {
+          // Resume the stream when replay ends
+          if (video.hlsInstance) {
+            video.play().catch(function(error) {
+              console.log("Play failed after replay:", error);
+            });
+          }
+        }
+      });
+    });
+  </script>
+</head>
+<body>
+  <?php make_banner('Live Video Stream', /* back_button */ false); ?>
+  
+  <div id="video-container">
+    <video id="hls-video" autoplay muted playsinline></video>
+    
+    <div class="video-controls">
+      <button id="fullscreen-btn" class="fullscreen-btn">Toggle Fullscreen</button>
+    </div>
+    
+    <div id="loading-message" class="status-message">
+      Loading video stream...
+    </div>
+    
+    <div id="error-message" class="status-message">
+      Error loading video stream.
+    </div>
+  </div>
+  
+  <?php require_once('inc/ajax-failure.inc'); ?>
+</body>
+</html>
