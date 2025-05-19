@@ -10,7 +10,7 @@ import threading
 # Logging configuration
 LOG_FORMAT_LOCAL    = '%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
 LOG_FORMAT_SYSLOG   = '{hwID} %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
-LOG_FORMAT_JSON     = '{"timestamp":"%(asctime)s", "level":"%(levelname)s", "hwid":"{hwID}", "file":"%(filename)s", "line":%(lineno)d, "message":"%(message)s"}'
+LOG_FORMAT_JSON     = '{{"timestamp":"%(asctime)s", "level":"%(levelname)s", "hwid":"{hwID}", "file":"%(filename)s", "line":%(lineno)d, "message":"%(message)s"}}'
 LOG_FILE            = '/var/log/derbynet.log'
 LOG_LEVEL           = logging.INFO  # Set to DEBUG for detailed logs, INFO for less verbosity
 SYSLOG_HOST         = '192.168.100.10' 
@@ -245,6 +245,9 @@ def setup_logger(name):
         logger.addHandler(fallback_handler)
         logger.error(f"Failed to set up syslog handler: {e}")
 
+    # Store the original _log method
+    original_log = logging.Logger._log
+    
     # Add a method to include context in logs
     def log_with_context(self, level, msg, *args, **kwargs):
         """Add current context to log message"""
@@ -254,7 +257,6 @@ def setup_logger(name):
                 msg = f"{msg} [{context_str}]"
         
         # Call original log method
-        original_log = getattr(logging.Logger, '_log')
         return original_log(self, level, msg, *args, **kwargs)
     
     # Replace the _log method to include context
