@@ -42,13 +42,39 @@ Display screens showing race status and results.
 - Network resilience
 
 ### HLS Feed
-Video streaming service for race viewing.
+Video streaming service for race viewing and replay.
 
 **Key Features:**
 - RTSP to HLS conversion via FFMPEG
 - Nginx-based HLS delivery
 - Responsive web player
 - Automatic segment cleanup
+- Integration with DerbyNet replay system
+
+## DerbyNet Integration
+
+The system integrates with [DerbyNet](doc/DERBYNET_REFERENCE.md), a PHP-based web application for derby race management that provides:
+
+### Race Management
+- Multi-device architecture with a central server
+- Triple elimination format with precise advancement logic
+- Comprehensive racer registration and check-in
+
+### Timer Integration 
+- Communicates with our timing hardware via HTTP/AJAX
+- States: CONNECTED, STAGING, RUNNING, UNHEALTHY, NOT_CONNECTED
+- 60-second heartbeat required to maintain connection
+
+### Kiosk System
+- Various display types (now-racing, standings, ondeck, results-by-racer)
+- HTTP/AJAX polling or WebSocket support
+- Intelligent display assignment for different race functions
+
+### HLS Replay System
+- [HLS streaming integration](doc/HLS_REPLAY_DOCUMENTATION.md) for race viewing
+- Configurable replay options (length, speed, repetitions)
+- Video storage and management
+- Automatic race replay functionality
 
 ## Network Architecture
 
@@ -149,6 +175,8 @@ sudo journalctl -u derbydisplay
 # View HLS feed logs
 sudo journalctl -u hlsfeed
 ```
+
+For HLS stream troubleshooting, refer to the [HLS Replay Documentation](doc/HLS_REPLAY_DOCUMENTATION.md#comprehensive-troubleshooting) which provides detailed steps for diagnosing and resolving stream issues.
 
 ## License
 

@@ -43,6 +43,7 @@ The system primarily uses MQTT for communication between components, with a Pyth
 6. **HLS Feed Service (hlsfeed)**:
    - Handles video streaming for race viewing
    - Uses RTSP and HLS for streaming
+   - Integrates with DerbyNet's replay system
 
 ### Communication Flow
 
@@ -52,6 +53,26 @@ The system primarily uses MQTT for communication between components, with a Pyth
 4. derbyRace.py aggregates results and sends to DerbyNet API
 5. Display components update with current race status
 6. All components send telemetry for monitoring
+
+## DerbyNet Integration
+
+DerbyNet is a PHP-based web application for soapbox derby race management, providing these key features:
+
+1. **Race Management**: Handles triple elimination format with preliminary, semi-final, and final rounds
+2. **Timer Integration**: Communicates with our timing system via HTTP/AJAX with specific states (CONNECTED, STAGING, RUNNING, etc.)
+3. **Kiosk System**: Supports various display types (now-racing, standings, ondeck, results-by-racer)
+4. **HLS Replay System**: Integrates with our HLS feed for race replays with configurable options:
+   - Replay length (default: 4000ms)
+   - Replay count (default: 2)
+   - Replay speed (default: 50%)
+   - HLS stream URL: http://derbynetpi:8037/hls/stream.m3u8
+
+### Key DerbyNet APIs
+
+- **Timer Protocol**: Plain text commands with JSON status responses
+- **Timer States**: CONNECTED, STAGING, RUNNING, UNHEALTHY, NOT_CONNECTED
+- **Replay Commands**: START, REPLAY, RACE_STARTS, CANCEL
+- **Device Status API**: RESTful API with JSON data structure
 
 ## Configuration
 

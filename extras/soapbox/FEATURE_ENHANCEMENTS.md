@@ -1,6 +1,6 @@
 # Soapbox Derby Feature Enhancement Plan
 
-This document outlines proposed feature enhancements for the Soapbox Derby race management system to improve the spectator experience, streamline race operations, and add exciting new capabilities.
+This document outlines proposed feature enhancements for the Soapbox Derby race management system to improve the spectator experience, streamline race operations, and add exciting new capabilities based on integration with DerbyNet.
 
 ## Understanding Soapbox Derby Events
 
@@ -21,11 +21,13 @@ Traditional soapbox derby events involve:
   - Real-time updating bracket visualization on displays
   - Visual tracking of advancement through tournament rounds
   - Mobile-friendly web view for spectator phones
+  - Integration with DerbyNet's triple elimination format and advancement logic
   
 #### Racer Information Display
 - **Racer Profile System**
   - Show racer information when their car is on track
   - Display racer photo, hometown, car name/theme
+  - Pull data from DerbyNet's racer database
   - Track racer statistics across multiple events
 
 #### Announcer Support System
@@ -34,22 +36,23 @@ Traditional soapbox derby events involve:
   - Provide real-time statistics to announcers
   - Highlight interesting facts (fastest time, returning champions)
   - Countdown timers and race schedule integration
+  - Access to DerbyNet's historical race data
 
 #### Enhanced Displays
 - **Multi-View Display**
   - Picture-in-picture option showing multiple camera angles
-  - Slow-motion instant replay for close finishes
-  - Graphical speed tracking with speedometer visualization
+  - Integration with DerbyNet's HLS replay system
   - Split-screen comparing current race to previous/record times
+  - Dynamic display transitions based on race state
 
 ### 2. Race Operation Improvements
 
-#### Race Day Management Console
-- **Unified Administrator Dashboard**
-  - Full race schedule management with drag-and-drop heat adjustments
-  - Ability to flag/tag racers for special considerations
-  - Weather integration with advisories for race conditions
-  - Direct communication with race officials through integrated messaging
+#### Advanced Timer Integration
+- **Enhanced Timer Protocol**
+  - Extend the DerbyNet timer protocol for additional features
+  - Add redundancy and failover capabilities
+  - Implement more precise timing synchronization
+  - Create diagnostic dashboard for timer health monitoring
 
 #### Mobile Race Official App
 - **Inspection & Track Management**
@@ -57,12 +60,13 @@ Traditional soapbox derby events involve:
   - Ability to report track issues with photo documentation
   - Digital signature capture for inspection approvals
   - Emergency response coordination
+  - Direct connection to DerbyNet API
 
 #### Advanced Timing System
 - **Photo Finish Analytics**
   - Machine learning for ultra-precise finish detection
-  - Frame-by-frame analysis for contested finishes
-  - 3D visualization of relative positions at finish line
+  - Frame-by-frame analysis from HLS stream for contested finishes
+  - Integration with DerbyNet replay system for automated review
   - Historical comparison with race records
 
 #### Queue Management
@@ -70,7 +74,7 @@ Traditional soapbox derby events involve:
   - Digital queuing system showing upcoming racers
   - Automated announcements for next racers to staging area
   - SMS/mobile alert capability for race schedules
-  - Visual indicators at staging area showing next racers
+  - Integration with DerbyNet's "ondeck" kiosk system
 
 ### 3. Participant and Family Features
 
@@ -80,72 +84,72 @@ Traditional soapbox derby events involve:
   - Downloadable race certificates and digital badges
   - Personal race history across multiple events
   - Training information and tips for improving performance
+  - Integration with DerbyNet's racer database
 
 #### Social Media Integration
 - **Automated Content Sharing**
-  - Generate shareable race clips for social media
-  - Create customized graphics with racer stats
+  - Generate shareable race clips from HLS replay system
+  - Create customized graphics with racer stats from DerbyNet data
   - Live stream integration with automated highlights
   - QR codes on displays linking to shareable content
 
 #### Audience Participation
 - **Interactive Spectator Experience**
   - "Fan favorite" voting system via mobile site
-  - Crowd noise meter affecting display animations
   - Prediction game for heat winners with leaderboard
-  - Digital program with racer information
+  - Digital program with racer information from DerbyNet database
+  - Real-time polls and interactive quizzes between races
 
-### 4. Event Analytics
+### 4. Technical Enhancements
 
-#### Performance Insights
-- **Advanced Race Analytics**
-  - Track speed data throughout the race course
-  - Acceleration analysis for each car
-  - Race comparison visualization between heats
-  - Weather and environmental impact analysis
+#### Enhanced DerbyNet Integration
+- **API Extensions**
+  - Create middleware for extending DerbyNet's functionality
+  - Develop real-time event streams for race data
+  - Build custom reporting and analytics tools
+  - Create comprehensive device status monitoring dashboard
 
-#### Historical Database
-- **Long-Term Statistics**
-  - Track course records with environmental conditions
-  - Career statistics for returning racers
-  - Year-over-year trend analysis
-  - Car design effectiveness metrics
+#### Network Resilience
+- **Advanced Failover Mechanisms**
+  - Implement automatic network repair capabilities
+  - Create redundant communication paths
+  - Develop hot-swappable device replacements
+  - Build self-healing network architecture
 
-### 5. Safety Enhancements
+#### HLS Replay Enhancements
+- **Advanced Video Processing**
+  - Add telemetry overlay to race replays
+  - Implement multi-camera switching based on race phase
+  - Create AI-driven highlight generation
+  - Support slow-motion and zoom capabilities for critical race moments
+  - Extend DerbyNet's replay system with additional features
 
-#### Track Monitoring
-- **Advanced Safety Systems**
-  - Additional camera monitoring for blind spots
-  - Automated obstacle detection on track
-  - Weather monitoring with automate delay protocols
-  - Track condition logging and alerts
-
-#### Emergency Response
-- **Incident Management System**
-  - Quick-action workflows for different scenarios
-  - Automated alerts to medical personnel
-  - Digital incident reporting with photo/video documentation
-  - Decision tree protocols for different situations
+#### System Monitoring
+- **Comprehensive Health Dashboard**
+  - Real-time monitoring of all system components
+  - Predictive maintenance alerts
+  - Performance optimization recommendations
+  - Integration with DerbyNet's device status API
 
 ## Implementation Priority
 
-### Phase 1: Core Experience Enhancements
-1. Interactive Tournament Bracket Display
-2. Basic Racer Profile System
-3. Multi-View Display with Replay
-4. Staging Area Notification System
+### Phase 1: Core Experience and DerbyNet Integration
+1. Enhanced Timer Integration with DerbyNet
+2. Interactive Tournament Bracket Display with DerbyNet data
+3. HLS Replay Enhancements
+4. Basic Racer Profile System
 
 ### Phase 2: Operational Improvements
-1. Race Day Management Console
-2. Photo Finish Analytics
+1. Advanced Timing System with Photo Finish
+2. Staging Area Notification System integrated with DerbyNet
 3. Mobile Race Official App
-4. Basic Performance Insights
+4. System Monitoring Dashboard
 
 ### Phase 3: Engagement Features
-1. Racer Portal
-2. Social Media Integration
+1. Racer Portal with DerbyNet integration
+2. Social Media Integration with race replay
 3. Audience Participation Systems
-4. Extended Historical Database
+4. Enhanced multi-view displays
 
 ## Technical Considerations
 
@@ -160,12 +164,15 @@ Traditional soapbox derby events involve:
 - Expanded MQTT topics for new data types
 - Mobile responsive design for all interfaces
 - Media processing pipeline for video highlights
+- DerbyNet API client libraries and extensions
 
 ### Integration Points
+- DerbyNet race management API
+- DerbyNet replay system
+- DerbyNet kiosk framework
 - Social media platform APIs
 - Weather data services
 - SMS/notification services
-- Existing DerbyNet race management API
 
 ## Next Steps
 
@@ -178,6 +185,7 @@ Traditional soapbox derby events involve:
    - Create mockups of key interfaces
    - Develop proof-of-concept for bracket display
    - Test camera integration for replay features
+   - Build DerbyNet API extensions
 
 3. **Phased Implementation Plan**
    - Develop detailed implementation schedule

@@ -1,0 +1,17 @@
+[Unit]
+Description=DerbyNet HLS Replay Handler
+After=network.target hlsfeed.service
+Wants=hlsfeed.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/hlsfeed
+ExecStart=/usr/bin/python3 /opt/hlsfeed/replay_handler.py
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

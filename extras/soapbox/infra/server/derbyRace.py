@@ -209,6 +209,8 @@ class derbyRace:
         if racestats.get("active",False) and self.race_state == "STOPPED":
             led = "blue"
             self.race_state = "STAGING"
+            # Inform DerbyNet of the STAGING state
+            self.api.set_staging()
         if racestats.get("timer-state-string",) == "Race running":
            self.race_state = "RACING"
            led = "green"
@@ -216,6 +218,9 @@ class derbyRace:
         if not racestats.get("active",False):
             led = "red"
             self.race_state = "STOPPED"
+            # Ensure timer state is CONNECTED when race is stopped
+            if self.api.timer_state != "CONNECTED" and self.api.timer_state != "NOT_CONNECTED":
+                self.api.set_timer_state("CONNECTED")
         if led and led != self.led:
             self.led = led
             self.updateLED(led)
