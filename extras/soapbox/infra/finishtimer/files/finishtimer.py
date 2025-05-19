@@ -13,7 +13,7 @@ import sys
 from datetime import datetime
 
 # Add parent directory to path for importing common modules
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
+#sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
 from derbynetPCBv1 import derbyPCBv1
 from derbylogger import setup_logger
 from derbynet import MQTTClient, DeviceTelemetry, discover_services
