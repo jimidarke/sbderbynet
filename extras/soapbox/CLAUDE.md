@@ -10,9 +10,9 @@ This is a soapbox derby race management system that consists of several componen
 2. **Finish Timer**: Hardware timers installed at each lane that detect car finishes
 3. **Start Timer**: ESP32-based device that detects race start signals
 4. **Derby Display**: Display screen showing race status and results
-5. **Streaming**: Camera streaming service for race viewing
+5. **HLS Feed**: Camera streaming service for race viewing
 
-The system primarily uses MQTT for communication between components, with a Python-based backend.
+The system primarily uses MQTT for communication between components, with a Python-based backend deployed on Raspberry Pi devices.
 
 ## Architecture
 
@@ -40,7 +40,7 @@ The system primarily uses MQTT for communication between components, with a Pyth
    - Controls small LCD displays for officials
    - Shows lane status and race information
 
-6. **Stream Server (stream/app.py)**:
+6. **HLS Feed Service (hlsfeed)**:
    - Handles video streaming for race viewing
    - Uses RTSP and HLS for streaming
 
@@ -74,6 +74,7 @@ Components run as system services:
 - **derbyTime**: Time synchronization service
 - **finishtimer**: Lane finish detection service
 - **derbydisplay**: Display management service
+- **hlsfeed**: Video streaming service
 
 ## Development Guidelines
 
@@ -116,18 +117,18 @@ sudo systemctl start finishtimer
 # Start the derby display service
 sudo systemctl start derbydisplay
 
-# Start the streaming service
-cd /path/to/stream && python app.py
+# Start the HLS feed service
+sudo systemctl start hlsfeed
 ```
 
 ### Deployment
 
 ```bash
 # Create an SD card image from a source drive
-./deployment/sdcard/createImage.sh /dev/sdX
+./infra/deployment/sdcard/createImage.sh /dev/sdX
 
 # Deploy an image to an SD card with a specific device name
-./deployment/sdcard/deployImage.sh /dev/sdX devicename
+./infra/deployment/sdcard/deployImage.sh /dev/sdX devicename
 ```
 
 ### Debug and Monitoring
@@ -143,6 +144,9 @@ sudo journalctl -u finishtimer
 
 # View logs for derby display 
 sudo journalctl -u derbydisplay
+
+# View logs for HLS feed
+sudo journalctl -u hlsfeed
 ```
 
 ## Hardware Interfaces

@@ -1,10 +1,263 @@
 <!DOCTYPE html>
-<html>
-<head><title>Live Feed</title></head>
-<body style="margin:0; background:black;">
-  <video controls autoplay width="100%">
-    <source src="/hls/stream.m3u8" type="application/x-mpegURL">
-    Your browser does not support HLS.
-  </video>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soapbox Derby Live Feed</title>
+  <style>
+    body {
+      margin: 0; 
+      padding: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      text-align: center;
+      z-index: 10;
+    }
+    
+    .video-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    
+    video {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+    }
+    
+    .controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      display: flex;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .video-container:hover .controls {
+      opacity: 1;
+    }
+    
+    .status {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 5px;
+      display: none;
+      text-align: center;
+    }
+    
+    .button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      border-radius: 4px;
+      margin: 0 5px;
+      cursor: pointer;
+    }
+    
+    .button:hover {
+      background-color: #45a049;
+    }
+    
+    .button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    
+    .footer {
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Soapbox Derby Live Feed</h1>
+  </div>
+  
+  <div class="video-container">
+    <video id="video" autoplay controls></video>
+    
+    <div id="status" class="status">
+      <p id="statusText">Connecting to stream...</p>
+      <button id="retryButton" class="button" onclick="initializePlayer()">Retry</button>
+    </div>
+    
+    <div class="controls">
+      <button class="button" onclick="reloadPlayer()">Reload Stream</button>
+      <button class="button" onclick="toggleFullscreen()">Fullscreen</button>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>© Soapbox Derby Live Feed | <span id="streamHealth">Stream Health: Checking...</span></p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    const video = document.getElementById('video');
+    const status = document.getElementById('status');
+    const statusText = document.getElementById('statusText');
+    const streamHealth = document.getElementById('streamHealth');
+    let hls;
+    
+    function initializePlayer() {
+      // Hide status initially
+      status.style.display = 'none';
+      
+      // Check if HLS.js is supported
+      if (Hls.isSupported()) {
+        // Create HLS instance
+        hls = new Hls({
+          debug: false,
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 90
+        });
+        
+        // Bind HLS to video element
+        hls.loadSource('/hls/stream.m3u8');
+        hls.attachMedia(video);
+        
+        // Handle HLS events
+        hls.on(Hls.Events.MEDIA_ATTACHED, function() {
+          console.log('Video and HLS.js are now bound together');
+          video.play().catch(e => {
+            console.warn('Autoplay prevented:', e);
+          });
+        });
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+          console.log('Manifest loaded, found ' + data.levels.length + ' quality levels');
+          updateStreamHealth('Good');
+        });
+        
+        hls.on(Hls.Events.ERROR, function(event, data) {
+          if (data.fatal) {
+            console.error('Fatal error:', data);
+            status.style.display = 'block';
+            
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                statusText.textContent = 'Network error - please check your connection';
+                updateStreamHealth('Disconnected');
+                hls.destroy();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                statusText.textContent = 'Media error - attempting to recover';
+                updateStreamHealth('Poor');
+                hls.recoverMediaError();
+                break;
+              default:
+                statusText.textContent = 'Error loading stream - please try again';
+                updateStreamHealth('Error');
+                hls.destroy();
+                break;
+            }
+          } else {
+            // Non-fatal error
+            if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+              updateStreamHealth('Buffering');
+            }
+          }
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        video.src = '/hls/stream.m3u8';
+        video.addEventListener('loadedmetadata', function() {
+          video.play().catch(e => {
+            console.warn('Autoplay prevented:', e);
+          });
+        });
+        
+        video.addEventListener('error', function() {
+          status.style.display = 'block';
+          statusText.textContent = 'Error loading stream - please try again';
+          updateStreamHealth('Error');
+        });
+      } else {
+        // HLS not supported
+        status.style.display = 'block';
+        statusText.textContent = 'Your browser does not support HLS playback';
+      }
+      
+      // Check stream health periodically
+      setInterval(checkStreamStatus, 10000);
+    }
+    
+    function reloadPlayer() {
+      if (hls) {
+        hls.destroy();
+      }
+      video.src = '';
+      initializePlayer();
+    }
+    
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        if (video.requestFullscreen) {
+          video.requestFullscreen();
+        } else if (video.webkitRequestFullscreen) {
+          video.webkitRequestFullscreen();
+        } else if (video.msRequestFullscreen) {
+          video.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+      }
+    }
+    
+    function updateStreamHealth(status) {
+      streamHealth.textContent = 'Stream Health: ' + status;
+    }
+    
+    function checkStreamStatus() {
+      fetch('/health')
+        .then(response => {
+          if (response.ok) {
+            updateStreamHealth('Good');
+          } else {
+            updateStreamHealth('Service Issue');
+          }
+        })
+        .catch(() => {
+          updateStreamHealth('Connection Issue');
+        });
+    }
+    
+    // Initialize player when page loads
+    document.addEventListener('DOMContentLoaded', initializePlayer);
+  </script>
 </body>
 </html>
