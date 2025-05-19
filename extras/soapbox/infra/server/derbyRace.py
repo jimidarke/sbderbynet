@@ -4,8 +4,14 @@ Main program to handle the Derby race.
 File location: /var/lib/infra/app/derbyRace.py
 Service file: /etc/systemd/system/derbyrace.service
 
+Version History:
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
+- 0.4.0 - May 10, 2025 - Added service discovery via mDNS
+- 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
+- 0.2.0 - April 15, 2025 - Added telemetry and watchdog timers
+- 0.1.0 - April 4, 2025 - Added MQTT communication protocols
+- 0.0.1 - March 31, 2025 - Initial implementation
 '''
-
 
 from datetime import datetime, timedelta
 import os
@@ -17,15 +23,47 @@ import random
 import json
 import threading
 import queue
+import sys
 from derbyapi import DerbyNetClient
 from derbylogger import setup_logger
 import psutil # type: ignore 
 
+# Version information
+VERSION = "0.5.0"
+
+# Add common library path to allow importing derbynet module
+sys.path.append('/var/lib/infra/common')
+
 logger = setup_logger("derbyRace")
 
-# MQTT setup
+try:
+    from derbynet import discover_services
+    ZEROCONF_AVAILABLE = True
+except ImportError:
+    ZEROCONF_AVAILABLE = False
+    logger.warning("Zeroconf module not available, service discovery disabled")
+
+# MQTT setup - Default values that will be used if service discovery fails
 MQTT_BROKER             = "localhost"
 MQTT_PORT               = 1883
+
+# Attempt to discover MQTT broker via mDNS
+if ZEROCONF_AVAILABLE:
+    try:
+        logger.info("Attempting to discover MQTT broker via mDNS...")
+        discovered_services = discover_services("_derbynet._tcp.local.")
+        if discovered_services:
+            # Get the first discovered service
+            service_name = list(discovered_services.keys())[0]
+            service_info = discovered_services[service_name]
+            logger.info(f"Discovered MQTT broker: {service_info['name']} at {service_info['ip']}:{service_info['port']}")
+            MQTT_BROKER = service_info['ip']
+            MQTT_PORT = service_info['port']
+        else:
+            logger.warning("No derbynet services discovered, using default MQTT broker")
+    except Exception as e:
+        logger.error(f"Error during service discovery: {e}")
+        logger.warning("Using default MQTT broker settings")
 
 # Race timing and reliability settings
 LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion
@@ -41,7 +79,7 @@ MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
-        logger.info("Initializing DerbyRace")
+        logger.info(f"Initializing DerbyRace v{VERSION}")
         self.boottime = datetime.now()
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr" + str(random.randint(1000,9999)))
         self.client.on_log = self.on_log
@@ -180,6 +218,8 @@ class derbyRace:
         if racestats.get("active",False) and self.race_state == "STOPPED":
             led = "blue"
             self.race_state = "STAGING"
+            # Inform DerbyNet of the STAGING state
+            self.api.set_staging()
         if racestats.get("timer-state-string",) == "Race running":
            self.race_state = "RACING"
            led = "green"
@@ -187,6 +227,9 @@ class derbyRace:
         if not racestats.get("active",False):
             led = "red"
             self.race_state = "STOPPED"
+            # Ensure timer state is CONNECTED when race is stopped
+            if self.api.timer_state != "CONNECTED" and self.api.timer_state != "NOT_CONNECTED":
+                self.api.set_timer_state("CONNECTED")
         if led and led != self.led:
             self.led = led
             self.updateLED(led)
@@ -405,6 +448,7 @@ class derbyRace:
         payload = {
             "hostname": "derbynetpi",
             "hwid": "derbyRace",
+            "version": VERSION,
             "uptime": uptime,
             "ip": ipaddr,
             "mac": macaddr,

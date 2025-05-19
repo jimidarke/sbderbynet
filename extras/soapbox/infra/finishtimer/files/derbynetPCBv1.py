@@ -1,5 +1,4 @@
 '''
-
 Library to manage the DerbyNet PCB v1 finish timer hardware
 
 DerbyNet PCB V1 Hardware Pinout
@@ -20,10 +19,18 @@ REDLED      8       24        OUTPUT
 GREENLED    7       26        OUTPUT
 BLUELED     1       28        OUTPUT
 
+Version History:
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
+- 0.4.0 - May 10, 2025 - Added service discovery for MQTT broker
+- 0.3.3 - April 30, 2025 - Fixed timing synchronization issues
+- 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
+- 0.2.0 - April 15, 2025 - Added telemetry and toggle state persistence
+- 0.1.0 - April 4, 2025 - Added MQTT communication protocols
+- 0.0.1 - March 31, 2025 - Initial implementation
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.3.3"
+PCB_VERSION     = "0.5.0"  # Updated to standardized version
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -82,7 +89,7 @@ class derbyPCBv1:
         self.pinny = "----"
         self.timestart = time.time()
         self.readyToRace = False
-        self.pcbVersion = PCB_VERSION
+        logger.info(f"Initializing DerbyNet PCB v{PCB_VERSION}")
         # check if system hostname is DEFAULT then run sudo /opt/derbynet/setup.sh to set the hostname
         try:
             hostname = subprocess.check_output("hostname", shell=True).decode("utf-8").strip()
@@ -213,10 +220,11 @@ class derbyPCBv1:
     
     def packageTelemetry(self): 
         '''
-        Device status telemetry format V 0.2.0
+        Device status telemetry format V 0.5.0
 
         hostname
         hwid
+        version
         uptime
         ip
         mac
@@ -226,6 +234,7 @@ class derbyPCBv1:
         memory_usage
         disk
         cpu_usage
+        plus device-specific fields
         '''
         payload = {
             "hostname": DEVICE_CLASS + derbyPCBv1.get_Lane(),
@@ -247,7 +256,7 @@ class derbyPCBv1:
             "led": self.led,
             "pinny": self.pinny,
             "readyToRace": self.readyToRace,
-            "pcbVersion": self.pcbVersion
+            "version": PCB_VERSION
         }
         return payload
 

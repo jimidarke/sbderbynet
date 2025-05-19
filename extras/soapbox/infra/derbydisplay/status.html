@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soapbox Derby System Status</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1e1e1e;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr 1fr;
+      height: 100vh;
+      gap: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    
+    .header {
+      grid-column: 1 / 3;
+      background-color: #333;
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .panel {
+      background-color: #333;
+      padding: 15px;
+      border-radius: 5px;
+      overflow: auto;
+    }
+    
+    .device-status {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    
+    .device {
+      background-color: #444;
+      padding: 10px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    
+    .online {
+      border-left: 5px solid #4CAF50;
+    }
+    
+    .offline {
+      border-left: 5px solid #f44336;
+    }
+    
+    .warning {
+      border-left: 5px solid #ff9800;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    
+    .status-online {
+      background-color: #4CAF50;
+    }
+    
+    .status-offline {
+      background-color: #f44336;
+    }
+    
+    .status-warning {
+      background-color: #ff9800;
+    }
+    
+    .log-panel {
+      font-family: monospace;
+      white-space: nowrap;
+      overflow: auto;
+      font-size: 12px;
+      background-color: #1a1a1a;
+      padding: 10px;
+      border-radius: 5px;
+      height: 100%;
+    }
+    
+    .log-entry {
+      margin: 0;
+      padding: 2px 0;
+    }
+    
+    .log-info {
+      color: #2196F3;
+    }
+    
+    .log-warning {
+      color: #ff9800;
+    }
+    
+    .log-error {
+      color: #f44336;
+    }
+    
+    .log-success {
+      color: #4CAF50;
+    }
+    
+    .metric {
+      display: inline-block;
+      margin: 0 10px;
+      font-size: 14px;
+    }
+    
+    .timer-panel {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      height: 100%;
+    }
+    
+    .timer-display {
+      background-color: #444;
+      border-radius: 5px;
+      padding: 10px;
+      text-align: center;
+      position: relative;
+    }
+    
+    .timer-number {
+      font-size: 36px;
+      font-weight: bold;
+      margin: 15px 0;
+    }
+    
+    .lane-label {
+      position: absolute;
+      top: 5px;
+      left: 10px;
+      font-size: 14px;
+      color: #aaa;
+    }
+    
+    .timer-status {
+      position: absolute;
+      top: 5px;
+      right: 10px;
+    }
+    
+    .led-indicator {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      margin: 0 5px;
+    }
+    
+    .led-red {
+      background-color: #f44336;
+      box-shadow: 0 0 10px #f44336;
+    }
+    
+    .led-yellow {
+      background-color: #ffeb3b;
+      box-shadow: 0 0 10px #ffeb3b;
+    }
+    
+    .led-green {
+      background-color: #4CAF50;
+      box-shadow: 0 0 10px #4CAF50;
+    }
+    
+    .led-off {
+      background-color: #555;
+    }
+    
+    .title {
+      margin: 0;
+      font-size: 24px;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #aaa;
+      margin: 5px 0;
+    }
+    
+    .clock {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    
+    .race-state {
+      padding: 5px 10px;
+      border-radius: 3px;
+      font-weight: bold;
+      background-color: #555;
+    }
+    
+    .state-stopped {
+      background-color: #f44336;
+    }
+    
+    .state-staging {
+      background-color: #ff9800;
+    }
+    
+    .state-racing {
+      background-color: #4CAF50;
+    }
+    
+    .refresh-badge {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      font-size: 10px;
+      color: #666;
+    }
+    
+    /* Auto-refresh animation */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .refresh-icon {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #666;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1 class="title">Soapbox Derby System Status</h1>
+        <p class="subtitle">Live monitoring dashboard</p>
+      </div>
+      <div>
+        <span class="clock" id="clock">--:--:--</span>
+        <span class="race-state state-stopped" id="raceState">STOPPED</span>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <h2>Device Status</h2>
+      <div class="device-status" id="deviceStatus">
+        <!-- Device status items will be populated by JavaScript -->
+      </div>
+    </div>
+    
+    <div class="panel">
+      <h2>System Metrics</h2>
+      <div id="systemMetrics">
+        <div class="metric">
+          <strong>MQTT:</strong> <span id="mqttStatus">Unknown</span>
+        </div>
+        <div class="metric">
+          <strong>API:</strong> <span id="apiStatus">Unknown</span>
+        </div>
+        <div class="metric">
+          <strong>Stream:</strong> <span id="streamStatus">Unknown</span>
+        </div>
+        <div class="metric">
+          <strong>Network:</strong> <span id="networkStatus">Unknown</span>
+        </div>
+      </div>
+      <div id="timeMetrics" style="margin-top: 15px;">
+        <div class="metric">
+          <strong>Uptime:</strong> <span id="uptime">Unknown</span>
+        </div>
+        <div class="metric">
+          <strong>Last Race:</strong> <span id="lastRace">Unknown</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <h2>Finish Timers</h2>
+      <div class="timer-panel" id="timerPanel">
+        <!-- Timer panels will be populated by JavaScript -->
+      </div>
+    </div>
+    
+    <div class="panel">
+      <h2>System Log</h2>
+      <div class="log-panel" id="logPanel">
+        <!-- Log entries will be populated by JavaScript -->
+      </div>
+      <div class="refresh-badge">
+        <span class="refresh-icon"></span>
+        <span>Auto-refresh active</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample data structure - in production this would come from MQTT
+    const deviceSamples = [
+      { id: 'server', name: 'Race Server', status: 'online', ip: '192.168.100.10' },
+      { id: 'ft1', name: 'Finish Timer 1', status: 'online', ip: '192.168.100.11' },
+      { id: 'ft2', name: 'Finish Timer 2', status: 'online', ip: '192.168.100.12' },
+      { id: 'ft3', name: 'Finish Timer 3', status: 'online', ip: '192.168.100.13' },
+      { id: 'st', name: 'Start Timer', status: 'warning', ip: '192.168.100.20' },
+      { id: 'display1', name: 'Display 1', status: 'online', ip: '192.168.100.30' },
+      { id: 'cam1', name: 'Camera 1', status: 'online', ip: '192.168.100.21' }
+    ];
+    
+    const timerSamples = [
+      { lane: 1, time: '3.641', status: 'ready', led: 'green' },
+      { lane: 2, time: '3.729', status: 'ready', led: 'green' },
+      { lane: 3, time: '3.702', status: 'ready', led: 'green' },
+      { lane: 4, time: '3.599', status: 'ready', led: 'green' }
+    ];
+    
+    const logSamples = [
+      { timestamp: '09:15:32', level: 'info', message: 'System started successfully' },
+      { timestamp: '09:15:45', level: 'info', message: 'Connected to MQTT broker at 192.168.100.10' },
+      { timestamp: '09:16:02', level: 'info', message: 'Race server ready' },
+      { timestamp: '09:17:10', level: 'warning', message: 'Start timer reporting weak signal strength' },
+      { timestamp: '09:18:30', level: 'info', message: 'Race #24 started' },
+      { timestamp: '09:18:34', level: 'success', message: 'Lane 4 finish detected: 3.599s' },
+      { timestamp: '09:18:35', level: 'success', message: 'Lane 3 finish detected: 3.702s' },
+      { timestamp: '09:18:35', level: 'success', message: 'Lane 1 finish detected: 3.641s' },
+      { timestamp: '09:18:35', level: 'success', message: 'Lane 2 finish detected: 3.729s' },
+      { timestamp: '09:18:40', level: 'info', message: 'Race #24 completed successfully' }
+    ];
+    
+    // Update clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toTimeString().split(' ')[0];
+    }
+    
+    // Render device status
+    function renderDevices() {
+      const deviceStatusEl = document.getElementById('deviceStatus');
+      deviceStatusEl.innerHTML = '';
+      
+      deviceSamples.forEach(device => {
+        const deviceEl = document.createElement('div');
+        deviceEl.className = `device ${device.status}`;
+        deviceEl.innerHTML = `
+          <div><span class="status-indicator status-${device.status}"></span>${device.name}</div>
+          <div style="font-size: 12px; color: #aaa;">${device.ip}</div>
+        `;
+        deviceStatusEl.appendChild(deviceEl);
+      });
+    }
+    
+    // Render timer panels
+    function renderTimers() {
+      const timerPanelEl = document.getElementById('timerPanel');
+      timerPanelEl.innerHTML = '';
+      
+      timerSamples.forEach(timer => {
+        const timerEl = document.createElement('div');
+        timerEl.className = 'timer-display';
+        timerEl.innerHTML = `
+          <div class="lane-label">Lane ${timer.lane}</div>
+          <div class="timer-status">
+            <span class="led-indicator led-${timer.led}"></span>
+          </div>
+          <div class="timer-number">${timer.time}s</div>
+          <div>${timer.status.toUpperCase()}</div>
+        `;
+        timerPanelEl.appendChild(timerEl);
+      });
+    }
+    
+    // Render log panel
+    function renderLogs() {
+      const logPanelEl = document.getElementById('logPanel');
+      logPanelEl.innerHTML = '';
+      
+      logSamples.forEach(log => {
+        const logEl = document.createElement('p');
+        logEl.className = `log-entry log-${log.level}`;
+        logEl.textContent = `${log.timestamp} [${log.level.toUpperCase()}] ${log.message}`;
+        logPanelEl.appendChild(logEl);
+      });
+      
+      // Auto-scroll to bottom
+      logPanelEl.scrollTop = logPanelEl.scrollHeight;
+    }
+    
+    // Initialize dashboard
+    function initDashboard() {
+      updateClock();
+      renderDevices();
+      renderTimers();
+      renderLogs();
+      
+      // Update system metrics
+      document.getElementById('mqttStatus').textContent = 'Connected';
+      document.getElementById('apiStatus').textContent = 'Connected';
+      document.getElementById('streamStatus').textContent = 'Active';
+      document.getElementById('networkStatus').textContent = 'Strong';
+      document.getElementById('uptime').textContent = '2h 15m';
+      document.getElementById('lastRace').textContent = '2m ago';
+      
+      // Set race state
+      const raceStateEl = document.getElementById('raceState');
+      raceStateEl.textContent = 'STOPPED';
+      raceStateEl.className = 'race-state state-stopped';
+      
+      // Set up periodic updates
+      setInterval(updateClock, 1000);
+      
+      // In a real implementation, we would subscribe to MQTT topics here
+      // and update the UI based on incoming messages
+    }
+    
+    // Connect to MQTT broker
+    function connectMQTT() {
+      // In production, this would establish a connection to the MQTT broker
+      // and set up subscriptions to the relevant topics
+      console.log('Connecting to MQTT broker...');
+      
+      // Simulate MQTT connection
+      setTimeout(() => {
+        console.log('Connected to MQTT broker');
+        // Subscribe to topics
+        // client.subscribe('derbynet/device/+/status');
+        // client.subscribe('derbynet/device/+/telemetry');
+        // client.subscribe('derbynet/race/state');
+        // client.subscribe('derbynet/lane/+/led');
+      }, 1000);
+    }
+    
+    // Handle MQTT messages
+    function handleMessage(topic, message) {
+      // In production, this would parse incoming MQTT messages
+      // and update the dashboard accordingly
+      console.log(`Received message on topic ${topic}: ${message}`);
+      
+      // Example message handling:
+      // if (topic.match(/derbynet\/device\/.*\/status/)) {
+      //   updateDeviceStatus(topic, message);
+      // } else if (topic.match(/derbynet\/race\/state/)) {
+      //   updateRaceState(message);
+      // } else if (topic.match(/derbynet\/lane\/.*\/led/)) {
+      //   updateLaneLED(topic, message);
+      // }
+    }
+    
+    // When using real MQTT, this function would update race state
+    function updateRaceState(state) {
+      const raceStateEl = document.getElementById('raceState');
+      raceStateEl.textContent = state.toUpperCase();
+      raceStateEl.className = `race-state state-${state.toLowerCase()}`;
+    }
+    
+    // Initialize the dashboard when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      initDashboard();
+      connectMQTT();
+      
+      // Simulate state changes for demonstration
+      setTimeout(() => {
+        updateRaceState('staging');
+        
+        setTimeout(() => {
+          updateRaceState('racing');
+          
+          // Add a new log entry
+          logSamples.push({ 
+            timestamp: new Date().toTimeString().split(' ')[0], 
+            level: 'info', 
+            message: 'Race started' 
+          });
+          renderLogs();
+          
+          setTimeout(() => {
+            updateRaceState('stopped');
+            
+            // Add race completion log entries
+            logSamples.push({ 
+              timestamp: new Date().toTimeString().split(' ')[0], 
+              level: 'info', 
+              message: 'Race completed' 
+            });
+            renderLogs();
+          }, 8000);
+        }, 3000);
+      }, 5000);
+    });
+  </script>
+</body>
+</html>

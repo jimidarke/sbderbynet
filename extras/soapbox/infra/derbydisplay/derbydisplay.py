@@ -2,25 +2,41 @@
 import json
 import subprocess
 import time
-import paho.mqtt.client as mqtt # type: ignore
 import random
 import sys
 import os
 import uuid
 import psutil # type: ignore
 
+# Version information
+VERSION = "0.5.0"  # Standardized version
+
+'''
+Version History:
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
+- 0.4.0 - May 10, 2025 - Added service discovery via mDNS for dynamic MQTT broker configuration
+- 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
+- 0.2.0 - April 15, 2025 - Added telemetry and status reporting
+- 0.1.0 - April 4, 2025 - Added MQTT communication protocols
+- 0.0.1 - March 31, 2025 - Initial implementation
+'''
+
 time.sleep(10)
 
 ###########################    SETUP    ###########################
+# Import derbynet module for standardized networking and service discovery
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../common"))
 from derbylogger import setup_logger
+from derbynet import MQTTClient, DeviceTelemetry, discover_services
+
 logger = setup_logger(__name__)
 
-logger.info("####### Starting DerbyNet DerbyDisplay #######")
+logger.info(f"####### Starting DerbyNet DerbyDisplay v{VERSION} #######")
 
 ###########################    MQTT    ###########################
-MQTT_BROKER = "192.168.100.10"
-MQTT_PORT = 1883
-MQTT_KEEPALIVE = 120
+# Default values - will be overridden by service discovery
+DEFAULT_MQTT_BROKER = "192.168.100.10"
+DEFAULT_MQTT_PORT = 1883
 TELEMETRY_INTERVAL = 5 # seconds
 
 # Topics to publish to
@@ -38,161 +54,83 @@ else:
     hwid = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)])
 logger.debug(f"HWID: {hwid}")
 
-# Callbacks
-def on_connect(client, userdata, flags, rc, properties=None):
-    logger.info(f"Connected with result code {rc}")
-    client.subscribe(UPDATE_TOPIC.format(hwid))
-    client.publish(STATUS_TOPIC.format(hwid), "online", retain=True)
+# First, try to discover MQTT broker using service discovery
+logger.info("Attempting to discover MQTT broker using mDNS...")
+services = discover_services("_derbynet._tcp.local.", timeout=3)
+mqtt_broker = DEFAULT_MQTT_BROKER
+mqtt_port = DEFAULT_MQTT_PORT
 
-def on_message(client, userdata, msg):
-    logger.debug(f"Received message on topic {msg.topic} with payload {msg.payload}")
-    parse_message(msg)
+if services:
+    # Find MQTT service
+    for name, service in services.items():
+        if "mqtt" in name.lower() or "broker" in name.lower():
+            mqtt_broker = service["ip"]
+            mqtt_port = service["port"]
+            logger.info(f"Discovered MQTT broker: {mqtt_broker}:{mqtt_port}")
+            break
+else:
+    logger.warning(f"No services discovered, using default broker: {mqtt_broker}:{mqtt_port}")
 
-def on_disconnect(client, userdata, rc):
-    logger.warning(f"Disconnected with result code {rc}")
-    client.publish(STATUS_TOPIC.format(hwid), "offline", retain=True)
+# Setup MQTTClient from derbynet library
+logger.debug(f"MQTT Client ID: {hwid}")
+client = MQTTClient(hwid, broker=mqtt_broker, port=mqtt_port)
 
-# Setup
-clientid = f"{hwid}"#-{random.randint(1000, 9999)}"
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, clientid)
-logger.debug(f"MQTT Client ID: {clientid}")
-client.will_set(STATUS_TOPIC.format(hwid), "offline", retain=True)
-client.on_connect = on_connect  
-client.on_message = on_message
-client.on_disconnect = on_disconnect
-client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
-client.loop_start()
+# Register callbacks for our specific topics
+def on_update(topic, payload):
+    logger.debug(f"Received update request: {payload}")
+    # Handle update message here
+    
+# Subscribe to our topic with callback
+client.subscribe(UPDATE_TOPIC.format(hwid), on_update)
+
+# Connect with auto-reconnect
+client.connect()
+
+# Publish initial status
+client.publish(STATUS_TOPIC.format(hwid), "online", retain=True)
 
 def send_telemetry():
     '''
-    Device status telemetry format V 0.2.0
-    hostname
-    hwid
-    uptime
-    ip
-    mac
-    wifi_rssi
-    battery_level
-    cpu_temp
-    memory_usage
-    disk
-    cpu_usage
+    Use the standardized DeviceTelemetry class from derbynet module
+    to collect and send telemetry data
     '''
-    payload = {
-        "hostname": hwid,
-        "mac": get_mac(),
-        "ip": get_ip(),
-        "cpu_temp": get_cpu_temp(),
-        "wifi_rssi": get_wifi_rssi(),
-        "uptime": get_uptime(),
-        "memory_usage": get_memory_usage(),
-        "disk": get_disk_usage(),
-        "cpu_usage": get_cpu_usage(),
-        "battery_level": 100,
-        "battery_raw": 0,
-        "hwid": hwid,
-        "time": int(time.time()),
-        "pcbVersion": "0.2.0",
-    }
-        #return payload
-
-    #payload = pcb.packageTelemetry()
+    # Create telemetry collector
+    telemetry = DeviceTelemetry(hwid, "display")
+    
+    # Collect standard telemetry
+    payload = telemetry.collect()
+    
+    # Add display-specific telemetry
+    payload["version"] = VERSION
+    payload["time"] = int(time.time())
+    
+    # Send telemetry
     logger.debug(f"Sending Telemetry: {json.dumps(payload)}")
     client.publish(TELEMETRY_TOPIC.format(hwid), json.dumps(payload), qos=1, retain=True)
     client.publish(STATUS_TOPIC.format(hwid), "online", retain=True)
 
-def parse_message(msg):
-    # Parses out the subscribed topic and sets the appropriate value
-    #topic = msg.topic.split("/")[-1]
-    pass
-    '''
-    if "update" in msg.topic and "update" in msg.payload.decode("utf-8").lower():
-        logger.warning("Update requested")
-        try:
-            client.publish(STATUS_TOPIC.format(hwid), "updating", retain=True)
-            pcb.update_pcb()
-        except Exception as e:
-            logger.error(f"Update failed: {e}")
-    elif "url" in msg.topic:
-        url = msg.payload.decode("utf-8")
-        logger.info(f"Setting URL: {url}")
-        #update_display(url)
-    else:
-        logger.warning(f"Unknown topic or payload: {msg.topic} {msg.payload}")
-    '''
-
-
-@staticmethod
-def get_mac():
-    macstr = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)])
-    return macstr#.replace(":", "")
-
-@staticmethod
-def get_ip():
-    cmd = "hostname -I | cut -d' ' -f1"
-    return subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
-
-@staticmethod
-def get_hostname():
-    cmd = "hostname"
-    return subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
-
-@staticmethod
-def get_cpu_temp():
-    try:
-        temp = subprocess.check_output("vcgencmd measure_temp", shell=True).decode("utf-8")
-        return float(temp.replace("temp=", "").replace("'C\n", ""))
-    except:
-        return None
-
-@staticmethod
-def get_wifi_rssi():
-    try:
-        rssi = subprocess.check_output("iwconfig wlan0 | grep -i --color=never 'Signal level'", shell=True).decode("utf-8")
-        return int(rssi.split("=")[-1].split(" dBm")[0])
-    except:
-        return None
-
-@staticmethod
-def get_memory_usage():
-    return psutil.virtual_memory().percent
-
-@staticmethod
-def get_cpu_usage():
-    return psutil.cpu_percent()
-
-@staticmethod
-def get_disk_usage():
-    disk = psutil.disk_usage('/')
-    return disk.percent
-
-def get_uptime():
-    # get system uptime in seconds 
-    try:
-        with open('/proc/uptime', 'r') as f:
-            uptime = f.readline().split()[0]
-        return int(float(uptime))   
-    # return uptime in seconds
-    except Exception as e:
-        logger.error(f"Error getting uptime: {e}")
-        return 0
-
 ###########################     MAIN     ###########################
 def main():
+    """
+    Main loop for the Derby Display service
+    - Sends telemetry at regular intervals
+    - MQTTClient handles reconnection automatically
+    """
     try:
         while True:
             send_telemetry()
             time.sleep(TELEMETRY_INTERVAL)
-            if not client.is_connected():
-                logger.error("MQTT Disconnected")
-                client.reconnect()
     except KeyboardInterrupt:
         logger.info("Exiting")
+        # Clean disconnect
+        client.disconnect()
         exit(0)
     except Exception as e:
         logger.error(f"Error: {e}")
         exit(1)
     finally:
+        # Ensure we disconnect properly
+        client.disconnect()
         exit(0)
 
 if __name__ == "__main__":

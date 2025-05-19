@@ -1,0 +1,39 @@
+# HLS Feed Configuration Template
+# Variables marked with [SECURE] will be populated from secure storage
+
+# Stream settings
+RTSP_URL="rtsp://[SECURE_USERNAME]:[SECURE_PASSWORD]@192.168.100.20:554/21"
+HLS_DIR="/opt/hlsfeed/hls"
+HLS_SEGMENT_TIME=2
+HLS_LIST_SIZE=5
+
+# DerbyNet Integration Settings
+# The stream URL must match the DerbyNet expectation: http://derbynetpi:8037/hls/stream.m3u8
+DERBYNET_HOSTNAME="derbynetpi"
+DERBYNET_PORT=8037
+HLS_STREAM_PATH="/hls/stream.m3u8"
+
+# Stream quality settings
+VIDEO_PRESET="veryfast"
+VIDEO_BITRATE="1500k"
+GOP_SIZE=25
+
+# Replay Settings (matches DerbyNet defaults)
+REPLAY_BUFFER_TIME=4000 # ms - default is 4000ms (4 seconds)
+REPLAY_PLAYBACK_RATE=50 # percent - default is 50% (half speed)
+REPLAY_NUM_SHOWINGS=2   # count - default is 2 times
+REPLAY_VIDEO_DIR="/opt/hlsfeed/videos" # Directory for saved race videos
+
+# Cleanup settings
+MAX_SEGMENT_AGE_MINUTES=30
+LOG_RETENTION_DAYS=7
+
+# Log settings
+LOG_FILE="/var/log/hlsfeed.log"
+LOG_LEVEL="INFO"
+
+# Monitoring settings
+ALERT_ENABLED=true
+MQTT_BROKER="192.168.100.10"
+MQTT_TOPIC="derbynet/alerts"
+MONITOR_INTERVAL=60
