@@ -1,12 +1,14 @@
 <?php
 
-function sql_file_path($stem) {
+function sql_file_path($stem)
+{
   global $dbtype;
-  return 'sql'.DIRECTORY_SEPARATOR.$dbtype.DIRECTORY_SEPARATOR.$stem.'.inc';
+  return 'sql' . DIRECTORY_SEPARATOR . $dbtype . DIRECTORY_SEPARATOR . $stem . '.inc';
 }
 
 // Returns two values, a bool (true for successful execution) and a list of results
-function run_sql_script($scriptname) {
+function run_sql_script($scriptname)
+{
   global $db;
   global $dbtype;
   $ok = true;
@@ -39,7 +41,7 @@ function run_sql_script($scriptname) {
         }
       }
     } else {
-      json_failure('sqlnoscript', "SQL script ".@$_POST['script']." not found.");
+      json_failure('sqlnoscript', "SQL script " . @$_POST['script'] . " not found.");
       $ok = false;
     }
   } catch (PDOException $p) {
@@ -54,7 +56,8 @@ function run_sql_script($scriptname) {
   return array($ok, $executed);
 }
 
-function save_selected_race_info_values($keys) {
+function save_selected_race_info_values($keys)
+{
   global $db;
   $saved_raceinfo = array();
   foreach ($db->query('SELECT itemkey, itemvalue FROM RaceInfo') as $row) {
@@ -65,28 +68,37 @@ function save_selected_race_info_values($keys) {
   return $saved_raceinfo;
 }
 
-function restore_saved_race_info_values(&$saved_raceinfo) {
+function restore_saved_race_info_values(&$saved_raceinfo)
+{
   foreach ($saved_raceinfo as $key => $value) {
     write_raceinfo($key, $value);
   }
 }
 
-define('RACE_INFO_KEYS_FOR_SCHEMA_SCRIPT',
-       ['photo-directory',
-        'car-photo-directory',
-        'video-directory',
-        'logs-directory',
-        'lane_count',
+define(
+  'RACE_INFO_KEYS_FOR_SCHEMA_SCRIPT',
+  [
+    'photo-directory',
+    'car-photo-directory',
+    'video-directory',
+    'logs-directory',
+    'lane_count',
 
-        '_websocket_url',
-        '_ws_trigger_port']);
+    '_websocket_url',
+    '_ws_trigger_port'
+  ]
+);
 
-define('RACE_INFO_KEYS_FOR_SNAPSHOT',
-       ['photo-directory',
-        'car-photo-directory',
-        'video-directory',
-        'logs-directory',
+define(
+  'RACE_INFO_KEYS_FOR_SNAPSHOT',
+  [
+    'photo-directory',
+    'car-photo-directory',
+    'video-directory',
+    'logs-directory',
 
-        '_websocket_url',
-        '_ws_trigger_port']);
+    '_websocket_url',
+    '_ws_trigger_port'
+  ]
+);
 ?>

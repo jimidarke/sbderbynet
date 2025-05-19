@@ -106,7 +106,20 @@ function handle_rerun(button) {
 
 // Controls for Replay
 function handle_test_replay() {
-  $.ajax(g_action_url, { type: "POST", data: { action: "replay.test" } });
+    // Check if using HLS stream
+    const devicePicker = $("#device-picker");
+    if (devicePicker.val() === 'hls-stream') {
+        const hlsUrl = devicePicker.data('hls-url');
+        if (!hlsUrl) {
+            console.error('No HLS stream URL configured');
+            return;
+        }
+    }
+    
+    $.ajax(g_action_url, { 
+        type: "POST", 
+        data: { action: "replay.test" } 
+    });
 }
 
 function trigger_replay() {
@@ -131,23 +144,23 @@ function on_manual_results_button_click(should_trigger_replay) {
     var racer = g_current_heat_racers[i];
     racer_table.append(
       "<tr><td>" +
-        racer.lane +
-        "</td>" +
-        "<td>" +
-        racer.name +
-        "</td>" +
-        "<td>" +
-        racer.carnumber +
-        "</td>" +
-        "<td><input class='lane-time' type='number' step='0.00001'" +
-        " name='lane" +
-        racer.lane +
-        "'" +
-        " value='" +
-        racer.finishtime +
-        "'/>" +
-        "</td>" +
-        "</tr>"
+      racer.lane +
+      "</td>" +
+      "<td>" +
+      racer.name +
+      "</td>" +
+      "<td>" +
+      racer.carnumber +
+      "</td>" +
+      "<td><input class='lane-time' type='number' step='0.00001'" +
+      " name='lane" +
+      racer.lane +
+      "'" +
+      " value='" +
+      racer.finishtime +
+      "'/>" +
+      "</td>" +
+      "</tr>"
     );
     if (racer.finishtime) {
       any_results = true;
@@ -238,7 +251,7 @@ function handle_schedule_submit(roundid, n_times_per_lane, then_race) {
 
       process_coordinator_poll_json(data);
 
-      
+
       // process_coordinator_poll_json(data);
       // console.log(data);
 
@@ -703,7 +716,7 @@ function populate_new_round_modals() {
   modal.append("<h3>&nbsp;</h3>");
   modal.append(
     '<input type="button" value="Cancel"' +
-      " onclick='close_modal(\"#choose_new_round_modal\");'/>"
+    " onclick='close_modal(\"#choose_new_round_modal\");'/>"
   );
 }
 
@@ -717,4 +730,51 @@ function handle_racing_mode_activation(json) {
   if (json.success) {
     console.log("Racing mode activated successfully.");
   }
+}
+
+function handleRacerDropout(racerid, roundid) {
+  if (confirm('Are you sure you want to remove this racer? This action cannot be undone.')) {
+    $.ajax('action.php', {
+      type: 'POST',
+      data: {
+        action: 'racer.dropout',
+        racerid: racerid,
+        roundid: roundid
+      },
+      success: function (data) {
+        if (data.outcome.code == 'success') {
+          // Reload current round display
+          location.reload();
+        } else {
+          alert('Failed to remove racer: ' + data.outcome.description);
+        }
+      },
+      error: function () {
+        alert('Server error while processing racer dropout');
+      }
+    });
+  }
+}
+
+
+// function to init the HLS stream
+function initVideoSource(selectq) {
+  const deviceId = selectq.find(':selected').prop('value');
+  
+  if (deviceId === 'hls-stream') {
+      const hlsUrl = selectq.data('hls-url');
+      const videoElement = document.getElementById("preview");
+      
+      // Stop any existing streams
+      if (videoElement.srcObject) {
+          videoElement.srcObject.getTracks().forEach(track => track.stop());
+      }
+      
+      // Initialize HLS stream
+      initHLSStream(videoElement, hlsUrl);
+      return true;
+  }
+  
+  // Continue with existing device handling
+  return false;
 }

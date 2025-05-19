@@ -41,8 +41,6 @@ $(function () {
   $("#lane-count").on('keyup mouseup', on_lane_count_change);
 });
 
-
-
 function reset_timer() {
   $("#timer-sim-times td").attr('data-running', 1).text('0.000');
   $('#start-button').prop('disabled', true);
@@ -97,6 +95,7 @@ function start_timer() {
       var t = (new Date()).getTime() - start;
       if (false && t > 5000) {
         end_race();
+        disableSimulationMode();
       }
       t = (t / 1000).toFixed(3);
       tr.find('td').each(function (i, td) {
@@ -146,6 +145,7 @@ function process_timer_messages(data) {
     g_heat_ready_timer_id = 0;
     clearTimeout(g_prepared_heat);
     g_prepared_heat = 0;
+    disableSimulationMode();
   }
 
   var heat = data.find('heat-ready');
@@ -283,30 +283,34 @@ function send_identified() {
 
 function send_heartbeat() {
   var data = {
-      action: 'timer-message',
-      message: 'HEARTBEAT',
-      confirmed: 1
+    action: 'timer-message',
+    message: 'HEARTBEAT',
+    confirmed: 1,
+    // Add starter info
+    starter: true,
+    starter_id: 'STARTER_001',
+    starter_ready: 1
   };
 
   $("#timer-sim-times td").each(function (i, td) {
-      let laneNumber = i + 1;
-      let timerId = `TIMER_${laneNumber.toString().padStart(5, '0')}`; // Ensure unique timerID
-      let isReady = $(td).attr('data-running') == 1;
+    let laneNumber = i + 1;
+    let timerId = `TIMER_${laneNumber.toString().padStart(5, '0')}`; // Ensure unique timerID
+    let isReady = $(td).attr('data-running') == 1;
 
-      data[`lane${laneNumber}`] = laneNumber;
-      data[`timerId${laneNumber}`] = timerId;
-      data[`ready${laneNumber}`] = isReady ? 1 : 0;
+    data[`lane${laneNumber}`] = laneNumber;
+    data[`timerId${laneNumber}`] = timerId;
+    data[`ready${laneNumber}`] = isReady ? 1 : 0;
   });
 
   // console.log("Sending HEARTBEAT data:", data); // Debugging
 
   $.ajax('action.php', {
-      type: 'POST',
-      data: data,
-      success: function (response) {
-          // console.log("HEARTBEAT response:", response);
-          process_timer_messages(data);
-      }
+    type: 'POST',
+    data: data,
+    success: function (response) {
+      // console.log("HEARTBEAT response:", response);
+      process_timer_messages(data);
+    }
   });
 }
 
@@ -346,27 +350,27 @@ function send_started() {
 // As of 28-03-2025
 function send_finished() {
   var data = {
-      action: 'timer-message',
-      message: 'FINISHED'
+    action: 'timer-message',
+    message: 'FINISHED'
   };
 
   $("#timer-sim-times td").each(function (i, td) {
-      let laneNumber = i + 1;
-      let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`;
+    let laneNumber = i + 1;
+    let timerId = `TIMER_${laneNumber.toString().padStart(9, '0')}`;
 
-      data[`lane${laneNumber}`] = $(td).text();
-      data[`timerId${laneNumber}`] = timerId;
+    data[`lane${laneNumber}`] = $(td).text();
+    data[`timerId${laneNumber}`] = timerId;
   });
 
   console.log(data); // Debugging output
 
   $.ajax('action.php', {
-      type: 'POST',
-      data: data,
-      success: function (response) {
-          show_not_racing();  
-          process_timer_messages(response);
-      }
+    type: 'POST',
+    data: data,
+    success: function (response) {
+      show_not_racing();
+      process_timer_messages(response);
+    }
   });
 }
 
@@ -384,7 +388,40 @@ function on_auto_mode_change() {
   }
 }
 
-$(function () {
-  $('#auto-mode-checkbox').on('change', on_auto_mode_change);
-});
+// $(function () {
+//   $('#auto-mode-checkbox').on('change', on_auto_mode_change);
+// });
 
+
+// Initialize simulation state
+function initializeSimulation() {
+    // Set auto mode
+    g_auto_mode = true;
+    $('#auto-mode-checkbox').prop('checked', true).trigger('change', on_auto_mode_change);
+    // Send initial messages
+    send_hello();
+    send_identified();
+    
+    // Start heartbeat
+    setInterval(send_heartbeat, 1000);
+    
+    // Update summary display
+    // $('#summary').text('Auto Mode: Running');
+}
+
+
+$(function() {
+  // Reset timer on load
+  reset_timer();
+  
+  // Auto initialize if opened from coordinator
+  // if (window.opener && window.opener.fakeTimerWindow === window) {
+  //     initializeSimulation();
+  // }
+  
+  // Handle auto mode checkbox changes
+  $('#auto-mode-checkbox').on('change', function() {
+      g_auto_mode = $(this).is(':checked');
+      on_auto_mode_change();
+  });
+});

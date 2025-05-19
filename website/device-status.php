@@ -21,11 +21,11 @@ $devices = $db->query('SELECT * FROM DeviceStatus ORDER BY last_updated DESC')->
         <table class="device-status-table">
             <thead>
                 <tr>
-                    <th>Device Name</th>
+                    <th data-sort="string" class="sort-header">Device Name</th>
                     <th>Serial</th>
                     <th>Uptime</th>
                     <th>IP Address</th>
-                    <th>MAC Address</th>
+                    <!-- <th>MAC Address</th> -->
                     <th>Wi-Fi Signal</th>
                     <th>Battery</th>
                     <th>Temperature</th>

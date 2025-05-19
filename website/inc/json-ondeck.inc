@@ -5,12 +5,14 @@ require_once('inc/name-mangler.inc');
 require_once('inc/ordinals.inc');
 require_once('inc/photo-config.inc');
 require_once('inc/schema_version.inc');
+// require_once('error-logging.inc');
 
 // TODO Not racing yet (no current heat)?
 //
 function json_ondeck(&$now_running) {
   global $db;
 
+  // error_log("json_ondeck() called". print_r($now_running, true));
   $use_master_sched = $now_running['use_master_sched'];
   $use_points = $now_running['use_points'];
   $name_style = read_name_style();

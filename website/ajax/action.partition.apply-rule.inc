@@ -17,18 +17,21 @@ if (!have_permission(CONTROL_RACE_PERMISSION)) {
            > 0) {
   json_failure('results-exist', 'Racing results already exist.');
 } else {
-  record_event(EVENT_GROUP_FORMATION_RULE_APPLIED,
-               array('other' => group_formation_rule().' -> '.$_POST['rule']));
+  $current_rule = group_formation_rule();
+  $new_rule = $_POST['rule'];
+  
+  // Only apply if rule actually changes
+  if ($current_rule !== $new_rule) {
+      record_event(EVENT_GROUP_FORMATION_RULE_APPLIED,
+                  array('other' => $current_rule.' -> '.$new_rule));
 
-  write_group_formation_rule($_POST['rule']);
+      write_group_formation_rule($new_rule);
+      write_raceinfo('use-subgroups', ($new_rule == 'by-partition') ? '0' : '1');
 
-  form_groups_by_rule($_POST['rule']);
-
-  clean_up_empty_classes_and_ranks();
-
-  record_action_partition_structure();
-
-  write_raceinfo('use-subgroups', ($_POST['rule'] == 'by-partition') ? 0 : 1);
+      form_groups_by_rule($new_rule);
+      clean_up_empty_classes_and_ranks();
+      record_action_partition_structure();
+  }
 
   json_success();
 }

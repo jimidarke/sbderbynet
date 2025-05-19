@@ -1,4 +1,3 @@
-
 // This function receives messages from the surrounding replay kiosk, if there
 // is one.
 function on_message(msg) {
@@ -290,12 +289,13 @@ $(function() {
         Math.floor(($(window).height() - photo_cells.position().top) / photo_cells.length) - border;
     }
 
-    return {query: 'poll',
-            values: 'current-heat,heat-results,precision,racers,' +
-            'timer-trouble,current-reschedule',
-            roundid: roundid,
-            heat: heat,
-            'row-height': g_row_height };
+    return {
+      query: 'poll',
+      values: 'current-heat,heat-results,precision,racers,timer-state,timer-trouble,current-reschedule',
+      roundid: roundid,
+      heat: heat,
+      'row-height': g_row_height 
+    };
   };
 });
 
@@ -339,7 +339,11 @@ function process_polling_result(data) {
       Lineup.process_new_lineup(data, g_row_height);
     }
 
-    updateRaceStatusDisplay(data); 
+    // Pass both current-heat and timer-state
+    updateRaceStatusDisplay({
+      "current-heat": data["current-heat"],
+      "timer-state": data["timer-state"]
+    }); 
 
   } else {
     Lineup.process_new_lineup(data, g_row_height);
@@ -378,11 +382,19 @@ $(function () {
 // UPDATE: 09-04-2025 | Changing Background color When Race starts.
 function updateRaceStatusDisplay(data) {
   var container = $("#race-status-container");
-  console.log(container, data);
-
-  if (data["current-heat"] && data["current-heat"].now_racing) {
-    container.addClass("race-started");
-  } else {
-    container.removeClass("race-started");
+  
+  if (data["current-heat"]) {
+    // Remove all status classes first
+    // container.removeClass("race-started race-staging");
+    
+    if (data["timer-state"] && data["timer-state"].message.startsWith("Race")) {
+      // Add racing class when race is in progress
+      container.removeClass("race-staging");
+      container.addClass("race-started");
+    } else if (data["timer-state"] && data["timer-state"].message.startsWith("Staging")) {
+      // Add staging class when in staging state
+      container.removeClass("race-started");
+      container.addClass("race-staging");
+    }
   }
 }

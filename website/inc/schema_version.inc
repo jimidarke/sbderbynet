@@ -5,7 +5,7 @@ function schema_version() {
 }
 
 function expected_schema_version() {
-    return 15;
+    return 12;
 }
 
 define('RANK_AGGREGATE_SCHEMA', 5);  // Classes.rankids for aggregates formed from ranks

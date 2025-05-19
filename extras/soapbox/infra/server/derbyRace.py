@@ -19,7 +19,7 @@ import threading
 import queue
 from derbyapi import DerbyNetClient
 from derbylogger import setup_logger
-import psutil # type: ignore
+import psutil # type: ignore 
 
 logger = setup_logger("derbyRace")
 
@@ -28,8 +28,9 @@ MQTT_BROKER             = "localhost"
 MQTT_PORT               = 1883
 
 # Race timing and reliability settings
-LANE_FINISH_TIMEOUT     = 10    # seconds to wait for all lanes to finish before auto-completion
-HEARTBEAT_TIMEOUT       = 30    # seconds to consider a timer offline if no heartbeat received
+LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion
+HEARTBEAT_TIMEOUT       = 6     # seconds to consider a timer offline if no heartbeat received
+HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
 MQTT_QOS_CRITICAL       = 2     # QoS level for critical race messages
 MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
 
@@ -50,7 +51,7 @@ class derbyRace:
         self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
         self.client.loop_start()
         logger.info(f"Connected to MQTT Broker at {MQTT_BROKER}:{MQTT_PORT}")
-        self.api = DerbyNetClient("localhost")
+        self.api = DerbyNetClient("localhost") 
         self.start_time = 0
         self.lane_times = {}
         self.lanesFinished = 0
@@ -61,8 +62,9 @@ class derbyRace:
         self.led = "red"
         self.lanePinny = {}
         self.race_state = "STOPPED" # STOPPED, RACING, STAGING
-        self.timer_heartbeat = {} 
+        self.timer_heartbeats = {} # stores the last heartbeat and isready status for each lane
         self.firstupdated = False
+        self.last_heartbeat = 0 # updates to unix time when the last heartbeat was sent
         self.updateFromDerbyAPI()
         
     def on_log(self, client, userdata, level, buf): # callback for mqtt logging
@@ -121,26 +123,23 @@ class derbyRace:
                 toggle = payload_data.get("toggle", None)
                 timestamp = payload_data.get("timestamp", time.time())
                 
-                if toggle is not None and hasattr(self, 'lane_finish_queue'):
+                if not toggle:# and hasattr(self, 'lane_finish_queue'):
                     # Queue the finish event for processing
-                    self.lane_finish_queue.put((lane, timestamp, payload_data))
-                    logger.info(f"Queued lane {lane} finish event with timestamp {timestamp}")
-                else:
+                    #self.lane_finish_queue.put((lane, timestamp, payload_data))
+                    #logger.info(f"Queued lane {lane} finish event with timestamp {timestamp}")
+                #else:
                     # Fallback to direct processing if queue doesn't exist
                     self.laneFinish(lane)
             
             ########### Trigger for DEVICE TELEMETRY ###########
             if "telemetry" in topic: 
-                # Extract device state from telemetry
-                if lane > 0 and hasattr(self, 'update_timer_state'):
-                    self.update_timer_state(lane, payload_data)
-                
                 # Send to API
                 self.api.send_device_status(payload_data)
                 
                 # Update heartbeat timestamp
+                isReady = payload_data.get("readyToRace", False)
                 if lane > 0:
-                    self.timerHeartbeat(lane)
+                    self.timerHeartbeat(lane,isReady)
         
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error for message on {topic}: {e}")
@@ -279,32 +278,59 @@ class derbyRace:
             self.stopRace(timer)
             return True
             
-        # Start timeout for remaining lanes if this is the first finish and we have the method
-        if self.lanesFinished == 1 and hasattr(self, 'start_lane_finish_timeout'):
-            self.start_lane_finish_timeout()
             
         return False
     
-    def timerHeartbeat(self, lane):
+    def timerHeartbeat(self, lane, isReady = False): # is called from the telemetry message
         """Update timer heartbeat timestamp and check status"""
         current_time = time.time()
-        prev_heartbeat = self.timer_heartbeat.get(lane, 0)
-        self.timer_heartbeat[lane] = current_time
+        prev_heartbeat = self.timer_heartbeats.get(lane, {})
+        
+        self.timer_heartbeats[lane] = {'time': current_time, 'isReady': isReady}
+        logger.debug(f"Timer {lane} heartbeat at {current_time}, isReady: {isReady}")
         
         # If this is the first heartbeat or reconnection after timeout
-        if prev_heartbeat == 0 or (current_time - prev_heartbeat) > HEARTBEAT_TIMEOUT:
+        lastheartbeat = prev_heartbeat.get('time', 0)
+        if lastheartbeat == 0 or (current_time - lastheartbeat) > HEARTBEAT_TIMEOUT:
             logger.info(f"Timer for lane {lane} is online")
-            
+
+        if prev_heartbeat.get('isReady', None) != isReady:
+            logger.info(f"Timer for lane {lane} is now ready: {isReady}")
+
+        # Check if all active timers have checked in recently and remove any that are offline from self.timer_heartbeats
+        active_timers = [l for l in self.timer_heartbeats if self.timer_heartbeats[l]['time'] > current_time - HEARTBEAT_TIMEOUT]
+        for lane_num in list(self.timer_heartbeats.keys()):
+            if lane_num not in active_timers:
+                logger.info(f"Timer for lane {lane_num} is offline")
+                del self.timer_heartbeats[lane_num]
+
+        # checks self.last_heartbeat to see if we need to send a heartbeat 
+        if self.last_heartbeat == 0 or (current_time - self.last_heartbeat) > HEARTBEAT_PULSE:
+            self.last_heartbeat = current_time
+            logger.debug(f"Sending heartbeat to API {self.timer_heartbeats}")
+            # sends self.timer_heartbeats to the api for a full status update
+            self.api.send_timer_heartbeat(self.timer_heartbeats)
+        # sample timer_heartbeats = {2: {'time': 1747607679.600188, 'isReady': True}, 1: {'time': 1747607678.8986795, 'isReady': False}, 3: {'time': 1747607681.1048107, 'isReady': True}}
+        
+        '''
         # Check if all active timers have checked in recently
         active_timers = [l for l in self.timer_heartbeat if l <= self.lane_count]
         if all(current_time - self.timer_heartbeat[l] < HEARTBEAT_TIMEOUT for l in active_timers):
-            # All timers are online, send heartbeat to API
-            self.api.send_timer_heartbeat()
-            logger.debug("Sent Timer Heartbeat to API")
+            # Build a dynamic active_lanes dictionary for the heartbeat
+            active_lanes = {}
+            for lane_num in active_timers:
+                # Use lane number as both key and value, with 'L' prefix for timer ID
+                # This can be customized if you have specific timer IDs to use
+                active_lanes[lane_num] = f"L{lane_num}"
+            
+            # All timers are online, send heartbeat to API with active lanes
+            self.api.send_timer_heartbeat(active_lanes)
+            logger.debug(f"Sent Timer Heartbeat to API with lanes: {active_lanes}")
             
         # Check for any timers that might be offline
         if hasattr(self, 'check_timer_status'):
             self.check_timer_status()
+        '''
 
     def close(self,graceful = False):
         # Send offline status

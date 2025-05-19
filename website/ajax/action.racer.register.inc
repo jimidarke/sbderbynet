@@ -1,7 +1,7 @@
 <?php
 require_once('inc/events.inc');
 require_once('inc/schema_version.inc');
-require_once('inc/error-logging.inc');
+// require_once('inc/error-logging.inc');
 
 $value = isset($_POST['value']) ? $_POST['value'] : 1;
 $racerid = @$_POST['racer'];

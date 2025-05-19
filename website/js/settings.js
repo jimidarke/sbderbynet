@@ -141,7 +141,7 @@ document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll("input[name='weight-units']").forEach(radio => {
     radio.addEventListener("change", onWeightUnitChange);
   });
-  // applySavedWeightUnit();
+  applySavedWeightUnit();
 });
 
 

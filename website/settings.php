@@ -431,8 +431,40 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                     </div>
                 </div>
             </div>
+            <div class="settings_group">
+                <div class="settings_group_image">
+                    <img src="img/replay.png" style="width: 100%;" />
+                </div>
+                <div class="settings_group_settings">
+                    <h3>Video Replay Settings</h3>
+                    <div class="form-group">
+                        <label for="hls-stream-url">HLS Stream URL:</label>
+                        <input type="text" 
+                            id="hls-stream-url" 
+                            name="hls-stream-url" 
+                            class="form-control"
+                            value="<?php echo htmlspecialchars(read_raceinfo('hls-stream-url', '')); ?>"
+                            placeholder="http://derbynetpi:8081/stream/stream.m3u8">
+                        <small class="form-text text-muted">Enter the HLS video feed URL (e.g., http://derbynetpi:8081/stream/stream.m3u8)</small>
+                    </div>
+                </div>
+            </div>
         </form>
     </div>
     <?php require('inc/chooser.inc'); ?>
 </body>
 </html>
+<!-- 
+<script>
+$(function() {
+    $('#show-simulate-results').change(function() {
+        $.ajax('action.php', {
+            type: 'POST',
+            data: {
+                action: 'settings.write',
+                show-simulate-results: $(this).prop('checked') ? 1 : 0
+            }
+        });
+    });
+});
+</script> -->

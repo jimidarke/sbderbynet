@@ -63,7 +63,7 @@ require_permission(CHECK_IN_RACERS_PERMISSION);
 		<?php echo plural(group_label()); ?>
 		<br />
 		of approximately
-		<input id="racers_per_group" type="number" min="2" max="50" class="not-mobile" value="5" />
+		<input id="racers_per_group" type="number" min="2" max="100" class="not-mobile" value="5" />
 		fake racers each.
 		<br />
 		<p>

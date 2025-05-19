@@ -24,14 +24,14 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
       'partition-sortorder',
       read_single_value(
         'SELECT sortorder FROM Partitions'
-          . ' WHERE partitionid = :partitionid',
+        . ' WHERE partitionid = :partitionid',
         array(':partitionid' => $partition_id)
       )
     );
     $row = read_single_row(
       'SELECT classid, rankid FROM Ranks'
-        . ' WHERE rankid = (SELECT rankid FROM Partitions'
-        . '                 WHERE partitionid = :partitionid)',
+      . ' WHERE rankid = (SELECT rankid FROM Partitions'
+      . '                 WHERE partitionid = :partitionid)',
       array(':partitionid' => $partition_id),
       PDO::FETCH_ASSOC
     );
@@ -74,15 +74,17 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
   if ($ok && isset($_POST['carno'])) {
     $assignments .= ', carnumber = :carnumber';
     $values[':carnumber'] = trim($_POST['carno']);
-    if (read_single_value(
-      'SELECT COUNT(*) FROM RegistrationInfo'
+    if (
+      read_single_value(
+        'SELECT COUNT(*) FROM RegistrationInfo'
         . ' WHERE carnumber = :carnumber'
         . ' AND racerid <> :racerid',
-      array(
-        ':carnumber' => $values[':carnumber'],
-        ':racerid' => $racerid
-      )
-    ) > 0) {
+        array(
+          ':carnumber' => $values[':carnumber'],
+          ':racerid' => $racerid
+        )
+      ) > 0
+    ) {
       json_out('warning', array("Duplicate pinny $values[carnumber]"));
     }
   }
@@ -112,14 +114,14 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
 
     // First insertion (A → B)
     $ok = take_action_silently(
-      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
        VALUES (:racer_a, :racer_b, "include")',
       [':racer_a' => $racerid, ':racer_b' => $grouped_with]
     );
 
     // Reciprocal insertion (B → A)
     $ok &= take_action_silently(
-      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
        VALUES (:racer_b, :racer_a, "include")',
       [':racer_a' => $racerid, ':racer_b' => $grouped_with]
     );
@@ -131,14 +133,14 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
 
     // First insertion (A → B)
     $ok = take_action_silently(
-      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
     VALUES (:racer_a, :racer_b, "exclude")',
       [':racer_a' => $racerid, ':racer_b' => $avoid_with]
     );
 
     // Reciprocal insertion (B → A)
     $ok &= take_action_silently(
-      'INSERT OR REPLACE INTO mutual_preferences (racerid, related_racerid, preference_type)
+      'INSERT INTO mutual_preferences (racerid, related_racerid, preference_type)
     VALUES (:racer_b, :racer_a, "exclude")',
       [':racer_a' => $racerid, ':racer_b' => $avoid_with]
     );
@@ -169,10 +171,10 @@ if (have_permission(EDIT_RACER_PERMISSION)) {
 
     $ok = take_action_silently(
       'UPDATE Roster'
-        . ' SET roundid = :new_roundid,'
-        . '     classid = :classid'
-        . ' WHERE racerid = :racerid'
-        . ' AND roundid = :old_roundid',
+      . ' SET roundid = :new_roundid,'
+      . '     classid = :classid'
+      . ' WHERE racerid = :racerid'
+      . ' AND roundid = :old_roundid',
       array(
         ':new_roundid' => $new_roundid,
         ':classid' => $values[':classid'],

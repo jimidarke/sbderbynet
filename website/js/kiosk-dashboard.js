@@ -610,13 +610,35 @@ function reload_kiosk(btn) {
 
 
 // UPDATE: 09-04-2025
-function updateRaceStatusDisplay(data) {
-  var container = $("#race-status-container");
-console.log(container);
+// function updateRaceStatusDisplay(data) {
+//   var container = $("#race-status-container");
+// console.log(container);
 
-  if (data.race_started) {
-    container.addClass("race-started");
-  } else {
-    container.removeClass("race-started");
+//   if (data.race_started) {
+//     container.addClass("race-started");
+//   } else {
+//     container.removeClass("race-started");
+//   }
+// }
+
+
+function updateRaceStatusDisplay(data) {
+  console.log(data);
+  
+  var container = $("#race-status-container");
+  
+  if (data["current-heat"]) {
+    // Remove all status classes first
+    // container.removeClass("race-started race-staging");
+    
+    if (data["timer-state"] && data["timer-state"].message.startsWith("Race")) {
+      // Add racing class when race is in progress
+      container.removeClass("race-staging");
+      container.addClass("race-started");
+    } else if (data["timer-state"] && data["timer-state"].message.startsWith("Staging")) {
+      // Add staging class when in staging state
+      container.removeClass("race-started");
+      container.addClass("race-staging");
+    }
   }
 }

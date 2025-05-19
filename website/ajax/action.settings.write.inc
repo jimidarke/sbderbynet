@@ -23,7 +23,7 @@ if (have_permission(SET_UP_PERMISSION)) {
   $written = array();
 
   if (locked_settings()) {
-    foreach(array('photo-dir', 'car-photo-dir', 'video-dir') as $post_key) {
+    foreach (array('photo-dir', 'car-photo-dir', 'video-dir') as $post_key) {
       if (isset($_POST[$post_key])) {
         json_failure('locked', "Directory settings are locked and cannot be changed.");
         $ok = false;
@@ -31,12 +31,16 @@ if (have_permission(SET_UP_PERMISSION)) {
     }
   }
 
-  if ((isset($_POST['n-lanes']) &&
-       $_POST['n-lanes'] != read_raceinfo('lane_count')) ||
-      (isset($_POST['unused-lane-mask']) &&
-       $_POST['unused-lane-mask'] != read_raceinfo('unused-lane-mask'))) {
-    if (read_single_value('SELECT COUNT(*) FROM RaceChart'
-                          .' WHERE COALESCE(completed, \'\') = \'\'') > 0) {
+  if (
+    (isset($_POST['n-lanes']) &&
+      $_POST['n-lanes'] != read_raceinfo('lane_count')) ||
+    (isset($_POST['unused-lane-mask']) &&
+      $_POST['unused-lane-mask'] != read_raceinfo('unused-lane-mask'))
+  ) {
+    if (
+      read_single_value('SELECT COUNT(*) FROM RaceChart'
+        . ' WHERE COALESCE(completed, \'\') = \'\'') > 0
+    ) {
       json_failure('already-scheduled', "Remove unraced schedules before changing lane counts.");
       $ok = false;
     }
@@ -92,14 +96,18 @@ if (have_permission(SET_UP_PERMISSION)) {
     'avoid-consecutive' => array('setting' => 'avoid-consecutive'),
     'avoid-same-lane' => array('setting' => 'avoid-same-lane'),
     'group-weighted-cars' => array('setting' => 'group-weighted-cars'),
-    
+
+    // 'show-simulate-results' => array('setting' => 'show-simulate-results', 'type' => 'checkbox'),
+
+    // HLS Stream Settings
+    'hls-stream-url' => array('setting' => 'hls-stream-url'),
 
   );
 
   if ($ok) {
     foreach ($all_settings as $post_key_base => $setting) {
-      if (@$setting['type'] == 'checkbox') {
-        $post_key = $post_key_base.'-checkbox';
+      if (isset($setting['type']) && $setting['type'] === 'checkbox') {
+        $post_key = $post_key_base . '-checkbox';
       } else {
         $post_key = $post_key_base;
       }
@@ -124,21 +132,23 @@ if (have_permission(SET_UP_PERMISSION)) {
           }
         }
         // Validate heat ordering values
-        if (in_array($post_key, ['heat-counts', 'avoid-consecutive','group-weighted-cars', 'avoid-same-lane'])) {
-            $validValues = ['0', '50', '300', '1000'];
-            if (!in_array($itemvalue, $validValues)) {
-                json_failure('invalid-value', "Invalid value for $post_key.");
-                $ok = false;
-                continue;
-            }
+        if (in_array($post_key, ['heat-counts', 'avoid-consecutive', 'group-weighted-cars', 'avoid-same-lane'])) {
+          $validValues = ['0', '50', '300', '1000'];
+          if (!in_array($itemvalue, $validValues)) {
+            json_failure('invalid-value', "Invalid value for $post_key.");
+            $ok = false;
+            continue;
+          }
         }
         write_raceinfo($itemkey, $itemvalue);
         // Check that the value didn't get truncated or something
         if (read_raceinfo($itemkey) != $itemvalue) {
-          json_failure('not-written',
-                       "Value for $itemkey could not be written."
-                       .(schema_version() != expected_schema_version()
-                         ? "<b>Upgrading the database schema may help.</b>" : ""));
+          json_failure(
+            'not-written',
+            "Value for $itemkey could not be written."
+            . (schema_version() != expected_schema_version()
+              ? "<b>Upgrading the database schema may help.</b>" : "")
+          );
           $ok = false;
         }
       }
@@ -151,7 +161,7 @@ if (have_permission(SET_UP_PERMISSION)) {
     if ($num_picked == count($_POST)) {
       json_success();
     } else {
-      json_failure('unrecognized', (count($_POST) - $num_picked)." unrecognized setting(s)");
+      json_failure('unrecognized', (count($_POST) - $num_picked) . " unrecognized setting(s)");
     }
   }
 } else {
