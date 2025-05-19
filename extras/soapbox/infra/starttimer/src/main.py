@@ -17,12 +17,13 @@ import urequests
 import usocket
 
 
-VERSION = '0.3.0'  # Version of the firmware.  
+VERSION = '0.4.0'  # Version of the firmware.  
 # V0.0.1 - March 31 2025    - Initial version with basic functionality including sending state and telemetry to mqtt
 # V0.1.0 - April 4 2025     - Added OTA updates
 # V0.2.0 - April 15 2025    - Added watchdog timer and updated telemetry data 
 # V0.2.2 - April 15 2025    - Fixed telemetry and OTA
 # V0.3.0 - April 22 2025    - Added remote syslogging and improved error handling
+# V0.4.0 - May 19 2025      - Added service discovery via mDNS for dynamic MQTT broker configuration
 HWID = "START"
 
 # Wi-Fi Configuration
@@ -30,13 +31,53 @@ SSID = 'DerbyNet'
 PASSWORD = 'all4theKids'
 
 # MQTT Configuration
-MQTT_BROKER = '192.168.100.10'  # Replace with your MQTT broker IP
+DEFAULT_MQTT_BROKER = '192.168.100.10'  # Default MQTT broker IP if service discovery fails
+MQTT_BROKER = DEFAULT_MQTT_BROKER  # Will be updated via mDNS if available
+MQTT_PORT = 1883  # Default MQTT port
 MQTT_TOPIC = 'derbynet/device/starttimer' #/status /telemetry /state
 CLIENT_ID = HWID # + str(random.randint(1000, 9999))  # Unique client ID
 
 # NTP Configuration
-NTP_SERVER = '192.168.100.10'  # Replace with your local NTP server IP
+NTP_SERVER = DEFAULT_MQTT_BROKER  # Same as MQTT broker by default
 UNIX_EPOCH_OFFSET = 946684800  # Seconds between 1970-01-01 and 2000-01-01
+
+# Import mDNS library if available
+try:
+    import mdns
+    MDNS_AVAILABLE = True
+    print("mDNS discovery enabled")
+except ImportError:
+    MDNS_AVAILABLE = False
+    print("mDNS library not available, using default broker settings")
+
+# mDNS Service Discovery function
+def discover_mqtt_service():
+    global MQTT_BROKER, MQTT_PORT
+    if not MDNS_AVAILABLE:
+        return False
+    
+    try:
+        print("Starting mDNS service discovery...")
+        # Initialize mDNS
+        server = mdns.Server()
+        # Search for MQTT services
+        services = server.query("_derbynet._tcp.local.")
+        if services:
+            # Get the first service
+            service = services[0]
+            MQTT_BROKER = service.ip()
+            MQTT_PORT = service.port()
+            print(f"Discovered MQTT broker at {MQTT_BROKER}:{MQTT_PORT}")
+            # Also update the NTP server to use the same host
+            global NTP_SERVER
+            NTP_SERVER = MQTT_BROKER
+            return True
+        else:
+            print("No MQTT services found via mDNS, using default settings")
+            return False
+    except Exception as e:
+        print(f"Error during mDNS discovery: {e}")
+        return False
 
 # GPIO Configuration
 START_PIN = 33 # GPIO pin for start signal
@@ -147,6 +188,13 @@ def connect_wifi():
             attempt += 1
     print('Connected to Wi-Fi:', wlan.ifconfig())
     #sendLog('Connected to Wi-Fi', "DEBUG")
+    
+    # Now that we're connected, try to discover MQTT broker via mDNS
+    if discover_mqtt_service():
+        sendLog(f"Using discovered MQTT broker at {MQTT_BROKER}:{MQTT_PORT}")
+    else:
+        sendLog("Using default MQTT broker settings", "DEBUG")
+    
     wdt.feed()
 
 # Connect to MQTT Broker
@@ -155,20 +203,23 @@ def connect_mqtt():
     attempt = 0
     while True:
         try:
-            print('Connecting to MQTT Broker...')
-            client = MQTTClient(CLIENT_ID, MQTT_BROKER, keepalive=10)
+            print(f'Connecting to MQTT Broker at {MQTT_BROKER}:{MQTT_PORT}...')
+            client = MQTTClient(CLIENT_ID, MQTT_BROKER, port=MQTT_PORT, keepalive=10)
             #set callbacks or will messages
             client.set_callback(mqtt_callback)
             client.set_last_will(MQTT_TOPIC + "/status", 'offline', retain=True) 
             client.connect()
             client.subscribe(MQTT_TOPIC + '/update')
             client.publish(MQTT_TOPIC + "/status", 'online', retain=True)
-            sendLog('MQTT connected')
+            sendLog(f'MQTT connected to {MQTT_BROKER}:{MQTT_PORT}')
             wdt.feed()
             return
         except Exception as e:
             print('Failed to connect to MQTT:', e)
             sendLog('MQTT connection failed, retrying...' + str(e), "ERROR")
+            # If we can't connect, try to rediscover the service
+            if attempt % 3 == 0:  # Every 3 attempts
+                discover_mqtt_service()
             time.sleep(exponential_backoff(attempt))
             attempt += 1
 

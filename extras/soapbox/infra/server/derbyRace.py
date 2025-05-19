@@ -17,15 +17,44 @@ import random
 import json
 import threading
 import queue
+import sys
 from derbyapi import DerbyNetClient
 from derbylogger import setup_logger
 import psutil # type: ignore 
 
+# Add common library path to allow importing derbynet module
+sys.path.append('/var/lib/infra/common')
+
 logger = setup_logger("derbyRace")
 
-# MQTT setup
+try:
+    from derbynet import discover_services
+    ZEROCONF_AVAILABLE = True
+except ImportError:
+    ZEROCONF_AVAILABLE = False
+    logger.warning("Zeroconf module not available, service discovery disabled")
+
+# MQTT setup - Default values that will be used if service discovery fails
 MQTT_BROKER             = "localhost"
 MQTT_PORT               = 1883
+
+# Attempt to discover MQTT broker via mDNS
+if ZEROCONF_AVAILABLE:
+    try:
+        logger.info("Attempting to discover MQTT broker via mDNS...")
+        discovered_services = discover_services("_derbynet._tcp.local.")
+        if discovered_services:
+            # Get the first discovered service
+            service_name = list(discovered_services.keys())[0]
+            service_info = discovered_services[service_name]
+            logger.info(f"Discovered MQTT broker: {service_info['name']} at {service_info['ip']}:{service_info['port']}")
+            MQTT_BROKER = service_info['ip']
+            MQTT_PORT = service_info['port']
+        else:
+            logger.warning("No derbynet services discovered, using default MQTT broker")
+    except Exception as e:
+        logger.error(f"Error during service discovery: {e}")
+        logger.warning("Using default MQTT broker settings")
 
 # Race timing and reliability settings
 LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion

@@ -36,6 +36,14 @@ import paho.mqtt.client as mqtt
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, parent_dir)
 
+# Import network metrics module
+try:
+    from infra.common.network_metrics import NetworkMetrics, MQTTMetrics
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+    print("Network metrics module not available, performance tracking will be limited")
+
 try:
     from infra.common.derbylogger import setup_logger, get_logger
 except ImportError:
@@ -69,6 +77,13 @@ connected_devices = []
 device_messages = {}
 test_results = {}
 mqtt_client = None
+network_metrics = None
+mqtt_metrics = None
+
+# Initialize metrics if available
+if METRICS_AVAILABLE:
+    network_metrics = NetworkMetrics(db_path=os.path.join(os.path.dirname(__file__), 'network_metrics.db'))
+    mqtt_metrics = None  # Will be initialized with the MQTT client
 
 # Helper functions
 def requires_root():
@@ -129,6 +144,19 @@ def simulate_broker_restart():
     mqtt_client = mqtt.Client(client_id=f"resilience-test-{socket.gethostname()}")
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
+    
+    # Initialize MQTT metrics if available
+    global mqtt_metrics
+    if METRICS_AVAILABLE:
+        mqtt_metrics = MQTTMetrics(client_id=f"resilience-test-{socket.gethostname()}",
+                                 db_path=os.path.join(os.path.dirname(__file__), 'network_metrics.db'))
+        # Hook up MQTT metrics
+        original_on_message = mqtt_client.on_message
+        def on_message_with_metrics(client, userdata, message):
+            mqtt_metrics.on_message(client, userdata, message)
+            original_on_message(client, userdata, message)
+        mqtt_client.on_message = on_message_with_metrics
+        mqtt_client.on_publish = mqtt_metrics.on_publish
     
     try:
         mqtt_client.connect(args.broker, 1883, 60)
@@ -353,8 +381,10 @@ def simulate_packet_loss():
         time.sleep(30)
         
         # Introduce packet loss and latency
-        logger.info("Introducing 30% packet loss and 200ms latency...")
-        success, output = run_command("tc qdisc add dev eth0 root netem loss 30% delay 200ms")
+        packet_loss_rate = 30  # 30%
+        latency_ms = 200      # 200ms
+        logger.info(f"Introducing {packet_loss_rate}% packet loss and {latency_ms}ms latency...")
+        success, output = run_command(f"tc qdisc add dev eth0 root netem loss {packet_loss_rate}% delay {latency_ms}ms")
         
         if not success:
             logger.error("Failed to introduce packet loss")
@@ -362,7 +392,13 @@ def simulate_packet_loss():
             test_results['packet_loss']['error'] = 'Failed to introduce packet loss'
             return
             
+        # Record packet loss in metrics if available
+        if METRICS_AVAILABLE and network_metrics:
+            network_metrics.record_packet_loss(packet_loss_rate / 100.0)  # convert to 0.0-1.0 scale
+        
         test_results['packet_loss']['packet_loss_started'] = True
+        test_results['packet_loss']['packet_loss_rate'] = packet_loss_rate / 100.0
+        test_results['packet_loss']['added_latency_ms'] = latency_ms
         
         # Monitor system under packet loss
         logger.info(f"Monitoring system under packet loss for {args.duration} seconds...")
@@ -498,6 +534,14 @@ def main():
         if args.scenario == 'component_restart' or args.scenario == 'all':
             simulate_component_restart()
         
+        # Collect and include network metrics in results if available
+        if METRICS_AVAILABLE:
+            if network_metrics:
+                test_results['network_metrics'] = network_metrics.get_metrics()
+            if mqtt_metrics:
+                test_results['mqtt_metrics'] = mqtt_metrics.get_metrics()
+                test_results['mqtt_report'] = mqtt_metrics.get_report(hours=1)
+        
         # Print results
         print_results()
         
@@ -521,6 +565,13 @@ def main():
     except Exception as e:
         logger.error(f"Unexpected error during test: {e}", exc_info=True)
         return 1
+    finally:
+        # Clean up network metrics
+        if METRICS_AVAILABLE:
+            if network_metrics:
+                network_metrics.close()
+            if mqtt_metrics:
+                mqtt_metrics.close()
 
 if __name__ == "__main__":
     sys.exit(main())
