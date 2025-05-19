@@ -4,8 +4,14 @@ Main program to handle the Derby race.
 File location: /var/lib/infra/app/derbyRace.py
 Service file: /etc/systemd/system/derbyrace.service
 
+Version History:
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
+- 0.4.0 - May 10, 2025 - Added service discovery via mDNS
+- 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
+- 0.2.0 - April 15, 2025 - Added telemetry and watchdog timers
+- 0.1.0 - April 4, 2025 - Added MQTT communication protocols
+- 0.0.1 - March 31, 2025 - Initial implementation
 '''
-
 
 from datetime import datetime, timedelta
 import os
@@ -21,6 +27,9 @@ import sys
 from derbyapi import DerbyNetClient
 from derbylogger import setup_logger
 import psutil # type: ignore 
+
+# Version information
+VERSION = "0.5.0"
 
 # Add common library path to allow importing derbynet module
 sys.path.append('/var/lib/infra/common')
@@ -70,7 +79,7 @@ MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
-        logger.info("Initializing DerbyRace")
+        logger.info(f"Initializing DerbyRace v{VERSION}")
         self.boottime = datetime.now()
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr" + str(random.randint(1000,9999)))
         self.client.on_log = self.on_log
@@ -439,6 +448,7 @@ class derbyRace:
         payload = {
             "hostname": "derbynetpi",
             "hwid": "derbyRace",
+            "version": VERSION,
             "uptime": uptime,
             "ip": ipaddr,
             "mac": macaddr,

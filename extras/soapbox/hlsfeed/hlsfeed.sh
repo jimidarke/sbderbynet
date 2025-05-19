@@ -1,4 +1,14 @@
 #!/bin/bash
+# DerbyNet HLS Feed Service
+# Version: 0.5.0
+# 
+# Version History:
+# - 0.5.0 - May 19, 2025 - Standardized version schema across all components
+# - 0.4.0 - May 10, 2025 - Added service discovery for RTSP sources
+# - 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
+# - 0.2.0 - April 15, 2025 - Added telemetry and status reporting
+# - 0.1.0 - April 4, 2025 - Added configuration options
+# - 0.0.1 - March 31, 2025 - Initial implementation
 
 # Load configuration
 CONFIG_FILE="/opt/hlsfeed/config.env"

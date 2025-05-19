@@ -8,6 +8,19 @@ import os
 import uuid
 import psutil # type: ignore
 
+# Version information
+VERSION = "0.5.0"  # Standardized version
+
+'''
+Version History:
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
+- 0.4.0 - May 10, 2025 - Added service discovery via mDNS for dynamic MQTT broker configuration
+- 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
+- 0.2.0 - April 15, 2025 - Added telemetry and status reporting
+- 0.1.0 - April 4, 2025 - Added MQTT communication protocols
+- 0.0.1 - March 31, 2025 - Initial implementation
+'''
+
 time.sleep(10)
 
 ###########################    SETUP    ###########################
@@ -18,7 +31,7 @@ from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
 logger = setup_logger(__name__)
 
-logger.info("####### Starting DerbyNet DerbyDisplay #######")
+logger.info(f"####### Starting DerbyNet DerbyDisplay v{VERSION} #######")
 
 ###########################    MQTT    ###########################
 # Default values - will be overridden by service discovery
@@ -88,7 +101,7 @@ def send_telemetry():
     payload = telemetry.collect()
     
     # Add display-specific telemetry
-    payload["pcbVersion"] = "0.2.0"
+    payload["version"] = VERSION
     payload["time"] = int(time.time())
     
     # Send telemetry

@@ -1,5 +1,7 @@
 # Soapbox Derby Race Management System
 
+**Current Version: 0.5.0**
+
 A comprehensive race management and timing system for soapbox derby events. This system provides accurate timing, display, and management functionality for races through a collection of networked components.
 
 ## System Components
@@ -117,6 +119,24 @@ Components run as system services for automatic startup and management:
 - **derbydisplay.service** - Display management
 - **hlsfeed.service** - Video streaming
 
+## Versioning
+
+The system uses a standardized versioning schema across all components:
+
+### Version Format
+
+```
+MAJOR.MINOR.PATCH
+```
+
+- **MAJOR**: Incremented for incompatible API or protocol changes
+- **MINOR**: Incremented for backward-compatible new functionality
+- **PATCH**: Incremented for backward-compatible bug fixes
+
+### Version History
+
+See [VERSION.md](VERSION.md) for detailed version history and component information.
+
 ## Development
 
 ### Requirements
@@ -180,4 +200,6 @@ For HLS stream troubleshooting, refer to the [HLS Replay Documentation](doc/HLS_
 
 ## License
 
-This project is proprietary and confidential.
+This project is open source and released under the MIT License. See the [LICENSE.txt](LICENSE.txt) file for details.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

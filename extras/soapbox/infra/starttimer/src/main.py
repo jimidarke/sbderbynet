@@ -17,13 +17,15 @@ import urequests
 import usocket
 
 
-VERSION = '0.4.0'  # Version of the firmware.  
-# V0.0.1 - March 31 2025    - Initial version with basic functionality including sending state and telemetry to mqtt
-# V0.1.0 - April 4 2025     - Added OTA updates
-# V0.2.0 - April 15 2025    - Added watchdog timer and updated telemetry data 
-# V0.2.2 - April 15 2025    - Fixed telemetry and OTA
+VERSION = '0.5.0'  # Version of the firmware.
+# Version History:
+# V0.5.0 - May 19 2025      - Standardized version schema across all components
+# V0.4.0 - May 10 2025      - Added service discovery via mDNS for dynamic MQTT broker configuration
 # V0.3.0 - April 22 2025    - Added remote syslogging and improved error handling
-# V0.4.0 - May 19 2025      - Added service discovery via mDNS for dynamic MQTT broker configuration
+# V0.2.2 - April 15 2025    - Fixed telemetry and OTA
+# V0.2.0 - April 15 2025    - Added watchdog timer and updated telemetry data 
+# V0.1.0 - April 4 2025     - Added OTA updates
+# V0.0.1 - March 31 2025    - Initial version with basic functionality including sending state and telemetry to mqtt
 HWID = "START"
 
 # Wi-Fi Configuration
@@ -358,11 +360,12 @@ def monitor_signal():
         time.sleep(0.1)
 
 # Main program
-print('Starting program...')
+print(f'Starting DerbyNet Start Timer v{VERSION}...')
 try:
     connect_wifi()
     sync_time()    
     connect_mqtt()
+    sendLog(f'DerbyNet Start Timer v{VERSION} initialized')
     monitor_signal()
 except Exception as e:
     print('Unhandled error:', e)

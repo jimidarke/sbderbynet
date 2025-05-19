@@ -7,7 +7,18 @@ It processes replay commands (START, REPLAY, RACE_STARTS, CANCEL) from DerbyNet 
 and manages the HLS stream for replay functionality.
 
 Replay commands are documented in the DerbyNet HLS replay documentation.
+
+Version History:
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
+- 0.4.0 - May 10, 2025 - Added service discovery for MQTT broker
+- 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
+- 0.2.0 - April 15, 2025 - Added telemetry and live status reporting
+- 0.1.0 - April 4, 2025 - Added MQTT integration for configuration
+- 0.0.1 - March 31, 2025 - Initial implementation
 """
+
+# Version information
+VERSION = "0.5.0"  # Standardized version
 
 import os
 import sys
@@ -31,6 +42,8 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+logger.info(f"Starting DerbyNet HLS Replay Handler v{VERSION}")
 
 # Default configuration
 CONFIG = {
@@ -156,7 +169,10 @@ class ReplayHandler:
             # Publish online status
             client.publish(
                 CONFIG['status_topic'], 
-                payload=json.dumps({"status": "online"}),
+                payload=json.dumps({
+                    "status": "online",
+                    "version": VERSION
+                }),
                 qos=1,
                 retain=True
             )

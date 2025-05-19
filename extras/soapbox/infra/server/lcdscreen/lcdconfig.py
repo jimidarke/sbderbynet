@@ -4,8 +4,9 @@
 # * | Function    :   Hardware underlying interface
 # * | Info        :
 # *----------------
-# * | This version:   V1.0
-# * | Date        :   2019-06-21
+# * | This version:   V1.0 (Original WaveShare)
+# * | Derby version:  V0.5.0 (DerbyNet LCD Driver)
+# * | Date        :   2019-06-21 (Original), 2025-05-19 (Latest Update)
 # * | Info        :   
 # ******************************************************************************
 # Permission is hereby granted, free of charge, to any person obtaining a copy

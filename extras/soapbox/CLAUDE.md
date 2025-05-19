@@ -4,13 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a soapbox derby race management system that consists of several components:
+This is a comprehensive soapbox derby race management system built by extensively modifying the DerbyNet software. DerbyNet was originally created for Pinewood Derby racing events (small wooden cars racing down a gravity track), but has been extensively modified in this repository to support children's Soapbox Derby events (larger gravity-powered cars with children riding in them).
 
-1. **Server**: The central race management system that communicates with the DerbyNet software and coordinates with finish timers and displays
+The system consists of several components:
+
+1. **Server**: The central race management system that communicates with the modified DerbyNet software and coordinates with finish timers and displays
 2. **Finish Timer**: Hardware timers installed at each lane that detect car finishes
 3. **Start Timer**: ESP32-based device that detects race start signals
 4. **Derby Display**: Display screen showing race status and results
 5. **HLS Feed**: Camera streaming service for race viewing
+
+This represents a significant overhaul of the original DerbyNet PHP code (found in the `/website` folder) with extensive new functionality in the `/extras/soapbox` folder to integrate hardware timing systems, lane detection, and video replay specifically for soapbox derby racing.
 
 The system primarily uses MQTT for communication between components, with a Python-based backend deployed on Raspberry Pi devices.
 
@@ -23,7 +27,7 @@ The system primarily uses MQTT for communication between components, with a Pyth
    - Communicates with DerbyNet API
    - Coordinates start and finish timers via MQTT
 
-2. **Finish Timer (finishtimer.py)**:
+2. **Finish Timer (derbynetPCBv1.py)**:
    - Monitors lane finish events using GPIO
    - Sends lane finish data to server via MQTT
    - Uses hardware PCB with toggle switches and LED indicators
@@ -54,9 +58,29 @@ The system primarily uses MQTT for communication between components, with a Pyth
 5. Display components update with current race status
 6. All components send telemetry for monitoring
 
+## Original DerbyNet vs Soapbox Modifications
+
+The original DerbyNet was designed for Pinewood Derby racing with:
+- Simple timer interfaces (often just serial connections)
+- Miniature wooden cars
+- Typically shorter tracks with 3-6 lanes
+- No video replay system
+
+The soapbox derby modifications include significant enhancements:
+- Hardware integration with custom PCBs for timing
+- MQTT-based distributed architecture with multiple Raspberry Pi devices
+- ESP32-based start detection
+- HLS video streaming and replay system
+- Enhanced real-time displays
+- Network resilience features for outdoor operation
+- Comprehensive telemetry system
+- Modified race formats specific to soapbox derby
+
+The `/website` folder contains the modified PHP code from the original DerbyNet, while the `/extras/soapbox` folder contains the new Python components developed specifically for soapbox derby racing.
+
 ## DerbyNet Integration
 
-DerbyNet is a PHP-based web application for soapbox derby race management, providing these key features:
+DerbyNet is a PHP-based web application that handles the front-end race management, which has been extensively modified for soapbox derby racing:
 
 1. **Race Management**: Handles triple elimination format with preliminary, semi-final, and final rounds
 2. **Timer Integration**: Communicates with our timing system via HTTP/AJAX with specific states (CONNECTED, STAGING, RUNNING, etc.)
@@ -67,61 +91,30 @@ DerbyNet is a PHP-based web application for soapbox derby race management, provi
    - Replay speed (default: 50%)
    - HLS stream URL: http://derbynetpi:8037/hls/stream.m3u8
 
-### Key DerbyNet APIs
-
-- **Timer Protocol**: Plain text commands with JSON status responses
-- **Timer States**: CONNECTED, STAGING, RUNNING, UNHEALTHY, NOT_CONNECTED
-- **Replay Commands**: START, REPLAY, RACE_STARTS, CANCEL
-- **Device Status API**: RESTful API with JSON data structure
-
 ## Configuration
 
 The system expects a primary server with IP `192.168.100.10`. Devices like finish timers are identified by DIP switch settings that correspond to lane numbers.
 
-## Deployment
-
-The codebase includes deployment scripts for creating and deploying Raspberry Pi SD card images:
-
-- `deployment/sdcard/createImage.sh`: Creates SD card images for deployment
-- `deployment/sdcard/deployImage.sh`: Deploys images to SD cards with device-specific configuration
-
-Device identification is managed through a `derbyid.txt` file on the boot partition.
-
-## System Services
-
-Components run as system services:
-
-- **derbyRace**: Main server service
-- **derbyTime**: Time synchronization service
-- **finishtimer**: Lane finish detection service
-- **derbydisplay**: Display management service
-- **hlsfeed**: Video streaming service
-
-## Development Guidelines
-
-1. **MQTT Topics**:
-   - Device status: `derbynet/device/{id}/status`
-   - Device telemetry: `derbynet/device/{id}/telemetry`
-   - Device state: `derbynet/device/{id}/state`
-   - Race state: `derbynet/race/state`
-   - Lane LED control: `derbynet/lane/{lane}/led`
-   - Lane pinny display: `derbynet/lane/{lane}/pinny`
-
-2. **Telemetry Format**:
-   Standard telemetry format across all devices includes:
-   - hostname
-   - hwid (hardware ID)
-   - uptime
-   - ip
-   - mac
-   - wifi_rssi
-   - battery_level
-   - cpu_temp
-   - memory_usage
-   - disk
-   - cpu_usage
-
 ## Common Commands
+
+### Running Tests
+
+The system provides comprehensive testing:
+
+```bash
+# Run all system tests
+python3 tests/system_test.py
+
+# Test specific component
+python3 tests/system_test.py --test timers
+
+# Verbose output
+python3 tests/system_test.py --verbose
+
+# Network resilience testing
+python3 tests/network_resilience_test.py
+python3 tests/network_resilience_test.py --scenario broker_restart --verbose
+```
 
 ### Starting Services
 
@@ -154,8 +147,6 @@ sudo systemctl start hlsfeed
 
 ### Debug and Monitoring
 
-The codebase uses standard Python logging through a `derbylogger` module. Logs are typically found in system journals:
-
 ```bash
 # View logs for derby race service
 sudo journalctl -u derbyrace
@@ -170,6 +161,16 @@ sudo journalctl -u derbydisplay
 sudo journalctl -u hlsfeed
 ```
 
+## MQTT Topic Structure
+
+All MQTT topics use the prefix `derbynet/` followed by a category and specific identifiers:
+
+- Race state: `derbynet/race/state`
+- Device status: `derbynet/device/{id}/status`
+- Device telemetry: `derbynet/device/{id}/telemetry`
+- Lane LED control: `derbynet/lane/{lane}/led`
+- Lane pinny display: `derbynet/lane/{lane}/pinny`
+
 ## Hardware Interfaces
 
 - **PCB Version 1 Finish Timer**:
@@ -181,4 +182,45 @@ sudo journalctl -u hlsfeed
 - **ESP32 Start Timer**:
   - `START_PIN`: GPIO 33 - Start signal detection
   - `LED_PIN`: GPIO 2 - Status LED
-  - `DHT_PIN`: GPIO 32 - Temperature/humidity sensor
+
+## Development Guidelines
+
+### Versioning
+
+The system uses semantic versioning (MAJOR.MINOR.PATCH). All components must:
+
+1. Define a `VERSION` constant at the top of the file
+2. Log the version on startup
+3. Include version in telemetry data
+4. Follow version update process documented in VERSION.md
+
+### Telemetry Format
+
+All device telemetry should include these standard fields:
+- hostname
+- hwid (hardware ID)
+- version (firmware version)
+- uptime
+- ip
+- mac
+- wifi_rssi
+- battery_level
+- cpu_temp
+- memory_usage
+- disk
+- cpu_usage
+
+### Logging
+
+The system uses a standardized logging library (derbylogger.py):
+- Structured JSON logging
+- Correlation IDs for cross-component tracking
+- Centralized log aggregation
+
+### Network Communication
+
+All components should:
+- Use service discovery via mDNS when possible
+- Implement reconnection strategies
+- Handle offline operation gracefully
+- Use proper MQTT QoS levels
