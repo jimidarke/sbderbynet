@@ -56,7 +56,7 @@ function build_device_picker(selectq, include_remote, on_device_selection, not_f
   
   // Get HLS stream URL using existing read_raceinfo method
   // Check if g_hlsStreamUrl is defined before using it
-  let hlsStreamUrl = typeof g_hlsStreamUrl !== 'undefined' ? g_hlsStreamUrl : null;
+  let hlsStreamUrl = (typeof window !== 'undefined' && 'g_hlsStreamUrl' in window) ? window.g_hlsStreamUrl : null;
   console.log("HLS Stream URL:", hlsStreamUrl);
   
   if (hlsStreamUrl) {
