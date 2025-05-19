@@ -22,7 +22,7 @@ disk
 cpu_usage
 
 '''
-
+ 
 #import requests # type: ignore
 import time
 from pip._vendor import requests
@@ -73,27 +73,59 @@ class DerbyNetClient:
             return auth_code
         else:
             logger.error("Login failed: Invalid credentials or server error. API Response: %s", response.text)
-            return None
+            return None    
+    
+    def send_timer_heartbeat(self, timer_heartbeats):  # sends heartbeat messages
+        """
+        Send heartbeat message to DerbyNet with active timer information
+        
+        timer_heartbeats = {2: {'time': 1747607679.600188, 'isReady': True}, 1: {'time': 1747607678.8986795, 'isReady': False}, 3: {'time': 1747607681.1048107, 'isReady': True}}
 
-    def send_timer_heartbeat(self): #sends an overall command that the timers are all still alive
+        """
         if not self.authcode:
             self.authcode = self.login()
             if not self.authcode:
                 logger.critical("Failed to authenticate with DerbyNet.")
                 return False
-        payload = "message=HEARTBEAT&action=timer-message&confirmed=1&lane1=1&lane2=2&lane3=3&timerId1=L1&timerId2=L2&timerId3=L3"
+        
+        # check if all timers are online by virtue of being in the dictionary
+        online1 = True if 1 in timer_heartbeats else False
+        online2 = True if 2 in timer_heartbeats else False
+        online3 = True if 3 in timer_heartbeats else False
+        
+        # checks if all timers are ready
+        ready1 = timer_heartbeats.get(1, {}).get('isReady', False)
+        ready2 = timer_heartbeats.get(2, {}).get('isReady', False)
+        ready3 = timer_heartbeats.get(3, {}).get('isReady', False)
+        if ready1 and ready2 and ready3 and online1 and online2 and online3:
+            confirmed = 1
+        else:
+            confirmed = 0
+
+        # Build dynamic payload
+        payload = "message=HEARTBEAT&action=timer-message&confirmed=" + str(confirmed)
+        for lane, data in timer_heartbeats.items():
+            payload += f"&timerId{lane}=L{lane}&lane{lane}=1"
+            if data.get('isReady', False):
+                payload += f"&ready{lane}=1"
+            else:
+                payload += f"&ready{lane}=0"
+        
         headers = {
             'Content-Type': "application/x-www-form-urlencoded",
             'Cookie': self.authcode
         }
+        logger.debug("Sending heartbeat message: %s", payload)
         try:
             response = requests.post(self.url, headers=headers, data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
                 self.authcode = self.login()
-                self.send_timer_heartbeat()
+                self.send_timer_heartbeat(timer_heartbeats)
             response.raise_for_status()
+            return True
         except requests.RequestException as e:
             logger.error(f"Failed to send heartbeat message: {e}")
+            return False
     
     def send_start(self):
         """Sends the start signal to the DerbyNet server."""

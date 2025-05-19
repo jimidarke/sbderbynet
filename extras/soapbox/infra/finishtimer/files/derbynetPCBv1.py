@@ -23,7 +23,7 @@ BLUELED     1       28        OUTPUT
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.3.2"
+PCB_VERSION     = "0.3.3"
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -124,7 +124,7 @@ class derbyPCBv1:
                     self.toggle_callback()
             if self.readyToRace != (tchk and self.led == "blue"):
                 # change of state detected
-                self.readyToRace = (tchk and self.led == "blue")
+                self.readyToRace = self.led == "green" or (tchk and self.led == "blue")
                 logger.info(f"Ready to race: {self.readyToRace}")
                 self._updatePinny()
             time.sleep(0.25)

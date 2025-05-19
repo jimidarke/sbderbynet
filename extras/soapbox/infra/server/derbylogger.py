@@ -8,7 +8,7 @@ LOG_FORMAT_SYSLOG   = '{hwID} %(levelname)s - [%(filename)s:%(lineno)d] %(messag
 LOG_FILE            = '/var/log/derbynet.log'
 LOG_LEVEL           = logging.INFO  # Set to DEBUG for detailed logs, INFO for less verbosity
 SYSLOG_HOST         = 'localhost'
-SYSLOG_PORT         = 514
+SYSLOG_PORT         = 514 
 
 def setup_logger(name):
     
