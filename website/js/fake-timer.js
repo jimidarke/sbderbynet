@@ -95,7 +95,7 @@ function start_timer() {
       var t = (new Date()).getTime() - start;
       if (false && t > 5000) {
         end_race();
-        disableSimulationMode();
+        // disableSimulationMode();
       }
       t = (t / 1000).toFixed(3);
       tr.find('td').each(function (i, td) {
@@ -145,7 +145,7 @@ function process_timer_messages(data) {
     g_heat_ready_timer_id = 0;
     clearTimeout(g_prepared_heat);
     g_prepared_heat = 0;
-    disableSimulationMode();
+    // disableSimulationMode();
   }
 
   var heat = data.find('heat-ready');
@@ -388,9 +388,10 @@ function on_auto_mode_change() {
   }
 }
 
-// $(function () {
-//   $('#auto-mode-checkbox').on('change', on_auto_mode_change);
-// });
+
+$(function () {
+  $('#auto-mode-checkbox').on('change', on_auto_mode_change);
+});
 
 
 // Initialize simulation state
@@ -419,9 +420,9 @@ $(function() {
   //     initializeSimulation();
   // }
   
-  // Handle auto mode checkbox changes
-  $('#auto-mode-checkbox').on('change', function() {
-      g_auto_mode = $(this).is(':checked');
-      on_auto_mode_change();
-  });
+  // // Handle auto mode checkbox changes
+  // $('#auto-mode-checkbox').on('change', function() {
+  //     g_auto_mode = $(this).is(':checked');
+  //     on_auto_mode_change();
+  // });
 });

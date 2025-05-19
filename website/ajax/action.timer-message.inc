@@ -296,9 +296,9 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		$success = $stmt->execute(array(':staleThreshold' => $staleThreshold));
 
 		if (!$success) {
-			error_log("Failed to mark stale timers: " . print_r($stmt->errorInfo(), true));
+			// error_log("Failed to mark stale timers: " . print_r($stmt->errorInfo(), true));
 		} else {
-			error_log("Stale timers marked as not ready.");
+			// error_log("Stale timers marked as not ready.");
 		}
 
 		// // Delete stale timers
