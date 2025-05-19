@@ -188,6 +188,23 @@ function racing_state_allowed(&$current)
     return false;
   }
 
+  if (!isset($current['elim_type'])) {
+    $current['elim_type'] = 'preliminary'; // Default value
+  }
+  // Add check for finals
+  if ($current['elim_type'] === 'final') {
+    // Verify exactly one heat is scheduled
+    $heat_count = read_single_value(
+      'SELECT COUNT(*) FROM RaceChart WHERE roundid = :roundid',
+      [':roundid' => $current['roundid']]
+    );
+
+    if ($heat_count !== 3) { // 3 entries for 3 lanes in 1 heat
+      error_log("Error: Finals must have exactly one heat with 3 racers");
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -362,77 +379,78 @@ function maybe_cancel_running_round($roundid)
   }
 }
 
-function handle_racer_dropout($racerid, $roundid) {
-    global $db;
-    
-    try {
-        $db->beginTransaction();
+function handle_racer_dropout($racerid, $roundid)
+{
+  global $db;
 
-        // 1. First mark the racer as not passed inspection
-        $stmt = $db->prepare(
-            'UPDATE RegistrationInfo 
+  try {
+    $db->beginTransaction();
+
+    // 1. First mark the racer as not passed inspection
+    $stmt = $db->prepare(
+      'UPDATE RegistrationInfo 
              SET passedinspection = 0 
              WHERE racerid = :racerid'
-        );
-        $stmt->execute([':racerid' => $racerid]);
+    );
+    $stmt->execute([':racerid' => $racerid]);
 
-        // 2. Check if racer has any results in this round
-        $has_results = read_single_value(
-            'SELECT COUNT(*) 
+    // 2. Check if racer has any results in this round
+    $has_results = read_single_value(
+      'SELECT COUNT(*) 
              FROM RaceChart 
              WHERE roundid = :roundid 
              AND racerid = :racerid 
              AND finishtime IS NOT NULL',
-            [':roundid' => $roundid, ':racerid' => $racerid]
-        );
+      [':roundid' => $roundid, ':racerid' => $racerid]
+    );
 
-        if ($has_results > 0) {
-            // Scenario 2: Has already raced - mark remaining heats as DNF
-            $stmt = $db->prepare(
-                'UPDATE RaceChart 
+    if ($has_results > 0) {
+      // Scenario 2: Has already raced - mark remaining heats as DNF
+      $stmt = $db->prepare(
+        'UPDATE RaceChart 
                  SET finishtime = 999.999
                  WHERE roundid = :roundid 
                  AND racerid = :racerid 
                  AND finishtime IS NULL'
-            );
-            $stmt->execute([
-                ':roundid' => $roundid,
-                ':racerid' => $racerid
-            ]);
-        } else {
-            // Scenario 1: No results yet - remove and regenerate schedule
-            // Remove from RaceChart
-            $db->prepare(
-                'DELETE FROM RaceChart 
+      );
+      $stmt->execute([
+        ':roundid' => $roundid,
+        ':racerid' => $racerid
+      ]);
+    } else {
+      // Scenario 1: No results yet - remove and regenerate schedule
+      // Remove from RaceChart
+      $db->prepare(
+        'DELETE FROM RaceChart 
                  WHERE roundid = :roundid 
                  AND racerid = :racerid'
-            )->execute([
-                ':roundid' => $roundid,
-                ':racerid' => $racerid
-            ]);
+      )->execute([
+            ':roundid' => $roundid,
+            ':racerid' => $racerid
+          ]);
 
-            // Remove from Roster
-            $db->prepare(
-                'DELETE FROM Roster 
+      // Remove from Roster
+      $db->prepare(
+        'DELETE FROM Roster 
                  WHERE roundid = :roundid 
                  AND racerid = :racerid'
-            )->execute([
-                ':roundid' => $roundid,
-                ':racerid' => $racerid
-            ]);
+      )->execute([
+            ':roundid' => $roundid,
+            ':racerid' => $racerid
+          ]);
 
-            // Trigger reschedule to fill gaps
-            $nlanes = read_raceinfo('lane_count', 0);
-            require_once('inc/schedule_one_round.inc');
-            schedule_one_round($roundid, $nlanes, 1, false);
-        }
-
-        $db->commit();
-        return true;
-
-    } catch (Exception $e) {
-        $db->rollBack();
-        error_log("Error handling racer dropout: " . $e->getMessage());
-        return false;
+      // Trigger reschedule to fill gaps
+      $nlanes = read_raceinfo('lane_count', 0);
+      require_once('inc/schedule_one_round.inc');
+      schedule_one_round($roundid, $nlanes, 1, false);
     }
+
+    $db->commit();
+    return true;
+
+  } catch (Exception $e) {
+    $db->rollBack();
+    error_log("Error handling racer dropout: " . $e->getMessage());
+    return false;
+  }
 }
