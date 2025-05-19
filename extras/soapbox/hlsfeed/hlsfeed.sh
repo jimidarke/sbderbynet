@@ -1,6 +1,10 @@
 #!/bin/bash
 
-LOG_FILE="/opt/hlsfeed/hls.log"
+LOG_FILE="/var/log/hlsfeed.log"
+# Create log file if it doesn't exist
+if [ ! -f "$LOG_FILE" ]; then
+  touch "$LOG_FILE"
+fi
 HLS_DIR="/opt/hlsfeed/hls"
 RTSP_URL="rtsp://admin:all4theKids@192.168.100.20:554/21"
 

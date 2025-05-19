@@ -1,0 +1,14 @@
+[Unit]
+Description=Nginx HLS Instance
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/nginx-hls -c /opt/hlsfeed/nginx/hls.conf
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -QUIT $MAINPID
+PIDFile=/run/nginx-hls.pid
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

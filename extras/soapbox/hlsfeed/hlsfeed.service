@@ -1,7 +1,7 @@
 [Unit]
-Description=RTSP to HLS Stream via Shell Script
+Description=HLS Feed From RTSP Camera
 After=network.target
- 
+
 [Service]
 ExecStart=/opt/hlsfeed/hlsfeed.sh
 Restart=always
