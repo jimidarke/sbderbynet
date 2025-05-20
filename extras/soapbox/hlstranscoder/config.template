@@ -1,0 +1,45 @@
+# HLS Transcoder Configuration Template
+# Copy this file to config.env and modify as needed
+
+# Video Source Configuration
+RTSP_SOURCE="rtsp://192.168.100.10:8554/stream"
+
+# Output Configuration
+HLS_OUTPUT_DIR="/var/www/html/hls"
+SEGMENT_DURATION="4"
+SEGMENT_LIST_SIZE="5"
+
+# Transcoding Settings
+FFMPEG_PRESET="ultrafast"     # Options: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+RESOLUTION="1280x720"         # Example: 1920x1080, 1280x720, 854x480, 640x360
+BITRATE="2M"                  # Example: 500k, 1M, 2M, 5M
+CODEC="libx264"               # Usually libx264, but could be h264_omx for RPi hardware acceleration
+
+# Network Settings
+MQTT_BROKER="localhost"       # MQTT broker address
+MQTT_PORT="1883"              # MQTT broker port
+MQTT_USERNAME=""              # Optional: MQTT username
+MQTT_PASSWORD=""              # Optional: MQTT password
+UPDATE_SERVER="192.168.100.10" # Server address for rsync updates
+
+# System Settings
+LOG_LEVEL="INFO"              # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+DERBY_ID=""                   # Set in /boot/derbyid.txt - unique identifier for this device
+DEVICE_NAME="hlstranscoder"   # Device name for MQTT and logging
+KIOSK_URL="http://localhost/status.html" # URL to display in kiosk mode
+
+# Web API Settings
+API_PORT="8038"               # Port for the transcoder status API
+ENABLE_API="true"             # Enable/disable the status API
+
+# HLS Advanced Settings
+HLS_PLAYLIST_TYPE="event"     # Options: event, vod
+HLS_LIST_SIZE="5"             # Number of segments to keep in playlist
+CLEANUP_OLD_SEGMENTS="true"   # Whether to clean up old segments
+MAX_SEGMENT_AGE="300"         # Maximum age of segments to keep (seconds)
+
+# Archive Settings
+ENABLE_ARCHIVE="false"        # Whether to archive video files
+ARCHIVE_DIR="/var/www/html/archive" # Directory to store archived video files
+ARCHIVE_FORMAT="mkv"          # Format for archived files (mp4, mkv)
+ARCHIVE_RETENTION_DAYS="7"    # Number of days to keep archived files

@@ -304,6 +304,7 @@ The system is currently at version 0.5.0 with the following completed features:
 - Unified Logging System
 - Timer Protocol Enhancements
 - HLS Replay Integration
+- 2025-05-19: Fixed HLS stream URL handling in video-device-picker.js to prevent JavaScript errors
 
 Current priorities include:
 1. Create log search and analysis tools

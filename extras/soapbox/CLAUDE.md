@@ -13,6 +13,7 @@ The system consists of several components:
 3. **Start Timer**: ESP32-based device that detects race start signals
 4. **Derby Display**: Display screen showing race status and results
 5. **HLS Feed**: Camera streaming service for race viewing
+6. **HLS Transcoder**: Dedicated component for transcoding video to HLS format and serving streams
 
 This represents a significant overhaul of the original DerbyNet PHP code (found in the `/website` folder) with extensive new functionality in the `/extras/soapbox` folder to integrate hardware timing systems, lane detection, and video replay specifically for soapbox derby racing.
 
@@ -48,6 +49,13 @@ The system primarily uses MQTT for communication between components, with a Pyth
    - Handles video streaming for race viewing
    - Uses RTSP and HLS for streaming
    - Integrates with DerbyNet's replay system
+
+7. **HLS Transcoder Service (hlstranscoder)**:
+   - Transcodes video input (RTSP) to HLS format
+   - Provides adaptive streaming and replay capabilities
+   - Runs on dedicated hardware for improved performance
+   - Supports remote updates via MQTT and rsync
+   - Includes web-based status and monitoring dashboard
 
 ### Communication Flow
 
@@ -133,6 +141,9 @@ sudo systemctl start derbydisplay
 
 # Start the HLS feed service
 sudo systemctl start hlsfeed
+
+# Start the HLS transcoder service
+sudo systemctl start hlstranscoder
 ```
 
 ### Deployment
@@ -159,6 +170,9 @@ sudo journalctl -u derbydisplay
 
 # View logs for HLS feed
 sudo journalctl -u hlsfeed
+
+# View logs for HLS transcoder
+sudo journalctl -u hlstranscoder
 ```
 
 ## MQTT Topic Structure
