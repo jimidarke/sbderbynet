@@ -19,27 +19,14 @@ import sys
 from datetime import datetime
 
 # Add parent directory to path for importing common modules
-#sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
+sys.path.append(os.path.dirname(__file__))
 from derbynetPCBv1 import derbyPCBv1
-from derbylogger import setup_logger, get_logger
+from derbylogger import setup_logger
 from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
 ###########################    SETUP    ###########################
-# First set up the logging configuration with rsyslog as primary, local file as backup
-setup_logger(
-    component="finish-timer",
-    log_dir="/var/log/derbynet",
-    log_level="INFO",
-    console=True,  # For development and debugging
-    file=True,     # Minimal local backup
-    syslog=True,   # Primary logging mechanism
-    file_json=False,  # Plain text for local logs (easier to read)
-    syslog_json=True, # JSON for rsyslog (better for troubleshooting)
-    max_bytes=2 * 1024 * 1024,  # 2MB max file size
-    backup_count=3   # Keep just 3 rotated files
-)
-# Then get a logger instance for this module
-logger = get_logger(__name__)
+# Set up logger
+logger = setup_logger(__name__)
 logger.info("####### Starting DerbyNet Finish Timer #######")
 
 try:
