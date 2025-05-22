@@ -17,7 +17,7 @@ Where:
 
 ## Current System Version
 
-The current system version is: **0.5.0**
+The current system version is: **0.5.1**
 
 ## Component Versioning
 
@@ -25,7 +25,7 @@ All components must maintain the following versioning standards:
 
 1. **Version Variable**: Each module should define a `VERSION` constant at the top of the main file:
    ```python
-   VERSION = "0.5.0"
+   VERSION = "0.5.1"
    ```
 
 2. **Telemetry**: All telemetry data must include the version:
@@ -47,6 +47,7 @@ Version history should be maintained in comments at the top of each file using t
 
 ```
 Version History:
+- 0.5.1 - May 22, 2025 - Enhanced logging system with improved source file/line tracking and rsyslog integration
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 - 0.4.0 - May 10, 2025 - Added service discovery via mDNS
 - 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
@@ -57,14 +58,15 @@ Version History:
 
 ## Component Versions
 
-All components now standardized to version 0.5.0:
+All components now standardized to version 0.5.1:
 
-- Server (derbyRace.py): 0.5.0
-- Finish Timer (derbynetPCBv1.py): 0.5.0
-- Start Timer (main.py): 0.5.0
-- Derby Display (derbydisplay.py): 0.5.0
-- HLS Feed (replay_handler.py): 0.5.0
-- LCD Display (derbyLCD.py): 0.5.0
+- Server (derbyRace.py): 0.5.1
+- Finish Timer (derbynetPCBv1.py): 0.5.1
+- Start Timer (main.py): 0.5.1
+- Derby Display (derbydisplay.py): 0.5.1
+- HLS Feed (replay_handler.py): 0.5.1
+- LCD Display (derbyLCD.py): 0.5.1
+- Logger (derbylogger.py): 0.5.1
 
 ## Version Update Process
 

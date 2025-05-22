@@ -1,6 +1,12 @@
 '''
 Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library and communicates over MQTT
 Uses service discovery for improved resilience
+
+VERSION = "0.5.1"
+
+Version History:
+- 0.5.1 - May 22, 2025 - Enhanced logging system with improved source file/line tracking and rsyslog integration
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
 '''
 
 import json
@@ -15,11 +21,25 @@ from datetime import datetime
 # Add parent directory to path for importing common modules
 #sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
 from derbynetPCBv1 import derbyPCBv1
-from derbylogger import setup_logger
+from derbylogger import setup_logger, get_logger
 from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
 ###########################    SETUP    ###########################
-logger = setup_logger(__name__)
+# First set up the logging configuration with rsyslog as primary, local file as backup
+setup_logger(
+    component="finish-timer",
+    log_dir="/var/log/derbynet",
+    log_level="INFO",
+    console=True,  # For development and debugging
+    file=True,     # Minimal local backup
+    syslog=True,   # Primary logging mechanism
+    file_json=False,  # Plain text for local logs (easier to read)
+    syslog_json=True, # JSON for rsyslog (better for troubleshooting)
+    max_bytes=2 * 1024 * 1024,  # 2MB max file size
+    backup_count=3   # Keep just 3 rotated files
+)
+# Then get a logger instance for this module
+logger = get_logger(__name__)
 logger.info("####### Starting DerbyNet Finish Timer #######")
 
 try:

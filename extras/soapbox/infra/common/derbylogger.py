@@ -2,12 +2,19 @@
 """
 DerbyNet Standardized Logging
 
+VERSION = "0.5.1"
+
+Version History:
+- 0.5.1 - May 22, 2025 - Enhanced source file/line tracking and rsyslog integration
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
+
 This module provides a standardized logging framework for all DerbyNet components:
 - Structured JSON logging
 - Multi-destination logging (file, syslog, console)
 - Correlation IDs for tracking related events
 - Log rotation and management
 - Configurable log levels per component
+- Accurate file and line number tracking for log sources
 
 Usage:
     from common.derbylogger import setup_logger, get_logger
@@ -36,6 +43,16 @@ Usage:
     # Create a child logger with correlation ID
     child_logger = logger.get_child("operation-xyz")
     child_logger.info("This log will include the correlation ID")
+    
+    # All logs will include the correct file and line number
+    # In structured JSON output, they appear in the "location" field:
+    # {
+    #   "location": {
+    #     "filename": "finishtimer.py",
+    #     "lineno": 42,
+    #     "function": "toggle_callback"
+    #   }
+    # }
 """
 
 import os
@@ -51,10 +68,12 @@ from functools import wraps
 from typing import Dict, Any, Optional, Callable, List, Union
 
 # Constants
+VERSION = "0.5.1"  # Module version - should match version in module docstring
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_LOG_FORMAT = "%(asctime)s [%(levelname)s] [%(name)s] %(message)s"
 DEFAULT_LOG_DIR = "/var/log/derbynet"
 SYSLOG_ADDRESS = "/dev/log"  # Unix socket for syslog
+SYSLOG_FACILITY = logging.handlers.SysLogHandler.LOG_LOCAL0
 HOSTNAME = socket.gethostname()
 
 # Global logger registry
@@ -68,8 +87,11 @@ _log_config = {
     "file_enabled": True,
     "syslog_enabled": True,
     "json_enabled": True,
-    "max_bytes": 10 * 1024 * 1024,  # 10 MB
-    "backup_count": 5,
+    "syslog_json": True,  # Use JSON format for syslog (recommended for troubleshooting)
+    "file_json": False,   # Use plain text for local file logs
+    "max_bytes": 2 * 1024 * 1024,  # 2 MB (reduced size for local backup files)
+    "backup_count": 3,    # Reduced number of backup files
+    "syslog_facility": SYSLOG_FACILITY,
 }
 
 def get_logger(name: str = None) -> logging.Logger:
@@ -101,8 +123,11 @@ def setup_logger(
     file: bool = True,
     syslog: bool = True,
     json_format: bool = True,
-    max_bytes: int = 10 * 1024 * 1024,
-    backup_count: int = 5
+    syslog_json: bool = True,
+    file_json: bool = False,
+    max_bytes: int = 2 * 1024 * 1024,
+    backup_count: int = 3,
+    syslog_facility: int = SYSLOG_FACILITY
 ) -> None:
     """
     Configure the logging system for this application.
@@ -113,11 +138,14 @@ def setup_logger(
         log_dir: Directory for log files
         log_level: Default log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         console: Enable console logging
-        file: Enable file logging
-        syslog: Enable syslog logging
-        json_format: Enable JSON-formatted logs
-        max_bytes: Max log file size before rotation
-        backup_count: Number of backup log files to keep
+        file: Enable file logging (minimal local backup)
+        syslog: Enable syslog logging (primary logging mechanism)
+        json_format: Enable JSON-formatted logs (legacy parameter, see syslog_json and file_json)
+        syslog_json: Use JSON format for syslog (recommended for troubleshooting)
+        file_json: Use JSON format for local file logs (recommended to keep false for readability)
+        max_bytes: Max log file size before rotation (reduced for local backups)
+        backup_count: Number of backup log files to keep (reduced for local backups)
+        syslog_facility: Syslog facility to use
     """
     global _log_config
     
@@ -130,8 +158,11 @@ def setup_logger(
         "file_enabled": file,
         "syslog_enabled": syslog,
         "json_enabled": json_format,
+        "syslog_json": syslog_json,
+        "file_json": file_json,
         "max_bytes": max_bytes,
         "backup_count": backup_count,
+        "syslog_facility": syslog_facility,
     })
     
     # Create log directory if it doesn't exist
@@ -149,7 +180,7 @@ def setup_logger(
     # Add standard handlers
     if console:
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(CustomFormatter())
+        console_handler.setFormatter(CustomFormatter(json_format=False))  # Always use plain text for console
         root_logger.addHandler(console_handler)
     
     if file:
@@ -158,23 +189,35 @@ def setup_logger(
             maxBytes=max_bytes,
             backupCount=backup_count
         )
-        file_handler.setFormatter(CustomFormatter(json_format=json_format))
+        file_handler.setFormatter(CustomFormatter(json_format=file_json))
         root_logger.addHandler(file_handler)
     
     if syslog and os.path.exists(SYSLOG_ADDRESS):
         try:
-            syslog_handler = logging.handlers.SysLogHandler(address=SYSLOG_ADDRESS)
-            syslog_handler.setFormatter(CustomFormatter(json_format=json_format))
+            # Create syslog handler with facility and appropriate formatter
+            syslog_handler = logging.handlers.SysLogHandler(
+                address=SYSLOG_ADDRESS,
+                facility=syslog_facility
+            )
+            
+            # Use structured JSON for syslog by default for better troubleshooting
+            syslog_handler.setFormatter(CustomFormatter(json_format=syslog_json))
+            
+            # Set high priority for the syslog handler
+            syslog_handler.setLevel(logging.DEBUG)  # Ensure all logs go to syslog
+            
             root_logger.addHandler(syslog_handler)
         except (socket.error, ConnectionRefusedError) as e:
             sys.stderr.write(f"Warning: Could not connect to syslog: {e}\n")
 
 class CustomFormatter(logging.Formatter):
-    """Custom log formatter with JSON support"""
+    """Custom log formatter with enhanced JSON support for troubleshooting"""
     
     def __init__(self, json_format=False):
         """Initialize with JSON formatting option"""
-        super().__init__(DEFAULT_LOG_FORMAT)
+        # Use a more detailed format for text logs
+        text_format = "%(asctime)s [%(levelname)s] [%(name)s] [%(filename)s:%(lineno)d] %(message)s"
+        super().__init__(text_format)
         self.json_format = json_format
     
     def format(self, record):
@@ -192,14 +235,16 @@ class CustomFormatter(logging.Formatter):
             "hostname": HOSTNAME,
         }
         
-        # Add location info
+        # Add location info - critical for troubleshooting
         log_data["location"] = {
             "filename": record.filename,
             "lineno": record.lineno,
-            "function": record.funcName
+            "function": record.funcName,
+            "pathname": record.pathname,
+            "module": record.module
         }
         
-        # Add exception info if present
+        # Add exception info if present with full traceback
         if record.exc_info:
             log_data["exception"] = {
                 "type": record.exc_info[0].__name__,
@@ -207,17 +252,25 @@ class CustomFormatter(logging.Formatter):
                 "traceback": self.formatException(record.exc_info)
             }
         
-        # Add thread info
+        # Add process and thread info - useful for debugging concurrency issues
+        log_data["process"] = {
+            "id": record.process,
+            "name": record.processName
+        }
+        
         log_data["thread"] = {
             "id": record.thread,
             "name": record.threadName
         }
         
-        # Add correlation ID if present
+        # Add correlation ID if present for request tracing
         if hasattr(record, 'correlation_id'):
             log_data["correlation_id"] = record.correlation_id
         
-        # Add any extra fields
+        # Add a timestamp_epoch for precise time ordering in logs
+        log_data["timestamp_epoch"] = record.created
+        
+        # Add any extra fields passed by the application
         for key, value in record.__dict__.items():
             if key not in ['args', 'asctime', 'created', 'exc_info', 'exc_text', 
                           'filename', 'funcName', 'id', 'levelname', 'levelno', 
@@ -227,6 +280,7 @@ class CustomFormatter(logging.Formatter):
                 if key != 'correlation_id':  # Already handled
                     log_data[key] = value
         
+        # Format into compact JSON for rsyslog processing
         return json.dumps(log_data)
 
 class DerbyLogger(logging.Logger):
@@ -268,14 +322,70 @@ class DerbyLogger(logging.Logger):
         return child
     
     def _log(self, level, msg, args, exc_info=None, extra=None, stack_info=False, stacklevel=1):
-        """Override _log to add correlation ID to all log records"""
+        """Override _log to add correlation ID to all log records and increase stacklevel"""
         if extra is None:
             extra = {}
         
         if self.correlation_id and 'correlation_id' not in extra:
             extra['correlation_id'] = self.correlation_id
         
-        super()._log(level, msg, args, exc_info, extra, stack_info, stacklevel)
+        # Increase stacklevel to skip our wrapper and capture the correct caller
+        super()._log(level, msg, args, exc_info, extra, stack_info, stacklevel + 1)
+    
+    # Override standard logging methods to use correct stacklevel
+    def debug(self, msg, *args, **kwargs):
+        """
+        Log a message with level DEBUG.
+        
+        This override ensures that the correct file and line number are captured.
+        """
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
+        super().debug(msg, *args, **kwargs)
+    
+    def info(self, msg, *args, **kwargs):
+        """
+        Log a message with level INFO.
+        
+        This override ensures that the correct file and line number are captured.
+        """
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
+        super().info(msg, *args, **kwargs)
+    
+    def warning(self, msg, *args, **kwargs):
+        """
+        Log a message with level WARNING.
+        
+        This override ensures that the correct file and line number are captured.
+        """
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
+        super().warning(msg, *args, **kwargs)
+    
+    def error(self, msg, *args, **kwargs):
+        """
+        Log a message with level ERROR.
+        
+        This override ensures that the correct file and line number are captured.
+        """
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
+        super().error(msg, *args, **kwargs)
+    
+    def critical(self, msg, *args, **kwargs):
+        """
+        Log a message with level CRITICAL.
+        
+        This override ensures that the correct file and line number are captured.
+        """
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
+        super().critical(msg, *args, **kwargs)
+    
+    def exception(self, msg, *args, exc_info=True, **kwargs):
+        """
+        Log a message with level ERROR, including exception info.
+        
+        This override ensures that the correct file and line number are captured.
+        """
+        kwargs['stacklevel'] = kwargs.get('stacklevel', 1) + 1
+        super().exception(msg, *args, exc_info=exc_info, **kwargs)
     
     def structured_log(self, level, message, data=None, correlation_id=None):
         """
@@ -296,7 +406,8 @@ class DerbyLogger(logging.Logger):
         if correlation_id:
             extra['correlation_id'] = correlation_id
         
-        self.log(level, message, extra=extra)
+        # Use stacklevel=2 to skip the structured_log method call
+        self.log(level, message, extra=extra, stacklevel=2)
 
 def log_execution_time(logger=None, level=logging.INFO):
     """
@@ -324,10 +435,12 @@ def log_execution_time(logger=None, level=logging.INFO):
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
             
+            # Use stacklevel=2 to skip the wrapper function and log with the decorator's caller's info
             logger.log(
                 level, 
                 f"Function {func.__name__} executed in {duration:.3f}s",
-                extra={"duration": duration, "function": func.__name__}
+                extra={"duration": duration, "function": func.__name__},
+                stacklevel=2
             )
             
             return result
@@ -335,4 +448,16 @@ def log_execution_time(logger=None, level=logging.INFO):
     return decorator
 
 # Configure a default logger for imports
-setup_logger("default")
+# Use minimal local file logging with prioritized rsyslog output
+setup_logger(
+    component="default",
+    log_dir=DEFAULT_LOG_DIR,
+    log_level=DEFAULT_LOG_LEVEL,
+    console=True,
+    file=True,
+    syslog=True,
+    file_json=False,         # Plain text for local logs for easy reading
+    syslog_json=True,        # Structured JSON for rsyslog for better troubleshooting
+    max_bytes=2 * 1024 * 1024,  # 2MB max file size
+    backup_count=3           # Keep just 3 rotated files
+)

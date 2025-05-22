@@ -1,0 +1,200 @@
+#!/bin/bash
+# HLS Transcoder Enhanced Kiosk Script
+# Version: 0.6.0
+# This script sets up a kiosk mode browser for displaying either:
+# - HLS Transcoder status page
+# - Derby Display kiosk
+# - HLS Stream viewer
+# - Custom URL
+
+# Load configuration
+CONFIG_FILE="/etc/hlstranscoder/config.env"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+fi
+
+# Default settings if not set in config
+URL="${KIOSK_URL:-http://localhost/status.html}"
+KIOSK_MODE="${KIOSK_MODE:-status}"  # status, stream, derbydisplay, or custom
+DERBYDISPLAY_URL="${DERBYDISPLAY_URL:-http://derbynetpi/kiosk/identify.php}"
+STREAM_URL="${STREAM_URL:-http://localhost:8037/}"
+DERBYDISPLAY_CHANNEL="${DERBYDISPLAY_CHANNEL:-}"  # Optional channel for derbydisplay (e.g., now-racing)
+KIOSK_ROTATION_SECONDS="${KIOSK_ROTATION_SECONDS:-0}"  # If > 0, rotate between modes
+
+# Set up display based on kiosk mode
+setup_url() {
+    case "$KIOSK_MODE" in
+        status)
+            URL="http://localhost/status.html"
+            ;;
+        stream)
+            URL="http://localhost:8037/"
+            ;;
+        derbydisplay)
+            URL="$DERBYDISPLAY_URL"
+            if [ ! -z "$DERBYDISPLAY_CHANNEL" ]; then
+                URL="$DERBYDISPLAY_URL?kiosk=$DERBYDISPLAY_CHANNEL"
+            fi
+            ;;
+        custom)
+            # Use the URL from config 
+            ;;
+        *)
+            echo "Unknown kiosk mode: $KIOSK_MODE, defaulting to status page"
+            URL="http://localhost/status.html"
+            ;;
+    esac
+    
+    echo "Starting kiosk with URL: $URL"
+}
+
+# Wait for network connectivity
+wait_for_network() {
+    echo "Checking for network connectivity..."
+    for i in {1..30}; do
+        if ping -c 1 derbynetpi.local &> /dev/null || ping -c 1 8.8.8.8 &> /dev/null; then
+            echo "Network connectivity established"
+            break
+        fi
+        echo "Waiting for network... ($i/30)"
+        sleep 2
+    done
+
+    # Wait a bit more for services to start
+    echo "Waiting for services to start..."
+    sleep 10
+}
+
+# Set up display settings
+setup_display() {
+    echo "Setting up display..."
+    
+    # Turn off screensaver and power management
+    xset s off
+    xset -dpms
+    xset s noblank
+    
+    # Hide cursor
+    if command -v unclutter &> /dev/null; then
+        unclutter -idle 0.1 -root &
+    fi
+}
+
+# Launch a browser in kiosk mode
+launch_browser() {
+    local url="$1"
+    echo "Launching browser with URL: $url"
+    
+    # Kill any existing browser instances
+    pkill -f chromium || true
+    
+    # Start Chromium in kiosk mode
+    if command -v chromium-browser &> /dev/null; then
+        chromium-browser --noerrdialogs --disable-infobars --kiosk "$url" &
+    elif command -v chromium &> /dev/null; then
+        chromium --noerrdialogs --disable-infobars --kiosk "$url" &
+    else
+        echo "ERROR: Chromium browser not found"
+        exit 1
+    fi
+}
+
+# Rotate between different kiosk modes if configured
+handle_rotation() {
+    if [ "$KIOSK_ROTATION_SECONDS" -gt 0 ]; then
+        echo "Setting up kiosk rotation every $KIOSK_ROTATION_SECONDS seconds"
+        
+        # Define the rotation sequence
+        rotation_modes=("status" "stream" "derbydisplay")
+        current_index=0
+        
+        while true; do
+            # Get the next mode in rotation
+            KIOSK_MODE="${rotation_modes[$current_index]}"
+            
+            # Update URL for the current mode
+            setup_url
+            
+            # Update the browser
+            launch_browser "$URL"
+            
+            # Wait for the specified time
+            sleep "$KIOSK_ROTATION_SECONDS"
+            
+            # Move to the next mode
+            current_index=$(( (current_index + 1) % ${#rotation_modes[@]} ))
+        done
+    fi
+}
+
+# Monitor and restart browser if needed
+monitor_browser() {
+    while true; do
+        # Check if chromium is running
+        if ! pgrep -f "chromium" > /dev/null; then
+            echo "Restarting Chromium..."
+            launch_browser "$URL"
+        fi
+        
+        # Check if URL has changed in config
+        if [ -f "$CONFIG_FILE" ]; then
+            # Re-read config to check for changes
+            source "$CONFIG_FILE"
+            
+            # Determine the correct URL based on current settings
+            local new_kiosk_mode="${KIOSK_MODE:-status}"
+            local new_url
+            
+            case "$new_kiosk_mode" in
+                status)
+                    new_url="http://localhost/status.html"
+                    ;;
+                stream)
+                    new_url="http://localhost:8037/"
+                    ;;
+                derbydisplay)
+                    new_url="$DERBYDISPLAY_URL"
+                    if [ ! -z "$DERBYDISPLAY_CHANNEL" ]; then
+                        new_url="$DERBYDISPLAY_URL?kiosk=$DERBYDISPLAY_CHANNEL"
+                    fi
+                    ;;
+                custom)
+                    new_url="${KIOSK_URL}"
+                    ;;
+                *)
+                    new_url="http://localhost/status.html"
+                    ;;
+            esac
+            
+            if [ "$new_url" != "$URL" ]; then
+                echo "URL changed from $URL to $new_url"
+                URL="$new_url"
+                launch_browser "$URL"
+            fi
+        fi
+        
+        sleep 30
+    done
+}
+
+# Main execution
+echo "Starting HLS Transcoder Kiosk Script..."
+echo "Mode: $KIOSK_MODE"
+
+# Wait for network and set up display
+wait_for_network
+setup_display
+
+# Set up initial URL
+setup_url
+
+# Initial browser launch
+launch_browser "$URL"
+
+# Check if rotation is enabled
+if [ "$KIOSK_ROTATION_SECONDS" -gt 0 ]; then
+    handle_rotation
+else
+    # Normal monitoring mode
+    monitor_browser
+fi
