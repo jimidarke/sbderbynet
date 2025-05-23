@@ -3,7 +3,7 @@ Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library 
 Uses service discovery for improved resilience
 
 VERSION = "0.5.1"
-
+  
 Version History:
 - 0.5.1 - May 22, 2025 - Enhanced logging system with improved source file/line tracking and rsyslog integration
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components

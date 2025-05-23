@@ -14,20 +14,20 @@
 set -e
 
 # Default configuration values
-CONFIG_DIR="/etc/hlstranscoder"
-INSTALL_DIR="/opt/hlstranscoder"
-SERVICE_USER="pi"
-DEFAULT_RTSP_SOURCE="rtsp://192.168.100.10:8554/stream"
+CONFIG_DIR="/etc/derbynet/hlstranscoder"
+INSTALL_DIR="/opt/derbynet/hlstranscoder"
+SERVICE_USER="derby"
+DEFAULT_RTSP_SOURCE="rtsp://admin:all4theKids@192.168.100.20:554/21" # rtsp://admin:all4theKids@192.168.100.20:554/21
 DEFAULT_HLS_OUTPUT_DIR="/var/www/html/hls"
 DEFAULT_SEGMENT_DURATION="4"
 DEFAULT_SEGMENT_LIST_SIZE="5"
 DEFAULT_FFMPEG_PRESET="ultrafast"
 DEFAULT_RESOLUTION="1280x720"
 DEFAULT_BITRATE="2M"
-DEFAULT_MQTT_BROKER="localhost"
+DEFAULT_MQTT_BROKER="192.168.100.10"
 DEFAULT_LOG_LEVEL="INFO"
-DEFAULT_KIOSK_URL="http://localhost/status.html"
-SERVER_ADDRESS="192.168.100.10"
+DEFAULT_KIOSK_URL="http://derbynetpc/status.html"
+SERVER_ADDRESS="192.168.100.10" # same as mqtt
 RSYNC_MODULE="derbynet"
 UPDATE_FLAG="/boot/updated"
 
@@ -136,10 +136,10 @@ mkdir -p "/var/log/hlstranscoder"
 
 # Copy files
 echo "Copying files..."
-cp hlstranscoder.py "$INSTALL_DIR/"
+#cp hlstranscoder.py "$INSTALL_DIR/"
 cp hlstranscoder.service /etc/systemd/system/
 cp nginx/hls.conf /etc/nginx/conf.d/
-cp kiosk.sh "$INSTALL_DIR/"
+#cp kiosk.sh "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/hlstranscoder.py"
 chmod +x "$INSTALL_DIR/kiosk.sh"
 

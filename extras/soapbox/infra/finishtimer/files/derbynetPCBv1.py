@@ -46,6 +46,12 @@ PIN_RED         = 8
 PIN_GREEN       = 7
 PIN_BLUE        = 1
 MCP3421_ADDR    = 0x68
+ 
+
+from derbylogger import setup_logger, get_logger
+logger = setup_logger(__name__) # setup logger with hwid
+logger.debug("DerbyNet PCB Class Loaded")
+
 
 # Imports
 import time
@@ -57,11 +63,7 @@ import threading
 import smbus2 # type: ignore
 import subprocess
 import psutil # type: ignore
-
-from derbylogger import setup_logger # unified logging
-logger = setup_logger(__name__) # setup logger with hwid
-logger.debug("DerbyNet PCB Class Loaded")
-
+ 
 # GPIO Setup
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(PIN_RED, GPIO.OUT)
