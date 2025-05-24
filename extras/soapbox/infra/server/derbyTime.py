@@ -12,7 +12,7 @@ import pytz # type: ignore
 import json
 
 from derbylogger import setup_logger
-logger = setup_logger("derbyTime")
+logger = setup_logger("derbyTime", use_centralized_config=True)
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "racetime")
 client.connect("127.0.0.1", 1883, 5)

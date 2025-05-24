@@ -29,7 +29,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../../common"))
 from derbylogger import setup_logger
 from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
-logger = setup_logger(__name__)
+logger = setup_logger("DerbyDisplay", use_centralized_config=True)
 
 logger.info(f"####### Starting DerbyNet DerbyDisplay v{VERSION} #######")
 

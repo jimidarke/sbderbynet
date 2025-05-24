@@ -1,0 +1,49 @@
+# DerbyNet Log Rotation Configuration
+# File: /etc/logrotate.d/derbynet
+# Purpose: Rotate DerbyNet logs to prevent disk space issues
+
+/var/log/derbynet/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 syslog adm
+    
+    # Restart rsyslog after rotation to reopen log files
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
+    
+    # Optional: Run custom cleanup scripts
+    # postrotate
+    #     /opt/derbynet/scripts/log-cleanup.sh
+    # endscript
+}
+
+# Separate rotation for high-volume debug logs (if any)
+/var/log/derbynet/*debug*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 syslog adm
+    
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
+}
+
+# Local backup logs on remote devices
+/var/log/derbynet-local.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 syslog adm
+}

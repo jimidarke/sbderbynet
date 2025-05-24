@@ -1,7 +1,8 @@
 import time
-import logging
 import spidev as SPI
-#sys.path.append("..")
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'common'))
 from lcdscreen import LCD_2inch
 from PIL import Image, ImageDraw, ImageFont
 from derbyapi import DerbyNetClient
@@ -22,8 +23,9 @@ Version History:
 - 0.0.1 - March 31, 2025 - Initial implementation
 '''
 
-logging.basicConfig(level=logging.DEBUG)
-logging.info(f"Starting DerbyNet LCD Display v{VERSION}")
+from derbylogger import setup_logger, get_logger
+logger = setup_logger("DerbyLCD", use_centralized_config=True)
+logger.info(f"Starting DerbyNet LCD Display v{VERSION}")
 
 # LCD Setup
 RST = 27
@@ -53,13 +55,13 @@ client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f"DerbyLCD-{random.randin
 # Set up the MQTT Callback functions
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
-        logging.info("Connected to MQTT broker")
-        logging.info("Subscribing to topic: %s", MQTT_TOPIC_LANESTATE)
+        logger.info("Connected to MQTT broker")
+        logger.info("Subscribing to topic: %s", MQTT_TOPIC_LANESTATE)
         client.subscribe(MQTT_TOPIC_LANESTATE, qos=1)  # Subscribes with QoS 1
-        logging.info("Subscribing to topic: %s", MQTT_TOPIC_LANETELEM)
+        logger.info("Subscribing to topic: %s", MQTT_TOPIC_LANETELEM)
         client.subscribe(MQTT_TOPIC_LANETELEM, qos=1)  # Subscribes with QoS 1
     else:
-        logging.error(f"Failed to connect to MQTT broker: {reason_code}")
+        logger.error(f"Failed to connect to MQTT broker: {reason_code}")
 
 def on_message(client, userdata, message):
     try:
@@ -67,8 +69,8 @@ def on_message(client, userdata, message):
         topic = message.topic
         msg = json.loads(payload)
         #print(json.dumps(msg, indent=4))
-        logging.info(f"Received message on topic {topic}")
-        logging.debug(f"Message: {json.dumps(msg)}")
+        logger.info(f"Received message on topic {topic}")
+        logger.debug(f"Message: {json.dumps(msg)}")
         process_message(topic, msg)
     except Exception as e:
         print(f"Error processing message: {e}")

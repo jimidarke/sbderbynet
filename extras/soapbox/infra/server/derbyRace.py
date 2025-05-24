@@ -34,7 +34,8 @@ VERSION = "0.5.0"
 # Add common library path to allow importing derbynet module
 sys.path.append('/var/lib/infra/common')
 
-logger = setup_logger("derbyRace")
+# Initialize centralized logging for derbyRace
+logger = setup_logger("derbyRace", use_centralized_config=True)
 
 try:
     from derbynet import discover_services
@@ -171,13 +172,21 @@ class derbyRace:
             
             ########### Trigger for DEVICE TELEMETRY ###########
             if "telemetry" in topic: 
-                # Send to API
-                self.api.send_device_status(payload_data)
+                # Validate telemetry payload before sending to API
+                required_fields = ["hostname", "hwid", "uptime", "ip", "mac"]
+                if all(field in payload_data for field in required_fields):
+                    # Send to API
+                    success = self.api.send_device_status(payload_data)
+                    if not success:
+                        logger.warning(f"Failed to send device telemetry for {hwid}")
+                else:
+                    logger.warning(f"Incomplete telemetry data from {hwid}: missing required fields")
                 
                 # Update heartbeat timestamp
                 isReady = payload_data.get("readyToRace", False)
                 if lane > 0:
-                    self.timerHeartbeat(lane,isReady)
+                    self.timerHeartbeat(lane, isReady)
+                    logger.debug(f"Updated heartbeat for lane {lane}, ready: {isReady}")
         
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error for message on {topic}: {e}")
@@ -347,12 +356,22 @@ class derbyRace:
                 logger.info(f"Timer for lane {lane_num} is offline")
                 del self.timer_heartbeats[lane_num]
 
-        # checks self.last_heartbeat to see if we need to send a heartbeat 
-        if self.last_heartbeat == 0 or (current_time - self.last_heartbeat) > HEARTBEAT_PULSE:
+        # Send heartbeat more frequently and handle state changes
+        should_send = (
+            self.last_heartbeat == 0 or 
+            (current_time - self.last_heartbeat) > 10 or  # Every 10 seconds instead of 60
+            prev_heartbeat.get('isReady', None) != isReady or  # State change
+            lastheartbeat == 0 or  # First heartbeat for this timer
+            (current_time - lastheartbeat) > HEARTBEAT_TIMEOUT  # Reconnection
+        )
+        
+        if should_send:
             self.last_heartbeat = current_time
             logger.debug(f"Sending heartbeat to API {self.timer_heartbeats}")
             # sends self.timer_heartbeats to the api for a full status update
-            self.api.send_timer_heartbeat(self.timer_heartbeats)
+            success = self.api.send_timer_heartbeat(self.timer_heartbeats)
+            if not success:
+                logger.error("Failed to send timer heartbeat to API")
         # sample timer_heartbeats = {2: {'time': 1747607679.600188, 'isReady': True}, 1: {'time': 1747607678.8986795, 'isReady': False}, 3: {'time': 1747607681.1048107, 'isReady': True}}
         
         '''

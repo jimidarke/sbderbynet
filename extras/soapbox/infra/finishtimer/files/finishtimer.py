@@ -1,6 +1,12 @@
 '''
 Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library and communicates over MQTT
 Uses service discovery for improved resilience
+
+VERSION = "0.5.1"
+  
+Version History:
+- 0.5.1 - May 22, 2025 - Enhanced logging system with improved source file/line tracking and rsyslog integration
+- 0.5.0 - May 19, 2025 - Standardized version schema across all components
 '''
 
 import json
@@ -13,13 +19,16 @@ import sys
 from datetime import datetime
 
 # Add parent directory to path for importing common modules
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../common"))
+sys.path.append(os.path.dirname(__file__))
 from derbynetPCBv1 import derbyPCBv1
-from derbylogger import setup_logger
+from derbylogger import setup_logger, get_logger
 from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
 ###########################    SETUP    ###########################
-logger = setup_logger(__name__)
+# Set up logger with centralized configuration
+setup_logger("FinishTimer", use_centralized_config=True)  # Configure logger for this component
+logger = get_logger(__name__) # Get logger instance for this module
+logger.debug("DerbyNet PCB Class Loaded") 
 logger.info("####### Starting DerbyNet Finish Timer #######")
 
 try:

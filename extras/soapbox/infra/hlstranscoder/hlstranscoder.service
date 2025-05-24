@@ -1,0 +1,23 @@
+[Unit]
+Description=HLS Transcoder Service for DerbyNet Soapbox
+After=network.target mosquitto.service nginx.service
+Wants=network.target mosquitto.service nginx.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/opt/hlstranscoder
+ExecStart=/usr/bin/python3 /opt/hlstranscoder/hlstranscoder.py --config /etc/hlstranscoder/config.env
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Hardening
+ProtectSystem=full
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

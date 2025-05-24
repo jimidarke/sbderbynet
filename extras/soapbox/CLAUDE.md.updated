@@ -12,8 +12,7 @@ The system consists of several components:
 2. **Finish Timer**: Hardware timers installed at each lane that detect car finishes
 3. **Start Timer**: ESP32-based device that detects race start signals
 4. **Derby Display**: Display screen showing race status and results
-5. **HLS Feed**: Camera streaming service for race viewing
-6. **HLS Transcoder**: Dedicated component for transcoding video to HLS format and serving streams
+5. **HLS Transcoder**: Comprehensive video handling component for transcoding, streaming, replay and display
 
 This represents a significant overhaul of the original DerbyNet PHP code (found in the `/website` folder) with extensive new functionality in the `/extras/soapbox` folder to integrate hardware timing systems, lane detection, and video replay specifically for soapbox derby racing.
 
@@ -45,17 +44,13 @@ The system primarily uses MQTT for communication between components, with a Pyth
    - Controls small LCD displays for officials
    - Shows lane status and race information
 
-6. **HLS Feed Service (hlsfeed)**:
-   - Handles video streaming for race viewing
-   - Uses RTSP and HLS for streaming
-   - Integrates with DerbyNet's replay system
-
-7. **HLS Transcoder Service (hlstranscoder)**:
-   - Transcodes video input (RTSP) to HLS format
-   - Provides adaptive streaming and replay capabilities
-   - Runs on dedicated hardware for improved performance
-   - Supports remote updates via MQTT and rsync
-   - Includes web-based status and monitoring dashboard
+6. **HLS Transcoder (hlstranscoder.py)**:
+   - Transcodes video input (RTSP) to HLS format for streaming
+   - Handles race replay functionality
+   - Provides status monitoring and telemetry
+   - Supports multiple display modes (status, stream, derbydisplay kiosk)
+   - Uses zeroconf for service discovery
+   - Serves HLS streams through nginx
 
 ### Communication Flow
 
@@ -93,7 +88,7 @@ DerbyNet is a PHP-based web application that handles the front-end race manageme
 1. **Race Management**: Handles triple elimination format with preliminary, semi-final, and final rounds
 2. **Timer Integration**: Communicates with our timing system via HTTP/AJAX with specific states (CONNECTED, STAGING, RUNNING, etc.)
 3. **Kiosk System**: Supports various display types (now-racing, standings, ondeck, results-by-racer)
-4. **HLS Replay System**: Integrates with our HLS feed for race replays with configurable options:
+4. **HLS Replay System**: Integrates with our HLS transcoder for race replays with configurable options:
    - Replay length (default: 4000ms)
    - Replay count (default: 2)
    - Replay speed (default: 50%)
@@ -139,9 +134,6 @@ sudo systemctl start finishtimer
 # Start the derby display service
 sudo systemctl start derbydisplay
 
-# Start the HLS feed service
-sudo systemctl start hlsfeed
-
 # Start the HLS transcoder service
 sudo systemctl start hlstranscoder
 ```
@@ -168,9 +160,6 @@ sudo journalctl -u finishtimer
 # View logs for derby display 
 sudo journalctl -u derbydisplay
 
-# View logs for HLS feed
-sudo journalctl -u hlsfeed
-
 # View logs for HLS transcoder
 sudo journalctl -u hlstranscoder
 ```
@@ -184,6 +173,17 @@ All MQTT topics use the prefix `derbynet/` followed by a category and specific i
 - Device telemetry: `derbynet/device/{id}/telemetry`
 - Lane LED control: `derbynet/lane/{lane}/led`
 - Lane pinny display: `derbynet/lane/{lane}/pinny`
+- Replay commands: `derbynet/replay/command`
+- Replay status: `derbynet/replay/status`
+
+## Service Discovery
+
+The system uses zeroconf (mDNS) for service discovery and auto-configuration:
+
+- Service types: `_derbynet._tcp.local`, `_rtsp._tcp.local`, `_derbynet-finishtimer._tcp.local.`
+- Each device advertises itself with service properties including device type, hardware ID, and version
+- Components can auto-discover each other, reducing the need for manual configuration
+- Simplifies IP address changes and device replacement
 
 ## Hardware Interfaces
 
@@ -238,3 +238,13 @@ All components should:
 - Implement reconnection strategies
 - Handle offline operation gracefully
 - Use proper MQTT QoS levels
+
+### Video Handling
+
+The HLS Transcoder handles all video-related functionality:
+- Video transcoding from RTSP to HLS
+- Video streaming via nginx
+- Video recording for race replays
+- Video playback for replays
+- Status monitoring dashboard
+- Kiosk mode for different display types

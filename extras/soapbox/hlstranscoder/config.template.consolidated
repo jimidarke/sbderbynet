@@ -1,0 +1,70 @@
+# HLS Transcoder Consolidated Configuration Template
+# Copy this file to config.env and modify as needed
+# Options marked with [SECURE] will be populated from secure storage if secure_config.sh is used
+
+# Video Source Configuration
+RTSP_SOURCE="rtsp://192.168.100.10:8554/stream"
+RTSP_USERNAME=""      # [SECURE]
+RTSP_PASSWORD=""      # [SECURE]
+
+# Output Configuration
+HLS_OUTPUT_DIR="/var/www/html/hls"
+SEGMENT_DURATION="4"
+SEGMENT_LIST_SIZE="5"
+
+# DerbyNet Integration Settings 
+DERBYNET_HOSTNAME="derbynetpi"  # Hostname for DerbyNet server
+DERBYNET_PORT="8037"            # Port for HLS streaming server
+HLS_STREAM_PATH="/hls/stream.m3u8"  # Path to HLS stream
+
+# Transcoding Settings
+FFMPEG_PRESET="ultrafast"     # Options: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+RESOLUTION="1280x720"         # Example: 1920x1080, 1280x720, 854x480, 640x360
+BITRATE="2M"                  # Example: 500k, 1M, 2M, 5M
+CODEC="libx264"               # Usually libx264, but could be h264_omx for RPi hardware acceleration
+VIDEO_PRESET="veryfast"       # Legacy option for hlsfeed compatibility
+VIDEO_BITRATE="2M"            # Legacy option for hlsfeed compatibility
+GOP_SIZE="30"                 # Keyframe interval
+
+# Network Settings
+MQTT_BROKER="localhost"       # MQTT broker address
+MQTT_PORT="1883"              # MQTT broker port
+MQTT_USERNAME=""              # [SECURE] Optional: MQTT username
+MQTT_PASSWORD=""              # [SECURE] Optional: MQTT password
+UPDATE_SERVER="192.168.100.10" # Server address for rsync updates
+
+# System Settings
+LOG_LEVEL="INFO"              # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+DERBY_ID=""                   # Set in /boot/derbyid.txt - unique identifier for this device
+DEVICE_NAME="hlstranscoder"   # Device name for MQTT and logging
+KIOSK_URL="http://localhost/status.html" # URL to display in kiosk mode
+
+# Web API Settings
+API_PORT="8038"               # Port for the transcoder status API
+ENABLE_API="true"             # Enable/disable the status API
+
+# HLS Advanced Settings
+HLS_PLAYLIST_TYPE="event"     # Options: event, vod
+HLS_LIST_SIZE="5"             # Number of segments to keep in playlist
+CLEANUP_OLD_SEGMENTS="true"   # Whether to clean up old segments
+MAX_SEGMENT_AGE="300"         # Maximum age of segments to keep (seconds)
+MAX_SEGMENT_AGE_MINUTES="5"   # Legacy option for hlsfeed compatibility
+
+# Replay Settings
+REPLAY_BUFFER_TIME="4000"     # ms - Time to buffer for replay (default 4 seconds)
+REPLAY_PLAYBACK_RATE="50"     # percent - Replay slowdown speed (default 50%)
+REPLAY_NUM_SHOWINGS="2"       # count - How many times to show the replay
+REPLAY_VIDEO_DIR="/var/www/html/replay" # Directory for saved race videos
+REPLAY_TOPIC="derbynet/replay/command"  # MQTT topic for replay commands
+STATUS_TOPIC="derbynet/replay/status"   # MQTT topic for replay status
+
+# Archive Settings
+ENABLE_ARCHIVE="false"        # Whether to archive video files
+ARCHIVE_DIR="/var/www/html/archive" # Directory to store archived video files
+ARCHIVE_FORMAT="mkv"          # Format for archived files (mp4, mkv)
+ARCHIVE_RETENTION_DAYS="7"    # Number of days to keep archived files
+
+# Monitoring settings
+ALERT_ENABLED="true"          # Whether to send alerts when issues are detected
+ALERT_TOPIC="derbynet/alerts" # MQTT topic for alerts
+MONITOR_INTERVAL="60"         # Seconds between health checks

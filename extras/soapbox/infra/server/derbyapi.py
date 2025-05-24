@@ -30,7 +30,7 @@ from pip._vendor import requests
 import xml.etree.ElementTree as ET
 
 from derbylogger import setup_logger
-logger = setup_logger("derbyapi")
+logger = setup_logger("derbyapi", use_centralized_config=True)
 
 # DerbyNet Timer State Constants
 TIMER_STATE_CONNECTED = "CONNECTED"
@@ -103,13 +103,12 @@ class DerbyNetClient:
         """
         current_time = time.time()
         
-        # Check if we need to send a heartbeat (required every 60 seconds by DerbyNet)
-        if (current_time - self.last_heartbeat_time) < HEARTBEAT_INTERVAL:
-            # Only send if state changes or we're approaching the deadline
-            if (current_time - self.last_heartbeat_time) < (HEARTBEAT_INTERVAL - 5):
-                # If not near the deadline, only send if state changed or first heartbeat
-                if self.last_heartbeat_time > 0:
-                    return True
+        # Send heartbeat more frequently (every 10-15 seconds instead of waiting for 60)
+        # This ensures timer status updates reach DerbyNet promptly
+        if (current_time - self.last_heartbeat_time) < 10:
+            # Still too soon for another heartbeat, unless this is the first one
+            if self.last_heartbeat_time > 0:
+                return True
         
         if not self.authcode:
             self.authcode = self.login()
@@ -149,18 +148,27 @@ class DerbyNetClient:
         try:
             response = requests.post(self.url, headers=headers, data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
+                logger.warning("Heartbeat authentication failed, retrying login")
                 self.authcode = self.login()
-                return self.send_timer_heartbeat(timer_heartbeats)
+                if self.authcode:
+                    return self.send_timer_heartbeat(timer_heartbeats)
+                else:
+                    logger.error("Failed to re-authenticate for heartbeat")
+                    return False
                 
             response.raise_for_status()
-            # Update last heartbeat time
+            # Update last heartbeat time only on successful response
             self.last_heartbeat_time = current_time
+            logger.debug(f"Heartbeat sent successfully for {len(timer_heartbeats)} timers")
             return True
         except requests.RequestException as e:
             logger.error(f"Failed to send heartbeat message: {e}")
             # Set timer state to UNHEALTHY if connection failed
             if self.timer_state != TIMER_STATE_NOT_CONNECTED:
                 self.timer_state = TIMER_STATE_UNHEALTHY
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error sending heartbeat: {e}")
             return False
     
     def set_timer_state(self, new_state):
@@ -173,9 +181,9 @@ class DerbyNetClient:
             return False
             
         # Check for invalid state transitions
-        if (new_state == TIMER_STATE_RUNNING and self.timer_state != TIMER_STATE_STAGING):
-            logger.warning(f"Invalid state transition: {self.timer_state} -> {new_state}")
-            return False
+        #if (new_state == TIMER_STATE_RUNNING and self.timer_state != TIMER_STATE_STAGING):
+        #    logger.warning(f"Invalid state transition: {self.timer_state} -> {new_state}")
+        #    return False
             
         # Record the state change
         old_state = self.timer_state

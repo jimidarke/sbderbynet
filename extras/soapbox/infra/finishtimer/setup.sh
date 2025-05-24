@@ -88,7 +88,7 @@ if [ ! -f /boot/firmware/updated ]; then
         sudo apt update
         sudo apt upgrade -y
         sudo apt install -y rsync python3-pip mosquitto-clients
-        sudo pip install paho-mqtt psutil raspberrypi-tm1637 --break
+        sudo pip install paho-mqtt psutil raspberrypi-tm1637 zeroconf --break
         sudo apt autoremove -y
         sudo apt clean
         sudo touch /boot/firmware/updated

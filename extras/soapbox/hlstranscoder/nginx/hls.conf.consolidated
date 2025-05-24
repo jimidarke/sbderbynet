@@ -1,0 +1,172 @@
+# Consolidated HLS Server Configuration for Nginx
+# This configuration serves HLS streams, status page, and provides optimal caching
+
+worker_processes auto;
+worker_rlimit_nofile 2048;
+
+events {
+    worker_connections 1024;
+    multi_accept on;
+    use epoll;
+}
+
+http {
+    include mime.types;
+    default_type application/octet-stream;
+
+    # Optimize sendfile for better performance
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    
+    # Timeout settings
+    keepalive_timeout 65;
+    client_body_timeout 10;
+    client_header_timeout 10;
+    send_timeout 10;
+
+    # Compression settings
+    gzip on;
+    gzip_min_length 1000;
+    gzip_proxied any;
+    gzip_types application/vnd.apple.mpegurl text/plain text/css application/json video/mp2t;
+
+    # Static file caching
+    open_file_cache max=1000 inactive=20s;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors on;
+
+    # Log format for access logs
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+    
+    access_log /var/log/nginx/hls_access.log main;
+    error_log /var/log/nginx/hls_error.log warn;
+
+    # HLS streaming server on port 8037
+    server {
+        listen 8037;
+        server_name _ derbynetpi localhost;
+        
+        # Security headers
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Expose-Headers' 'Content-Length' always;
+
+        # Root directory for HLS content
+        root /var/www/html;
+        
+        # Serve main index page
+        location / {
+            index index.html;
+            expires 1h;
+        }
+        
+        # HLS stream location
+        location /hls/ {
+            # CORS headers for video playback
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'Range, X-Requested-With';
+            add_header 'Access-Control-Expose-Headers' 'Content-Length, Content-Range';
+            
+            # Properly handle OPTIONS requests for CORS preflight
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Allow-Origin' '*';
+                add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS';
+                add_header 'Access-Control-Allow-Headers' 'Range, X-Requested-With';
+                add_header 'Access-Control-Max-Age' 1728000;
+                add_header 'Content-Type' 'text/plain; charset=utf-8';
+                add_header 'Content-Length' 0;
+                return 204;
+            }
+            
+            # MIME types for HLS
+            types {
+                application/vnd.apple.mpegurl m3u8;
+                video/mp2t ts;
+            }
+            
+            # Disable cache for m3u8 files
+            location ~ \.m3u8$ {
+                add_header Cache-Control no-cache;
+                add_header 'Access-Control-Allow-Origin' '*' always;
+            }
+            
+            # Cache ts fragments
+            location ~ \.ts$ {
+                # Allow caching TS segments, they're immutable once created
+                expires 24h;
+                add_header Cache-Control "public, max-age=86400";
+                add_header 'Access-Control-Allow-Origin' '*' always;
+            }
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "HLS service running\n";
+        }
+        
+        # Handle 404 errors
+        error_page 404 /404.html;
+        location = /404.html {
+            root /var/www/html;
+        }
+    }
+
+    # Main web server for status dashboard on port 80
+    server {
+        listen 80;
+        server_name localhost;
+        
+        # Root directory
+        root /var/www/html;
+        index index.html;
+        
+        # Serve static files
+        location / {
+            try_files $uri $uri/ =404;
+        }
+        
+        # API endpoint for transcoder status
+        location /api/ {
+            proxy_pass http://127.0.0.1:8038/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+        }
+        
+        # Proxy for HLS content
+        location /hls/ {
+            alias /var/www/html/hls/;
+            add_header Cache-Control no-cache;
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            
+            # HLS MIME types
+            types {
+                application/vnd.apple.mpegurl m3u8;
+                video/mp2t ts;
+            }
+        }
+        
+        # Replay video access
+        location /replay/ {
+            alias /var/www/html/replay/;
+            autoindex on;  # Allow directory listings
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            
+            # Video MIME types
+            types {
+                video/mp4 mp4;
+                video/x-matroska mkv;
+            }
+        }
+    }
+}
