@@ -49,7 +49,7 @@ MCP3421_ADDR    = 0x68
  
 
 from derbylogger import setup_logger, get_logger
-setup_logger("FinishTimer")  # Configure logger for this component
+setup_logger("FinishTimer", use_centralized_config=True)  # Configure logger for this component
 logger = get_logger(__name__) # Get logger instance for this module
 logger.debug("DerbyNet PCB Class Loaded")
 

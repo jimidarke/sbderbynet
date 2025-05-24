@@ -34,13 +34,13 @@ import urllib.parse
 
 # Import DerbyNet common libraries
 try:
-    from derbylogger import DerbyLogger
+    from derbylogger import setup_logger as derby_setup_logger, get_logger
     from derbynet import MQTTClient
 except ImportError:
     # For development, try relative import
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     try:
-        from derbylogger import DerbyLogger
+        from derbylogger import setup_logger as derby_setup_logger, get_logger
         from derbynet import MQTTClient
     except ImportError:
         print("ERROR: Could not import DerbyNet common libraries")
@@ -127,17 +127,11 @@ def load_config(config_file):
 
 def setup_logger(log_level="INFO"):
     """
-    Set up the logger using DerbyLogger
+    Set up the logger using centralized configuration
     """
     global logger
     
-    log_level = getattr(logging, log_level.upper(), logging.INFO)
-    logger = DerbyLogger(
-        name="hlstranscoder",
-        log_file="/var/log/hlstranscoder/hlstranscoder.log",
-        console=True,
-        level=log_level
-    )
+    logger = derby_setup_logger("HLSTranscoder", use_centralized_config=True)
     logger.info(f"HLS Transcoder {VERSION} starting up")
     logger.info(f"DERBY_ID: {config['DERBY_ID']}")
     logger.info(f"Device name: {config['DEVICE_NAME']}")

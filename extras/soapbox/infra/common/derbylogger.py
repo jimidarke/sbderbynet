@@ -67,6 +67,14 @@ from datetime import datetime
 from functools import wraps
 from typing import Dict, Any, Optional, Callable, List, Union
 
+# Import centralized configuration
+try:
+    from logging_config import get_config, is_production, is_debug
+    CONFIG_AVAILABLE = True
+except ImportError:
+    # Fallback if config module not available
+    CONFIG_AVAILABLE = False
+
 # Constants
 VERSION = "0.5.1"  # Module version - should match version in module docstring
 DEFAULT_LOG_LEVEL = "INFO"
@@ -117,17 +125,18 @@ def get_logger(name: str = None) -> logging.Logger:
 
 def setup_logger(
     component: str,
-    log_dir: str = DEFAULT_LOG_DIR,
-    log_level: str = DEFAULT_LOG_LEVEL,
-    console: bool = True,
-    file: bool = True,
-    syslog: bool = True,
-    json_format: bool = True,
-    syslog_json: bool = True,
-    file_json: bool = False,
-    max_bytes: int = 2 * 1024 * 1024,
-    backup_count: int = 3,
-    syslog_facility: int = SYSLOG_FACILITY
+    log_dir: str = None,
+    log_level: str = None,
+    console: bool = None,
+    file: bool = None,
+    syslog: bool = None,
+    json_format: bool = None,
+    syslog_json: bool = None,
+    file_json: bool = None,
+    max_bytes: int = None,
+    backup_count: int = None,
+    syslog_facility: int = None,
+    use_centralized_config: bool = True
 ) -> None:
     """
     Configure the logging system for this application.
@@ -135,19 +144,62 @@ def setup_logger(
     
     Args:
         component: Component name (e.g., 'finish-timer', 'server')
-        log_dir: Directory for log files
-        log_level: Default log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        console: Enable console logging
-        file: Enable file logging (minimal local backup)
-        syslog: Enable syslog logging (primary logging mechanism)
-        json_format: Enable JSON-formatted logs (legacy parameter, see syslog_json and file_json)
-        syslog_json: Use JSON format for syslog (recommended for troubleshooting)
-        file_json: Use JSON format for local file logs (recommended to keep false for readability)
-        max_bytes: Max log file size before rotation (reduced for local backups)
-        backup_count: Number of backup log files to keep (reduced for local backups)
-        syslog_facility: Syslog facility to use
+        log_dir: Directory for log files (None = use centralized config)
+        log_level: Default log level (None = use centralized config)
+        console: Enable console logging (None = use centralized config)
+        file: Enable file logging (None = use centralized config)
+        syslog: Enable syslog logging (None = use centralized config)
+        json_format: Enable JSON-formatted logs (None = use centralized config)
+        syslog_json: Use JSON format for syslog (None = use centralized config)
+        file_json: Use JSON format for local file logs (None = use centralized config)
+        max_bytes: Max log file size before rotation (None = use centralized config)
+        backup_count: Number of backup log files to keep (None = use centralized config)
+        syslog_facility: Syslog facility to use (None = use centralized config)
+        use_centralized_config: Whether to use centralized configuration system
     """
     global _log_config
+    
+    # Get centralized configuration if available and requested
+    if CONFIG_AVAILABLE and use_centralized_config:
+        try:
+            config = get_config()
+            config_dict = config.get_config_dict()
+            
+            # Use centralized config as defaults, override with provided parameters
+            log_dir = log_dir or config_dict["log_dir"]
+            log_level = log_level or config_dict["log_level"]
+            console = console if console is not None else config_dict["console_enabled"]
+            file = file if file is not None else config_dict["file_enabled"]
+            syslog = syslog if syslog is not None else config_dict["syslog_enabled"]
+            syslog_json = syslog_json if syslog_json is not None else config.should_log_json("syslog")
+            file_json = file_json if file_json is not None else config.should_log_json("file")
+            max_bytes = max_bytes or config_dict["max_bytes"]
+            backup_count = backup_count or config_dict["backup_count"]
+            syslog_facility = syslog_facility or config.get_syslog_facility()
+            
+            # In production mode, output configuration info
+            if config.is_production():
+                sys.stderr.write(f"DerbyNet Logging: {component} configured for PRODUCTION mode\n")
+            elif config.is_debug():
+                sys.stderr.write(f"DerbyNet Logging: {component} configured for DEBUG mode\n")
+                config.print_config()
+        except Exception as e:
+            sys.stderr.write(f"Warning: Error loading centralized config: {e}\n")
+            # Fall back to defaults
+            CONFIG_AVAILABLE = False
+    
+    # Apply fallback defaults if centralized config not available
+    if not CONFIG_AVAILABLE or not use_centralized_config:
+        log_dir = log_dir or DEFAULT_LOG_DIR
+        log_level = log_level or DEFAULT_LOG_LEVEL
+        console = console if console is not None else True
+        file = file if file is not None else True
+        syslog = syslog if syslog is not None else True
+        syslog_json = syslog_json if syslog_json is not None else True
+        file_json = file_json if file_json is not None else False
+        max_bytes = max_bytes or (2 * 1024 * 1024)
+        backup_count = backup_count or 3
+        syslog_facility = syslog_facility or SYSLOG_FACILITY
     
     # Update configuration
     _log_config.update({
@@ -157,7 +209,7 @@ def setup_logger(
         "console_enabled": console,
         "file_enabled": file,
         "syslog_enabled": syslog,
-        "json_enabled": json_format,
+        "json_enabled": json_format or syslog_json,
         "syslog_json": syslog_json,
         "file_json": file_json,
         "max_bytes": max_bytes,
@@ -192,23 +244,48 @@ def setup_logger(
         file_handler.setFormatter(CustomFormatter(json_format=file_json))
         root_logger.addHandler(file_handler)
     
-    if syslog and os.path.exists(SYSLOG_ADDRESS):
-        try:
-            # Create syslog handler with facility and appropriate formatter
-            syslog_handler = logging.handlers.SysLogHandler(
-                address=SYSLOG_ADDRESS,
-                facility=syslog_facility
-            )
-            
-            # Use structured JSON for syslog by default for better troubleshooting
+    if syslog:
+        # Try remote rsyslog first, then fall back to local syslog
+        syslog_handler = None
+        
+        if CONFIG_AVAILABLE and use_centralized_config:
+            try:
+                config = get_config()
+                rsyslog_address = config.get_rsyslog_address()
+                
+                # Try remote rsyslog server
+                syslog_handler = logging.handlers.SysLogHandler(
+                    address=rsyslog_address,
+                    facility=syslog_facility
+                )
+                # Test the connection with a dummy message
+                test_record = logging.LogRecord(
+                    name="test", level=logging.INFO, pathname="", lineno=0,
+                    msg="DerbyNet logging test", args=(), exc_info=None
+                )
+                syslog_handler.emit(test_record)
+                sys.stderr.write(f"DerbyNet Logging: Connected to remote rsyslog at {rsyslog_address[0]}:{rsyslog_address[1]}\n")
+                
+            except Exception as e:
+                sys.stderr.write(f"Warning: Could not connect to remote rsyslog: {e}\n")
+                syslog_handler = None
+        
+        # Fall back to local syslog if remote failed or not configured
+        if syslog_handler is None and os.path.exists(SYSLOG_ADDRESS):
+            try:
+                syslog_handler = logging.handlers.SysLogHandler(
+                    address=SYSLOG_ADDRESS,
+                    facility=syslog_facility
+                )
+                sys.stderr.write("DerbyNet Logging: Using local syslog\n")
+            except (socket.error, ConnectionRefusedError) as e:
+                sys.stderr.write(f"Warning: Could not connect to local syslog: {e}\n")
+        
+        # Add the syslog handler if we got one
+        if syslog_handler:
             syslog_handler.setFormatter(CustomFormatter(json_format=syslog_json))
-            
-            # Set high priority for the syslog handler
             syslog_handler.setLevel(logging.DEBUG)  # Ensure all logs go to syslog
-            
             root_logger.addHandler(syslog_handler)
-        except (socket.error, ConnectionRefusedError) as e:
-            sys.stderr.write(f"Warning: Could not connect to syslog: {e}\n")
 
 class CustomFormatter(logging.Formatter):
     """Custom log formatter with enhanced JSON support for troubleshooting"""
@@ -448,16 +525,22 @@ def log_execution_time(logger=None, level=logging.INFO):
     return decorator
 
 # Configure a default logger for imports
-# Use minimal local file logging with prioritized rsyslog output
-setup_logger(
-    component="default",
-    log_dir=DEFAULT_LOG_DIR,
-    log_level=DEFAULT_LOG_LEVEL,
-    console=True,
-    file=True,
-    syslog=True,
-    file_json=False,         # Plain text for local logs for easy reading
-    syslog_json=True,        # Structured JSON for rsyslog for better troubleshooting
-    max_bytes=2 * 1024 * 1024,  # 2MB max file size
-    backup_count=3           # Keep just 3 rotated files
-)
+# Use centralized configuration system
+try:
+    setup_logger(component="default", use_centralized_config=True)
+except Exception as e:
+    # Fallback to basic configuration if centralized config fails
+    sys.stderr.write(f"Warning: Centralized logging config failed, using defaults: {e}\n")
+    setup_logger(
+        component="default",
+        log_dir=DEFAULT_LOG_DIR,
+        log_level=DEFAULT_LOG_LEVEL,
+        console=True,
+        file=True,
+        syslog=True,
+        file_json=False,         # Plain text for local logs for easy reading
+        syslog_json=True,        # Structured JSON for rsyslog for better troubleshooting
+        max_bytes=2 * 1024 * 1024,  # 2MB max file size
+        backup_count=3,          # Keep just 3 rotated files
+        use_centralized_config=False
+    )

@@ -25,8 +25,8 @@ from derbylogger import setup_logger, get_logger
 from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
 ###########################    SETUP    ###########################
-# Set up logger
-setup_logger("FinishTimer")  # Configure logger for this component
+# Set up logger with centralized configuration
+setup_logger("FinishTimer", use_centralized_config=True)  # Configure logger for this component
 logger = get_logger(__name__) # Get logger instance for this module
 logger.debug("DerbyNet PCB Class Loaded") 
 logger.info("####### Starting DerbyNet Finish Timer #######")
