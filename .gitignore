@@ -53,3 +53,5 @@ UniServerZ/*
 *.zip
 index.php
 settings.jsonsw
+*.pyc
+*.log

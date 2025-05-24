@@ -58,7 +58,7 @@ except ImportError as e:
     SYSLOG_PORT = 514
     
     def setup_logger(name):
-        print(f"WARNING: Using fallback logger - common derbylogger not available: {e}")
+        #print(f"WARNING: Using fallback logger - common derbylogger not available")
         
         hwid = "SERVER"
         

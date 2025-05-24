@@ -49,7 +49,8 @@ MCP3421_ADDR    = 0x68
  
 
 from derbylogger import setup_logger, get_logger
-logger = setup_logger(__name__) # setup logger with hwid
+setup_logger("FinishTimer")  # Configure logger for this component
+logger = get_logger(__name__) # Get logger instance for this module
 logger.debug("DerbyNet PCB Class Loaded")
 
 

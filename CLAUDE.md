@@ -1,6 +1,8 @@
-# DerbyNet Soapbox Derby System
+# CLAUDE.md
 
-This file provides comprehensive documentation for the Soapbox Derby race management system built on DerbyNet. It serves as a reference guide for Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+This is a comprehensive soapbox derby race management system built by extensively modifying the DerbyNet software. DerbyNet was originally created for Pinewood Derby racing events (small wooden cars racing down a gravity track), but has been extensively modified to support children's Soapbox Derby events (larger gravity-powered cars with children riding in them).
 
 **Current Version: 0.5.0**
 
@@ -202,58 +204,101 @@ The system expects a local network with:
 - All devices on same network (192.168.100.x)
 - Finish timers identified by DIP switch settings
 
-## Common Commands
+## Development Commands
 
-### Starting Services
+### Build Commands
 
 ```bash
-# Start the derby race management service
-sudo systemctl start derbyrace
+# Build the main DerbyNet distribution (uses Apache Ant)
+ant dist
 
-# Start the derby time service
-sudo systemctl start derbyTime
+# Clean build artifacts
+ant clean
 
-# Start the finish timer service
-sudo systemctl start finishtimer
+# Build timer Java application
+cd timer && ant dist
 
-# Start the derby display service
-sudo systemctl start derbydisplay
+# Build timer Electron application
+cd timer/derbynet-timer && npm run dist
 
-# Start the HLS feed service
-sudo systemctl start hlsfeed
+# Package timer for distribution
+cd timer/derbynet-timer && npm run pack
 ```
 
-### Debug and Monitoring
+### License Management
 
 ```bash
-# View logs for derby race service
+# Update license headers in all source files
+./update_licenses.sh
+```
+
+### JavaScript/PHP Code Quality
+
+```bash
+# Check JavaScript syntax (requires: npm install esprima-next)
+./testing/js-syntax-check.sh
+
+# Check specific JavaScript file
+./testing/js-syntax-check.sh path/to/file.js
+```
+
+### DerbyNet Web Testing
+
+```bash
+# Setup basic test environment with photos
+./testing/setup-basic.sh
+
+# Setup test environment without photos
+./testing/setup-basic-no-photos.sh
+
+# Reset database for testing
+./testing/reset-database.sh
+
+# Run comprehensive web testing suite
+./testing/suite-local-mac.sh
+
+# Test specific functionality
+./testing/test-basic-racing.sh
+./testing/test-photo-upload.sh
+./testing/test-awards.sh
+./testing/test-balloting.sh
+
+# Demo mode with sample data
+./testing/demo.sh
+```
+
+### Service Management
+
+```bash
+# Start services
+sudo systemctl start derbyrace
+sudo systemctl start derbyTime
+sudo systemctl start finishtimer
+sudo systemctl start derbydisplay
+sudo systemctl start hlsfeed
+
+# View service logs
 sudo journalctl -u derbyrace
-
-# View logs for finish timer
 sudo journalctl -u finishtimer
-
-# View logs for derby display 
 sudo journalctl -u derbydisplay
-
-# View logs for HLS feed
 sudo journalctl -u hlsfeed
 ```
 
-### Testing the System
+### Soapbox Derby System Testing
 
 ```bash
-# Run all system tests
-python3 tests/system_test.py
+# Run all soapbox derby system tests
+cd extras/soapbox/tests && python3 system_test.py
 
 # Test specific component
-python3 tests/system_test.py --test timers
+cd extras/soapbox/tests && python3 system_test.py --test timers
 
 # Verbose output
-python3 tests/system_test.py --verbose
+cd extras/soapbox/tests && python3 system_test.py --verbose
 
 # Network resilience testing
-python3 tests/network_resilience_test.py
-python3 tests/network_resilience_test.py --scenario broker_restart --verbose
+cd extras/soapbox/tests && python3 network_resilience_test.py
+cd extras/soapbox/tests && python3 network_resilience_test.py --scenario broker_restart --verbose
 ```
 
 ## Versioning and Telemetry

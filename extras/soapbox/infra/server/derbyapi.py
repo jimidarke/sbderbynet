@@ -173,9 +173,9 @@ class DerbyNetClient:
             return False
             
         # Check for invalid state transitions
-        if (new_state == TIMER_STATE_RUNNING and self.timer_state != TIMER_STATE_STAGING):
-            logger.warning(f"Invalid state transition: {self.timer_state} -> {new_state}")
-            return False
+        #if (new_state == TIMER_STATE_RUNNING and self.timer_state != TIMER_STATE_STAGING):
+        #    logger.warning(f"Invalid state transition: {self.timer_state} -> {new_state}")
+        #    return False
             
         # Record the state change
         old_state = self.timer_state

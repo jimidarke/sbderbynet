@@ -21,12 +21,14 @@ from datetime import datetime
 # Add parent directory to path for importing common modules
 sys.path.append(os.path.dirname(__file__))
 from derbynetPCBv1 import derbyPCBv1
-from derbylogger import setup_logger
+from derbylogger import setup_logger, get_logger
 from derbynet import MQTTClient, DeviceTelemetry, discover_services
 
 ###########################    SETUP    ###########################
 # Set up logger
-logger = setup_logger(__name__)
+setup_logger("FinishTimer")  # Configure logger for this component
+logger = get_logger(__name__) # Get logger instance for this module
+logger.debug("DerbyNet PCB Class Loaded") 
 logger.info("####### Starting DerbyNet Finish Timer #######")
 
 try:
