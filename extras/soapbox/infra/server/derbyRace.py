@@ -35,7 +35,7 @@ VERSION = "0.5.0"
 sys.path.append('/var/lib/infra/common')
 
 # Initialize centralized logging for derbyRace
-logger = setup_logger("derbyRace", use_centralized_config=True)
+logger = setup_logger("derbyRace")#, use_centralized_config=True)
 
 try:
     from derbynet import discover_services

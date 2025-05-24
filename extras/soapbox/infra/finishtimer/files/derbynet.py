@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" 
+"""
 DerbyNet Shared Network Library
 
 This module provides standardized network functionality for all DerbyNet components:

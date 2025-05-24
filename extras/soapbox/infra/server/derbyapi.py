@@ -30,7 +30,7 @@ from pip._vendor import requests
 import xml.etree.ElementTree as ET
 
 from derbylogger import setup_logger
-logger = setup_logger("derbyapi", use_centralized_config=True)
+logger = setup_logger("derbyapi")
 
 # DerbyNet Timer State Constants
 TIMER_STATE_CONNECTED = "CONNECTED"
