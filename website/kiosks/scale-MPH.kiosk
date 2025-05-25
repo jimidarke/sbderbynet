@@ -20,7 +20,7 @@ async function animate_car() {
 function update_time_and_distance(time) {
   $("#time").text(time.toFixed(1));
   $("#speed").text(
-    (track_length() / time * 3600 * 25 / 5280).toFixed(1));
+    (track_length() / time * 3600 * 25 / 5280 * 1.60934).toFixed(1));
 }
 
 function delay(t, v) {
@@ -38,7 +38,7 @@ async function sequence_times(times) {
 
 $(function() { animate_car(); sequence_times([4.0, 3.5, 3.2, 3.1, 3.0]); });
 </script>
-<title>Scale Miles Per Hour</title>
+<title>Scale Kilometers Per Hour</title>
 <?php require('inc/kiosk-poller.inc'); ?>
 <?php require('inc/stylesheet.inc'); ?>
 <link rel="stylesheet" type="text/css" href="css/kiosks.css"/>
@@ -74,7 +74,7 @@ span.calc {
 <body>
 <?php
 require_once('inc/banner.inc');
-make_banner('Scale Miles Per Hour', /* back_button */ false);
+make_banner('Scale Kilometers Per Hour', /* back_button */ false);
 ?>
 
 <img id="car-img" src="img/car-4000.png"/>
@@ -89,8 +89,8 @@ make_banner('Scale Miles Per Hour', /* back_button */ false);
     <span id="time" class="calc">3.0</span> seconds</p>
 <p>would be an average speed of
     <span id="speed" class="calc"><?php
-       echo sprintf("%4.1f", $track_length / 3.0 * 3600 * 25 / 5280); ?></span>
-    MPH.</p>
+       echo sprintf("%4.1f", $track_length / 3.0 * 3600 * 25 / 5280 * 1.60934); ?></span>
+    km/h.</p>
 </div>
 
 

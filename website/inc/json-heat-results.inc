@@ -10,7 +10,8 @@ function json_heat_results($roundid, $heat) {
 //  * 3600 gives feet per hour
 //  / 5280 gives miles per hour
 //  * 25 gives scale miles per mile (not user-adjustable; makes a 7" derby car scale to 14.5 feet)
-  $fps_to_scale_mph = 3600 * 25 / 5280;
+//  * 1.60934 converts miles to kilometers for km/h
+  $fps_to_scale_kmh = 3600 * 25 / 5280 * 1.60934;
 
   $stmt = $db->prepare('SELECT lane, finishtime, finishplace, completed'
                        .' FROM RaceChart'
@@ -24,7 +25,7 @@ function json_heat_results($roundid, $heat) {
   $heat_results = array();
   foreach ($stmt as $row) {
     $finishtime = $row['finishtime'];
-    $speed = (!is_numeric($finishtime) || $finishtime == 0) ? "--" : sprintf("%4.1f", $track_length / $finishtime * $fps_to_scale_mph);
+    $speed = (!is_numeric($finishtime) || $finishtime == 0) ? "--" : sprintf("%4.1f", $track_length / $finishtime * $fps_to_scale_kmh);
     $heat_results[] = array(
       'lane' => $row['lane'],
       'time' => sprintf($time_format, $finishtime),

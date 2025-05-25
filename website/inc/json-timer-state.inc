@@ -3,6 +3,8 @@
 require_once('inc/timer-state.inc');
 require_once('inc/remote-start.inc');
 require_once('inc/timer-state-xml.inc');  // For expand_timer_state_status
+require_once('inc/error-logging.inc');  // For derby_log_warning
+require_once('inc/data.inc');  // For read_single_value
 
 // // Old Timer States
 // function json_timer_state() {
@@ -29,17 +31,40 @@ function json_timer_state() {
   $tstate = $timer_state->state();
 
   // Fetch timer statuses from the database
-  $stmt = $db->query('SELECT lane, timerID, last_heartbeat, ready, is_starter FROM TimerStatus ORDER BY lane ASC');
   $timers = array();
-  while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-      error_log("Fetched timer status: " . print_r($row, true)); // Debug logging
-      $timers[] = array(
-          'lane' => (int)$row['lane'],
-          'timerID' => $row['timerID'], // Use consistent case from database schema
-          'last_heartbeat' => (int)$row['last_heartbeat'],
-          'ready' => (bool)$row['ready'],
-          'is_starter' => (bool)$row['is_starter'],
-      );
+  try {
+      // First check if TimerStatus table exists
+      $table_exists = read_single_value("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='TimerStatus'") > 0;
+      
+      if (!$table_exists) {
+          derby_log_warning("TimerStatus table does not exist in database");
+      } else {
+          $stmt = $db->query('SELECT lane, timerid as timerID, last_heartbeat, ready, is_starter FROM TimerStatus ORDER BY lane ASC');
+          if ($stmt) {
+              while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                  // Debug logging for column structure (only in debug mode and first row)
+                  //if (empty($timers)) {
+                  //    derby_log_info("TimerStatus row structure", [
+                  //        'columns' => array_keys($row)
+                  //    ]);
+                  //}
+                  
+                  // Build timer status array with proper column mapping
+                  $timers[] = array(
+                      'lane' => (int)$row['lane'],
+                      'timerID' => $row['timerID'] ?? $row['timerid'], // Now correctly aliased from timerid
+                      'last_heartbeat' => (int)$row['last_heartbeat'],
+                      'ready' => (bool)$row['ready'],
+                      'is_starter' => (bool)$row['is_starter'],
+                  );
+              }
+          }
+      }
+  } catch (Exception $e) {
+      derby_log_warning("Error fetching timer status from database", [
+          'error' => $e->getMessage(),
+          'query' => 'SELECT lane, timerid as timerID, last_heartbeat, ready, is_starter FROM TimerStatus'
+      ]);
   }
 
   return array(

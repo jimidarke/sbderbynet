@@ -17,7 +17,7 @@ $DERBY_PHP_DEBUG = (getenv('DERBY_PHP_DEBUG') !== false) ?
     filter_var(getenv('DERBY_PHP_DEBUG'), FILTER_VALIDATE_BOOLEAN) : true;
 
 // Log level configuration based on environment
-$DERBY_PHP_LOG_LEVEL = getenv('DERBY_PHP_LOG_LEVEL') ?: ($DERBY_PHP_DEBUG ? 'DEBUG' : 'WARNING');
+$DERBY_PHP_LOG_LEVEL = getenv('DERBY_PHP_LOG_LEVEL') ?: ($DERBY_PHP_DEBUG ? 'INFO' : 'WARNING');
 
 /**
  * Initialize PHP error logging for DerbyNet
@@ -268,11 +268,11 @@ function derby_log_info($message, $context = []) {
 derby_init_error_logging();
 
 // Log that error logging has been initialized
-derby_log_info("DerbyNet PHP error logging initialized", [
-    'debug_mode' => $DERBY_PHP_DEBUG,
-    'log_level' => $DERBY_PHP_LOG_LEVEL,
-    'script' => basename($_SERVER['SCRIPT_NAME'] ?? 'CLI')
-]);
+//derby_log_info("DerbyNet PHP error logging initialized", [
+//    'debug_mode' => $DERBY_PHP_DEBUG,
+//    'log_level' => $DERBY_PHP_LOG_LEVEL,
+//    'script' => basename($_SERVER['SCRIPT_NAME'] ?? 'CLI')
+//]);
 
 // To Record errors: require_once('inc/error-logging.inc'); in a top-level of files
 // require_once('inc/error-logging.inc');

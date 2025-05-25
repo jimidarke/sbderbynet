@@ -68,7 +68,7 @@ if ZEROCONF_AVAILABLE:
 
 # Race timing and reliability settings
 LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion
-HEARTBEAT_TIMEOUT       = 6     # seconds to consider a timer offline if no heartbeat received
+HEARTBEAT_TIMEOUT       = 3     # seconds to consider a timer offline if no heartbeat received
 HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
 MQTT_QOS_CRITICAL       = 2     # QoS level for critical race messages
 MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
@@ -359,7 +359,7 @@ class derbyRace:
         # Send heartbeat more frequently and handle state changes
         should_send = (
             self.last_heartbeat == 0 or 
-            (current_time - self.last_heartbeat) > 10 or  # Every 10 seconds instead of 60
+            (current_time - self.last_heartbeat) > 1 or  # Every 10 seconds instead of 60
             prev_heartbeat.get('isReady', None) != isReady or  # State change
             lastheartbeat == 0 or  # First heartbeat for this timer
             (current_time - lastheartbeat) > HEARTBEAT_TIMEOUT  # Reconnection

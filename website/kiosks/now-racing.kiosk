@@ -51,7 +51,7 @@ var g_linger_ms = <?php echo $linger_ms; ?>;
         <th colspan="2" class='no-test'>Racer</th>
     <?php if (!$use_points) { ?>
         <th>Time</th>
-        <th class='no-test'><div id="speed-div">Speed <span class="aside">(scale MPH)</span></div></th>
+        <th class='no-test'><div id="speed-div">Speed <span class="aside">(km/h)</span></div></th>
     <?php } ?>
         <th>Place</th>
     </tr>
