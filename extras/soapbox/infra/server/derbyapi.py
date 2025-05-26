@@ -324,6 +324,30 @@ class DerbyNetClient:
             return False
         '''
     
+    def simulate_heartbeat(self):
+        # Simulates a heartbeat message to DerbyNet for testing purposes
+        if not self.authcode:
+            self.authcode = self.login()
+            if not self.authcode:
+                logger.critical("Failed to authenticate with DerbyNet.")
+                return False
+        payload = "message=HEARTBEAT&action=timer-message&confirmed=1&timerId1=L1&lane1=1&ready1=1&timerId2=L2&lane2=2&ready2=1&timerId3=L3&lane3=3&ready3=1"
+        headers = {
+            'Content-Type': "application/x-www-form-urlencoded",
+            'Cookie': self.authcode
+        }
+        try:
+            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            if response.status_code == 401: # unauthed, send for login
+                self.authcode = self.login()
+                return self.simulate_heartbeat()
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error(f"Failed to send simulated heartbeat: {e}")
+            self.set_timer_state(TIMER_STATE_UNHEALTHY)
+            return False
+        return True
+
     def get_race_status(self):
         # gets the race status and updates mqtt 
         if not self.authcode:

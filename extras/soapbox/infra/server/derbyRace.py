@@ -49,7 +49,7 @@ MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
 MQTT_TOPIC_TELEMETRY    = "derbynet/device/+/telemetry"
 MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 
-# Race timing and reliability settings
+# Race timing and reliability settings 
 LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion
 HEARTBEAT_TIMEOUT       = 5     # seconds to consider a timer offline if no heartbeat received
 HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
