@@ -73,7 +73,7 @@ class derbyRace:
         self.class_name = ""
         self.led = "red"
         self.lanePinny = {}
-        self.race_state = "STOPPED" # STOPPED, RACING, STAGING
+        self.race_state = "" # STOPPED, RACING, STAGING
         self.timer_heartbeats = {} # stores the last heartbeat and isready status for each lane
         self.firstupdated = False
         self.last_heartbeat = 0 # updates to unix time when the last heartbeat was sent
@@ -112,19 +112,22 @@ class derbyRace:
             lane = self.getDIPName(dip)  # get the lane number from the dip switch
             
             ########### Trigger for START RACE ###########
-            if "state" in topic and self.race_state == "STAGING": # Triggers start only if in staging mode
+            if "state" in topic:
+                logging.info(f"Received state change on {topic} with payload: {payload_data}")
+                
+            ########### Trigger for START RACE ###########
                 val = payload_data.get("state", False)
                 if val == "GO":
                     self.startRace()
                     self.api.send_start()
             
             ########### Trigger for LANE FINISH ###########
-            if "state" in topic and self.race_state == "RACING" and lane > 0: 
-                # Extract toggle state and validate
-                toggle = payload_data.get("toggle", None)
-                if not toggle: # must be a downward toggle to mimic crossing the finish line
-                    self.laneFinish(lane)
-            
+                if self.race_state == "RACING" and lane > 0: 
+                    # Extract toggle state and validate
+                    toggle = payload_data.get("toggle", None)
+                    if not toggle: # must be a downward toggle to mimic crossing the finish line
+                        self.laneFinish(lane)
+                
             ########### Trigger for DEVICE TELEMETRY ###########
             if "telemetry" in topic: 
                 # Validate telemetry payload before sending to API
@@ -178,22 +181,26 @@ class derbyRace:
     def setLEDFromRaceStat(self,racestats): # checks the api for the led to use and sends thusly 
         #racestats = api.get_race_status()
         led = None
-        if racestats.get("active",False) and self.race_state == "STOPPED":
-            led = "blue"
-            self.race_state = "STAGING"
-            # Inform DerbyNet of the STAGING state
-            self.api.set_staging()
-        if racestats.get("timer-state-string",) == "Race running":
-           self.race_state = "RACING"
-           led = "green"
-           self.startRace()
-        if not racestats.get("active",False):
+        raceActive = racestats.get("active",None)
+        if raceActive == True:
+            if self.race_state == "":
+                self.race_state = "STAGING"
+                led = "blue"
+            if self.race_state == "FINISHED":
+                led = "blue"
+                self.race_state = "STAGING"
+                self.updateLED(led)
+                self.api.set_staging()
+            if racestats.get("timer-state-string",) == "Race running":
+                self.race_state = "RACING"
+                led = "green"
+        else:
             led = "red"
             self.race_state = "STOPPED"
-        if led and led != self.led:
+        if led is not None and led != self.led: # only update if the led has changed
             self.led = led
             self.updateLED(led)
-            logger.debug(f"Set LED to {led}")
+            logger.info(f"Set RACE LED to {led}")
 
     def updateLED(self,led,lane="all"):
         if lane == "all":
@@ -228,26 +235,16 @@ class derbyRace:
             self.lanesFinished = 0
             self.lane_times = {}
             self.start_time = timer
-            
-            # Log start with precision timestamp
             logger.info(f"RACE STARTED {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} ({timer})")
-            
-            # Announce race start to all timers with high QoS
-            start_payload = {
-                "event": "race_start",
-                "timestamp": timer,
-                "roundid": self.roundid,
-                "heatid": self.heatid
-            }
-            self.client.publish("derbynet/race/event", json.dumps(start_payload), qos=MQTT_QOS_CRITICAL)
+            self.race_state = "RACING"
+            self.updateLED("green")
         
     def stopRace(self,timer = None):
         if timer == None: # set to utc timestamp 
             timer = time.time()
         logger.info(f"RACE FINISHED {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} ({timer})")
-        self.race_state = "STOPPED"
+        self.race_state = "FINISHED"
         logger.info(self.lane_times)
-        self.updateLED("red")
         self.api.send_finish(self.roundid,self.heatid,self.lane_times)
         self.lanesFinished = 0
         self.lane_times = {}
@@ -306,13 +303,18 @@ class derbyRace:
         if (current_time - self.last_heartbeat) > 1:
             self.last_heartbeat = current_time
             msg = ""
+            good = 0
             if 1 in self.timer_heartbeats:
                 msg += "Lane 1 "
+                good += 1
             if 2 in self.timer_heartbeats:
                 msg += "Lane 2 "
+                good += 1
             if 3 in self.timer_heartbeats:
                 msg += "Lane 3 "
-            logger.info(f"Sending heartbeat for active timers: {msg.strip()}")
+                good += 1
+            if good < 3:
+                logger.warning(f"Missing Timer: {msg}")
             # sends self.timer_heartbeats to the api for a full status update
             success = self.api.send_timer_heartbeat(self.timer_heartbeats)
             if not success:
@@ -439,5 +441,5 @@ if __name__ == "__main__":
             logger.error(f"Error in DerbyRace: {e}")
             derby.close()
             exit(1)
-        time.sleep(0.5) # update every .5 seconds to keep the api happy and not hammer it too hard
+        time.sleep(1) # update every .5 seconds to keep the api happy and not hammer it too hard
     

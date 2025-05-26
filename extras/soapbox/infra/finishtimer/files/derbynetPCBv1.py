@@ -138,9 +138,9 @@ class derbyPCBv1:
             if self.readyToRace != (tchk and self.led == "blue"):
                 # change of state detected
                 self.readyToRace = self.led == "green" or (tchk and self.led == "blue")
-                logger.info(f"Ready to race: {self.readyToRace}")
-                self._updatePinny()
-            time.sleep(0.05)  # Polling interval
+                #logger.info(f"Ready to race: {self.readyToRace}")
+                #self._updatePinny()
+            time.sleep(0.1)  # Polling interval
 
     def end_toggle_watch(self):
         self.toggle_thread = None
@@ -190,7 +190,6 @@ class derbyPCBv1:
         self.led = colour
         if actNormal:
             self._updatePinny()
-        
 
     def _updatePinny(self, actNormal=True):
         if not actNormal:
@@ -200,7 +199,7 @@ class derbyPCBv1:
         if self.led == "blue" and self.readyToRace == False:
             self.tm.brightness(4)
             self.tm.show("flip")
-            logger.warning("Not ready to race, showing FLIP")
+            #logger.warning("Not ready to race, showing FLIP")
         elif self.led == "red":
             if self.getBatteryPercent() < 20:
                 self.tm.show("BATT")
@@ -318,6 +317,10 @@ class derbyPCBv1:
             time.sleep(0.05)
         battery_raw = sum(battery_raw)/len(battery_raw)
         battery_percent = (battery_raw - 1400)/(1865-1400)*100
+        if battery_percent < 20:
+            logger.warning(f"Battery Low {battery_percent:.2f}%")
+        elif battery_percent < 10:
+            logger.critical(f"Battery Critical {battery_percent:.2f}%")
         return int(battery_percent)
     
     @staticmethod

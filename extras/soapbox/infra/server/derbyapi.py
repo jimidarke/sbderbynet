@@ -183,11 +183,6 @@ class DerbyNetClient:
             logger.error(f"Invalid timer state: {new_state}")
             return False
             
-        # Check for invalid state transitions
-        if (new_state == TIMER_STATE_RUNNING and self.timer_state != TIMER_STATE_STAGING):
-            logger.warning(f"Invalid state transition: {self.timer_state} -> {new_state}")
-            return False
-            
         # Record the state change
         old_state = self.timer_state
         self.timer_state = new_state
@@ -258,9 +253,6 @@ class DerbyNetClient:
                 logger.critical("Failed to authenticate with DerbyNet.")
                 return False
                 
-        # Update the timer state back to CONNECTED after finish
-        self.set_timer_state(TIMER_STATE_CONNECTED)
-        
         payload =f"message=FINISHED&action=timer-message&roundid={roundid}&heat={heatid}" 
         #&lane1=10&lane2=12&lane3=13&place1=1&place2=2&place3=3"
         for lane, time in lane_times.items():

@@ -62,7 +62,7 @@ class ServerLogger:
         syslog_handler.setLevel(level)
         
         # Avoid adding handlers multiple times if already configured
-        if not self.logger.hasHandlers():
+        if not self.logger.hasHandlers(): 
             self.logger.addHandler(file_handler)
             self.logger.addHandler(syslog_handler)
             #self.logger.addHandler(console_handler) # causes issues with rsyslog, so disabled by default
