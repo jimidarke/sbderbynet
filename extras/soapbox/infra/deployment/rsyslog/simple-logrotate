@@ -1,0 +1,15 @@
+# DerbyNet Simplified Log Rotation
+# Place in: /etc/logrotate.d/derbynet
+
+/var/log/derbynet/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+    postrotate
+        systemctl reload rsyslog > /dev/null 2>&1 || true
+    endscript
+}

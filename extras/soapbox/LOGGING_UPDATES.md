@@ -167,32 +167,61 @@
 
 **Centralized Logging Success**: The new logging system successfully detected and provided context for a production error that would have been difficult to track down without centralized logging.
 
+#### Phase 5: Simplified Logging Refactor ✅
+
+- [x] **Replaced complex logging with simplified system**
+  - **Problem**: Original system was too complex with environment variables, conditional configs, and error-prone setup
+  - **Solution**: Created `simple_logging.py` with fixed, reliable configuration
+  - **Configuration**: Always logs to console + `/var/log/derbynet/` + rsyslog `192.168.100.10`
+  - **Log Level**: Fixed at INFO level for all services and environments
+  - **No Environment Variables**: Removed all conditional configuration complexity
+
+- [x] **Updated derbylogger.py for backward compatibility**
+  - Maintains existing interface while using simplified backend
+  - All services continue to work without code changes
+  - Removed complex `logging_config.py` dependencies
+
+- [x] **Created simplified rsyslog configurations**
+  - `simple-server.conf`: Server config for receiving logs from all devices
+  - `simple-client.conf`: Client config for forwarding to 192.168.100.10
+  - `simple-logrotate`: 30-day rotation with compression
+  - Fixed server IP, no service discovery complexity
+
+- [x] **Added nginx logging integration**
+  - `nginx/derbynet-logging.conf`: Logs to both local files and rsyslog
+  - Uses local0 facility for consistency with Python services
+  - Standard log format for web requests and errors
+
+**Result**: Simple, reliable logging system with no configuration complexity. Always logs to three destinations: console, local files, and central rsyslog server.
+
 ---
 
 ## Configuration Files Created/Modified
 
-### Rsyslog Configuration
-- [x] `extras/soapbox/infra/deployment/rsyslog/10-derbynet-server.conf` - Server configuration
-- [x] `extras/soapbox/infra/deployment/rsyslog/20-derbynet-client.conf` - Client configuration
-- [x] `extras/soapbox/infra/deployment/rsyslog/derbynet-logrotate` - Log rotation config
+### Simplified Rsyslog Configuration
+- [x] `extras/soapbox/infra/deployment/rsyslog/simple-server.conf` - Server configuration (fixed IP)
+- [x] `extras/soapbox/infra/deployment/rsyslog/simple-client.conf` - Client configuration (fixed IP)
+- [x] `extras/soapbox/infra/deployment/rsyslog/simple-logrotate` - Log rotation config
+- [x] `extras/soapbox/infra/deployment/nginx/derbynet-logging.conf` - Nginx logging integration
 
-### Python Logging
-- [x] `extras/soapbox/infra/common/derbylogger.py` - Updated for rsyslog
-- [x] `extras/soapbox/infra/common/logging_config.py` - Central config
+### Simplified Python Logging
+- [x] `extras/soapbox/infra/common/simple_logging.py` - New simplified logging core
+- [x] `extras/soapbox/infra/common/derbylogger.py` - Updated for backward compatibility
+- [x] `extras/soapbox/infra/common/logging_config.py` - Deprecated (backed up as *_complex_backup.py)
 
 ### PHP Configuration  
 - [x] `website/inc/error-logging.inc` - Centralized PHP error handling
-- [x] PHP-FPM/nginx configuration updates
+- [x] Nginx configuration for web server logging
 
 ## Usage Instructions
 
 ### For Developers
 
-**Python Services:**
+**Python Services (Simplified):**
 ```python
 from derbylogger import setup_logger
-logger = setup_logger("service_name", use_centralized_config=True)
-logger.info("This goes to central log")
+logger = setup_logger("ServiceName")  # No configuration needed
+logger.info("This goes to console, local file, and rsyslog")
 ```
 
 **PHP Code:**
@@ -201,52 +230,48 @@ require_once('inc/error-logging.inc');
 error_log("This goes to central log", 0); // Uses syslog integration
 ```
 
+**No Configuration Required**: All services automatically log to:
+- Console (stdout)
+- Local file: `/var/log/derbynet/servicename.log`
+- Central rsyslog: `192.168.100.10:514`
+
 ### For System Administrators
 
-**Environment Variables:**
-```bash
-# Enable production logging mode
-export DERBY_LOG_MODE=production
-export DERBY_PHP_DEBUG=false
-
-# Custom log levels  
-export DERBY_LOG_LEVEL=WARNING
-export DERBY_PHP_LOG_LEVEL=ERROR
-
-# Custom rsyslog server
-export DERBY_RSYSLOG_SERVER=192.168.100.10
-```
+**No Environment Variables Needed**: The system is pre-configured with fixed settings.
 
 **Viewing Logs:**
 ```bash
-# View all DerbyNet logs
-tail -f /var/log/derbynet/derbynet.log
+# View all DerbyNet logs (central server)
+tail -f /var/log/derbynet/all.log
 
 # View specific component logs
 tail -f /var/log/derbynet/derbyRace.log
 tail -f /var/log/derbynet/FinishTimer.log
-tail -f /var/log/derbynet/php-errors.log
+tail -f /var/log/derbynet/php.log
 
 # Search across all services
 grep "ERROR" /var/log/derbynet/*.log
 
-# Production mode toggle for systemd services
-sudo systemctl edit derbyrace --full
-# Add Environment="DERBY_LOG_MODE=production"
+# View logs on remote devices (local copy)
+tail -f /var/log/derbynet/local.log
 ```
 
-**Log Deployment:**
+**Deployment (One-time setup):**
 ```bash
-# Deploy rsyslog configuration to server
-sudo cp extras/soapbox/infra/deployment/rsyslog/10-derbynet-server.conf /etc/rsyslog.d/
+# Deploy rsyslog configuration to SERVER (192.168.100.10)
+sudo cp extras/soapbox/infra/deployment/rsyslog/simple-server.conf /etc/rsyslog.d/10-derbynet.conf
 sudo systemctl restart rsyslog
 
-# Deploy rsyslog configuration to client devices  
-sudo cp extras/soapbox/infra/deployment/rsyslog/20-derbynet-client.conf /etc/rsyslog.d/
+# Deploy rsyslog configuration to CLIENT devices
+sudo cp extras/soapbox/infra/deployment/rsyslog/simple-client.conf /etc/rsyslog.d/20-derbynet.conf
 sudo systemctl restart rsyslog
 
-# Set up log rotation
-sudo cp extras/soapbox/infra/deployment/rsyslog/derbynet-logrotate /etc/logrotate.d/derbynet
+# Set up log rotation (all devices)
+sudo cp extras/soapbox/infra/deployment/rsyslog/simple-logrotate /etc/logrotate.d/derbynet
+
+# Configure nginx logging (web server)
+sudo cp extras/soapbox/infra/deployment/nginx/derbynet-logging.conf /etc/nginx/conf.d/
+sudo systemctl reload nginx
 ```
 
 ### Log Levels Used
@@ -259,20 +284,21 @@ sudo cp extras/soapbox/infra/deployment/rsyslog/derbynet-logrotate /etc/logrotat
 ## Production Considerations
 
 ### Performance Impact
-- **Log volume estimation**: ~5-10 MB per hour under normal operation
+- **Log volume estimation**: ~5-10 MB per hour under normal operation (INFO level)
 - **Network bandwidth for remote logging**: ~1-5 KB/s per device
 - **Disk space requirements**: ~150-300 MB per month with 30-day rotation
 
 ### Security
 - **Log file permissions**: 640 (root:adm) - implemented in rsyslog config
-- **Network logging**: Uses standard UDP syslog (514) - encryption available via TLS if needed
+- **Network logging**: Uses standard UDP syslog (514) - no encryption needed for internal network
 - **Log retention**: 30-day rotation with compression balances debugging needs and disk space
 
 ### Deployment Notes
-- All configuration files ready for deployment in `extras/soapbox/infra/deployment/rsyslog/`
-- Environment variables provide runtime configuration without code changes
-- Graceful fallback to local logging ensures operation during network issues
-- Production mode automatically optimizes log levels and destinations
+- **Zero Configuration**: No environment variables or conditional settings
+- **Fixed IP Address**: Always uses 192.168.100.10 for rsyslog server
+- **Graceful Fallback**: Continues with local logging if network issues occur
+- **Consistent Logging**: Same log level (INFO) across all environments
+- **All configuration files ready** in `extras/soapbox/infra/deployment/`
 
 ## Rollback Plan
 

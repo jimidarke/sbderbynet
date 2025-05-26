@@ -44,15 +44,15 @@ DEFAULT_QOS = 1
 DEFAULT_RETAIN = False
 
 # Constants for retry logic
-INITIAL_RETRY_DELAY = 1.0  # seconds
-MAX_RETRY_DELAY = 300.0    # 5 minutes
-RETRY_BACKOFF_FACTOR = 2.0
+INITIAL_RETRY_DELAY = 0.5 # seconds
+MAX_RETRY_DELAY = 120.0    # 2 minutes
+RETRY_BACKOFF_FACTOR = 1.75
 RETRY_JITTER = 0.1
 
 class MessageQueue:
     """Persistent message queue for offline operation"""
     
-    def __init__(self, queue_dir="/var/lib/derbynet/queue"):
+    def __init__(self, queue_dir="/var/log/derbynet/queue"):
         """Initialize the message queue with storage directory"""
         self.queue_dir = queue_dir
         self.queue = queue.Queue()
@@ -232,6 +232,8 @@ class MQTTClient:
         self.connected = False
         if rc != 0:
             logging.warning(f"Unexpected disconnection from MQTT broker: {rc}")
+            # need a way to alert the user that we are disconnected by changing the status LED and pinny
+            
     
     def _on_message(self, client, userdata, msg):
         """Handle incoming message"""

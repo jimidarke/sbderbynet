@@ -30,7 +30,7 @@ Version History:
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.5.0"  # Updated to standardized version
+PCB_VERSION     = "0.6.0"  # Updated to standardized version
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -48,11 +48,14 @@ PIN_BLUE        = 1
 MCP3421_ADDR    = 0x68
  
 
-from derbylogger import setup_logger, get_logger
-setup_logger("FinishTimerPCB")#, use_centralized_config=True)  # Configure logger for this component
-logger = get_logger(__name__) # Get logger instance for this module
-logger.debug("DerbyNet PCB Class Loaded")
-
+import logging
+from nodelogger import NodeLogger
+# Initialize logger
+logger = NodeLogger(
+    name='derbynetPCBv1',
+    log_file='/var/log/derbynet.log',
+    level=logging.INFO,  # Default log level
+).get_logger()
 
 # Imports
 import time
@@ -93,12 +96,12 @@ class derbyPCBv1:
         self.timestart = time.time()
         self.readyToRace = False
         logger.info(f"Initializing DerbyNet PCB v{PCB_VERSION}")
-        # check if system hostname is DEFAULT then run sudo /opt/derbynet/setup.sh to set the hostname
+        # check if system hostname is DEFAULT then run sudo /setup.sh to set the hostname
         try:
             hostname = subprocess.check_output("hostname", shell=True).decode("utf-8").strip()
             if hostname == "DEFAULT":
                 logger.warning("Hostname is DEFAULT. Running setup.sh to set hostname.")
-                subprocess.check_output("sudo /opt/derbynet/setup.sh", shell=True)
+                subprocess.check_output("sudo /setup.sh", shell=True)
         except Exception as e:
             logger.error(f"Error checking hostname: {e}")
         
@@ -112,7 +115,7 @@ class derbyPCBv1:
         # Initialize 7-segment Display
         self.tm = tm1637.TM1637(clk=PIN_CLK, dio=PIN_DIO)
         self.tm.brightness(7)
-        time.sleep(0.5)
+        time.sleep(0.1)
         self.setLED("")
         logger.info("DerbyNet PCB Class Initialized")
 
@@ -137,7 +140,7 @@ class derbyPCBv1:
                 self.readyToRace = self.led == "green" or (tchk and self.led == "blue")
                 logger.info(f"Ready to race: {self.readyToRace}")
                 self._updatePinny()
-            time.sleep(0.25)
+            time.sleep(0.05)  # Polling interval
 
     def end_toggle_watch(self):
         self.toggle_thread = None
@@ -151,6 +154,7 @@ class derbyPCBv1:
         self._updatePinny(actNormal)
 
     def setLED(self, colour="", actNormal=True):
+        colour = colour.lower()
         if colour == "red":
             GPIO.output(PIN_RED, GPIO.HIGH)
             GPIO.output(PIN_GREEN, GPIO.LOW)
@@ -223,7 +227,7 @@ class derbyPCBv1:
     
     def packageTelemetry(self): 
         '''
-        Device status telemetry format V 0.5.0
+        Device status telemetry format V 0.6.0
 
         hostname
         hwid
@@ -256,10 +260,12 @@ class derbyPCBv1:
             "lane": derbyPCBv1.get_Lane(),
             "hwid": self.hwid,
             "time": int(time.time()),
+            "systemhostname": derbyPCBv1.get_hostname(),
+            "device_class": DEVICE_CLASS,
+            "version": PCB_VERSION,
             "led": self.led,
             "pinny": self.pinny,
             "readyToRace": self.readyToRace,
-            "version": PCB_VERSION
         }
         return payload
 
@@ -274,6 +280,15 @@ class derbyPCBv1:
     
     def getIsReadyToRace(self):
         return self.readyToRace
+    
+    def networkError(self):
+        '''
+        This function is called when a network error occurs such as loss of MQTT or network connection.
+        '''
+        logger.critical("Network Error Occurred: Loss of MQTT broker")
+        self.setLED("white", actNormal=False) # Set LED to white
+        self.setPinny("ERR3", actNormal=False) # Set pinny to ERR3 indicating network error
+        return True
     
     ####### STATIC METHODS #######    
     @staticmethod
@@ -376,7 +391,7 @@ class derbyPCBv1:
         return disk.percent
 
     @staticmethod
-    def update_pcb(): # calls /opt/derbynet/setup.sh to update the PCB and restart the service 
+    def update_pcb(): # calls /setup.sh to update the PCB and restart the service 
         logger.warning("Update requested. Calling /setup.sh")
         try:
             subprocess.check_output("sudo /setup.sh", shell=True)

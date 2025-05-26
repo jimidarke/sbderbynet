@@ -28,19 +28,22 @@ import time
 from pip._vendor import requests
 
 import xml.etree.ElementTree as ET
+import sys
+import logging
+from serverlogger import ServerLogger
 
-from derbylogger import setup_logger
-logger = setup_logger("derbyapi")
+logger = ServerLogger(
+    name='DERBYAPI', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.
+    log_file='/var/log/derbynet.log', # Default
+    level=logging.INFO,  # Default log level
+).get_logger()
 
 # DerbyNet Timer State Constants
-TIMER_STATE_CONNECTED = "CONNECTED"
-TIMER_STATE_STAGING = "STAGING"
-TIMER_STATE_RUNNING = "RUNNING"
-TIMER_STATE_UNHEALTHY = "UNHEALTHY"
-TIMER_STATE_NOT_CONNECTED = "NOT_CONNECTED"
-
-# Heartbeat Constants
-HEARTBEAT_INTERVAL = 60  # DerbyNet requires a heartbeat every 60 seconds
+TIMER_STATE_CONNECTED       = "CONNECTED"
+TIMER_STATE_STAGING         = "STAGING"
+TIMER_STATE_RUNNING         = "RUNNING"
+TIMER_STATE_UNHEALTHY       = "UNHEALTHY"
+TIMER_STATE_NOT_CONNECTED   = "NOT_CONNECTED"
 
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
@@ -181,9 +184,9 @@ class DerbyNetClient:
             return False
             
         # Check for invalid state transitions
-        #if (new_state == TIMER_STATE_RUNNING and self.timer_state != TIMER_STATE_STAGING):
-        #    logger.warning(f"Invalid state transition: {self.timer_state} -> {new_state}")
-        #    return False
+        if (new_state == TIMER_STATE_RUNNING and self.timer_state != TIMER_STATE_STAGING):
+            logger.warning(f"Invalid state transition: {self.timer_state} -> {new_state}")
+            return False
             
         # Record the state change
         old_state = self.timer_state
@@ -308,14 +311,14 @@ class DerbyNetClient:
         if not self.set_timer_state(TIMER_STATE_STAGING):
             logger.error("Failed to transition to STAGING state")
             return False
-            
+        '''    
         # Send the staging message to DerbyNet
         payload = "message=STAGING&action=timer-message"
         headers = {
             'Content-Type': "application/x-www-form-urlencoded",
             'Cookie': self.authcode
         }
-
+        
         try:
             response = requests.post(self.url, headers=headers, data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
@@ -327,6 +330,7 @@ class DerbyNetClient:
             logger.error(f"Failed to send staging message: {e}")
             self.set_timer_state(TIMER_STATE_UNHEALTHY)
             return False
+        '''
     
     def get_race_status(self):
         # gets the race status and updates mqtt 

@@ -53,12 +53,12 @@ function derby_init_error_logging() {
         register_shutdown_function('derby_fatal_error_handler');
     } else {
         // Fallback to file logging (maintain compatibility with old system)
-        $log_dir = __DIR__ . '/../error/error-logs';
+        $log_dir = '/var/log/derbynet';
         if (!is_dir($log_dir)) {
             mkdir($log_dir, 0755, true);
         }
         
-        ini_set('error_log', $log_dir . '/error.log');
+        ini_set('error_log', $log_dir . '/derbyrace.log');
         
         // Use simplified handlers for file logging
         set_error_handler('derby_simple_error_handler');
