@@ -239,7 +239,7 @@ $warn_no_timer = warn_no_timer();
     <form>
       <p>How many times should each racer appear in each lane?</p>
       <select id="schedule_num_rounds">
-        <option>1</option>
+        <option selected>1</option>
         <option>2</option>
         <option>3</option>
         <option>4</option>

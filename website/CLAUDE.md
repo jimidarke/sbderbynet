@@ -23,6 +23,36 @@ The current branch (soapbox-derby) appears to be customized for soapbox derby ra
 4. **Kiosk System**: Different displays can be configured for various purposes (results display, check-in, etc).
 5. **Settings & Configuration**: Centralized settings management.
 
+## Schedule Generation Logic
+
+The race scheduling system is managed through several key files:
+
+### **Core Files**
+- `coordinator.php:238-256` - Schedule modal interface with user input for "times each racer appears in each lane"
+- `js/coordinator-controls.js:215-290` - Frontend logic handling schedule modal and AJAX submission
+- `ajax/action.schedule.generate.inc` - Backend processing of schedule generation requests
+- `inc/schedule_one_round.inc` - Core scheduling algorithms and race chart generation
+
+### **Data Flow**
+1. User clicks "Schedule" button on coordinator page
+2. Modal displays with dropdown for runs per lane (default: 1)
+3. User selection sent via AJAX to `action.schedule.generate.inc`
+4. Backend processes triple elimination logic and user preferences
+5. Calls `schedule_one_round()` with final parameters
+6. Race chart written to database and coordinator page updates
+
+### **Triple Elimination Integration**
+- **Preliminary rounds**: Default to 3 runs per lane (each racer runs in each lane 3 times)
+- **Semifinal/Final rounds**: Default to 1 run per lane  
+- **User override**: Any explicit selection (2,3,4,5,6) overrides triple elimination defaults
+- **Logic location**: `action.schedule.generate.inc:125` and `schedule_one_round.inc:265`
+
+### **Recent Fixes (2025-05-26)**
+Fixed issue where triple elimination logic completely overrode user input:
+- Modified logic to only apply defaults when user hasn't explicitly chosen a different value
+- Set explicit default to 1 in coordinator modal
+- Maintained automatic behavior while preserving user control
+
 ## Running and Development
 
 ### Setup

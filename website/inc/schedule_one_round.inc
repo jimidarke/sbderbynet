@@ -261,11 +261,11 @@ function schedule_one_round(
       return handle_final_round($roundid, $round_info);
     }
 
-    // Set number of runs based on elimination type
-    if ($round_info['is_triple_elim']) {
+    // Set number of runs based on elimination type only if user hasn't overridden
+    if ($round_info['is_triple_elim'] && $n_times_per_lane == 1) {
       switch ($round_info['elim_type']) {
         case 'preliminary':
-          $n_times_per_lane = 3;
+          $n_times_per_lane = 1;
           break;
         case 'semifinal':
           $n_times_per_lane = 1;

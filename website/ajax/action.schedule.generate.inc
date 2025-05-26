@@ -121,13 +121,14 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
       return;
     }
 
-    // Check if triple elimination is enabled and properly configured
-    if (isset($round_info['is_triple_elim']) && $round_info['is_triple_elim']) {
+    // Check if triple elimination is enabled and apply defaults only if user hasn't overridden
+    if (isset($round_info['is_triple_elim']) && $round_info['is_triple_elim'] && $n_times_per_lane == 1) {
       if (!isset($round_info['elim_type'])) {
         error_log("Warning: Triple elimination round without elimination type");
         $round_info['elim_type'] = 'preliminary'; // Default to preliminary
       }
 
+      // Only apply triple elimination defaults when user hasn't explicitly chosen a different value
       switch ($round_info['elim_type']) {
         case 'preliminary':
         case 'Preliminary':
