@@ -41,6 +41,16 @@ function car_photo_directory() {
   }
 }
 
+function slideshow_directory() {
+  $dir = read_raceinfo('slideshow-directory');
+  if ($dir === false) {
+    // Default behavior: use data folder 'slides' directory
+    return '';
+  } else {
+    return $dir;
+  }
+}
+
 // A photo repository refers to a directory on the server where we look for
 // original photos.  We keep separate PhotoRepository objects for racer and car
 // photos, but it's OK for them to refer to the same directory.

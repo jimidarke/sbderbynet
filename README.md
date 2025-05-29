@@ -27,6 +27,12 @@ Please visit us at [https://derbynet.org](https://derbynet.org).
 - MQTT-based communication for real-time updates
 - Enhanced display system for outdoor races
 - Network resilience for outdoor environments
+- **Recent Updates (May 2025):**
+  - Fixed heat generation logic to prevent excessive heat creation
+  - Added comprehensive race simulation system for testing and analysis
+  - Stabilized communications between finish timer and race server
+  - Simplified and improved logging infrastructure
+  - Added speed display in km/h for metric regions
 
 ## Documentation
 
@@ -61,6 +67,7 @@ The Soapbox Derby system extends DerbyNet with the following components:
 3. **Start Timer (ESP32)**: Detects race start signals and broadcasts start events via MQTT.
 4. **Derby Display (derbydisplay.py)**: Shows race information on displays, updates in real-time via MQTT.
 5. **HLS Feed Service**: Handles video streaming for race viewing, uses RTSP and HLS for streaming.
+6. **Race Simulation System (simulate_racing.py)**: Comprehensive testing framework that simulates race scenarios for system validation and performance analysis.
 
 ## System Requirements
 
@@ -154,6 +161,9 @@ python3 tests/system_test.py --test timers
 
 # Test network resilience
 python3 tests/network_resilience_test.py
+
+# Run race simulations for testing and analysis
+python3 extras/soapbox/infra/server/simulate_racing.py
 ```
 
 For detailed testing procedures, refer to the [Soapbox Test Guide](/extras/soapbox/doc/SoapboxDerby_Test_Guide.md).

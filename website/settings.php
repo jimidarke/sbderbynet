@@ -317,6 +317,12 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                         <label>Upload replay videos?</label>
                     </p>
                     <?php photo_settings('videos', 'video-dir', read_raceinfo('video-directory')); ?>
+                    <?php photo_settings('slideshow images', 'slideshow-dir', read_raceinfo('slideshow-directory')); ?>
+                    <p>
+                        <label for="slideshow-duration">Slideshow duration (seconds):</label>
+                        <input id="slideshow-duration" name="slideshow-duration" type="number" min="1" max="300" 
+                               value="<?php echo read_raceinfo('slideshow-duration', 30); ?>" />
+                    </p>
                 </div>
             </div>
             <div class="settings_group">

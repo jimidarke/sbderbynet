@@ -102,6 +102,12 @@ if (have_permission(SET_UP_PERMISSION)) {
     // HLS Stream Settings
     'hls-stream-url' => array('setting' => 'hls-stream-url'),
 
+    // Slideshow Directory
+    'slideshow-dir' => array('setting' => 'slideshow-directory'),
+    
+    // Slideshow Duration
+    'slideshow-duration' => array('setting' => 'slideshow-duration'),
+
   );
 
   if ($ok) {

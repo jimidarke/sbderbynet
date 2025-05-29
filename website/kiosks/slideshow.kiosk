@@ -1,4 +1,5 @@
 <?php
 $as_kiosk = true;
-require('slideshow.php');
+$slideshow_kiosk_type = 'slideshow';
+require('shared-slideshow.php');
 ?>

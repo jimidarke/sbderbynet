@@ -1,3 +1,25 @@
+/*
+ * Copyright (C) 2025 Jimi Ford <jimiford@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and 
+ * associated documentation files (the "Software"), to deal in the Software without restriction, 
+ * including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+ * and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, 
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all copies or substantial 
+ * portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT 
+ * LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE 
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+// Shared slideshow JavaScript functionality
+// Configurable for different kiosk types with different folders and timing
+
 // We don't know the actual rendered size of the main photo until after it's
 // loaded, so that's when we can calculate how much margin to apply to the main
 // photo so it's vertically centered.  (If the image is taller than its
@@ -24,8 +46,10 @@ function mainphoto_onload(img) {
   // to be cached for the duration of the slideshow.  Reloading the slideshow
   // will pick up any changes to the title slide image.
   var cachebreaker = Date.now();
-  // g_kiosk_parameters is set in slideshow.php
+  // g_kiosk_parameters is set in shared-slideshow.php
   var kiosk_parameters = g_kiosk_parameters;
+  // g_slideshow_config is set in shared-slideshow.php  
+  var slideshow_config = g_slideshow_config;
 
   try {
     KioskPoller.param_callback = function(parameters) {
@@ -79,7 +103,10 @@ function mainphoto_onload(img) {
 
   function slide_poll() {
     next_query.query = 'slide.next';
-    if (kiosk_parameters.subdir) {
+    // Use folder from slideshow config if specified
+    if (slideshow_config.folder) {
+      next_query.subdir = slideshow_config.folder;
+    } else if (kiosk_parameters.subdir) {
       next_query.subdir = kiosk_parameters.subdir;
     }
     var classids = kiosk_parameters.classids;
@@ -95,8 +122,12 @@ function mainphoto_onload(img) {
               if (data.hasOwnProperty('photo')) {
                 refresh_page(data.photo);
             } else {
+                var titleUrl = 'slide.php/title';
+                if (slideshow_config.folder) {
+                    titleUrl += '/' + slideshow_config.folder;
+                }
                 refresh_page({
-                    'photo': 'slide.php/title',
+                    'photo': titleUrl,
                     'title': true,
                     'next': {
                         'mode': 'slide',
@@ -112,18 +143,23 @@ function mainphoto_onload(img) {
     $("#photo-background").height($("#photo-background").height() -
                                   $("#photo-background").position().top);
 
-    refresh_page({'photo': 'slide.php/title',
+    var titleUrl = 'slide.php/title';
+    if (slideshow_config.folder) {
+        titleUrl += '/' + slideshow_config.folder;
+    }
+    
+    refresh_page({'photo': titleUrl,
                   'title': true,
                   'next': {'mode': 'slide',
                            'file': ''}});
     // We immediately refresh the page again, so any title text placed into
     // 'next' by the first refresh will now become current.
-    refresh_page({'photo': 'slide.php/title',
+    refresh_page({'photo': titleUrl,
                   'title': true,
                   'next': {'mode': 'slide',
                            'file': ''}});
 
-    // Use interval from slideshow config (defaults to slideshow-duration setting)
-    setInterval(slide_poll, g_slideshow_config ? g_slideshow_config.interval : 10000);
+    // Use interval from slideshow config (default 10s, intermission 30s)
+    setInterval(slide_poll, slideshow_config.interval);
   });
 }());

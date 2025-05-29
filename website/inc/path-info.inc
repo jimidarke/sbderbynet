@@ -90,10 +90,21 @@ function slide_file_glob($slide_glob) {
 // This is the function used by slide.php to convert a file name or glob into a
 // full path.
 // Searches in:
+// - The configured slideshow directory (if set)
 // - The slides directory in $homedir, for per-instance slides
-// - The slides directory
+// - The slides directory in global data folder
+// - The slides subfolder of the currently-selected image set
 function slide_file_path($slide_glob) {
   global $homedir;
+  require_once('inc/photo-config.inc');
+  
+  // First, check if a custom slideshow directory is configured
+  $slideshow_dir = slideshow_directory();
+  if (!empty($slideshow_dir)) {
+    $cand = slide_file_glob($slideshow_dir.DIRECTORY_SEPARATOR.$slide_glob);
+    if ($cand) return $cand;
+  }
+  
   // $homedir points to the data for the particular instance
   if (isset($homedir)) {
     $cand = slide_file_glob($homedir.DIRECTORY_SEPARATOR.'slides'.DIRECTORY_SEPARATOR.$slide_glob);
@@ -144,13 +155,29 @@ function enumerate_non_title_slides($dir, $current_slide) {
 if (!function_exists('next_slides')) {
   function next_slides($f, $subdir = '') {
     global $homedir;
+    require_once('inc/photo-config.inc');
+    
     if (empty($subdir)) {
       $slides_dir = 'slides';
     } else {
       $slides_dir = 'slides'.DIRECTORY_SEPARATOR.$subdir;
     }
 
-    $result = array_merge(
+    $result = array();
+    
+    // Check configured slideshow directory first
+    $slideshow_dir = slideshow_directory();
+    if (!empty($slideshow_dir)) {
+      if (empty($subdir)) {
+        $search_dir = $slideshow_dir;
+      } else {
+        $search_dir = $slideshow_dir.DIRECTORY_SEPARATOR.$subdir;
+      }
+      $result = array_merge($result, 
+        enumerate_non_title_slides($search_dir, $f));
+    }
+    
+    $result = array_merge($result,
       // Instance-specific directory
       (!isset($homedir) ? array() :
       enumerate_non_title_slides($homedir.DIRECTORY_SEPARATOR.$slides_dir, $f)),
@@ -181,7 +208,17 @@ function enumerate_subdirectories($dir) {
 // Returns a list of slides subdirectories, representing alternative slideshow slides.
 function find_alternate_slides_directories() {
   global $homedir;
-  $result = array_merge(
+  require_once('inc/photo-config.inc');
+  
+  $result = array();
+  
+  // Check configured slideshow directory first
+  $slideshow_dir = slideshow_directory();
+  if (!empty($slideshow_dir)) {
+    $result = array_merge($result, enumerate_subdirectories($slideshow_dir));
+  }
+  
+  $result = array_merge($result,
     // Instance-specific directory
     (!isset($homedir) ? array() :
      enumerate_subdirectories($homedir.DIRECTORY_SEPARATOR.'slides')),
