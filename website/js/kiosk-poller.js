@@ -12,6 +12,64 @@ var KioskPoller = (function(KioskPoller) {
     // console.log("Params: " + param_string);
   };
 
+  // Variables for broadcast message handling
+  var current_broadcast_id = null;
+  var broadcast_timeout = null;
+
+  // Function to display broadcast message
+  function show_broadcast_message(message_data) {
+    // Remove any existing broadcast message
+    hide_broadcast_message();
+
+    // Create unique ID for this message
+    var message_id = message_data.timestamp + '_' + message_data.message.length;
+    
+    // Don't show the same message twice
+    if (current_broadcast_id === message_id) {
+      return;
+    }
+    
+    current_broadcast_id = message_id;
+
+    // Create broadcast message overlay
+    var broadcast_div = $('<div id="broadcast-message" style="' +
+      'position: fixed; ' +
+      'top: 0; ' +
+      'left: 0; ' +
+      'width: 100%; ' +
+      'height: 20%; ' +
+      'background-color: black; ' +
+      'color: white; ' +
+      'display: flex; ' +
+      'align-items: center; ' +
+      'justify-content: center; ' +
+      'font-size: 2em; ' +
+      'font-weight: bold; ' +
+      'text-align: center; ' +
+      'z-index: 9999; ' +
+      'padding: 20px; ' +
+      'box-sizing: border-box;' +
+      '">' + 
+      '<div>' + $('<div>').text(message_data.message).html() + '</div>' +
+      '</div>');
+
+    $('body').append(broadcast_div);
+
+    // Auto-hide after duration
+    broadcast_timeout = setTimeout(function() {
+      hide_broadcast_message();
+    }, message_data.duration * 1000);
+  }
+
+  // Function to hide broadcast message
+  function hide_broadcast_message() {
+    $('#broadcast-message').remove();
+    if (broadcast_timeout) {
+      clearTimeout(broadcast_timeout);
+      broadcast_timeout = null;
+    }
+  }
+
   KioskPoller.start = function(address, kiosk_page) {
     var interval = setInterval(function() {
       $.ajax('action.php',
@@ -45,6 +103,11 @@ var KioskPoller = (function(KioskPoller) {
                   params_string = setting.params;
                 }
                 KioskPoller.param_callback(JSON.parse(params_string));
+                
+                // Handle broadcast message if present
+                if (setting['broadcast-message']) {
+                  show_broadcast_message(setting['broadcast-message']);
+                }
               }
              });
     }, 5000);

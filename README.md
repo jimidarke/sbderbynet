@@ -17,6 +17,8 @@ Please visit us at [https://derbynet.org](https://derbynet.org).
 - Results tracking and standings
 - Award management and presentation
 - Kiosk display system
+- Slideshow functionality for sponsorship and intermission displays
+- Broadcast messaging system for coordinator announcements
 
 ### Soapbox Derby Extension
 - **Current Version: 0.5.0**
@@ -167,6 +169,184 @@ python3 extras/soapbox/infra/server/simulate_racing.py
 ```
 
 For detailed testing procedures, refer to the [Soapbox Test Guide](/extras/soapbox/doc/SoapboxDerby_Test_Guide.md).
+
+## Slideshow Configuration
+
+DerbyNet includes a powerful slideshow system for displaying sponsor images, intermission content, and general announcements during racing events.
+
+### Setting Up Slideshow Directory
+
+1. **Configure the base slideshow directory** in Settings:
+   - Navigate to the Settings page in DerbyNet
+   - Find the "Slideshow Directory" field in the Photos section
+   - Set the path to your slideshow images directory (e.g., `/var/lib/derbynet/slideshow/`)
+
+2. **Create slideshow subdirectories** for different purposes:
+   ```bash
+   mkdir -p /var/lib/derbynet/slideshow/sponsors
+   mkdir -p /var/lib/derbynet/slideshow/intermission
+   mkdir -p /var/lib/derbynet/slideshow/general
+   ```
+
+3. **Set slideshow timing** (optional):
+   - Set "Slideshow Duration (seconds)" in Settings (default: 30 seconds per image)
+   - This applies to all slideshow types
+
+### Directory Structure
+
+```
+/var/lib/derbynet/slideshow/
+├── sponsors/          # Sponsor logos and advertisements
+│   ├── sponsor1.jpg
+│   ├── sponsor2.png
+│   └── ...
+├── intermission/      # Intermission content between heats
+│   ├── safety-rules.jpg
+│   ├── thank-you.png
+│   └── ...
+└── general/          # General slideshow content
+    ├── welcome.jpg
+    ├── schedule.png
+    └── ...
+```
+
+### Supported Image Formats
+
+- JPEG (.jpg, .jpeg)
+- PNG (.png)
+- GIF (.gif)
+- WebP (.webp)
+
+### Kiosk Configuration
+
+**Available slideshow kiosk types:**
+
+1. **General Slideshow** (`slideshow.kiosk`):
+   - Displays images from the main slideshow directory
+   - Use for general announcements and information
+
+2. **Sponsors Slideshow** (`sponsors.kiosk`):
+   - Displays images from the `sponsors/` subdirectory
+   - Perfect for rotating sponsor advertisements
+
+3. **Intermission Slideshow** (`intermission.kiosk`):
+   - Displays images from the `intermission/` subdirectory
+   - Ideal for safety messages, rules, and intermission content
+
+### Usage Instructions
+
+1. **Add images to appropriate directories**:
+   - Copy image files to the relevant subdirectory
+   - Images will be displayed in alphabetical order by filename
+
+2. **Assign kiosk displays**:
+   - Go to Kiosk Dashboard or use Scene Management
+   - Assign displays to the appropriate slideshow type:
+     - `slideshow` for general content
+     - `sponsors` for sponsor advertisements  
+     - `intermission` for intermission content
+
+3. **Image naming recommendations**:
+   ```
+   01-welcome.jpg         # Numbers for ordering
+   02-sponsor-abc.png     # Descriptive names
+   03-safety-rules.jpg    # Easy to manage
+   ```
+
+### Advanced Configuration
+
+**Custom timing per slideshow type** (optional):
+- Add specific duration settings in the database for different slideshow types:
+  - `slideshow-duration-sponsors` - Custom timing for sponsor slides
+  - `slideshow-duration-intermission` - Custom timing for intermission slides
+- If not set, uses the main `slideshow-duration` setting
+
+**Image optimization tips**:
+- Use consistent image dimensions for best display results
+- Optimize image file sizes for faster loading
+- Consider display resolution when preparing images
+
+## Broadcast Messaging System
+
+DerbyNet includes a powerful broadcast messaging system that allows race coordinators to send urgent announcements to all active kiosk displays.
+
+### Features
+
+- **Instant Display**: Messages appear on all kiosk screens within 5 seconds
+- **Prominent Overlay**: White text on black background covering top 20% of screen
+- **Auto-Timing**: Messages automatically disappear after specified duration
+- **Permission-Based**: Only users with race control permissions can send messages
+- **Cross-Platform**: Works on all kiosk types (now-racing, standings, slideshow, etc.)
+
+### API Endpoints
+
+#### Send Broadcast Message
+**Endpoint**: `POST /action.php`
+
+**Parameters**:
+- `action`: `broadcast.message`
+- `message`: Message text (required, max 255 characters)
+- `duration`: Display duration in seconds (optional, default 20, range 1-300)
+
+**JavaScript Example**:
+```javascript
+$.post('action.php', {
+    action: 'broadcast.message',
+    message: 'Emergency: Track delay - 15 minutes',
+    duration: 30
+});
+```
+
+**CURL Example**:
+```bash
+curl -X POST http://localhost/action.php \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -H "Cookie: PHPSESSID=YOUR_SESSION_COOKIE_HERE" \
+  -d "action=broadcast.message" \
+  -d "message=Emergency: Track delay - 15 minutes" \
+  -d "duration=30"
+```
+
+#### Clear Active Message
+**Endpoint**: `POST /action.php`
+
+**Parameters**:
+- `action`: `broadcast.clear`
+
+**JavaScript Example**:
+```javascript
+$.post('action.php', {
+    action: 'broadcast.clear'
+});
+```
+
+**CURL Example**:
+```bash
+curl -X POST http://localhost/action.php \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -H "Cookie: PHPSESSID=YOUR_SESSION_COOKIE_HERE" \
+  -d "action=broadcast.clear"
+```
+
+### Usage Guidelines
+
+**Obtaining Session Cookie**:
+1. Log in to DerbyNet through the web interface
+2. Use browser developer tools to find the `PHPSESSID` cookie value
+3. Use this value in API calls for authentication
+
+**Message Best Practices**:
+- Keep messages concise and clear
+- Use urgent language for time-sensitive announcements
+- Consider the display duration based on message length
+- Test message visibility on different kiosk screen sizes
+
+**Common Use Cases**:
+- Emergency announcements
+- Schedule changes or delays
+- Safety reminders during intermissions
+- Awards ceremony notifications
+- Weather-related updates
 
 ## Troubleshooting
 

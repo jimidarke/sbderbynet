@@ -117,6 +117,43 @@ The typical race management workflow is:
 - `/kiosks/`: Kiosk configurations for various displays
 - `/Images/`: Assets for the different derby types
 
+### Slideshow System
+
+DerbyNet includes a comprehensive slideshow system for displaying sponsor images, intermission content, and general announcements:
+
+- **Shared Slideshow Template** (`shared-slideshow.php`): Common slideshow implementation used by all slideshow kiosks
+- **Slideshow Configuration** (`inc/slideshow-config.inc`): Central configuration for slideshow timing and directory settings
+- **Slideshow JavaScript** (`js/shared-slideshow.js`): Handles image cycling and timing logic
+
+**Available Slideshow Kiosk Types:**
+- `slideshow.kiosk`: General slideshow from main directory
+- `sponsors.kiosk`: Sponsor advertisements from sponsors/ subdirectory  
+- `intermission.kiosk`: Intermission content from intermission/ subdirectory
+
+**Settings:**
+- `slideshow-directory`: Base directory path for slideshow images (configured in Settings page)
+- `slideshow-duration`: Duration in seconds each image displays (default: 30 seconds)
+- `slideshow-duration-sponsors`: Optional custom timing for sponsor slides
+- `slideshow-duration-intermission`: Optional custom timing for intermission slides
+
+### Broadcast Messaging System
+
+DerbyNet includes a broadcast messaging system for sending urgent announcements to all active kiosk displays:
+
+- **AJAX Endpoints** (`ajax/action.broadcast.message.inc`, `ajax/action.broadcast.clear.inc`): API for sending and clearing broadcast messages
+- **Kiosk Integration** (`ajax/query.poll.kiosk.inc`, `js/kiosk-poller.js`): Automatic message display on all kiosk types
+- **Message Display**: White text on black background overlay covering top 20% of screen
+
+**Key Features:**
+- 255 character message limit with configurable duration (1-300 seconds)
+- Automatic expiration and cleanup of old messages
+- Permission-based access (requires CONTROL_RACE_PERMISSION)
+- Works on all kiosk types including slideshow variations
+- Uses existing 5-second polling cycle for near real-time delivery
+
+**Database Storage:**
+- `broadcast-message`: JSON data stored in RaceInfo table containing message, duration, timestamp, and expiration
+
 ## Specific Configuration
 
 When working in the soapbox-derby branch:

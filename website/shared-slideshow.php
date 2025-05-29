@@ -26,19 +26,33 @@ require_once('inc/slideshow-config.inc');
 // Determine kiosk type from caller or default to slideshow
 $kiosk_type = isset($slideshow_kiosk_type) ? $slideshow_kiosk_type : 'slideshow';
 $slideshow_config = get_slideshow_config($kiosk_type);
+
+// Include kiosks.inc if we're operating as a kiosk to get kiosk_parameters() function
+if (isset($as_kiosk) || isset($slideshow_kiosk_type)) {
+    require_once('inc/kiosks.inc');
+}
 ?><!DOCTYPE html>
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <title><?php echo htmlspecialchars($slideshow_config['title']); ?></title>
     <script type="text/javascript" src="js/jquery.js"></script>
-<?php if (isset($as_kiosk)) require_once('inc/kiosk-poller.inc'); ?>
+<?php 
+// Check if this is being used as a kiosk (either $as_kiosk is set or we're in a kiosk context)
+if (isset($as_kiosk) || isset($slideshow_kiosk_type)) {
+    require_once('inc/kiosk-poller.inc'); 
+}
+?>
 <?php require('inc/stylesheet.inc'); ?>
     <link rel="stylesheet" type="text/css" href="css/kiosks.css"/>
     <link rel="stylesheet" type="text/css" href="css/slideshow.css"/>
     <script type="text/javascript">
        var g_kiosk_parameters = <?php
-            echo isset($as_kiosk) ? json_encode(kiosk_parameters()) : "{}";
+            if ((isset($as_kiosk) || isset($slideshow_kiosk_type)) && function_exists('kiosk_parameters')) {
+                echo json_encode(kiosk_parameters());
+            } else {
+                echo "{}";
+            }
        ?>;
        var g_slideshow_config = <?php echo get_slideshow_js_config($kiosk_type); ?>;
     </script>
@@ -54,6 +68,6 @@ $slideshow_config = get_slideshow_config($kiosk_type);
     </div>
   </div>
 
-  <?php if (isset($as_kiosk)) require('inc/ajax-failure.inc'); ?>
+  <?php if (isset($as_kiosk) || isset($slideshow_kiosk_type)) require('inc/ajax-failure.inc'); ?>
   </body>
 </html>
