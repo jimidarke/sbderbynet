@@ -222,12 +222,24 @@ $warn_no_timer = warn_no_timer();
 
     <div class="control_column">
 
-      <div id="scenes-control-coordinator">
-        <label for="scenes-select-coordinator">Current scene:</label>
-        <div id="select-wrap-coordinator">
-          <select id="scenes-select-coordinator"></select>
+      <div class="coordinator-control-group">
+        <div id="scenes-control-coordinator">
+          <label for="scenes-select-coordinator">Current scene:</label>
+          <div id="select-wrap-coordinator">
+            <select id="scenes-select-coordinator"></select>
+          </div>
+          <div id="scenes-status-message-coordinator"></div>
         </div>
-        <div id="scenes-status-message-coordinator"></div>
+
+        <hr class="coordinator-control-divider" />
+
+        <div id="broadcast-control-coordinator">
+          <label for="broadcast-message-coordinator">Broadcast message:</label>
+          <div id="broadcast-input-wrap-coordinator">
+            <input type="text" id="broadcast-message-coordinator" placeholder="Enter message to broadcast to all kiosks..." />
+            <input type="button" id="broadcast-submit-coordinator" value="Send" onclick="handle_broadcast_message()" />
+          </div>
+        </div>
       </div>
 
       <div id="playlist-group" class="block_buttons">

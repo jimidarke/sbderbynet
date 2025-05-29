@@ -839,3 +839,57 @@ $(function() {
   setup_scenes_select_control_coordinator();
   update_scene_status_message();
 });
+
+//////////////////////////////////////////////////////////////////////////
+// Broadcast message functionality for coordinator page
+//////////////////////////////////////////////////////////////////////////
+
+function handle_broadcast_message() {
+  var message = $("#broadcast-message-coordinator").val().trim();
+  
+  if (message === '') {
+    alert('Please enter a message to broadcast.');
+    return;
+  }
+  
+  if (message.length > 255) {
+    alert('Message is too long. Maximum 255 characters allowed.');
+    return;
+  }
+  
+  // Disable the button to prevent multiple submissions
+  $("#broadcast-submit-coordinator").prop('disabled', true).val('Sending...');
+  
+  $.ajax(g_action_url, {
+    type: 'POST',
+    data: {
+      action: 'broadcast.message',
+      message: message,
+      duration: 20  // Default 20 seconds duration
+    },
+    success: function(data) {
+      if (data.outcome && data.outcome.summary === 'success') {
+        alert('Broadcast message sent successfully: "' + message + '"');
+        $("#broadcast-message-coordinator").val(''); // Clear the input field
+      } else {
+        alert('Failed to send broadcast message: ' + (data.outcome ? data.outcome.description : 'Unknown error'));
+      }
+    },
+    error: function(xhr, status, error) {
+      alert('Error sending broadcast message: ' + error);
+    },
+    complete: function() {
+      // Re-enable the button
+      $("#broadcast-submit-coordinator").prop('disabled', false).val('Send');
+    }
+  });
+}
+
+// Allow Enter key to submit the broadcast message
+$(function() {
+  $("#broadcast-message-coordinator").on('keypress', function(e) {
+    if (e.which === 13) { // Enter key
+      handle_broadcast_message();
+    }
+  });
+});

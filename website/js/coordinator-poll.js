@@ -591,7 +591,7 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
         "<th>Racer</th>" +
         "<th>" +
         (current.use_points ? "Place" : "Time") +
-        "<th>Action</th>" +
+        // "<th>Action</th>" +  // COMMENTED OUT: Action column with remove button
         "</th>" +
         "</tr>" +
         "</table>"
@@ -678,11 +678,12 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
       "<td>" +
       result +
       "</td>" +
+      // COMMENTED OUT: Action column with remove button - may be restored later
       // Only show remove button if round not completed and racer exists
-      (r && !isRoundCompleted(current.roundid) ?
-        '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid +
-        ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove</button></td>' :
-        '<td></td>') +
+      // (r && !isRoundCompleted(current.roundid) ?
+      //   '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid +
+      //   ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove</button></td>' :
+      //   '<td></td>') +
       "</tr>"
     );
     if (holding) {

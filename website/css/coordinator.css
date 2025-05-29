@@ -513,14 +513,26 @@ div#now-racing-group {
   width: 1095px;
 }
 
-/* Scene selector styles for coordinator page */
-div#scenes-control-coordinator {
-  display: inline-block;
-  width: 500px;
-  font-size: 20px;
+/* Coordinator-specific control group for scene and broadcast controls */
+.coordinator-control-group {
+  border: 3px solid #023882;
   margin: 5px;
   padding: 10px;
-  border: 3px solid #023882;
+  width: 500px;
+}
+
+/* Horizontal divider between scene selector and broadcast message */
+.coordinator-control-divider {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 15px 0;
+  width: 100%;
+}
+
+/* Scene selector styles for coordinator page */
+div#scenes-control-coordinator {
+  font-size: 18px;
+  margin-bottom: 8px;
 }
 div#scenes-control-coordinator label {
   display: inline-block;
@@ -533,10 +545,6 @@ div#scenes-control-coordinator label {
   margin-left: 40px;
   margin-top: 5px;
 }
-.red-text {
-  color: red;
-  font-weight: bold;
-}
 
 div#select-wrap-coordinator {
   display: inline-block;
@@ -546,4 +554,54 @@ div#select-wrap-coordinator {
 /* Ensure the select dropdown has proper styling */
 div#scenes-control-coordinator div.mselect-inner select {
   font-size: 100%;
+}
+
+/* Broadcast message styles for coordinator page */
+div#broadcast-control-coordinator {
+  font-size: 18px;
+  margin-top: 8px;
+}
+div#broadcast-control-coordinator label {
+  display: block;
+  width: 100%;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+div#broadcast-input-wrap-coordinator {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#broadcast-message-coordinator {
+  flex: 1;
+  padding: 8px;
+  font-size: 14px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  min-width: 0; /* Allows flex item to shrink below its content size */
+}
+
+#broadcast-submit-coordinator {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #006000;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#broadcast-submit-coordinator:hover {
+  background-color: #008000;
+}
+
+#broadcast-submit-coordinator:active {
+  background-color: #004000;
 }
