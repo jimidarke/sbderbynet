@@ -786,6 +786,17 @@ function process_coordinator_poll_json(json) {
   update_for_current_round(json["current-heat"]);
   update_for_last_heat(json);
 
+  // Handle scene updates from polling
+  if (json.hasOwnProperty('current-scene')) {
+    var current_scene = json['current-scene'];
+    if (current_scene != g_current_scene) {
+      g_current_scene = current_scene;
+      $("#scenes-select-coordinator")
+        .val(g_current_scene == '' ? -1 : g_current_scene);
+      update_scene_status_message();
+    }
+  }
+
   $("#start_race_button_div").toggleClass(
     "hidden",
     !json["timer-state"]["remote-start"]

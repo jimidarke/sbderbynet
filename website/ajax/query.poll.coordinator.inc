@@ -24,6 +24,7 @@ json_out('timer-state', json_timer_state());
 json_out('replay-state', json_replay());
 json_out('last-heat', json_last_heat());
 json_out('refused-results', read_raceinfo('refused-results', 0));
+json_out('current-scene', read_raceinfo('current_scene', ''));
 
 json_out('heat-results',
          json_heat_results(isset($_GET['roundid']) ? $_GET['roundid'] : '0',

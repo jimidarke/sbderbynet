@@ -778,3 +778,64 @@ function initVideoSource(selectq) {
   // Continue with existing device handling
   return false;
 }
+
+//////////////////////////////////////////////////////////////////////////
+// Scene selector functionality for coordinator page
+//////////////////////////////////////////////////////////////////////////
+
+function setup_scenes_select_control_coordinator() {
+  $("#scenes-select-coordinator").empty();
+  $("#scenes-select-coordinator").append($("<option/>")
+                                         .attr('value', -1)
+                                         .html("&nbsp;"));
+  for (var i = 0; i < g_all_scenes.length; ++i) {
+    var scene = g_all_scenes[i];
+    $("#scenes-select-coordinator").append($("<option/>")
+                                           .attr('value', scene.sceneid)
+                                           .text(scene.name));
+  }
+
+  $("#scenes-select-coordinator")
+    .on('change', on_scene_change_coordinator)
+    .val(g_current_scene == '' ? -1 : g_current_scene)
+    .trigger('change', /*synthetic*/true);
+}
+
+// synthetic=false if user triggered scene change
+function on_scene_change_coordinator(event, synthetic) {
+  if (!synthetic) {
+    var val = $("#scenes-select-coordinator").val();
+    $.ajax(g_action_url,
+           {type: 'POST',
+            data: {action: 'scene.apply',
+                   sceneid: val},
+            success: function(data) {
+              if (data.hasOwnProperty('current-scene')) {
+                g_current_scene = data['current-scene'];
+                $("#scenes-select-coordinator")
+                  .val(g_current_scene == '' ? -1 : g_current_scene);
+                update_scene_status_message();
+              }
+            },
+           });
+  }
+}
+
+function update_scene_status_message() {
+  var current_scene_name = "";
+  if (g_current_scene != '') {
+    for (var i = 0; i < g_all_scenes.length; ++i) {
+      if (g_all_scenes[i].sceneid == g_current_scene) {
+        current_scene_name = g_all_scenes[i].name;
+        break;
+      }
+    }
+  }
+  $("#scenes-status-message-coordinator")
+    .text(current_scene_name ? "Scene: " + current_scene_name : "No scene selected");
+}
+
+$(function() { 
+  setup_scenes_select_control_coordinator();
+  update_scene_status_message();
+});

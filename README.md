@@ -16,9 +16,10 @@ Please visit us at [https://derbynet.org](https://derbynet.org).
 - Photo capture and management
 - Results tracking and standings
 - Award management and presentation
-- Kiosk display system
+- Kiosk display system with scene management
 - Slideshow functionality for sponsorship and intermission displays
 - Broadcast messaging system for coordinator announcements
+- Coordinator scene control integration
 
 ### Soapbox Derby Extension
 - **Current Version: 0.5.0**
@@ -35,6 +36,10 @@ Please visit us at [https://derbynet.org](https://derbynet.org).
   - Stabilized communications between finish timer and race server
   - Simplified and improved logging infrastructure
   - Added speed display in km/h for metric regions
+  - **Completed Kiosk System Enhancements:**
+    - Scene selector integration on coordinator page for centralized display control
+    - Broadcast messaging system for real-time announcements to all kiosks
+    - Configurable slideshow directory and timing management
 
 ## Documentation
 

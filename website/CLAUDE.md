@@ -154,6 +154,26 @@ DerbyNet includes a broadcast messaging system for sending urgent announcements 
 **Database Storage:**
 - `broadcast-message`: JSON data stored in RaceInfo table containing message, duration, timestamp, and expiration
 
+### Scene Management and Coordinator Integration
+
+DerbyNet's scene system allows coordinated control of multiple kiosk displays through predefined configurations:
+
+- **Scene Management** (`scenes.php`): Create and edit scene configurations that define which page each named kiosk should display
+- **Kiosk Dashboard** (`kiosk-dashboard.php`): Primary interface for scene selection and individual kiosk management
+- **Coordinator Integration** (`coordinator.php`): Scene selector dropdown added to coordinator page for centralized scene control during races
+
+**Key Features:**
+- **Centralized Control**: Change scenes from both the kiosk dashboard and coordinator page
+- **Real-time Updates**: Scene changes are immediately reflected across all connected kiosks via polling
+- **Database-driven**: Scene configurations stored in `Scenes` and `SceneKiosk` tables
+- **Coordinator Integration**: Scene selector positioned above playlist controls in the coordinator interface
+
+**Implementation Details:**
+- **JavaScript Functions**: `setup_scenes_select_control_coordinator()` and `on_scene_change_coordinator()` in `coordinator-controls.js`
+- **Polling Integration**: Scene updates included in `query.poll.coordinator.inc` for automatic synchronization
+- **Styling**: Scene selector uses consistent styling with kiosk dashboard (`coordinator.css`)
+- **Backend API**: Leverages existing `action.scene.apply.inc` endpoint for scene changes
+
 ## Specific Configuration
 
 When working in the soapbox-derby branch:

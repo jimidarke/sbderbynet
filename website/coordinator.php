@@ -5,6 +5,7 @@ require_once('inc/authorize.inc');
 session_write_close();
 require_once('inc/banner.inc');
 require_once('inc/partitions.inc');
+require_once('inc/scenes.inc');
 
 require_permission(SET_UP_PERMISSION);  // TODO: What's the correct permission?
 
@@ -34,6 +35,10 @@ $warn_no_timer = warn_no_timer();
   <script type="text/javascript" src="js/timer-alive.js"></script>
   <script type="text/javascript">
     var g_use_subgroups = <?php echo use_subgroups() ? "true" : "false"; ?>;
+    var g_all_scenes = <?php echo json_encode(all_scenes(),
+                                              JSON_HEX_TAG | JSON_HEX_AMP | JSON_PRETTY_PRINT); ?>;
+    var g_current_scene = <?php echo json_encode(read_raceinfo('current_scene', ''),
+                                                 JSON_HEX_TAG | JSON_HEX_AMP); ?>;
 
     $(function () {
       $("#replay-skipback option[value='<?php
@@ -216,6 +221,14 @@ $warn_no_timer = warn_no_timer();
     </div>
 
     <div class="control_column">
+
+      <div id="scenes-control-coordinator">
+        <label for="scenes-select-coordinator">Current scene:</label>
+        <div id="select-wrap-coordinator">
+          <select id="scenes-select-coordinator"></select>
+        </div>
+        <div id="scenes-status-message-coordinator"></div>
+      </div>
 
       <div id="playlist-group" class="block_buttons">
         <a class='button_link' href='playlist.php'>Rounds Playlist</a>
