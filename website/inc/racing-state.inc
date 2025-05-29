@@ -25,7 +25,8 @@
 // NowRacingState is included as the ['now_racing'] element in the
 // array returned by get_running_round().
 
-require_once('inc/replay.inc');
+require_once('inc/replay.inc'); 
+require_once('inc/roster.inc');
 
 require_once('inc/data.inc');
 require_once('error-logging.inc');
@@ -260,19 +261,40 @@ function advance_round($roundid)
     return false;
   }
 
+  // Get scoring method setting
+  $scoring = read_raceinfo('scoring', 0);
+  $use_points = read_raceinfo_boolean('use-points');
+  
+  // Build scoring expression based on settings
+  if ($use_points) {
+    $finish_expr = 'finishplace*1.0';
+  } else {
+    $finish_expr = 'finishtime';
+  }
+  
+  if ($scoring == 0) {
+    $scoring_expr = "SUM($finish_expr)/COUNT(*)";
+  } else if ($scoring == 1) {
+    $scoring_expr = "CASE COUNT(*) WHEN 1 THEN MAX($finish_expr) ELSE (SUM($finish_expr) - MAX($finish_expr))/(COUNT(*) - 1) END";
+  } else if ($scoring == 2) {
+    $scoring_expr = "MIN($finish_expr)";
+  } else {
+    $scoring_expr = "SUM($finish_expr)/COUNT(*)"; // Default to average
+  }
+
   switch ($round_info['roundname']) {
     case 'Preliminary':
-      // Get top 21 based on average times
+      // Get top 27 based on scoring method
       $stmt = $db->prepare(
         "SELECT racerid,
-                      AVG(finishtime) as avg_time
+                $scoring_expr as score
                FROM RaceChart 
                WHERE roundid = :roundid
                AND finishtime IS NOT NULL
                GROUP BY racerid
                HAVING COUNT(*) >= 3
-               ORDER BY avg_time ASC
-               LIMIT 21"
+               ORDER BY score ASC
+               LIMIT 27"
       );
       $stmt->execute([':roundid' => $roundid]);
       $qualifiers = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -285,13 +307,16 @@ function advance_round($roundid)
       break;
 
     case 'Semi-Final':
-      // Get top 3 from semifinals
+      // Get top 3 from semifinals using same scoring method as standings
+      // This ensures consistency between displayed standings and advancement
       $stmt = $db->prepare(
-        "SELECT racerid
+        "SELECT racerid,
+                $scoring_expr as score
                FROM RaceChart 
                WHERE roundid = :roundid
                AND finishtime IS NOT NULL
-               ORDER BY finishtime ASC
+               GROUP BY racerid
+               ORDER BY score ASC
                LIMIT 3"
       );
       $stmt->execute([':roundid' => $roundid]);
@@ -308,22 +333,6 @@ function advance_round($roundid)
   return true;
 }
 
-// function add_to_round($roundid, $racerid)
-// {
-//   global $db;
-
-//   $stmt = $db->prepare(
-//     'INSERT INTO Roster (roundid, racerid, classid)
-//        SELECT :roundid, :racerid, r.classid
-//        FROM Rounds r
-//        WHERE r.roundid = :roundid'
-//   );
-
-//   return $stmt->execute([
-//     ':roundid' => $roundid,
-//     ':racerid' => $racerid
-//   ]);
-// }
 
 
 function get_racing_state()

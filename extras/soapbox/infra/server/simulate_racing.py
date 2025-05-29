@@ -118,7 +118,7 @@ def simulate_single_race(api_client):
         logger.info(f"Race started at {datetime.fromtimestamp(start_time).strftime('%H:%M:%S.%f')[:-3]}")
         
         # Wait random time before first finish (5-10 seconds)
-        first_delay = random.uniform(8, 10)
+        first_delay = random.uniform(4,5)
         logger.debug(f"Waiting {first_delay:.2f} seconds before first lane finish")
         time.sleep(first_delay)
         
@@ -147,7 +147,7 @@ def simulate_single_race(api_client):
             
             # Wait before next finish (except for last lane)
             if finish_position < 2:
-                finish_delay = random.uniform(1, 3)
+                finish_delay = random.uniform(0.5, 1.5)
                 logger.debug(f"Waiting {finish_delay:.2f} seconds before next lane finish")
                 time.sleep(finish_delay)
         
@@ -213,7 +213,7 @@ def main():
             
             # Wait between races (5-10 seconds)
             if not shutdown_requested:
-                between_race_delay = random.uniform(5, 10)
+                between_race_delay = random.uniform(2,3)
                 logger.info(f"Waiting {between_race_delay:.2f} seconds before next race...")
                 time.sleep(between_race_delay)
                 

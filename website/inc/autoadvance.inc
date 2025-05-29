@@ -114,7 +114,9 @@ function advance_heat(&$current, $requested, $report_failure) {
     set_racing_state(0);
 
     if ($requested == 'next' && round_is_completed($current['roundid'])) {
-      perform_playlist_after_round($current['roundid']);
+      perform_playlist_after_round($current['roundid']); 
+      // Check if this is a triple elimination round and advance racers
+      advance_round($current['roundid']);
     }
     if ($report_failure) {
       if ($report_failure == 'json') {
@@ -149,6 +151,8 @@ function advance_heat(&$current, $requested, $report_failure) {
         set_racing_state(0);
         if ($requested == 'next' && round_is_completed($roundid)) {
           perform_playlist_after_round($roundid);
+          // Check if this is a triple elimination round and advance racers
+          advance_round($roundid);
         }
       } else {
         // Starting a new heat, roll camera
