@@ -127,7 +127,7 @@ make_spacer_if($need_spacer);
 // *********** During ***************
 $need_spacer = make_link_button('Race Dashboard', 'coordinator.php', SET_UP_PERMISSION, 'during_button');
 $need_spacer = make_link_button('Kiosk Dashboard', 'kiosk-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
-$need_spacer = make_link_button('Judging', 'judging.php', JUDGING_PERMISSION, 'during_button') || $need_spacer;
+// TEMPORARILY HIDDEN: $need_spacer = make_link_button('Judging', 'judging.php', JUDGING_PERMISSION, 'during_button') || $need_spacer;
 if (!have_permission(SET_UP_PERMISSION)) {
   $need_spacer = make_link_button('Slideshow', 'slideshow.php', VIEW_RACE_RESULTS_PERMISSION, 'during_button') || $need_spacer;
   if ($show_voting_button) {
@@ -153,17 +153,18 @@ if ($two_columns) {
 // *********** After ***************
 $need_spacer = make_link_button('Device status', 'device-status.php', VIEW_DEVICE_STATUS, 'after_button');
 
-$need_spacer = make_link_button('Present Awards', 'awards-presentation.php', PRESENT_AWARDS_PERMISSION, 'after_button');
+// TEMPORARILY HIDDEN: $need_spacer = make_link_button('Present Awards', 'awards-presentation.php', PRESENT_AWARDS_PERMISSION, 'after_button');
 $need_spacer = make_link_button('Standings', 'standings.php', VIEW_AWARDS_PERMISSION, 'after_button') || $need_spacer;
 $need_spacer = make_link_button('Export Results', 'export.php', VIEW_RACE_RESULTS_PERMISSION, 'after_button') || $need_spacer;
 
-$need_spacer = make_link_button('Retrospective', 'history.php', SET_UP_PERMISSION, 'after_button') || $need_spacer;
+// TEMPORARILY HIDDEN: $need_spacer = make_link_button('Retrospective', 'history.php', SET_UP_PERMISSION, 'after_button') || $need_spacer;
 
 make_spacer_if($need_spacer);
 
 // *********** Other ***************
+make_link_button('Schedule', 'render-document.php/summary/ScheduleDocument?options=%7B%7D&ids=0', VIEW_RACE_RESULTS_PERMISSION, 'other_button');
 make_link_button('Printables', 'print.php', ASSIGN_RACER_IMAGE_PERMISSION, 'other_button');
-make_link_button('About', 'about.php', -1, 'other_button');
+// TEMPORARILY HIDDEN: make_link_button('About', 'about.php', -1, 'other_button');
 
 if (@$_SESSION['role']) {
   make_link_button('Log out', 'login.php?logout', -1, 'other_button');
