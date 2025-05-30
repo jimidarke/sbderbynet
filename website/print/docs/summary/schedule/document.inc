@@ -24,15 +24,23 @@ class ScheduleDocument extends PrintableSummaryDocument {
 
   function Byes($n) {
     while ($n > 0) {
-      $this->pdf->SetFont('Times', '', 10);
-      $this->pdf->Cell($this->sizes['cell_width'], 0.5, 'Bye', 1, 0, "C");
+      $nlanes = get_lane_count_from_results();
+      $cell_height = ($nlanes <= 3) ? 0.75 : 0.5;
+      $bye_font = ($nlanes <= 3) ? 14 : 10;
+      
+      $this->pdf->SetFont('Times', '', $bye_font);
+      $this->pdf->Cell($this->sizes['cell_width'], $cell_height, 'Bye', 1, 0, "C");
       --$n;
     }
   }
 
   function Newline() {
     $this->pdf->Ln();
-    if ($this->pdf->GetY() > 10.0) {
+    $nlanes = get_lane_count_from_results();
+    // Adjust page break threshold based on cell height to prevent pagination issues
+    $page_break_threshold = ($nlanes <= 3) ? 9.25 : 10.0;
+    
+    if ($this->pdf->GetY() > $page_break_threshold) {
       $this->pdf->AddPage();
     }
   }
@@ -42,9 +50,14 @@ class ScheduleDocument extends PrintableSummaryDocument {
     $this->pdf->AddPage();
 
     $nlanes = get_lane_count_from_results();
-    // At 8 lanes, the default box sizes make the schedule run off the
-    // right-hand edge, so they need to be "squeezed" a bit.
-    if ($nlanes <= 6) {
+    // Optimized layout based on number of lanes
+    // For 3 lanes, we can use much larger dimensions to take advantage of whitespace
+    if ($nlanes <= 3) {
+      $this->sizes = array(
+        'left_header_width' => 1.5,
+        'cell_width' => 1.8,
+        'racer_font' => 12);
+    } else if ($nlanes <= 6) {
       $this->sizes = array(
         'left_header_width' => 1.25,
         'cell_width' => 1.00,
@@ -101,9 +114,14 @@ class ScheduleDocument extends PrintableSummaryDocument {
           $seq = $rs['seq'];
           $lane = 0;
           $this->Newline();
-          $this->pdf->SetFont('Times', '', 15);
-          $this->pdf->Cell($this->sizes['left_header_width'], 0.5,
-                           'Heat '.$seq, /* border */ 0, /* ln */ 0, "R");
+          
+          // Add heat number as first cell in the row with border to match lane cells
+          $cell_height = ($nlanes <= 3) ? 0.75 : 0.5;
+          $heat_font = ($nlanes <= 3) ? 18 : 15;
+          
+          $this->pdf->SetFont('Times', '', $heat_font);
+          $this->pdf->Cell($this->sizes['left_header_width'], $cell_height,
+                           'Heat '.$seq, /* border */ 1, /* ln */ 0, "C");
         }
         $new_lane = $rs['lane'];
         $this->Byes($new_lane - $lane - 1);
@@ -111,13 +129,18 @@ class ScheduleDocument extends PrintableSummaryDocument {
         $x = $this->pdf->GetX();
         $y = $this->pdf->GetY();
 
-        $this->pdf->SetXY($x, $y + 0.165);
+        // Adjust positioning based on lane count for better readability
+        $name_offset = ($nlanes <= 3) ? 0.25 : 0.165;
+        $cell_height = ($nlanes <= 3) ? 0.75 : 0.5;
+        $carnumber_font = ($nlanes <= 3) ? 18 : 15;
+        
+        $this->pdf->SetXY($x, $y + $name_offset);
         $this->pdf->SetFont('Times', '', $this->sizes['racer_font']);
-        $this->pdf->Cell($this->sizes['cell_width'], 0.5, convert($rs['firstname'].' '.$rs['lastname']), 0, 0, "C");
+        $this->pdf->Cell($this->sizes['cell_width'], $cell_height, convert($rs['firstname'].' '.$rs['lastname']), 0, 0, "C");
         
         $this->pdf->SetXY($x, $y);        
-        $this->pdf->SetFont('Times', '', 15);
-        $this->pdf->Cell($this->sizes['cell_width'], 0.5, $rs['carnumber'],
+        $this->pdf->SetFont('Times', '', $carnumber_font);
+        $this->pdf->Cell($this->sizes['cell_width'], $cell_height, $rs['carnumber'],
                          /* border */ 1, /* ln */ 0, "C");
 
         $lane = $new_lane;
