@@ -11,8 +11,19 @@ import datetime
 import pytz # type: ignore
 import json
 
-from derbylogger import setup_logger
-logger = setup_logger("derbyTime")##), use_centralized_config=True)
+from serverlogger import ServerLogger
+import os
+import logging
+
+# Support environment variables for debug logging
+console_mode = os.getenv('DERBY_CONSOLE_LOG', 'false').lower() == 'true'
+debug_mode = os.getenv('DERBY_DEBUG', 'false').lower() == 'true'
+
+logger = ServerLogger(
+    name='derbyTime',
+    level=logging.DEBUG if debug_mode else logging.INFO,
+    console=console_mode
+).get_logger()
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "racetime")
 client.connect("127.0.0.1", 1883, 5)

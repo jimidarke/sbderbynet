@@ -106,9 +106,9 @@ class DerbyNetClient:
         """
         current_time = time.time()
         
-        # Send heartbeat more frequently (every 10-15 seconds instead of waiting for 60)
-        # This ensures timer status updates reach DerbyNet promptly
-        if (current_time - self.last_heartbeat_time) < 10:
+        # Send heartbeat every 5 seconds to ensure responsive updates
+        # This balances responsiveness with not overwhelming DerbyNet
+        if (current_time - self.last_heartbeat_time) < 5:
             # Still too soon for another heartbeat, unless this is the first one
             if self.last_heartbeat_time > 0:
                 return True
@@ -120,24 +120,50 @@ class DerbyNetClient:
                 self.timer_state = TIMER_STATE_NOT_CONNECTED
                 return False
         
-        # check if all timers are online by virtue of being in the dictionary
-        online1 = True if 1 in timer_heartbeats else False
-        online2 = True if 2 in timer_heartbeats else False
-        online3 = True if 3 in timer_heartbeats else False
+        # Only confirm if ALL timers have checked in within the last 5 seconds
+        # This prevents stale heartbeats from showing as confirmed
+        confirmed = 0
         
-        # checks if all timers are ready
-        ready1 = timer_heartbeats.get(1, {}).get('isReady', False)
-        ready2 = timer_heartbeats.get(2, {}).get('isReady', False)
-        ready3 = timer_heartbeats.get(3, {}).get('isReady', False)
-        if ready1 and ready2 and ready3 and online1 and online2 and online3:
-            confirmed = 1
+        # Check if all expected timers (1, 2, 3) are present and recent
+        expected_timers = [1, 2, 3]
+        all_present = all(lane in timer_heartbeats for lane in expected_timers)
+        
+        if all_present:
+            # Verify all timers have checked in within the last 5 seconds
+            all_recent = all(
+                (current_time - timer_heartbeats[lane]['time']) <= 5.0 
+                for lane in expected_timers
+            )
+            
+            if all_recent:
+                # All timers are present and recent - check if they're ready
+                all_ready = all(
+                    timer_heartbeats[lane].get('isReady', False) 
+                    for lane in expected_timers
+                )
+                
+                if all_ready:
+                    confirmed = 1
+                    logger.debug("All timers confirmed: present, recent, and ready")
+                else:
+                    logger.debug("All timers present and recent, but not all ready")
+            else:
+                # Some timers are stale
+                stale_timers = [
+                    lane for lane in expected_timers 
+                    if (current_time - timer_heartbeats[lane]['time']) > 5.0
+                ]
+                logger.debug(f"Some timers are stale (>5s old): {stale_timers}")
         else:
-            confirmed = 0
+            missing_timers = [lane for lane in expected_timers if lane not in timer_heartbeats]
+            logger.debug(f"Missing timers: {missing_timers}")
+        
+        logger.debug(f"Heartbeat confirmation: confirmed={confirmed}, timers={len(timer_heartbeats)}")
 
         # Build dynamic payload
         payload = "message=HEARTBEAT&action=timer-message&confirmed=" + str(confirmed)
         for lane, data in timer_heartbeats.items():
-            payload += f"&timerId{lane}=L{lane}&lane{lane}=1"
+            payload += f"&timerId{lane}=L{lane}&lane{lane}={lane}"
             if data.get('isReady', False):
                 payload += f"&ready{lane}=1"
             else:
@@ -388,14 +414,14 @@ class DerbyNetClient:
         out['timer-state-string'] = response_json.get('timer-state', {}).get('message', '')
         
         # Sync our internal state with DerbyNet's view if possible
-        derbynet_state = out.get('timer-state', '')
-        if derbynet_state:
-            if derbynet_state == "connected":
-                self.timer_state = TIMER_STATE_CONNECTED
-            elif derbynet_state == "staging":
-                self.timer_state = TIMER_STATE_STAGING
-            elif derbynet_state == "running":
-                self.timer_state = TIMER_STATE_RUNNING
+        #derbynet_state = out.get('timer-state', '')
+        #if derbynet_state:
+        #    if derbynet_state == "connected":
+        #        self.timer_state = TIMER_STATE_CONNECTED
+        #    elif derbynet_state == "staging":
+        #        self.timer_state = TIMER_STATE_STAGING
+        #    elif derbynet_state == "running":
+        #        self.timer_state = TIMER_STATE_RUNNING
             
         return out
     

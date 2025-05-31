@@ -31,7 +31,7 @@ import psutil # type: ignore
 import sys
 
 # Version information
-VERSION = "0.6.1"
+VERSION = "0.6.2"
 
 logger = ServerLogger(
     name='DERBYSERVER', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.
@@ -160,6 +160,7 @@ class derbyRace:
         self.class_name = racestats.get("class","")
         lanes = racestats.get("lanes",[])
         self.setLEDFromRaceStat(racestats)
+        logger.debug(f"Race Stats: {racestats}")
         for lane in lanes:
             self.setLanePinny(lane["lane"],lane["racerid"])
         # publish racestate
@@ -181,22 +182,34 @@ class derbyRace:
     def setLEDFromRaceStat(self,racestats): # checks the api for the led to use and sends thusly 
         #racestats = api.get_race_status()
         led = None
-        raceActive = racestats.get("active",None)
+        raceActive = racestats.get("active", None)
+        timer_state_string = racestats.get("timer-state-string", "")
+        prev_race_state = self.race_state
+        
         if raceActive == True:
-            if self.race_state == "":
-                self.race_state = "STAGING"
-                led = "blue"
-            if self.race_state == "FINISHED":
-                led = "blue"
-                self.race_state = "STAGING"
-                self.updateLED(led)
-                self.api.set_staging()
-            if racestats.get("timer-state-string",) == "Race running":
+            # Race is active - determine proper state
+            if timer_state_string == "Race running":
                 self.race_state = "RACING"
                 led = "green"
+            else:
+                # Race is active but not running - we're staging
+                self.race_state = "STAGING"
+                led = "blue"
+                # Only call set_staging if we're transitioning from a different state
+                if prev_race_state in ["FINISHED", "STOPPED", ""]:
+                    logger.info(f"Transitioning from {prev_race_state} to STAGING")
+                    self.api.set_staging()
         else:
+            # Race is not active
             led = "red"
             self.race_state = "STOPPED"
+            
+        # Log state changes for debugging
+        if prev_race_state != self.race_state:
+            logger.info(f"Race state changed: {prev_race_state} -> {self.race_state}")
+            # Force immediate heartbeat when race state changes to update DerbyNet quickly
+            self.force_heartbeat_update()
+            
         if led is not None and led != self.led: # only update if the led has changed
             self.led = led
             self.updateLED(led)
@@ -283,43 +296,65 @@ class derbyRace:
         current_time = time.time()
         prev_heartbeat = self.timer_heartbeats.get(lane, {})
         
+        # Update heartbeat for this specific lane
         self.timer_heartbeats[lane] = {'time': current_time, 'isReady': isReady}
     
         # If this is the first heartbeat or reconnection after timeout
         lastheartbeat = prev_heartbeat.get('time', 0)
+        force_immediate_heartbeat = False
+        
         if lastheartbeat == 0 or (current_time - lastheartbeat) > HEARTBEAT_TIMEOUT:
-            logger.info(f"Timer for lane {lane} is online")
+            logger.info(f"Timer for lane {lane} is online (reconnected)")
+            force_immediate_heartbeat = True
 
         if prev_heartbeat.get('isReady', None) != isReady:
-            logger.info(f"Timer for lane {lane} is now ready: {isReady}")
+            logger.info(f"Timer for lane {lane} ready state changed to: {isReady}")
+            force_immediate_heartbeat = True
 
-        # Check if all active timers have checked in recently and remove any that are offline from self.timer_heartbeats
-        active_timers = [l for l in self.timer_heartbeats if self.timer_heartbeats[l]['time'] > current_time - HEARTBEAT_TIMEOUT]
+        # Clean up offline timers (moved to separate function to avoid race conditions)
+        self.cleanup_offline_timers(current_time)
+
+        # Send heartbeat to API every second, or immediately if there's a state change
+        # This ensures DerbyNet always knows we're alive and gets current status
+        if force_immediate_heartbeat or (current_time - self.last_heartbeat) >= HEARTBEAT_PULSE:
+            self.send_heartbeat_to_api(current_time)
+    
+    def cleanup_offline_timers(self, current_time):
+        """Remove timers that haven't sent heartbeats within timeout period"""
+        offline_timers = []
         for lane_num in list(self.timer_heartbeats.keys()):
-            if lane_num not in active_timers:
-                logger.warning(f"Timer for lane {lane_num} is offline")
+            if (current_time - self.timer_heartbeats[lane_num]['time']) > HEARTBEAT_TIMEOUT:
+                offline_timers.append(lane_num)
+                logger.warning(f"Timer for lane {lane_num} is offline (no heartbeat for {current_time - self.timer_heartbeats[lane_num]['time']:.1f}s)")
                 del self.timer_heartbeats[lane_num]
-
-        if (current_time - self.last_heartbeat) > 1:
-            self.last_heartbeat = current_time
-            msg = ""
-            good = 0
-            if 1 in self.timer_heartbeats:
-                msg += "Lane 1 "
-                good += 1
-            if 2 in self.timer_heartbeats:
-                msg += "Lane 2 "
-                good += 1
-            if 3 in self.timer_heartbeats:
-                msg += "Lane 3 "
-                good += 1
-            if good < 3:
-                logger.warning(f"Missing Timer: {msg}")
-            # sends self.timer_heartbeats to the api for a full status update
-            success = self.api.send_timer_heartbeat(self.timer_heartbeats)
-            if not success:
-                logger.error("Failed to send timer heartbeat to API")
-        # sample timer_heartbeats = {2: {'time': 1747607679.600188, 'isReady': True}, 1: {'time': 1747607678.8986795, 'isReady': False}, 3: {'time': 1747607681.1048107, 'isReady': True}}
+        
+        return offline_timers
+    
+    def send_heartbeat_to_api(self, current_time):
+        """Send heartbeat to DerbyNet API with current timer status"""
+        self.last_heartbeat = current_time
+        
+        # Log current timer status
+        online_timers = list(self.timer_heartbeats.keys())
+        ready_timers = [lane for lane, data in self.timer_heartbeats.items() if data.get('isReady', False)]
+        
+        logger.debug(f"Heartbeat: Online={online_timers}, Ready={ready_timers}")
+        
+        if len(online_timers) < self.lane_count:
+            missing = [i for i in range(1, self.lane_count + 1) if i not in online_timers]
+            logger.warning(f"Missing timers for lanes: {missing}")
+        
+        # Send heartbeat to API - this will determine confirmation based on current status
+        success = self.api.send_timer_heartbeat(self.timer_heartbeats)
+        if not success:
+            logger.error("Failed to send timer heartbeat to API")
+    
+    def force_heartbeat_update(self):
+        """Force an immediate heartbeat update - useful when state changes"""
+        current_time = time.time()
+        self.last_heartbeat = 0  # Reset to force immediate send
+        self.send_heartbeat_to_api(current_time)
+        logger.debug("Forced immediate heartbeat update")
         
         '''
         # Check if all active timers have checked in recently

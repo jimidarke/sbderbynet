@@ -394,44 +394,11 @@ class DeviceTelemetry:
 
 def discover_services(service_type="_derbynet._tcp.local.", timeout=5):
     """
-    Discover DerbyNet services on the local network using mDNS
-    
-    Note: This requires the zeroconf package to be installed:
-    pip install zeroconf
+    Service discovery function - disabled since using fixed IP addresses on controlled LAN
+    Returns empty dict for compatibility
     """
-    try:
-        from zeroconf import ServiceBrowser, Zeroconf
-        
-        class ServiceListener:
-            def __init__(self):
-                self.services = {}
-            
-            def add_service(self, zc, type, name):
-                info = zc.get_service_info(type, name)
-                if info:
-                    self.services[name] = {
-                        "name": name,
-                        "host": info.server,
-                        "ip": ".".join(str(b) for b in info.addresses[0]),
-                        "port": info.port,
-                        "properties": {k.decode(): v.decode() for k, v in info.properties.items()}
-                    }
-        
-        zeroconf = Zeroconf()
-        listener = ServiceListener()
-        browser = ServiceBrowser(zeroconf, service_type, listener)
-        
-        # Wait for services to be discovered
-        time.sleep(timeout)
-        
-        zeroconf.close()
-        return listener.services
-    except ImportError:
-        logging.warning("Zeroconf package not installed. Service discovery not available.")
-        return {}
-    except Exception as e:
-        logging.error(f"Error discovering services: {e}")
-        return {}
+    logging.info("Service discovery disabled - using fixed IP addresses")
+    return {}
 
 def network_diagnostics():
     """Run network diagnostics and return results"""
