@@ -99,7 +99,7 @@ if $NETWORK_READY; then
     unclutter-xfixes --timeout 0 --hide-on-touch &
     # Launch browser in kiosk mode
     #exec "$CHROMIUM" --noerrdialogs --kiosk --incognito "${URL}${MAC}"
-    exec "$CHROMIUM" --noerrdialogs --kiosk --start-fullscreen --window-size=1920,1080 --no-sandbox --incognito "${URL}${MAC}" >> ~/kiosk.log 2>&1
+    exec "$CHROMIUM" --noerrdialogs --kiosk --start-fullscreen --window-size=1920,1080 --window-position=0,0 --force-device-scale-factor=1.0 --disable-gpu-sandbox --disable-software-rasterizer --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=TranslateUI --no-sandbox --incognito "${URL}${MAC}" >> ~/kiosk.log 2>&1
 
 else
     kill "$FEH_PID" 2>/dev/null
@@ -206,6 +206,36 @@ Section "ServerFlags"
     Option "StandbyTime" "0"
     Option "SuspendTime" "0"
     Option "OffTime" "0"
+EndSection
+EOL
+
+    # Force 1080p resolution for TVs
+    echo "Creating X11 display configuration for 1080p..."
+    cat > /etc/X11/xorg.conf.d/20-force-resolution.conf <<EOL
+Section "Monitor"
+    Identifier "HDMI-1"
+    Option "PreferredMode" "1920x1080"
+    Option "Position" "0 0"
+    Modeline "1920x1080_60.00"  173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync
+EndSection
+
+Section "Screen"
+    Identifier "Default Screen"
+    Monitor "HDMI-1"
+    DefaultDepth 24
+    SubSection "Display"
+        Depth 24
+        Modes "1920x1080"
+        ViewPort 0 0
+        Virtual 1920 1080
+    EndSubSection
+EndSection
+
+Section "Device"
+    Identifier "Raspberry Pi Graphics"
+    Driver "fbdev"
+    Option "fbdev" "/dev/fb0"
+    Option "SWcursor" "true"
 EndSection
 EOL
 

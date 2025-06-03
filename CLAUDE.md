@@ -198,11 +198,12 @@ DerbyNet's replay functionality allows capturing video of races and playing them
 
 ## Network Requirements
 
-The system expects a local network with:
+The system expects a controlled local network with fixed IP assignments:
 - Primary server with IP `192.168.100.10`
 - MQTT broker running on primary server
 - All devices on same network (192.168.100.x)
 - Finish timers identified by DIP switch settings
+- Static IP configuration for reliable connectivity (service discovery removed)
 
 ## Development Commands
 
@@ -335,7 +336,7 @@ The system uses a standardized logging library (derbylogger.py):
 ### Network Communication
 
 All components follow these guidelines:
-- Use service discovery via mDNS when possible
+- Use static IP configuration for reliable connectivity
 - Implement reconnection strategies
 - Handle offline operation gracefully
 - Use proper MQTT QoS levels
@@ -345,7 +346,7 @@ All components follow these guidelines:
 The system is currently at version 0.5.0 with the following completed features:
 
 - HLS Feed Service Optimization
-- Network Stability Improvements (service discovery, resilience)
+- Network Stability Improvements (static IP configuration, resilience)
 - Unified Logging System
 - Timer Protocol Enhancements
 - HLS Replay Integration

@@ -1,0 +1,49 @@
+[Unit]
+Description=DerbyNet Multi-Camera HLS Service for DerbyNet PC
+Documentation=https://github.com/derbynet/derbynet
+After=network-online.target mosquitto.service
+Wants=network-online.target
+Requires=mosquitto.service
+
+[Service]
+Type=simple
+User=derbynet
+Group=derbynet
+WorkingDirectory=/opt/hlsfeed
+ExecStart=/usr/bin/python3 /opt/hlsfeed/multicam-service.py --config /opt/hlsfeed/derbynetpc-config.env
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+# Environment variables for optimal performance on Beelink Mini PC
+Environment=PYTHONPATH=/opt/hlsfeed
+Environment=LIBVA_DRIVER_NAME=iHD
+Environment=VAAPI_DEVICE=/dev/dri/renderD128
+Environment=QSV_DEVICE=/dev/dri/renderD128
+
+# Resource limits optimized for Intel N95 4-core processor
+LimitNOFILE=65536
+LimitNPROC=32768
+CPUQuota=300%
+MemoryMax=6G
+
+# Process priority for real-time video processing
+Nice=-10
+IOSchedulingClass=1
+IOSchedulingPriority=7
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/hlsfeed /var/log/hlsfeed
+
+# Device access for hardware acceleration
+DeviceAllow=/dev/dri/renderD128 rw
+DeviceAllow=/dev/dri/card0 rw
+
+[Install]
+WantedBy=multi-user.target
+Alias=multicam.service

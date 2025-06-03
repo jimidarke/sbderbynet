@@ -1,0 +1,42 @@
+[Unit]
+Description=DerbyNet Multi-Camera HLS Feed Service
+Documentation=https://github.com/jeffpiazza/derbynet
+After=network.target mosquitto.service nginx.service
+Wants=mosquitto.service nginx.service
+
+[Service]
+Type=simple
+User=hlsfeed
+Group=hlsfeed
+ExecStart=/usr/bin/python3 /opt/hlsfeed/multicam-service.py --config /opt/hlsfeed/multicam-config.env
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/hlsfeed /var/log/hlsfeed /tmp
+
+# Resource limits
+LimitNOFILE=4096
+MemoryMax=2G
+CPUQuota=200%
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/hlsfeed/multicam-config.env
+
+# Working directory
+WorkingDirectory=/opt/hlsfeed
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=multicam-service
+
+[Install]
+WantedBy=multi-user.target

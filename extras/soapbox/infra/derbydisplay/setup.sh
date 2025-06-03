@@ -51,10 +51,18 @@ if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then
     sudo bash -c "echo 'hdmi_force_hotplug=1' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'hdmi_group=2' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'hdmi_mode=82' >> /boot/firmware/config.txt" # 1920x1080 @ 60Hz
+#    sudo bash -c "echo 'hdmi_drive=2' >> /boot/firmware/config.txt" # Force HDMI mode (not DVI)
     sudo bash -c "echo 'disable_overscan=1' >> /boot/firmware/config.txt"
+#    sudo bash -c "echo 'overscan_left=0' >> /boot/firmware/config.txt"
+#    sudo bash -c "echo 'overscan_right=0' >> /boot/firmware/config.txt"
+#    sudo bash -c "echo 'overscan_top=0' >> /boot/firmware/config.txt"
+#    sudo bash -c "echo 'overscan_bottom=0' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'disable_splash=1' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'framebuffer_width=1920' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'framebuffer_height=1080' >> /boot/firmware/config.txt"
+#    sudo bash -c "echo 'framebuffer_depth=32' >> /boot/firmware/config.txt"
+#    sudo bash -c "echo 'hdmi_pixel_encoding=0' >> /boot/firmware/config.txt" # Default RGB limited
+#    sudo bash -c "echo 'config_hdmi_boost=5' >> /boot/firmware/config.txt" # Boost HDMI signal
     sudo systemctl disable --now systemd-journald
     sudo systemctl disable --now rsyslog
     sudo systemctl disable --now logrotate 
@@ -77,7 +85,25 @@ fi
 
 # downloads the derbynet files from the server with rsync
 sudo rsync -avz --delete ${RSYNC_SERVER} ${LOCAL_DIR}
+cd $LOCAL_DIR
+# Fix DOS line endings in shell scripts after rsync transfer
+# Run this script on the Linux target after rsync
 
+echo "Fixing DOS line endings in shell scripts..."
+
+# Find all .sh files and convert line endings
+find . -name "*.sh" -type f -exec dos2unix {} \;
+
+# Make shell scripts executable
+find . -name "*.sh" -type f -exec chmod +x {} \;
+
+# Also fix any Python scripts that might have been transferred
+find . -name "*.py" -type f -exec dos2unix {} \;
+
+echo "Line ending fixes complete"
+echo "Files processed:"
+find . -name "*.sh" -o -name "*.py" | head -10
+ 
 # perform system update only if internet is available and /boot/updated file is missing
 if [ ! -f /boot/firmware/updated ]; then
     echo "Updated file missing. Checking for internet connection."

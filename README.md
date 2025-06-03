@@ -184,13 +184,14 @@ DerbyNet includes a powerful slideshow system for displaying sponsor images, int
 1. **Configure the base slideshow directory** in Settings:
    - Navigate to the Settings page in DerbyNet
    - Find the "Slideshow Directory" field in the Photos section
-   - Set the path to your slideshow images directory (e.g., `/var/lib/derbynet/slideshow/`)
+   - Set the path to your slideshow images directory (e.g., `/var/lib/derbynet/slides/`)
+   - This setting controls where all slideshow kiosks look for their images
 
 2. **Create slideshow subdirectories** for different purposes:
    ```bash
-   mkdir -p /var/lib/derbynet/slideshow/sponsors
-   mkdir -p /var/lib/derbynet/slideshow/intermission
-   mkdir -p /var/lib/derbynet/slideshow/general
+   # The sponsors subdirectory must be created manually
+   mkdir -p /var/lib/derbynet/slides/sponsors
+   mkdir -p /var/lib/derbynet/slides/intermission
    ```
 
 3. **Set slideshow timing** (optional):
@@ -200,18 +201,19 @@ DerbyNet includes a powerful slideshow system for displaying sponsor images, int
 ### Directory Structure
 
 ```
-/var/lib/derbynet/slideshow/
-├── sponsors/          # Sponsor logos and advertisements
-│   ├── sponsor1.jpg
-│   ├── sponsor2.png
+/var/lib/derbynet/slides/      # Base slideshow directory (configured in Settings)
+├── title.png                  # Title slide for main slideshow kiosk
+├── image1.jpg                 # General slideshow images
+├── image2.png                 # (displayed in alphabetical order)
+├── sponsors/                  # Sponsor subdirectory (must be created manually)
+│   ├── title.png             # Title slide for sponsors kiosk (displayed first)
+│   ├── sponsor1.jpg          # Sponsor logos and advertisements
+│   ├── sponsor2.png          # (displayed in alphabetical order after title)
 │   └── ...
-├── intermission/      # Intermission content between heats
-│   ├── safety-rules.jpg
-│   ├── thank-you.png
-│   └── ...
-└── general/          # General slideshow content
-    ├── welcome.jpg
-    ├── schedule.png
+└── intermission/             # Intermission subdirectory
+    ├── title.png             # Title slide for intermission kiosk
+    ├── safety-rules.jpg      # Intermission content between heats
+    ├── thank-you.png         # (displayed in alphabetical order after title)
     └── ...
 ```
 
@@ -227,35 +229,60 @@ DerbyNet includes a powerful slideshow system for displaying sponsor images, int
 **Available slideshow kiosk types:**
 
 1. **General Slideshow** (`slideshow.kiosk`):
-   - Displays images from the main slideshow directory
+   - Displays images from the main slideshow directory (non-recursive)
+   - Starts with `title.png` (if present), then displays remaining images alphabetically
    - Use for general announcements and information
 
 2. **Sponsors Slideshow** (`sponsors.kiosk`):
-   - Displays images from the `sponsors/` subdirectory
+   - Displays images from the `sponsors/` subdirectory only
+   - **Important**: The `sponsors/` subdirectory must be created manually by the user
+   - Starts with `sponsors/title.png` (if present), then displays remaining images alphabetically
    - Perfect for rotating sponsor advertisements
 
 3. **Intermission Slideshow** (`intermission.kiosk`):
-   - Displays images from the `intermission/` subdirectory
+   - Displays images from the `intermission/` subdirectory only
+   - Starts with `intermission/title.png` (if present), then displays remaining images alphabetically
    - Ideal for safety messages, rules, and intermission content
+
+**Slideshow Behavior:**
+- All kiosks search for images in a **non-recursive** manner (subdirectories are not scanned unless specifically configured)
+- Each kiosk type starts with its respective "title" slide, then cycles through remaining images in alphabetical order
+- Image display duration is controlled by the "Slideshow Duration" setting in Settings page
 
 ### Usage Instructions
 
 1. **Add images to appropriate directories**:
-   - Copy image files to the relevant subdirectory
-   - Images will be displayed in alphabetical order by filename
+   - Copy image files to the main slideshow directory for general slideshow
+   - Create the `sponsors/` subdirectory manually and add sponsor images there
+   - Add `title.png` files as the first slide for each kiosk type
+   - Remaining images will be displayed in alphabetical order by filename
 
 2. **Assign kiosk displays**:
    - Go to Kiosk Dashboard or use Scene Management
    - Assign displays to the appropriate slideshow type:
-     - `slideshow` for general content
-     - `sponsors` for sponsor advertisements  
-     - `intermission` for intermission content
+     - `slideshow` for general content from main directory
+     - `sponsors` for sponsor advertisements from sponsors/ subdirectory
+     - `intermission` for intermission content from intermission/ subdirectory
 
 3. **Image naming recommendations**:
    ```
-   01-welcome.jpg         # Numbers for ordering
+   title.png              # Always displayed first (if present)
+   01-welcome.jpg         # Numbers for ordering after title
    02-sponsor-abc.png     # Descriptive names
    03-safety-rules.jpg    # Easy to manage
+   ```
+
+4. **Setting up the sponsors kiosk specifically**:
+   ```bash
+   # Create sponsors subdirectory manually
+   mkdir -p /var/lib/derbynet/slides/sponsors
+   
+   # Add title slide (displayed first)
+   cp sponsor-title.png /var/lib/derbynet/slides/sponsors/title.png
+   
+   # Add sponsor images (displayed in alphabetical order)
+   cp sponsor1.jpg /var/lib/derbynet/slides/sponsors/
+   cp sponsor2.png /var/lib/derbynet/slides/sponsors/
    ```
 
 ### Advanced Configuration

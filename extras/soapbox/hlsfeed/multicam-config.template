@@ -1,0 +1,130 @@
+# Multi-Camera HLS Feed Configuration Template - Beelink Mini PC Optimized
+# Version: 0.5.0
+# Optimized for: Beelink Mini S12 Intel 12th Gen N95, 8GB RAM, Dual HDMI
+# Variables marked with [SECURE] will be populated from secure storage
+
+# Global settings
+HLS_BASE_DIR="/opt/hlsfeed"
+HLS_OUTPUT_DIR="${HLS_BASE_DIR}/hls"
+LOG_DIR="/var/log/hlsfeed"
+CONFIG_DIR="${HLS_BASE_DIR}/config"
+
+# DerbyNet Integration Settings
+DERBYNET_HOSTNAME="derbynetpc"
+DERBYNET_PORT=8037
+HLS_STREAM_BASE_PATH="/hls"
+
+# Video Quality Profiles
+# MEDIUM_QUALITY: Optimized for Beelink Mini PC balance of quality/performance
+# HIGH_QUALITY: 1080p for when CPU load is low
+# LOW_QUALITY: 480p fallback for multiple camera setups
+VIDEO_QUALITY_PROFILE="MEDIUM_QUALITY"
+
+# HIGH_QUALITY Profile (1080p) - For single camera operation
+HIGH_QUALITY_RESOLUTION="1920x1080"
+HIGH_QUALITY_BITRATE="3500k"
+HIGH_QUALITY_PRESET="fast"
+HIGH_QUALITY_CRF="24"
+HIGH_QUALITY_GOP_SIZE="60"
+
+# MEDIUM_QUALITY Profile (720p) - Optimized for Beelink Mini PC
+MEDIUM_QUALITY_RESOLUTION="1280x720"
+MEDIUM_QUALITY_BITRATE="2000k"
+MEDIUM_QUALITY_PRESET="faster"
+MEDIUM_QUALITY_CRF="26"
+MEDIUM_QUALITY_GOP_SIZE="30"
+
+# LOW_QUALITY Profile (480p) - Multi-camera fallback
+LOW_QUALITY_RESOLUTION="854x480"
+LOW_QUALITY_BITRATE="1000k"
+LOW_QUALITY_PRESET="veryfast"
+LOW_QUALITY_CRF="29"
+LOW_QUALITY_GOP_SIZE="20"
+
+# HLS Segment Settings
+HLS_SEGMENT_TIME=2
+HLS_LIST_SIZE=5
+HLS_FLAGS="delete_segments"
+
+# Camera Definitions
+# Each camera is defined with a unique ID, type, source, and position
+# Format: CAMERA_{ID}_{PROPERTY}="value"
+
+# Primary finish line camera (mandatory)
+CAMERA_FINISH_ENABLED=true
+CAMERA_FINISH_TYPE="RTSP"  # RTSP or USB
+CAMERA_FINISH_SOURCE="rtsp://[SECURE_USERNAME]:[SECURE_PASSWORD]@192.168.100.20:554/21"
+CAMERA_FINISH_NAME="Finish Line"
+CAMERA_FINISH_POSITION="finish"
+CAMERA_FINISH_PRIMARY=true
+
+# Start line camera (optional)
+CAMERA_START_ENABLED=false
+CAMERA_START_TYPE="RTSP"
+CAMERA_START_SOURCE="rtsp://[SECURE_USERNAME]:[SECURE_PASSWORD]@192.168.100.21:554/21"
+CAMERA_START_NAME="Start Line"
+CAMERA_START_POSITION="start"
+CAMERA_START_PRIMARY=false
+
+# Overhead track view camera (optional)
+CAMERA_OVERHEAD_ENABLED=false
+CAMERA_OVERHEAD_TYPE="RTSP"
+CAMERA_OVERHEAD_SOURCE="rtsp://[SECURE_USERNAME]:[SECURE_PASSWORD]@192.168.100.22:554/21"
+CAMERA_OVERHEAD_NAME="Track Overview"
+CAMERA_OVERHEAD_POSITION="overhead"
+CAMERA_OVERHEAD_PRIMARY=false
+
+# Side angle camera (optional)
+CAMERA_SIDE_ENABLED=false
+CAMERA_SIDE_TYPE="USB"
+CAMERA_SIDE_SOURCE="/dev/video0"
+CAMERA_SIDE_NAME="Side Angle"
+CAMERA_SIDE_POSITION="side"
+CAMERA_SIDE_PRIMARY=false
+
+# USB Camera specific settings
+USB_CAMERA_FORMAT="v4l2"
+USB_CAMERA_FRAMERATE="30"
+USB_CAMERA_INPUT_FORMAT="mjpeg"  # mjpeg, yuyv422, etc.
+
+# RTSP Connection Settings
+RTSP_TRANSPORT="tcp"  # tcp or udp
+RTSP_TIMEOUT="30"
+RTSP_RECONNECT_DELAY="5"
+RTSP_MAX_RETRIES="3"
+
+# Recording Settings (for replay functionality)
+RECORDING_ENABLED=true
+RECORDING_FORMAT="mkv"
+RECORDING_MAX_DURATION="60"  # seconds
+RECORDING_KEEP_DAYS="7"      # days to keep recordings
+
+# Replay Settings (matches DerbyNet defaults)
+REPLAY_BUFFER_TIME=4000      # ms - default is 4000ms (4 seconds)
+REPLAY_PLAYBACK_RATE=50      # percent - default is 50% (half speed)
+REPLAY_NUM_SHOWINGS=2        # count - default is 2 times
+REPLAY_VIDEO_DIR="${HLS_BASE_DIR}/videos"
+
+# Performance Tuning - Beelink Mini PC Optimized
+# Thread settings for multi-camera processing (Intel N95 4-core)
+FFMPEG_THREADS="3"           # Leave 1 core for system overhead
+PROCESS_PRIORITY="high"      # high, normal, low
+ENABLE_HARDWARE_ACCEL=true   # Intel Quick Sync Video available on N95
+HARDWARE_ACCEL_TYPE="qsv"    # Intel Quick Sync for N95 processor
+
+# Network and Cleanup Settings
+MAX_SEGMENT_AGE_MINUTES=30
+LOG_RETENTION_DAYS=7
+CLEANUP_INTERVAL_MINUTES=5
+
+# Monitoring and Alerting
+MONITORING_ENABLED=true
+MQTT_BROKER="192.168.100.10"
+MQTT_TOPIC_PREFIX="derbynet/camera"
+HEALTH_CHECK_INTERVAL=30     # seconds
+STREAM_HEALTH_TIMEOUT=10     # seconds
+
+# Security Settings
+STREAM_ACCESS_LOG=true
+MAX_CONCURRENT_VIEWERS=50
+ENABLE_STREAM_AUTH=false     # Future feature

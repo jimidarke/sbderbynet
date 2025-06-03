@@ -175,6 +175,14 @@
             font-weight: bold;
         }
         
+        .device-type {
+            font-size: 10px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
         .device-status {
             font-size: 12px;
             padding: 3px 8px;
@@ -550,13 +558,53 @@
                 nameElement.innerText = telemetry.hostname;
             }
             
-            // Update metrics
-            updateMetric(deviceId, 'cpu-temp', telemetry.cpu_temp ? telemetry.cpu_temp + '°C' : '--');
-            updateMetric(deviceId, 'memory', telemetry.memory_usage ? telemetry.memory_usage + '%' : '--');
-            updateMetric(deviceId, 'disk', telemetry.disk ? telemetry.disk + '%' : '--');
+            // Update metrics using standardized DerbyNet telemetry format
+            updateMetric(deviceId, 'cpu-temp', telemetry.cpu_temp ? telemetry.cpu_temp.toFixed(1) + '°C' : '--');
+            updateMetric(deviceId, 'memory', telemetry.memory_usage ? telemetry.memory_usage.toFixed(1) + '%' : '--');
+            updateMetric(deviceId, 'disk', telemetry.disk ? telemetry.disk.toFixed(1) + '%' : '--');
             updateMetric(deviceId, 'wifi', telemetry.wifi_rssi ? telemetry.wifi_rssi + ' dBm' : '--');
             updateMetric(deviceId, 'uptime', formatUptime(telemetry.uptime));
             updateMetric(deviceId, 'battery', telemetry.battery_level ? telemetry.battery_level + '%' : '--');
+            
+            // Update DerbyNet PC specific metrics if present
+            if (telemetry.device_class === 'PC') {
+                updatePCSpecificMetrics(deviceId, telemetry);
+            }
+            
+            // Update finish timer specific metrics if present  
+            if (telemetry.device_class === 'Lane') {
+                updateLaneSpecificMetrics(deviceId, telemetry);
+            }
+        }
+        
+        // Update PC-specific metrics for derbynetpc
+        function updatePCSpecificMetrics(deviceId, telemetry) {
+            // Update additional metrics for the PC
+            updateMetric(deviceId, 'gpu-temp', telemetry.gpu_temp ? telemetry.gpu_temp.toFixed(1) + '°C' : '--');
+            updateMetric(deviceId, 'load-avg', telemetry.load_average ? telemetry.load_average.toFixed(2) : '--');
+            updateMetric(deviceId, 'cpu-freq', telemetry.cpu_frequency ? (telemetry.cpu_frequency / 1000).toFixed(1) + ' GHz' : '--');
+            
+            // Update display status if available
+            if (telemetry.displays) {
+                const displayCount = Object.keys(telemetry.displays).length;
+                const activeDisplays = Object.values(telemetry.displays).filter(d => d.active).length;
+                updateMetric(deviceId, 'displays', `${activeDisplays}/${displayCount}`);
+            }
+            
+            // Update camera stream status
+            if (telemetry.camera_streams) {
+                updateMetric(deviceId, 'streams', telemetry.camera_streams.active_streams || 0);
+            }
+        }
+        
+        // Update lane-specific metrics for finish timers
+        function updateLaneSpecificMetrics(deviceId, telemetry) {
+            // Update lane-specific metrics
+            updateMetric(deviceId, 'lane', telemetry.lane || '--');
+            updateMetric(deviceId, 'toggle', telemetry.toggle ? 'ON' : 'OFF');
+            updateMetric(deviceId, 'led', telemetry.led || '--');
+            updateMetric(deviceId, 'pinny', telemetry.pinny || '----');
+            updateMetric(deviceId, 'ready', telemetry.readyToRace ? 'YES' : 'NO');
         }
         
         // Update a specific device metric
@@ -578,13 +626,90 @@
             
             const deviceName = deviceData.telemetry.hostname || deviceId;
             const deviceStatus = deviceData.status || 'unknown';
+            const deviceClass = deviceData.telemetry.device_class || 'Unknown';
             
-            deviceElement.innerHTML = `
-                <div class="device-header">
-                    <div class="device-name">${deviceName}</div>
-                    <div class="device-status ${deviceStatus}">${deviceStatus.toUpperCase()}</div>
-                </div>
-                <div class="device-metrics">
+            // Create different metric layouts based on device type
+            let metricsHTML = '';
+            
+            if (deviceClass === 'PC') {
+                // DerbyNet PC specific metrics
+                metricsHTML = `
+                    <div class="metric metric-cpu-temp">
+                        <div class="metric-label">CPU Temp</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-gpu-temp">
+                        <div class="metric-label">GPU Temp</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-memory">
+                        <div class="metric-label">Memory</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-disk">
+                        <div class="metric-label">Disk</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-load-avg">
+                        <div class="metric-label">Load Avg</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-cpu-freq">
+                        <div class="metric-label">CPU Freq</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-displays">
+                        <div class="metric-label">Displays</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-streams">
+                        <div class="metric-label">Streams</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-uptime">
+                        <div class="metric-label">Uptime</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                `;
+            } else if (deviceClass === 'Lane') {
+                // Finish timer specific metrics
+                metricsHTML = `
+                    <div class="metric metric-cpu-temp">
+                        <div class="metric-label">CPU Temp</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-battery">
+                        <div class="metric-label">Battery</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-lane">
+                        <div class="metric-label">Lane</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-toggle">
+                        <div class="metric-label">Toggle</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-led">
+                        <div class="metric-label">LED</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-pinny">
+                        <div class="metric-label">Pinny</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-ready">
+                        <div class="metric-label">Ready</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                    <div class="metric metric-uptime">
+                        <div class="metric-label">Uptime</div>
+                        <div class="metric-value">--</div>
+                    </div>
+                `;
+            } else {
+                // Generic/Display device metrics
+                metricsHTML = `
                     <div class="metric metric-cpu-temp">
                         <div class="metric-label">CPU Temp</div>
                         <div class="metric-value">--</div>
@@ -609,6 +734,17 @@
                         <div class="metric-label">Battery</div>
                         <div class="metric-value">--</div>
                     </div>
+                `;
+            }
+            
+            deviceElement.innerHTML = `
+                <div class="device-header">
+                    <div class="device-name">${deviceName}</div>
+                    <div class="device-status ${deviceStatus}">${deviceStatus.toUpperCase()}</div>
+                </div>
+                <div class="device-type">${deviceClass}</div>
+                <div class="device-metrics">
+                    ${metricsHTML}
                 </div>
             `;
             
