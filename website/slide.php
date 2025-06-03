@@ -26,8 +26,15 @@ if (count($exploded) != 2) {
 }
 
 $glob = $exploded[1];
+// Handle title slides, including in subdirectories (e.g., "title/sponsors" or just "title")
 if ($glob == 'title') {
   $glob = 'title.*';
+} else if (strpos($glob, 'title/') === 0) {
+  // For subdirectory case like "title/sponsors", convert to "sponsors/title.*"
+  $parts = explode('/', $glob);  // URL paths always use '/' regardless of OS
+  if (count($parts) == 2 && $parts[0] == 'title') {
+    $glob = $parts[1] . DIRECTORY_SEPARATOR . 'title.*';
+  }
 }
 $file_path = slide_file_path($glob);
 
