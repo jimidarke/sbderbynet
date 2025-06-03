@@ -865,7 +865,7 @@ function handle_broadcast_message() {
     data: {
       action: 'broadcast.message',
       message: message,
-      duration: 20  // Default 20 seconds duration
+      duration: 30  // Default 30 seconds duration
     },
     success: function(data) {
       if (data.outcome && data.outcome.summary === 'success') {
