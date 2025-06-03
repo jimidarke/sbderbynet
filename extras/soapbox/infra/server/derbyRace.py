@@ -51,8 +51,10 @@ MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 
 # Race timing and reliability settings 
 LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion
-HEARTBEAT_TIMEOUT       = 5     # seconds to consider a timer offline if no heartbeat received
+HEARTBEAT_TIMEOUT       = 4     # seconds to consider a timer offline if no heartbeat received
 HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
+RACE_TIMEOUT            = 70    # seconds maximum race time before marking DNF
+DNF_TIME               = 99.999 # DNF (Did Not Finish) time value
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
         logger.info(f"Initializing DerbyRace v{VERSION}")
@@ -126,10 +128,14 @@ class derbyRace:
                     # Extract toggle state and validate
                     toggle = payload_data.get("toggle", None)
                     if not toggle: # must be a downward toggle to mimic crossing the finish line
-                        self.laneFinish(lane)
+                        # Only count finish if this lane hasn't already finished in this race
+                        if lane not in self.lane_times:
+                            self.laneFinish(lane)
+                        else:
+                            logger.warning(f"Lane {lane} finish ignored - already finished this race with time {self.lane_times[lane]}s")
                 
-            ########### Trigger for DEVICE TELEMETRY ###########
-            if "telemetry" in topic: 
+            ########### Trigger for DEVICE TELEMETRY (ignore if active racing) ###########
+            if "telemetry" in topic and self.race_state != "RACING":
                 # Validate telemetry payload before sending to API
                 required_fields = ["hostname", "hwid", "uptime", "ip", "mac"]
                 if all(field in payload_data for field in required_fields):
@@ -140,7 +146,7 @@ class derbyRace:
                 else:
                     logger.error(f"Incomplete telemetry data from {hwid}: missing required fields")
                 
-                # Update heartbeat timestamp
+                # Update heartbeat timestamp 
                 isReady = payload_data.get("readyToRace", False)
                 if lane > 0:
                     self.timerHeartbeat(lane, isReady)
@@ -188,7 +194,7 @@ class derbyRace:
         
         if raceActive == True:
             # Race is active - determine proper state
-            if timer_state_string == "Race running":
+            if timer_state_string == "Race running": 
                 self.race_state = "RACING"
                 led = "green"
             else:
@@ -200,7 +206,7 @@ class derbyRace:
                     logger.info(f"Transitioning from {prev_race_state} to STAGING")
                     self.api.set_staging()
         else:
-            # Race is not active
+            # Race is not active 
             led = "red"
             self.race_state = "STOPPED"
             
@@ -279,7 +285,7 @@ class derbyRace:
         self.lanesFinished += 1
         
         # Log the finish with detailed information
-        logger.info(f"Lane {lane} finished at {timer} with time {race_time}s (#{self.lanesFinished} to finish)")
+        logger.info(f"Lane {lane} finished at {timer} with time {race_time}s (#{self.lanesFinished} to finish) of total {self.lane_count} lanes")
         logger.debug(f"LaneFinishTimes: {self.lane_times}")
         
         # Update LED to indicate finish
@@ -289,6 +295,36 @@ class derbyRace:
         if self.lanesFinished == self.lane_count:
             self.stopRace(timer)
             return True
+        return False
+    
+    def checkRaceTimeout(self):
+        """Check if race has exceeded maximum time and mark unfinished lanes as DNF"""
+        if self.race_state != "RACING" or self.start_time == 0:
+            return False
+            
+        current_time = time.time()
+        race_duration = current_time - self.start_time
+        
+        # Check if race has exceeded timeout
+        if race_duration > RACE_TIMEOUT:
+            dnf_lanes = []
+            # Mark unfinished lanes as DNF
+            for lane in range(1, self.lane_count + 1):
+                if lane not in self.lane_times:
+                    self.lane_times[lane] = DNF_TIME
+                    self.lanesFinished += 1
+                    dnf_lanes.append(lane)
+                    # Update LED to indicate DNF
+                    self.updateLED("red", lane)  # red for DNF
+                    
+            if dnf_lanes:
+                logger.warning(f"Race timeout after {race_duration:.1f}s - marked lanes {dnf_lanes} as DNF with time {DNF_TIME}s")
+                
+                # Stop race if all lanes are now finished
+                if self.lanesFinished >= self.lane_count:
+                    self.stopRace(current_time)
+                    return True
+                    
         return False
     
     def timerHeartbeat(self, lane, isReady = False): # is called from the telemetry message
@@ -356,25 +392,6 @@ class derbyRace:
         self.send_heartbeat_to_api(current_time)
         logger.debug("Forced immediate heartbeat update")
         
-        '''
-        # Check if all active timers have checked in recently
-        active_timers = [l for l in self.timer_heartbeat if l <= self.lane_count]
-        if all(current_time - self.timer_heartbeat[l] < HEARTBEAT_TIMEOUT for l in active_timers):
-            # Build a dynamic active_lanes dictionary for the heartbeat
-            active_lanes = {}
-            for lane_num in active_timers:
-                # Use lane number as both key and value, with 'L' prefix for timer ID
-                # This can be customized if you have specific timer IDs to use
-                active_lanes[lane_num] = f"L{lane_num}"
-            
-            # All timers are online, send heartbeat to API with active lanes
-            self.api.send_timer_heartbeat(active_lanes)
-            logger.debug(f"Sent Timer Heartbeat to API with lanes: {active_lanes}")
-            
-        # Check for any timers that might be offline
-        if hasattr(self, 'check_timer_status'):
-            self.check_timer_status()
-        '''
 
     def close(self,graceful = False):
         # Send offline status
@@ -470,6 +487,9 @@ if __name__ == "__main__":
         try:
             derby.updateFromDerbyAPI()
             derby.sendServerTelemetry()
+            # Check for race timeout during active racing
+            if derby.race_state == "RACING":
+                derby.checkRaceTimeout()
         except KeyboardInterrupt:
             derby.close()
         except Exception as e:
