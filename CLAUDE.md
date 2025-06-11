@@ -350,13 +350,27 @@ The system is currently at version 0.5.0 with the following completed features:
 - Unified Logging System
 - Timer Protocol Enhancements
 - HLS Replay Integration
-- 2025-05-19: Fixed HLS stream URL handling in video-device-picker.js to prevent JavaScript errors
+- Elimination Tournament System Integration
+- Schedule Modal Smart Detection
+
+### Recent Fixes (2025-06-11):
+- **Eliminated Legacy Triple Elimination Conflicts**: Removed old automatic round creation system that conflicted with new JSON-based elimination tournaments
+- **Fixed PHP Key Errors**: Resolved "Undefined array key 'name'" errors in elimination kiosk displays by correcting JSON key references
+- **Enhanced Schedule Modal**: Added intelligent detection for elimination tournaments with visual feedback and disabled dropdown when hardcoded parameters are used
+- **Coordinator Integration**: Schedule modal now dynamically adapts based on tournament type with orange styling for elimination tournaments
+
+### Elimination Tournament Features:
+- **JSON-Based Configuration**: Hardcoded tournament structures eliminate configuration errors
+- **Age Group Support**: Automatic pattern matching for "Ages 6-8", "Ages 9-11", "Ages 12-14" classes
+- **Smart Scheduling**: Modal automatically detects elimination tournaments and uses appropriate parameters
+- **Specialized Kiosks**: Dedicated elimination-standings and elimination-results displays
+- **Database Integration**: Full tournament state tracking with advancement audit trails
 
 Current priorities include:
-1. Create log search and analysis tools
-2. Implement kiosk compatibility with DerbyNet
-3. Consolidate redundant kiosk implementations
-4. Create setup and deployment guides
+1. Complete elimination tournament testing and validation
+2. Create setup and deployment guides for elimination tournaments
+3. Implement log search and analysis tools
+4. Enhance kiosk assignment and management
 
 ## File Structure
 

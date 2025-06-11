@@ -174,8 +174,168 @@ DerbyNet's scene system allows coordinated control of multiple kiosk displays th
 - **Styling**: Scene selector uses consistent styling with kiosk dashboard (`coordinator.css`)
 - **Backend API**: Leverages existing `action.scene.apply.inc` endpoint for scene changes
 
+## Troubleshooting Elimination Tournaments
+
+### Schedule Modal Issues
+If the schedule modal doesn't adapt for elimination tournaments:
+1. Open browser console (F12) to check for JavaScript errors
+2. Look for console messages: "show_schedule_modal called for roundid: X"
+3. Verify AJAX responses for elimination tournament detection
+4. Check that coordinator-controls.js is loaded properly
+
+### Kiosk Display Issues  
+If elimination kiosks show PHP errors:
+1. Verify database schema is version 16 (includes elimination tables)
+2. Check that elimination tournament is properly initialized for the class
+3. Ensure classid parameter is passed correctly to kiosk URL
+4. Look for "Undefined array key" errors in server logs
+
+### Common Error Patterns
+- `"Undefined array key 'name'"`: Indicates JSON key mismatch - age groups use `'name'`, rounds use `'round_name'`
+- `"Creating triple elimination rounds"`: Old legacy system still active - check form_groups_by_rule.inc
+- `"No active tournament"`: Tournament not initialized or classid mismatch
+
+### Debugging Commands
+```bash
+# Check current schema version
+php -r "chdir('website'); require_once('inc/data.inc'); echo 'Schema: ' . schema_version() . '\n';"
+
+# View elimination tournament tables
+sqlite3 database.db ".tables" | grep -i elimination
+
+# Check for legacy triple elimination functions
+grep -r "create_triple_elimination_rounds" website/inc/
+```
+
+## DerbyNet Permission System
+
+DerbyNet uses a bitmask permission system where each permission is a power of 2:
+
+**Core Permissions:**
+- `VIEW_RACE_RESULTS_PERMISSION` (1) - View race results by racer
+- `VIEW_AWARDS_PERMISSION` (2) - View awards summary  
+- `CHECK_IN_RACERS_PERMISSION` (4) - Check in racers
+- `REVERT_CHECK_IN_PERMISSION` (8) - Revert check-ins
+- `REGISTER_NEW_RACER_PERMISSION` (32) - Register new racers
+- `EDIT_RACER_PERMISSION` (64) - Edit racer details, change class/rank
+- `ASSIGN_RACER_IMAGE_PERMISSION` (128) - Assign racer photos
+- `JUDGING_PERMISSION` (256) - Record judging, assign ad-hoc awards
+- `CONTROL_RACE_PERMISSION` (512) - Record heat results, advance heats, assign kiosks
+- `PRESENT_AWARDS_PERMISSION` (1024) - Present awards ceremony
+- `VIEW_DEVICE_STATUS` (1024) - View device status (shared with awards)
+- `EDIT_AWARDS_PERMISSION` (2048) - Edit award configurations
+- `TIMER_MESSAGE_PERMISSION` (4096) - Send timer messages
+- `PHOTO_UPLOAD_PERMISSION` (8192) - Upload photos
+- `SET_UP_PERMISSION` (32768) - Database setup, configuration changes
+- `ADMINISTRATION_PERMISSION` (65536) - System administration
+
+**Default Role Permissions:**
+- **Anonymous**: `VIEW_RACE_RESULTS_PERMISSION` only
+- **Timer**: `TIMER_MESSAGE_PERMISSION` only (non-interactive)
+- **Photo**: `PHOTO_UPLOAD_PERMISSION` only (non-interactive)
+- **RaceCrew**: Includes `CHECK_IN_RACERS_PERMISSION`, `JUDGING_PERMISSION`, `EDIT_RACER_PERMISSION`, etc.
+- **RaceCoordinator**: All permissions (value `-1`)
+
+**Permission Usage in Features:**
+- Racing group setup: `SET_UP_PERMISSION` (RaceCoordinator only)
+- Heat advancement: `CONTROL_RACE_PERMISSION` (RaceCoordinator only)
+- Basic race viewing: `VIEW_RACE_RESULTS_PERMISSION` (All roles)
+
+## Elimination Tournament System
+
+The soapbox derby system includes a hardcoded elimination tournament format to replace complex UI configuration with reliable, pre-tested race structures.
+
+### **Core Components**
+
+**Configuration System:**
+- JSON-based tournament definitions in `/inc/elimination-configs/`
+- Age group patterns match DerbyNet classes via regex (e.g., "Ages 6-8", "6-8", "6 to 8")
+- Hardcoded race parameters: rounds, advancement counts, scoring methods
+
+**Tournament Formats:**
+- **Ages 6-8**: 4 rounds (Preliminary → Quarter Finals → Semi-Finals → Finals)
+- **Ages 9-11**: 4 rounds (Preliminary → Quarter Finals → Semi-Finals → Finals)  
+- **Ages 12-14**: 3 rounds (Preliminary → Semi-Finals → Finals)
+
+**Database Integration:**
+- `EliminationTournaments` - Tournament state tracking
+- `EliminationRoundState` - Round progression management
+- `EliminationAdvancement` - Advancement audit trail
+- Extends existing `Rounds` table with elimination metadata
+
+**API Endpoints:**
+- `query.elimination.config.list.inc` - List available configurations
+- `action.elimination.tournament.initialize.inc` - Initialize tournaments  
+- `query.elimination.tournament.status.inc` - Tournament status
+- `action.elimination.tournament.advance.inc` - Advance to next round
+
+### **Key Design Decisions**
+
+**Operational Simplicity:**
+- No rescheduling for dropouts - empty lanes get DNF (99.000s) times
+- No tiebreaker logic needed (0.001s timing precision)
+- Automatic advancement based on time rankings
+- Leverages existing heat ordering algorithms with elimination-specific weighting
+- Partial heats allowed (1-2 racers per heat) to accommodate dropouts/equipment failures
+- Coordinator scheduling modal automatically bypassed for elimination tournaments (uses hardcoded parameters)
+
+**Heat Ordering Priority (Elimination Tournaments):**
+- `avoid_consecutive`: 1000 (highest priority - prevent back-to-back races for same racer)
+- `group_weighted_cars`: 300 (medium priority - group similar weight cars)
+- `avoid_same_lane`: 300 (medium priority - lane variation)
+- `heat_counts`: 50 (lowest priority - even heat distribution)
+
+**Reliability Focus:**
+- Predetermined tournament structures eliminate configuration errors
+- JSON validation ensures consistent race parameters  
+- State persistence handles system restarts gracefully
+- Integration with existing DerbyNet scheduling and timing systems
+
+### **Implementation Files**
+
+**Core Logic:** `inc/elimination-config.inc` - Configuration loading, validation, tournament management
+**Database Schema:** `sql/*/elimination-tables.inc` - Tournament state tables
+**Configuration:** `inc/elimination-configs/soapbox-derby-elimination.json` - Tournament definitions
+**API Layer:** `ajax/action.elimination.*` and `ajax/query.elimination.*` - AJAX endpoints
+
+### **Permission Requirements**
+
+**Elimination Tournament Operations:**
+- Tournament initialization: `SET_UP_PERMISSION` - RaceCoordinator only (same as racing group setup)
+- Tournament status queries: `VIEW_RACE_RESULTS_PERMISSION` - All roles can view tournament status
+- Tournament advancement: `CONTROL_RACE_PERMISSION` - RaceCoordinator only (same as advancing heats)  
+- Configuration management: `SET_UP_PERMISSION` - RaceCoordinator only (system configuration level)
+
+## Recent Updates and Fixes (2025-06-11)
+
+### Schedule Modal Enhancement
+The coordinator schedule modal now intelligently detects elimination tournaments:
+- **Smart Detection**: Automatically identifies elimination tournament rounds via AJAX
+- **Visual Feedback**: Orange border and styling when elimination tournament detected
+- **Disabled Controls**: Dropdown becomes disabled with explanatory text
+- **Preserved Functionality**: Both "Schedule" and "Schedule + Race" buttons remain functional
+- **Robust Fallback**: Modal always works even if tournament detection fails
+
+### Legacy System Removal
+- **Conflict Resolution**: Removed old automatic triple elimination system that conflicted with new JSON-based approach
+- **Clean Separation**: No more automatic round creation during racing group formation
+- **User Control**: Rounds now created only when elimination tournaments are explicitly initialized
+
+### PHP Error Fixes
+- **Kiosk Display Issues**: Fixed "Undefined array key 'name'" errors in both elimination kiosk displays
+- **Correct Key Usage**: Age groups use `'name'` key, rounds use `'round_name'` key per JSON structure
+- **Error-Free Operation**: Elimination kiosks now render without PHP warnings
+
+### Database Schema Compatibility
+- **Schema Version 16**: Elimination tournament tables properly integrated
+- **Column Mapping**: Fixed database insertion to use existing schema columns
+- **Backward Compatibility**: Standard DerbyNet functionality preserved
+
 ## Specific Configuration
 
 When working in the soapbox-derby branch:
 - The UI elements and images are tailored specifically for soapbox derby rather than pinewood derby
 - Some racing logic may be customized for this specific derby type
+- Elimination tournaments use hardcoded JSON configurations for predictable race management
+- Schedule modal automatically adapts behavior based on tournament type
+- Dedicated elimination kiosk displays for tournament-specific information

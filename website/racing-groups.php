@@ -30,6 +30,7 @@ if (schema_version() < PARTITION_SCHEMA) {
 <script type="text/javascript" src="js/racing-groups.js"></script>
 <script type="text/javascript" src="js/racing-groups-add.js"></script>
 <script type="text/javascript" src="js/racing-groups-edit.js"></script>
+<script type="text/javascript" src="js/elimination-tournament.js"></script>
 <script type="text/javascript">
 $(function() {
     var rule = <?php echo json_encode(group_formation_rule()); ?>;
@@ -225,6 +226,34 @@ $(function() {
              value="Add <?php echo subgroup_label(); ?>"
              onclick="show_add_rank_modal();" />
       <br/>
+    </div>
+
+    <div id="elimination_tournament_extension" class="hidden">
+      <h4>Elimination Tournament</h4>
+      <div id="elimination_status">
+        <p id="elimination_status_text">No active tournament</p>
+      </div>
+      <div id="elimination_controls">
+        <div id="elimination_config_selector" class="hidden">
+          <label for="elimination_config_select">Tournament Format:</label>
+          <select id="elimination_config_select">
+            <option value="">Select configuration...</option>
+          </select>
+          <input id="initialize_tournament_button" type="button" 
+                 value="Initialize Tournament" 
+                 onclick="initialize_elimination_tournament();" />
+        </div>
+        <div id="elimination_tournament_info" class="hidden">
+          <p><strong>Format:</strong> <span id="tournament_format_name"></span></p>
+          <p><strong>Age Group:</strong> <span id="tournament_age_group"></span></p>
+          <p><strong>Round:</strong> <span id="tournament_current_round"></span> of <span id="tournament_total_rounds"></span></p>
+          <p><strong>Current Round:</strong> <span id="tournament_round_name"></span></p>
+          <p><strong>Advancement:</strong> <span id="tournament_advancement_info"></span></p>
+          <input id="advance_tournament_button" type="button" 
+                 value="Advance to Next Round" 
+                 onclick="advance_elimination_tournament();" />
+        </div>
+      </div>
     </div>
 
     <input type="submit"/>

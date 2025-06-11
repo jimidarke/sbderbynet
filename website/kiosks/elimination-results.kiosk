@@ -1,0 +1,290 @@
+<!DOCTYPE html><?php
+ // Amazingly: the DOCTYPE is required in order for $(window).height() to work correctly on Chrome.
+require_once('inc/data.inc');
+require_once('inc/banner.inc');
+require_once('inc/authorize.inc');
+require_once('inc/schema_version.inc');
+require_once('inc/elimination-config.inc');
+require_once('inc/name-mangler.inc');
+require_once('inc/running_round_header.inc');
+
+// Get classid parameter - required for elimination tournaments
+$classid = null;
+$params = kiosk_parameters();
+if (isset($params['classid']) && is_numeric($params['classid'])) {
+    $classid = $params['classid'];
+} else {
+    // Try to get from current racing round
+    $current_round = get_running_round();
+    if ($current_round && isset($current_round['classid'])) {
+        $classid = $current_round['classid'];
+    }
+}
+
+if (!$classid) {
+    echo "Error: No class specified for elimination tournament results";
+    exit;
+}
+
+// Get tournament state
+$tournament_state = get_elimination_tournament_state($classid);
+if (!$tournament_state) {
+    echo "Error: No active elimination tournament found for this class";
+    exit;
+}
+
+$current_round = $tournament_state['current_round'];
+$round_config = $tournament_state['age_group']['rounds'][$current_round - 1];
+$class_name = read_single_value('SELECT class FROM Classes WHERE classid = :classid', [':classid' => $classid]);
+?>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<title>Elimination Tournament Results</title>
+<script type="text/javascript" src="js/jquery.js"></script>
+<?php require('inc/kiosk-poller.inc'); ?>
+<?php require('inc/stylesheet.inc'); ?>
+<link rel="stylesheet" type="text/css" href="css/kiosks.css"/>
+<link rel="stylesheet" type="text/css" href="css/main-table.css"/>
+<link rel="stylesheet" type="text/css" href="css/racer-results.css"/>
+<link rel="stylesheet" type="text/css" href="css/elimination-kiosks.css"/>
+<style type="text/css">
+body { 
+    overflow: hidden; 
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+}
+
+.tournament-header {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 15px;
+    margin: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.tournament-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1e3c72;
+    margin-bottom: 5px;
+}
+
+.tournament-subtitle {
+    font-size: 16px;
+    color: #666;
+}
+
+.scroll-bounding-rect {
+    height: calc(100vh - 140px);
+    overflow: hidden;
+    margin: 10px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.main_table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+.main_table th {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 12px 8px;
+    font-weight: bold;
+    border: none;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.main_table td {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+}
+
+.main_table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.racer_label {
+    font-weight: bold;
+    min-width: 150px;
+}
+
+.racer {
+    font-size: 16px;
+    color: #333;
+}
+
+.car {
+    font-size: 14px;
+    color: #666;
+}
+
+.time {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: center;
+    min-width: 80px;
+}
+
+.dnf-time {
+    color: #dc3545;
+    font-style: italic;
+}
+
+/* Auto-scrolling animation */
+@keyframes scroll-results {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+}
+
+.scroll-content {
+    animation: scroll-results 45s linear infinite;
+    animation-play-state: paused;
+}
+
+.scroll-content.auto-scroll {
+    animation-play-state: running;
+}
+</style>
+<script type="text/javascript" src="js/results-by-racer-scrolling.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+    // Start auto-scrolling after a delay
+    setTimeout(function() {
+        $('.scroll-content').addClass('auto-scroll');
+    }, 3000);
+});
+</script>
+</head>
+<body>
+<?php make_banner('Elimination Tournament Results', /* back_button */ false); ?>
+
+<div class="tournament-header">
+    <div class="tournament-title">
+        <?php echo htmlspecialchars($class_name, ENT_QUOTES, 'UTF-8'); ?> • <?php echo htmlspecialchars($round_config['round_name'], ENT_QUOTES, 'UTF-8'); ?>
+    </div>
+    <div class="tournament-subtitle">
+        Round <?php echo $current_round; ?> of <?php echo $tournament_state['total_rounds']; ?>
+        <?php if (isset($round_config['advance_count']) && $round_config['advance_count'] > 0): ?>
+            • Top <?php echo $round_config['advance_count']; ?> Advance
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="scroll-bounding-rect">
+    <div class="scroll-content">
+        <table class="main_table">
+            <thead>
+                <tr>
+                    <th>Racer</th>
+                    <?php
+                    $nlanes = get_lane_count_from_results();
+                    for ($l = 1; $l <= $nlanes; ++$l) {
+                        echo '<th>Lane '.$l.'</th>';
+                    }
+                    ?>
+                </tr>
+            </thead>
+            <tbody>
+            <?php
+            
+            $name_style = read_name_style();
+            $time_format = get_finishtime_formatting_string();
+            
+            // Query for current round results
+            $sql = 'SELECT RegistrationInfo.racerid,'
+                .' carnumber, firstname, lastname,'
+                .' heat, lane, finishtime, finishplace, resultid'
+                .' FROM '.inner_join('RaceChart', 'RegistrationInfo',
+                                     'RegistrationInfo.racerid = RaceChart.racerid',
+                                     'Roster', 'Roster.racerid = RegistrationInfo.racerid',
+                                     'Rounds', 'Rounds.roundid = Roster.roundid')
+                .' WHERE Rounds.roundid = RaceChart.roundid'
+                .' AND Rounds.classid = :classid AND Rounds.round = :round_number'
+                .' ORDER BY lastname, firstname, carnumber, resultid, lane';
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute([':classid' => $classid, ':round_number' => $current_round]);
+            
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Group results by racer
+            $racers = [];
+            foreach ($results as $row) {
+                $racerid = $row['racerid'];
+                if (!isset($racers[$racerid])) {
+                    $racers[$racerid] = [
+                        'racerid' => $racerid,
+                        'carnumber' => $row['carnumber'],
+                        'firstname' => $row['firstname'],
+                        'lastname' => $row['lastname'],
+                        'lanes' => array_fill(1, $nlanes, [])
+                    ];
+                }
+                $racers[$racerid]['lanes'][$row['lane']][] = $row;
+            }
+            
+            // Display results
+            $row_count = 0;
+            foreach ($racers as $racer) {
+                $racer_label = '<div class="racer_label">'
+                    .'<span class="racer">'.htmlspecialchars(mangled_name($racer, $name_style), ENT_QUOTES, 'UTF-8').'</span>'
+                    .' (<span class="car">Pinny: '.$racer['carnumber'].'</span>)</div>';
+                
+                // Calculate max runs in any lane for this racer
+                $max_runs = 0;
+                for ($l = 1; $l <= $nlanes; $l++) {
+                    $max_runs = max($max_runs, count($racer['lanes'][$l]));
+                }
+                $max_runs = max($max_runs, 1); // At least one row
+                
+                // Output rows for this racer
+                for ($run = 0; $run < $max_runs; $run++) {
+                    echo '<tr class="d'.($row_count & 1).'" data-racerid="'.$racer['racerid'].'">';
+                    
+                    if ($run == 0) {
+                        echo '<td rowspan="'.$max_runs.'" class="nrows'.$max_runs.'">'.$racer_label.'</td>';
+                    }
+                    
+                    // Output lane results
+                    for ($l = 1; $l <= $nlanes; $l++) {
+                        if (isset($racer['lanes'][$l][$run])) {
+                            $result = $racer['lanes'][$l][$run];
+                            $ft = '';
+                            if (isset($result['finishtime']) && $result['finishtime'] > 0) {
+                                if ($result['finishtime'] >= 999.0) {
+                                    $ft = '<span class="dnf-time">DNF</span>';
+                                } else {
+                                    $ft = sprintf($time_format, $result['finishtime']);
+                                }
+                            } elseif (isset($result['finishplace'])) {
+                                $ft = ordinal($result['finishplace']);
+                            } else {
+                                $ft = '--';
+                            }
+                            echo '<td class="time resultid_'.$result['resultid'].'">'.$ft.'</td>';
+                        } else {
+                            echo '<td class="time">--</td>';
+                        }
+                    }
+                    echo '</tr>';
+                    $row_count++;
+                }
+            }
+            ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<?php require('inc/ajax-failure.inc'); ?>
+</body>
+</html>

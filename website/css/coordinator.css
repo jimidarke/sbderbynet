@@ -605,3 +605,21 @@ div#broadcast-input-wrap-coordinator {
 #broadcast-submit-coordinator:active {
   background-color: #004000;
 }
+
+/* Elimination Tournament Modal Styling */
+.elimination-tournament-modal {
+  border: 2px solid #FFA500;
+  background-color: #FFF8DC;
+}
+
+.elimination-tournament-modal p {
+  color: #FF6600;
+  font-weight: bold;
+  font-style: italic;
+}
+
+.elimination-tournament-modal #schedule_num_rounds {
+  background-color: #F0F0F0;
+  color: #888;
+  cursor: not-allowed;
+}

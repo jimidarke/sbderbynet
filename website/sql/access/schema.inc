@@ -331,6 +331,8 @@ array(
 
 @include(sql_file_path('scene-tables')),
 
+@include(sql_file_path('elimination-tables')),
+
 @include(sql_file_path('playlist-table')),
 
 @include(sql_file_path('award-type-values')),

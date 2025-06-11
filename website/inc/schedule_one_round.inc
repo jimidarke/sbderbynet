@@ -261,17 +261,9 @@ function schedule_one_round(
       return handle_final_round($roundid, $round_info);
     }
 
-    // Set number of runs based on elimination type only if user hasn't overridden
-    if ($round_info['is_triple_elim'] && $n_times_per_lane == 1) {
-      switch ($round_info['elim_type']) {
-        case 'preliminary':
-          $n_times_per_lane = 1;
-          break;
-        case 'semifinal':
-          $n_times_per_lane = 1;
-          break;
-      }
-    }
+    // Note: n_times_per_lane should already be set correctly by action.schedule.generate.inc
+    // For elimination tournaments: preliminary=3, semifinal/final=1
+    // We don't override here to preserve the value from the action handler
 
     $rotation_schedule = read_raceinfo('rotation-schedule', 0);
     $roster = read_roster($roundid, $rotation_schedule);

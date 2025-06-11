@@ -8,7 +8,9 @@
       "Bash(php:*)",
       "Bash(rm:*)",
       "Bash(chmod:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(od:*)"
     ],
     "deny": []
   },

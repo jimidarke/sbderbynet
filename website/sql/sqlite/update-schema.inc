@@ -198,6 +198,77 @@ if (schema_version() < 15) {
   $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '15')";
 }
 
+if (schema_version() < 16) {
+  error_log("Updating to schema version 16 - Adding elimination tournament tables...");
+
+  // Create elimination tournament tables
+  if (!table_exists('EliminationTournaments')) {
+    $updates[] = "CREATE TABLE EliminationTournaments ("
+               . "tournament_id INTEGER PRIMARY KEY, "
+               . "classid INTEGER NOT NULL, "
+               . "config_file VARCHAR(100) NOT NULL, "
+               . "age_group_key VARCHAR(50) NOT NULL, "
+               . "current_round INTEGER NOT NULL DEFAULT 1, "
+               . "total_rounds INTEGER NOT NULL, "
+               . "active BOOLEAN NOT NULL DEFAULT 1, "
+               . "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+               . "completed_at TIMESTAMP NULL, "
+               . "FOREIGN KEY (classid) REFERENCES Classes(classid)"
+               . ")";
+    
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationTournaments_classid ON EliminationTournaments(classid)";
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationTournaments_active ON EliminationTournaments(active)";
+  }
+
+  if (!table_exists('EliminationRoundState')) {
+    $updates[] = "CREATE TABLE EliminationRoundState ("
+               . "state_id INTEGER PRIMARY KEY, "
+               . "tournament_id INTEGER NOT NULL, "
+               . "roundid INTEGER NOT NULL, "
+               . "round_sequence INTEGER NOT NULL, "
+               . "status VARCHAR(20) NOT NULL DEFAULT 'pending', "
+               . "races_per_racer INTEGER NOT NULL, "
+               . "advancement_rule VARCHAR(20) NOT NULL, "
+               . "advance_count INTEGER DEFAULT 0, "
+               . "scoring_method VARCHAR(20) NOT NULL, "
+               . "started_at TIMESTAMP NULL, "
+               . "completed_at TIMESTAMP NULL, "
+               . "FOREIGN KEY (tournament_id) REFERENCES EliminationTournaments(tournament_id), "
+               . "FOREIGN KEY (roundid) REFERENCES Rounds(roundid)"
+               . ")";
+    
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationRoundState_tournament_id ON EliminationRoundState(tournament_id)";
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationRoundState_roundid ON EliminationRoundState(roundid)";
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationRoundState_sequence ON EliminationRoundState(round_sequence)";
+  }
+
+  if (!table_exists('EliminationAdvancement')) {
+    $updates[] = "CREATE TABLE EliminationAdvancement ("
+               . "advancement_id INTEGER PRIMARY KEY, "
+               . "tournament_id INTEGER NOT NULL, "
+               . "from_round INTEGER NOT NULL, "
+               . "to_round INTEGER NOT NULL, "
+               . "racerid INTEGER NOT NULL, "
+               . "rank_in_round INTEGER NOT NULL, "
+               . "score DOUBLE NULL, "
+               . "advanced BOOLEAN NOT NULL DEFAULT 0, "
+               . "advanced_at TIMESTAMP NULL, "
+               . "FOREIGN KEY (tournament_id) REFERENCES EliminationTournaments(tournament_id), "
+               . "FOREIGN KEY (from_round) REFERENCES Rounds(roundid), "
+               . "FOREIGN KEY (to_round) REFERENCES Rounds(roundid), "
+               . "FOREIGN KEY (racerid) REFERENCES RegistrationInfo(racerid)"
+               . ")";
+    
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationAdvancement_tournament_id ON EliminationAdvancement(tournament_id)";
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationAdvancement_from_round ON EliminationAdvancement(from_round)";
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationAdvancement_to_round ON EliminationAdvancement(to_round)";
+    $updates[] = "CREATE INDEX IF NOT EXISTS EliminationAdvancement_racerid ON EliminationAdvancement(racerid)";
+  }
+
+  $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+  $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '16')";
+}
+
 // For each new schema version, copy the DELETE and INSERT for schema version
 
 return $updates;

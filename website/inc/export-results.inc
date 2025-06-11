@@ -21,18 +21,19 @@ function export_results(callable $out) {
   $headings[] = "Pinny";
   $headings[] = "CarName";
   $headings[] = "FinishTime";
-  $headings[] = "Scale MPH";
+  $headings[] = "Speed KMH";
   $headings[] = "FinishPlace";
   $headings[] = "Completed";
 
   $out($headings);
 
   $track_length = read_raceinfo('track-length', 40);  // in feet
+  // Simple speed calculation for soapbox derby (no scaling factor)
   // $track_length / $finishtime gives feet per second.
   //  * 3600 gives feet per hour
-  //  / 5280 gives miles per hour
-  //  * 25 gives scale miles per mile (not user-adjustable; makes a 7" derby car scale to 14.5 feet)
-  $fps_to_scale_mph = 3600 * 25 / 5280;
+  //  / 5280 gives miles per hour  
+  //  * 1.60934 converts miles to kilometers for km/h
+  $fps_to_kmh = 3600 / 5280 * 1.60934;
 
   $stmt = $db->query('SELECT class, round, heat, lane,'
                      .' firstname, lastname, carnumber, carname, finishtime, finishplace, completed'
@@ -57,9 +58,9 @@ function export_results(callable $out) {
       }
       array_push($values, $row['carnumber'], $row['carname'],
                  (float) $row['finishtime']);
-      // Scale MPH
+      // Speed KMH
       array_push($values, (!is_numeric($row['finishtime']) || $row['finishtime'] == 0) ? "--"
-                 : (float) sprintf("%4.1f", $track_length / $row['finishtime'] * $fps_to_scale_mph));
+                 : (float) sprintf("%4.1f", $track_length / $row['finishtime'] * $fps_to_kmh));
       array_push($values, $row['finishplace'], $row['completed']);
                  
       $out($values);

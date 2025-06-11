@@ -51,21 +51,8 @@ function form_groups_by_rule($rule) {
         // Create classes from partitions
         $db->exec('INSERT INTO Classes(class, sortorder) SELECT name, sortorder FROM Partitions');
         
-        // Create triple elimination rounds for each class
-        $stmt = $db->query('SELECT classid, class FROM Classes ORDER BY sortorder');
-        while ($class = $stmt->fetch(PDO::FETCH_ASSOC)) {
-
-            error_log("Creating triple elimination rounds for class: " . $class['class']);
-
-            $rounds = create_triple_elimination_rounds($class['classid']);
-
-            error_log("Created rounds: " . implode(", ", $rounds));
-            
-            // Verify rounds were created correctly
-            if (!verify_triple_elimination_rounds($class['classid'])) {
-                throw new Exception("Failed to verify triple elimination rounds for class: " . $class['class']);
-            }
-        }
+        // Note: Round creation is now handled by the elimination tournament system
+        // No automatic round creation - rounds will be created when elimination tournaments are initialized
 
         // Update registration info
         $db->exec('UPDATE RegistrationInfo

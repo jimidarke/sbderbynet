@@ -1,0 +1,283 @@
+/* Elimination Tournament Kiosk Styling */
+
+/* Tournament header styling */
+.tournament-header {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 15px;
+    margin: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.tournament-title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #1e3c72;
+    margin-bottom: 5px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.tournament-subtitle {
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.tournament-progress {
+    font-size: 16px;
+    color: #444;
+    font-weight: 600;
+}
+
+/* Table enhancements for elimination tournaments */
+.main_table {
+    border-collapse: collapse;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.main_table th {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 12px 8px;
+    font-weight: bold;
+    border: none;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.main_table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+    transition: background-color 0.2s ease;
+}
+
+.main_table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.main_table tr:hover {
+    background-color: #e3f2fd;
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+/* Place column styling */
+.place {
+    font-weight: bold;
+    font-size: 18px;
+    text-align: center;
+    min-width: 60px;
+    color: #1e3c72;
+}
+
+/* Name styling */
+.name {
+    font-weight: bold;
+    max-width: 200px;
+    color: #333;
+}
+
+.racer_label .racer {
+    font-weight: bold;
+    color: #333;
+}
+
+.racer_label .car {
+    color: #666;
+    font-style: italic;
+}
+
+/* Car number styling */
+.carnumber {
+    font-weight: bold;
+    text-align: center;
+    min-width: 60px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+/* Advancement status styling */
+.status {
+    text-align: center;
+}
+
+.status .advancing {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.status .eliminated {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Time and score styling */
+.score, .best, .worst, .time {
+    font-family: 'Courier New', 'Monaco', monospace;
+    font-weight: bold;
+    text-align: center;
+    min-width: 80px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.score {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    color: #1565c0;
+    font-size: 16px;
+}
+
+.best {
+    background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+    color: #2e7d32;
+}
+
+.worst {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+    color: #d35400;
+}
+
+.dnf-time {
+    color: #dc3545;
+    font-style: italic;
+    font-weight: bold;
+}
+
+/* Heat count styling */
+.heats {
+    text-align: center;
+    font-weight: bold;
+    background: #e3f2fd;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    margin: 0 auto;
+    color: #1565c0;
+}
+
+/* Class and subgroup styling */
+.class, .subgroup {
+    color: #666;
+    font-style: italic;
+    font-size: 14px;
+}
+
+/* Animation for scrolling content */
+@keyframes scroll-standings {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-40%); }
+    100% { transform: translateY(0); }
+}
+
+@keyframes scroll-results {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+}
+
+.scroll-content {
+    transition: transform 0.5s ease;
+}
+
+.scroll-content.auto-scroll.standings {
+    animation: scroll-standings 30s linear infinite;
+}
+
+.scroll-content.auto-scroll.results {
+    animation: scroll-results 45s linear infinite;
+}
+
+/* Container styling for scrolling areas */
+.standings-container, .scroll-bounding-rect {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.standings-container {
+    height: calc(100vh - 120px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .tournament-title {
+        font-size: 24px;
+    }
+    
+    .tournament-subtitle {
+        font-size: 16px;
+    }
+    
+    .place {
+        font-size: 16px;
+    }
+    
+    .main_table th, .main_table td {
+        padding: 8px 6px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 800px) {
+    .tournament-header {
+        padding: 10px;
+        margin: 5px;
+    }
+    
+    .tournament-title {
+        font-size: 20px;
+    }
+    
+    .tournament-subtitle {
+        font-size: 14px;
+    }
+    
+    .main_table th, .main_table td {
+        padding: 6px 4px;
+        font-size: 12px;
+    }
+    
+    .status .advancing, .status .eliminated {
+        padding: 2px 8px;
+        font-size: 10px;
+    }
+}
+
+/* Print styles */
+@media print {
+    .tournament-header {
+        background: white !important;
+        box-shadow: none !important;
+        border: 1px solid #333;
+    }
+    
+    .main_table th {
+        background: #f0f0f0 !important;
+        color: black !important;
+    }
+    
+    .scroll-content {
+        animation: none !important;
+    }
+}
