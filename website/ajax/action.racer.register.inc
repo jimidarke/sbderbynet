@@ -53,18 +53,7 @@ function register_racer($racerid, $value)
     return false;
   }
 
-  // Prevent unregistration if already registered
-  if ($value == 0) {
-    $current_status = read_single_value(
-      'SELECT registered FROM RegistrationInfo WHERE racerid = :racerid',
-      [':racerid' => $racerid]
-    );
-
-    if ($current_status == 1) {
-      json_failure(code: 'cannot_unregister', description: 'Once registered, a racer cannot be unregistered.');
-      exit;
-    }
-  }
+  // Allow both registration and unregistration
 
   $scheduled = read_single_value(
     'SELECT COUNT(*) FROM RaceChart

@@ -13,7 +13,8 @@
       "Bash(od:*)",
       "Bash(sqlite3:*)",
       "Bash(python3 test_elimination_tournaments.py:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(ssconvert:*)"
     ],
     "deny": []
   },

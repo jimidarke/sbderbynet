@@ -6,7 +6,8 @@
 //    'r' + rankid => all members of one rank
 //
 // $_POST['what']:
-//    'checkin' => set 'passed' value
+//    'checkin' => set 'passedinspection' value
+//    'register' => set 'registered' value  
 //    'number' => assign car numbers
 //    'eligibility' => change racer eligibility
 //
@@ -67,6 +68,30 @@ function update_checkin($racerid) {
   return true;
 }
 
+function update_register($racerid) {
+  global $update_sql;
+  global $value;
+
+  if (0 + read_single_value('SELECT COUNT(*) FROM RaceChart'
+                               .' WHERE roundid IN (SELECT DISTINCT roundid FROM RaceChart'
+                               .'                   WHERE racerid = :racerid)'
+                               .' AND (finishtime IS NOT NULL OR finishplace IS NOT NULL)',
+                               array(':racerid' => $racerid), 0)) {
+    json_failure('alreadyscheduled', "Schedule data already exists for this racer");
+    return false;
+  }
+
+  if (!$value && !have_permission(REVERT_CHECK_IN_PERMISSION)) {
+    not_authorized_body();
+    return false;
+  }
+
+  $update_sql->execute(array(':value' => $value,
+                             ':racerid' => $racerid));
+  record_event(EVENT_CHECKIN, array('racerid' => $racerid, 'registered' => $value));
+  return true;
+}
+
 function update_eligible($racerid) {
   global $update_sql;
   global $value;
@@ -102,6 +127,12 @@ if ($ok) {
     $update_fn = 'update_checkin';
     $update_sql = $db->prepare('UPDATE RegistrationInfo'
                                .' SET passedinspection = :value'
+                               .' WHERE racerid = :racerid');
+  } else if ($_POST['what'] == 'register') {
+    $value = isset($_POST['value']) ? $_POST['value'] : 1;
+    $update_fn = 'update_register';
+    $update_sql = $db->prepare('UPDATE RegistrationInfo'
+                               .' SET registered = :value'
                                .' WHERE racerid = :racerid');
   } else if ($_POST['what'] == 'eligibility') {
     $value = isset($_POST['value']) ? $_POST['value'] : 1;

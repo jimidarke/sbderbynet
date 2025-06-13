@@ -136,8 +136,8 @@ function column_header($text, $o)
           <th>First Name</th>
           <!-- <th>Car Name &amp; From</th> -->
           <th>Car Weight <span class="preferred-Unit"></span></th>
-          <th>Passed?</th>
-          <th>Check-In</th>
+          <th>Inspection Passed</th>
+          <th>Checked In</th>
           <?php if ($xbs) {
             echo '<th>' . $xbs_award_name . '</th>';
           } ?>
@@ -385,6 +385,11 @@ function column_header($text, $o)
 
 
   <div id='bulk_modal' class="modal_dialog hidden block_buttons">
+    <input type="button" value="Bulk Inspection Pass"
+      onclick="bulk_inspection(true);" />
+    <input type="button" value="Bulk Inspection Undo"
+      onclick="bulk_inspection(false);" />
+    <br />
     <input type="button" value="Bulk Check-In"
       onclick="bulk_check_in(true);" />
     <input type="button" value="Bulk Check-In Undo"

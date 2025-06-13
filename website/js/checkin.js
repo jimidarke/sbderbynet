@@ -83,40 +83,38 @@ function handlechange_passed(event, cb, racer) {
     });
 }
 
-// This executes when a checkbox for "Registered/CheckedIn" is clicked.
+// This executes when a checkbox for "Checked In" is clicked.
 function handlechange_registered(event, cb, racer) {
   // Prevent the checkbox from changing immediately
   event.preventDefault();
-
-  if (!cb.checked && !alert("You cannot Checkout " + racer + ", Only Check-In")) {
+  
+  if (cb.checked && !confirm("Are you sure you want to mark " + racer + " as checked in?")) {
+    cb.checked = false;
     return;
   }
-  // Once registered, cannot be unregistered
-  const confirmed = confirm("Once registered, a racer cannot be unregistered. Do you want to proceed?");
-  if (confirmed) {
-    var racerId = cb.name.substring(11); // Remove 'registered-' prefix
-    $.ajax(g_action_url, {
-      type: 'POST',
-      data: {
-        action: 'racer.register',
-        racer: racerId,
-        value: 1
-      },
-      success: function () {
-        cb.checked = true
-        location.reload(true);
-        // Disable toggle after successful registration
-        cb.disabled = true;
-      },
-      error: function () {
-        alert("Failed to update registration status.");
-        cb.checked = false;
-      }
-    });
-    alert("Racer has been registered.");
-  } else {
-    alert("Registration canceled.");
+  if (!cb.checked && !confirm("Are you sure you want to unmark " + racer + " as checked in?")) {
+    cb.checked = true;
+    return;
   }
+  
+  var racerId = cb.name.substring(11); // Remove 'registered-' prefix
+  var value = cb.checked ? 1 : 0;
+  
+  $.ajax(g_action_url, {
+    type: 'POST',
+    data: {
+      action: 'racer.register',
+      racer: racerId,
+      value: value
+    },
+    success: function () {
+      // No need to reload or disable - allow toggle functionality
+    },
+    error: function () {
+      alert("Failed to update registration status.");
+      cb.checked = !cb.checked; // Revert the checkbox state
+    }
+  });
 }
 
 // This executes when a checkbox for "Exclusively by Scout" is clicked.
@@ -411,6 +409,28 @@ function bulk_who_value() {
   return 'd' + $("#bulk_who").val();
 }
 
+function bulk_inspection(value) {
+  close_modal_leave_background("#bulk_modal");
+  $("#bulk_details_title").text(value ? "Bulk Inspection Pass" : "Bulk Inspection Undo");
+  $("#who_label").text(value ? "Mark inspection passed for racers in" : "Undo inspection passed for racers in");
+  $("#bulk_details div.hidable").addClass("hidden");
+
+  show_modal("#bulk_details_modal", function (event) {
+    close_modal("#bulk_details_modal");
+    $.ajax(g_action_url,
+      {
+        type: 'POST',
+        data: {
+          action: 'racer.bulk',
+          what: 'checkin',
+          who: bulk_who_value(),
+          value: value ? 1 : 0
+        },
+      });
+    return false;
+  });
+}
+
 function bulk_check_in(value) {
   close_modal_leave_background("#bulk_modal");
   $("#bulk_details_title").text(value ? "Bulk Check-In" : "Bulk Check-In Undo");
@@ -424,7 +444,7 @@ function bulk_check_in(value) {
         type: 'POST',
         data: {
           action: 'racer.bulk',
-          what: 'checkin',
+          what: 'register',
           who: bulk_who_value(),
           value: value ? 1 : 0
         },
@@ -880,7 +900,7 @@ function make_table_row(racer, xbs) {
     .attr('data-weight-lbs', weightData.lbs)
     .text(weightData[userPreferredUnit] + ' ' + userPreferredUnit));
 
-  var checkin = $('<td class="checkin-status"/>').appendTo(tr);
+  var checkin = $('<td class="inspection-status"/>').appendTo(tr);
   // checkin.append('<br/>');
   checkin.append($('<input type="checkbox" class="flipswitch"/>')
     .attr('id', 'passed-' + racer.racerid)

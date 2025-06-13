@@ -206,7 +206,7 @@ input.white-button {
   margin-top: 30px;
 }
 
-tr.exclude td.checkin-status {
+tr.exclude td.inspection-status {
   background-image: url('../img/no-trophy.png');
   background-repeat: no-repeat;
 }
@@ -316,7 +316,7 @@ div.delete-extension {
   height: 53px;
 }
 
-td.checkin-status {
+td.inspection-status {
   /* display: flex !important; */
   flex-flow: column !important;
   text-align-last: auto !important;
