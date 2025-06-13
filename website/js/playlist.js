@@ -1,7 +1,9 @@
 function find_round(classid, roundno) {
   if (g_all_rounds.hasOwnProperty(classid)) {
     for (var i = 0; i < g_all_rounds[classid].length; ++i) {
-      if (g_all_rounds[classid][i].round == roundno) {
+      // Use round_sequence for comparison if available, otherwise fall back to round
+      var round_value = g_all_rounds[classid][i].round_sequence || g_all_rounds[classid][i].round;
+      if (round_value == roundno) {
         return g_all_rounds[classid][i];
       }
     }
@@ -384,12 +386,13 @@ function build_rounds(queue, classes) {
 
   var highest_round = 0;  // Highest round overall
   $.each(queue, function(i, entry) {
-    // entry = {classid, round}
-    if (entry.round > highest_round) {
-      highest_round = entry.round;
+    // entry = {classid, round} - use round_sequence if available
+    var round_seq = entry.round_sequence || entry.round;
+    if (round_seq > highest_round) {
+      highest_round = round_seq;
     }
-    if (entry.round > per_class[entry.classid].highest) {
-      per_class[entry.classid].highest = entry.round;
+    if (round_seq > per_class[entry.classid].highest) {
+      per_class[entry.classid].highest = round_seq;
     }
   });
 
@@ -397,13 +400,15 @@ function build_rounds(queue, classes) {
   // highest round overall
   $.each(g_all_rounds, function(classid, round_entries) {
     $.each(round_entries, function(i, round_entry) {
-      round_entry.round = round_entry.round;
+      // Use round_sequence for numeric comparisons, keep round for display
+      var round_seq = round_entry.round_sequence || round_entry.round;
+      round_entry.round_sequence = round_seq;
       round_entry.heats_scheduled = round_entry.heats_scheduled;
-      if (round_entry.round > highest_round) {
-        highest_round = round_entry.round;
+      if (round_seq > highest_round) {
+        highest_round = round_seq;
       }
-      if (round_entry.round > per_class[classid].highest) {
-        per_class[classid].highest = round_entry.round;
+      if (round_seq > per_class[classid].highest) {
+        per_class[classid].highest = round_seq;
       }
     });
   });
@@ -419,7 +424,8 @@ function build_rounds(queue, classes) {
     $.each(classes, function(classid, cl) {
       var in_queue = false;
       $.each(queue, function(qi, q) {
-        if (q.classid == classid && q.round == r) {
+        var q_round_seq = q.round_sequence || q.round;
+        if (q.classid == classid && q_round_seq == r) {
           in_queue = true;
           return false;
         }

@@ -136,6 +136,34 @@ DerbyNet includes a comprehensive slideshow system for displaying sponsor images
 - `slideshow-duration-sponsors`: Optional custom timing for sponsor slides
 - `slideshow-duration-intermission`: Optional custom timing for intermission slides
 
+### Elimination Tournament Kiosk Displays
+
+DerbyNet includes specialized kiosk displays for elimination tournaments with professional styling:
+
+- **Elimination Standings** (`elimination-standings.kiosk`): Real-time tournament standings with advancement indicators
+- **Elimination Results** (`elimination-results.kiosk`): Round-by-round race results with tournament context
+
+**Elimination Standings Features:**
+- Modern gradient backgrounds with elegant card layouts
+- Tournament header showing class name, round name, and advancement info
+- Advanced table styling with hover effects and smooth transitions
+- Color-coded advancement status: green "ADVANCING" and red "ELIMINATED" badges
+- Monospace time display with color-coded backgrounds for scores/times
+- Auto-scroll animation for long racer lists (30-second cycles)
+- Responsive design adapting to different screen sizes
+- Print-optimized styles for physical copies
+
+**Usage:**
+```
+http://yourserver/kiosk.php?address=elimination-standings.kiosk&classid=1
+http://yourserver/kiosk.php?address=elimination-results.kiosk&classid=1
+```
+
+**Requirements:**
+- Must specify `classid` parameter for the tournament class
+- Class must have an active elimination tournament initialized
+- Best viewed on displays 1080p or higher for optimal visual impact
+
 ### Broadcast Messaging System
 
 DerbyNet includes a broadcast messaging system for sending urgent announcements to all active kiosk displays:
@@ -306,9 +334,33 @@ The soapbox derby system includes a hardcoded elimination tournament format to r
 - Tournament advancement: `CONTROL_RACE_PERMISSION` - RaceCoordinator only (same as advancing heats)  
 - Configuration management: `SET_UP_PERMISSION` - RaceCoordinator only (system configuration level)
 
-## Recent Updates and Fixes (2025-06-11)
+## Recent Updates and Fixes (2025-06-12)
 
-### Schedule Modal Enhancement
+### Elimination Tournament Round Naming Fix
+Fixed round naming in elimination tournaments to display descriptive names:
+- **Proper Round Names**: Rounds now display as "Preliminary", "Semi-Finals", "Finals" instead of "1", "2", "3"
+- **Database Fix**: Updated `create_elimination_round()` function to use `round_name` from JSON config
+- **Coordinator Display**: Coordinator page now shows "Ages 6-8, Preliminary" instead of "Ages 6-8, Round 1"
+- **Backward Compatibility**: Test queries work with both old numeric and new descriptive round names
+
+### Elimination Standings Kiosk Enhancements
+Completely overhauled the elimination standings display with beautiful styling:
+- **Stunning Visual Design**: Modern gradient backgrounds, elegant card layouts, and professional typography
+- **Tournament Header**: Clean header displaying class name, round name, and advancement information
+- **Advanced Table Styling**: Gradient headers, hover effects, alternating row colors, and smooth transitions
+- **Status Indicators**: Vibrant "ADVANCING" (green) and "ELIMINATED" (red) badges with gradients and shadows
+- **Time Display**: Monospace font styling for precise time formatting with color-coded backgrounds
+- **Auto-Scroll Animation**: Smooth scrolling for long lists with 30-second cycles
+- **Responsive Design**: Adapts beautifully to different screen sizes
+- **Print Support**: Optimized print styles for physical copies
+
+### Elimination Standings Technical Fixes
+- **Data Query Resolution**: Fixed duplicate round issues by selecting the round with actual race data
+- **JavaScript Conflict Fix**: Removed conflicting `standings-kiosk.js` that was hiding table rows
+- **Immediate Display**: Elimination standings now show all data immediately without progressive revelation
+- **Proper Advancement Logic**: Correctly shows top N racers as advancing based on JSON configuration
+
+### Schedule Modal Enhancement (2025-06-11)
 The coordinator schedule modal now intelligently detects elimination tournaments:
 - **Smart Detection**: Automatically identifies elimination tournament rounds via AJAX
 - **Visual Feedback**: Orange border and styling when elimination tournament detected
@@ -316,20 +368,75 @@ The coordinator schedule modal now intelligently detects elimination tournaments
 - **Preserved Functionality**: Both "Schedule" and "Schedule + Race" buttons remain functional
 - **Robust Fallback**: Modal always works even if tournament detection fails
 
-### Legacy System Removal
+### Legacy System Removal (2025-06-11)
 - **Conflict Resolution**: Removed old automatic triple elimination system that conflicted with new JSON-based approach
 - **Clean Separation**: No more automatic round creation during racing group formation
 - **User Control**: Rounds now created only when elimination tournaments are explicitly initialized
 
-### PHP Error Fixes
+### PHP Error Fixes (2025-06-11)
 - **Kiosk Display Issues**: Fixed "Undefined array key 'name'" errors in both elimination kiosk displays
 - **Correct Key Usage**: Age groups use `'name'` key, rounds use `'round_name'` key per JSON structure
 - **Error-Free Operation**: Elimination kiosks now render without PHP warnings
 
-### Database Schema Compatibility
+### Database Schema Compatibility (2025-06-11)
 - **Schema Version 16**: Elimination tournament tables properly integrated
 - **Column Mapping**: Fixed database insertion to use existing schema columns
 - **Backward Compatibility**: Standard DerbyNet functionality preserved
+
+### Heat Generation Fixes (2025-06-12)
+- **Parameter Logic Fixed**: Corrected elimination tournament detection in `action.schedule.generate.inc`
+- **Preliminary Rounds**: Now correctly generate 1 race per lane (3 total per racer) instead of 3 races per lane (9 total)
+- **Quarter Finals Fixed**: Custom sequential scheduling for `races_per_racer: 1` ensures all racers get exactly 1 race
+- **Legacy Logic Removed**: Eliminated all remaining triple elimination conflicts that overrode JSON configuration
+- **Custom Scheduling**: Added `schedule_elimination_single_race()` function for proper single-race elimination rounds
+- **Placement Scoring**: Added support for `"scoring_method": "placement"` in Finals rounds
+- **Kiosk Auto-Refresh**: Added auto-refresh mechanism to elimination-standings kiosk for real-time updates
+- **Import Registration Fix**: Fixed racer import to set `registered = 1` by default so imported racers appear in check-in system
+- **Weight Conversion Fix**: Fixed JavaScript error when racer weight is 0 or invalid in check-in system
+
+### Heat Spacing Optimization (2025-06-12)
+**Problem**: Despite `avoid_consecutive: 1000` weight, racers were getting scheduled with only 2-3 heat gaps between races, not maximizing rest time.
+
+**Root Cause**: The weighting parameters weren't sufficiently prioritizing heat spacing over other factors like even heat distribution.
+
+**Solution**: Optimized elimination tournament scheduling weights in JSON configuration:
+- **`avoid_consecutive: 1000 → 5000`** (5x increase) - Dramatically penalize consecutive/close races
+- **`heat_counts: 50 → 10`** (5x decrease) - Lower priority on even heat distribution  
+- **`group_weighted_cars: 300 → 100`** (3x decrease) - Reduced emphasis on weight grouping
+- **`avoid_same_lane: 300 → 200`** (33% decrease) - Maintain lane variety without interfering
+
+**Result**: Heat spacing penalty now 50x higher than other factors, forcing algorithm to maximize gaps between races for better racer rest periods.
+
+**Standard Configuration**: These optimized weights are now the recommended standard for all soapbox derby elimination tournaments to ensure adequate rest time between races.
+
+### Check-In System Workflow (2025-06-12)
+
+**Important**: The check-in system has two distinct toggles with different purposes:
+
+#### **"Passed?" (Inspection) Toggle**
+- **Purpose**: Controls whether racer is included in race scheduling
+- **Impact**: `passedinspection = 1` → Racer included in heats and race charts
+- **Impact**: `passedinspection = 0` → Racer excluded from all scheduling
+- **When to use**: After racer's car passes technical inspection
+- **Database field**: `RegistrationInfo.passedinspection`
+
+#### **"Check-In" Toggle** 
+- **Purpose**: Day-of-race attendance tracking only
+- **Impact**: NO effect on scheduling or racing systems
+- **Impact**: Pure informational flag for staff to know who showed up
+- **When to use**: When racer arrives on race day and completes paperwork
+- **Database field**: `RegistrationInfo.registered` 
+- **No-show handling**: Racers who don't check-in still race normally but get DNF (no cart)
+
+**Key Principle**: Only the "Passed?" toggle affects scheduling. The "Check-In" toggle is purely administrative.
+
+#### Technical Details:
+- **Root Cause**: DerbyNet's `n_times_per_lane` parameter was being misinterpreted
+  - `n_times_per_lane = 3` means 3 races per lane (9 total on 3-lane track) 
+  - `n_times_per_lane = 1` means 1 race per lane (3 total on 3-lane track)
+- **Solution**: JSON `races_per_racer: 3` → `n_times_per_lane = 1`, JSON `races_per_racer: 1` → custom sequential logic
+- **Files Modified**: `ajax/action.schedule.generate.inc`, `inc/schedule_one_round.inc`, `inc/elimination-standings.inc`
+- **Placement Support**: Finals rounds now display standings by finish place (1st, 2nd, 3rd) instead of times
 
 ## Specific Configuration
 

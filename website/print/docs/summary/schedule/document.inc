@@ -21,7 +21,7 @@ class ScheduleDocument extends PrintableSummaryDocument {
   function StartDocument() {
     $this->initialize_pdf('P', 'in', 'Letter');
   }
-
+ 
   function Byes($n) {
     while ($n > 0) {
       $nlanes = get_lane_count_from_results();

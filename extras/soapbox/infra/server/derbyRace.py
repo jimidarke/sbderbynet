@@ -488,8 +488,9 @@ if __name__ == "__main__":
             derby.updateFromDerbyAPI()
             derby.sendServerTelemetry()
             # Check for race timeout during active racing
-            if derby.race_state == "RACING":
-                derby.checkRaceTimeout()
+            # COMMENTED OUT: DNF decisions are now made only from coordinator page
+            # if derby.race_state == "RACING":
+            #     derby.checkRaceTimeout()
         except KeyboardInterrupt:
             derby.close()
         except Exception as e:

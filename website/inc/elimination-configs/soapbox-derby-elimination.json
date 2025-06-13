@@ -11,7 +11,7 @@
       "rounds": [
         {
           "round_sequence": 1,
-          "round_name": "Preliminary", 
+          "round_name": "1 Preliminary", 
           "races_per_racer": 3,
           "advancement_rule": "top_count",
           "advance_count": 27,
@@ -20,7 +20,7 @@
         },
         {
           "round_sequence": 2,
-          "round_name": "Quarter Finals",
+          "round_name": "2 Quarter Finals",
           "races_per_racer": 1, 
           "advancement_rule": "top_count",
           "advance_count": 9,
@@ -29,7 +29,7 @@
         },
         {
           "round_sequence": 3,
-          "round_name": "Semi-Finals",
+          "round_name": "3 Semi-Finals",
           "races_per_racer": 1,
           "advancement_rule": "top_count", 
           "advance_count": 3,
@@ -38,7 +38,7 @@
         },
         {
           "round_sequence": 4,
-          "round_name": "Finals",
+          "round_name": "4 Finals",
           "races_per_racer": 1,
           "advancement_rule": "placement",
           "advance_count": 0,
@@ -55,7 +55,7 @@
       "rounds": [
         {
           "round_sequence": 1,
-          "round_name": "Preliminary",
+          "round_name": "1 Preliminary",
           "races_per_racer": 3,
           "advancement_rule": "top_count",
           "advance_count": 27, 
@@ -64,7 +64,7 @@
         },
         {
           "round_sequence": 2,
-          "round_name": "Quarter Finals",
+          "round_name": "2 Quarter Finals",
           "races_per_racer": 1,
           "advancement_rule": "top_count",
           "advance_count": 9,
@@ -73,7 +73,7 @@
         },
         {
           "round_sequence": 3,
-          "round_name": "Semi-Finals",
+          "round_name": "3 Semi-Finals",
           "races_per_racer": 1,
           "advancement_rule": "top_count",
           "advance_count": 3,
@@ -82,7 +82,7 @@
         },
         {
           "round_sequence": 4,
-          "round_name": "Finals",
+          "round_name": "4 Finals",
           "races_per_racer": 1,
           "advancement_rule": "placement",
           "advance_count": 0,
@@ -99,7 +99,7 @@
       "rounds": [
         {
           "round_sequence": 1,
-          "round_name": "Preliminary",
+          "round_name": "1 Preliminary",
           "races_per_racer": 3,
           "advancement_rule": "top_count",
           "advance_count": 9,
@@ -108,7 +108,7 @@
         },
         {
           "round_sequence": 2,
-          "round_name": "Semi-Finals",
+          "round_name": "2 Semi-Finals",
           "races_per_racer": 1,
           "advancement_rule": "top_count",
           "advance_count": 3,
@@ -117,9 +117,35 @@
         },
         {
           "round_sequence": 3,
-          "round_name": "Finals",
+          "round_name": "3 Finals",
           "races_per_racer": 1,
           "advancement_rule": "placement",
+          "advance_count": 0,
+          "scoring_method": "placement",
+          "description": "Single race determines final standings (1st, 2nd, 3rd place)"
+        }
+      ]
+    },
+    "vip": {
+      "name": "VIPs",
+      "class_name_pattern": "^(VIP|Very Important Person).*$",
+      "expected_racers": 15,
+      "lanes": 3,
+      "rounds": [
+        {
+          "round_sequence": 1,
+          "round_name": "1 Preliminary",
+          "races_per_racer": 2,
+          "advancement_rule": "top_count",
+          "advance_count": 3,
+          "scoring_method": "total_time",
+          "description": "Each racer runs twice, top 3 advance based on total time"
+        },
+        {
+          "round_sequence": 2,
+          "round_name": "2 Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "top_count",
           "advance_count": 0,
           "scoring_method": "placement",
           "description": "Single race determines final standings (1st, 2nd, 3rd place)"
@@ -129,10 +155,10 @@
   },
   "scheduling_rules": {
     "heat_ordering": {
-      "heat_counts": 50,
-      "group_weighted_cars": 300,
-      "avoid_consecutive": 1000,
-      "avoid_same_lane": 300
+      "heat_counts": 10,
+      "group_weighted_cars": 100,
+      "avoid_consecutive": 5000,
+      "avoid_same_lane": 200
     },
     "preliminary_requirements": {
       "races_per_racer": 3,

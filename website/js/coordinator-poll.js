@@ -423,10 +423,10 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
         ' onclick="handle_unschedule_button(' +
         round.roundid +
         ", '" +
-        String(round["class"]).replace(/"/g, "&quot;").replace(/'/, "\\'") +
-        "', " +
+        String(round["class"]).replace(/"/g, "&quot;").replace(/'/g, "\\'") +
+        "', '" +
         round.round +
-        ')"' +
+        '\')"' +
         ' value="Unschedule"/>'
       );
     }
@@ -591,8 +591,8 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
         "<th>Racer</th>" +
         "<th>" +
         (current.use_points ? "Place" : "Time") +
-        // "<th>Action</th>" +  // COMMENTED OUT: Action column with remove button
         "</th>" +
+        "<th>Action</th>" +
         "</tr>" +
         "</table>"
       )
@@ -678,12 +678,10 @@ function generate_current_heat_racers(new_racers, current, nlanes) {
       "<td>" +
       result +
       "</td>" +
-      // COMMENTED OUT: Action column with remove button - may be restored later
-      // Only show remove button if round not completed and racer exists
-      // (r && !isRoundCompleted(current.roundid) ?
-      //   '<td><button onclick="handleRacerDropout(' + r.racerid + ', ' + current.roundid +
-      //   ')" class="btn btn-warning btn-sm" style="background-color:red;color:#fff; margin:5px -5px 5px -5px;">Remove</button></td>' :
-      //   '<td></td>') +
+      (r && !result ? 
+        '<td><button onclick="handleRacerDNF(' + r.racerid + ', ' + current.roundid + ', ' + current.heat + 
+        ')" class="dnf-button" style="background-color:#ff6b35; color:#fff; border:none; padding:4px 8px; border-radius:3px; font-size:12px; cursor:pointer;">DNF</button></td>' :
+        '<td></td>') +
       "</tr>"
     );
     if (holding) {
@@ -1261,6 +1259,31 @@ function handleRacerDropout(racerid, roundid) {
         } else {
           alert('Failed to remove racer: ' + data.outcome.description);
         }
+      }
+    });
+  }
+}
+
+function handleRacerDNF(racerid, roundid, heat) {
+  if (confirm('Mark this racer as DNF (Did Not Finish)? This will give them a time of 99.999 seconds.')) {
+    $.ajax('action.php', {
+      type: 'POST',
+      data: {
+        action: 'racer.dnf',
+        racerid: racerid,
+        roundid: roundid,
+        heat: heat
+      },
+      success: function (data) {
+        if (data.outcome && data.outcome.code == 'success') {
+          // Force a polling update to refresh the display
+          coordinator_poll();
+        } else {
+          alert('Failed to mark racer as DNF: ' + (data.outcome ? data.outcome.description : 'Unknown error'));
+        }
+      },
+      error: function() {
+        alert('Failed to communicate with server');
       }
     });
   }

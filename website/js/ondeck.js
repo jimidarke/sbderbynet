@@ -244,7 +244,7 @@ function repopulate_schedule(json) {
   const current_key = json['current-heat']['roundid'] + '_' + json['current-heat']['heat'];
   let current_index = heat_keys.indexOf(current_key);
   if (current_index < 0) current_index = 0;
-  const display_limit = 6;  // current + next 5 heats
+  const display_limit = 10;  // current + next 9 heats
 
   let visible_heats = [];
 

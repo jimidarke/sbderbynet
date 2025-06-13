@@ -12,20 +12,15 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
     $force = isset($_POST['force']) ? $_POST['force'] : false;
     
     if (!$classid) {
-        echo json_encode(array(
-            'outcome' => array('summary' => 'error', 'description' => 'Missing classid parameter')
-        ));
-        exit;
+        json_failure('missing_parameter', 'Missing classid parameter');
+        return;
     }
     
     // Get tournament state
     $state = get_elimination_tournament_state($classid);
     if (!$state) {
-        echo json_encode(array(
-            'outcome' => array('summary' => 'error', 
-                             'description' => 'No active elimination tournament for this class')
-        ));
-        exit;
+        json_failure('no_tournament', 'No active elimination tournament for this class');
+        return;
     }
     
     $current_round = $state['current_round'];
@@ -33,44 +28,35 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
     
     // Check if we're already at the final round
     if ($current_round >= $total_rounds) {
-        echo json_encode(array(
-            'outcome' => array('summary' => 'error', 
-                             'description' => 'Tournament is already at the final round')
-        ));
-        exit;
+        json_failure('already_final', 'Tournament is already at the final round');
+        return;
     }
     
-    // TODO: Check if current round is complete (unless forced)
+    // Check if current round is complete (unless forced)
     if (!$force) {
+        // Get current round configuration to get the round name
+        $current_round_config = $state['age_group']['rounds'][$current_round - 1];
+        $current_round_name = $current_round_config['round_name'];
+        
         // Check if all heats in current round are completed
-        $incomplete_heats = check_round_completion($classid, $current_round);
+        $incomplete_heats = check_round_completion($classid, $current_round_name);
         if ($incomplete_heats > 0) {
-            echo json_encode(array(
-                'outcome' => array('summary' => 'error', 
-                                 'description' => "Current round has {$incomplete_heats} incomplete heats")
-            ));
-            exit;
+            json_failure('round_incomplete', "Current round has {$incomplete_heats} incomplete heats");
+            return;
         }
     }
     
     try {
         // Advance tournament
         if (advance_elimination_tournament($classid)) {
-            echo json_encode(array(
-                'outcome' => array('summary' => 'success'),
-                'message' => 'Tournament advanced to next round',
-                'new_round' => $current_round + 1
-            ));
+            json_success();
+            json_out('message', 'Tournament advanced to next round');
+            json_out('new_round', $current_round + 1);
         } else {
-            echo json_encode(array(
-                'outcome' => array('summary' => 'error', 
-                                 'description' => 'Failed to advance tournament')
-            ));
+            json_failure('advance_failed', 'Failed to advance tournament');
         }
     } catch (Exception $e) {
-        echo json_encode(array(
-            'outcome' => array('summary' => 'error', 'description' => $e->getMessage())
-        ));
+        json_failure('exception', $e->getMessage());
     }
 } else {
     json_not_authorized();
@@ -79,17 +65,17 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
 /**
  * Check if a round is complete
  * @param int $classid Class ID
- * @param int $round_number Round number
+ * @param string $round_name Round name (e.g. "1 Preliminary")
  * @return int Number of incomplete heats
  */
-function check_round_completion($classid, $round_number) {
+function check_round_completion($classid, $round_name) {
     global $db;
     
     $stmt = $db->prepare('SELECT COUNT(*) FROM RaceChart rc
                          INNER JOIN Rounds r ON rc.roundid = r.roundid
-                         WHERE r.classid = :classid AND r.round = :round_number
+                         WHERE r.classid = :classid AND r.round = :round_name
                          AND (rc.finishtime IS NULL AND rc.finishplace IS NULL)');
-    $stmt->execute(array(':classid' => $classid, ':round_number' => $round_number));
+    $stmt->execute(array(':classid' => $classid, ':round_name' => $round_name));
     
     return $stmt->fetchColumn();
 }
@@ -174,10 +160,13 @@ function calculate_round_advancement($classid, $round_number, $round_config) {
         throw new Exception("Unsupported scoring method: " . $scoring_method);
     }
     
+    // The round column contains full names like "1 Preliminary", so we need to match on the round name from config
+    $round_name = $round_config['round_name'];
+    
     $stmt = $db->prepare("SELECT rc.racerid, {$select_clause}
                          FROM RaceChart rc
                          INNER JOIN Rounds r ON rc.roundid = r.roundid
-                         WHERE r.classid = :classid AND r.round = :round_number
+                         WHERE r.classid = :classid AND r.round = :round_name
                          AND rc.finishtime IS NOT NULL AND rc.finishtime > 0
                          GROUP BY rc.racerid
                          ORDER BY {$order_clause}
@@ -185,7 +174,7 @@ function calculate_round_advancement($classid, $round_number, $round_config) {
     
     $stmt->execute(array(
         ':classid' => $classid,
-        ':round_number' => $round_number,
+        ':round_name' => $round_name,
         ':limit' => $advance_count
     ));
     
@@ -228,19 +217,29 @@ function record_elimination_advancement($tournament_id, $from_round, $to_round, 
 /**
  * Create roster for next round
  * @param int $classid Class ID
- * @param int $round_number Next round number
+ * @param int $next_round_number Next round number
  * @param array $advancing_racers Advancing racers
  */
-function create_next_round_roster($classid, $round_number, $advancing_racers) {
+function create_next_round_roster($classid, $next_round_number, $advancing_racers) {
     global $db;
     
-    // Get next round ID
+    // Get tournament state to get the round name for the next round
+    $state = get_elimination_tournament_state($classid);
+    if (!$state) {
+        throw new Exception("No active tournament found");
+    }
+    
+    // Get next round configuration to get the round name
+    $next_round_config = $state['age_group']['rounds'][$next_round_number - 1];
+    $next_round_name = $next_round_config['round_name'];
+    
+    // Get next round ID using the round name
     $roundid = read_single_value('SELECT roundid FROM Rounds 
-                                 WHERE classid = :classid AND round = :round_number',
-                                array(':classid' => $classid, ':round_number' => $round_number));
+                                 WHERE classid = :classid AND round = :round_name',
+                                array(':classid' => $classid, ':round_name' => $next_round_name));
     
     if (!$roundid) {
-        throw new Exception("Next round not found in database");
+        throw new Exception("Next round not found in database: {$next_round_name}");
     }
     
     // Clear existing roster for this round

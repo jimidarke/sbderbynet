@@ -94,26 +94,13 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
     $avoid_same_lane = intval(read_raceinfo('avoid-same-lane', 0));
 
 
-    // Update the query to handle missing columns gracefully
+    // Get round info without legacy columns (JSON hardcoded approach only)
     $round_info = read_single_row(
-      'SELECT r.roundid, r.round, r.roundname, r.classid,
-          CASE WHEN EXISTS (
-              SELECT 1 FROM pragma_table_info("Rounds") 
-              WHERE name="is_triple_elim"
-          ) 
-          THEN r.is_triple_elim 
-          ELSE 0 
-          END as is_triple_elim,
-          CASE WHEN EXISTS (
-              SELECT 1 FROM pragma_table_info("Rounds") 
-              WHERE name="elim_type"
-          )
-          THEN r.elim_type
-          ELSE NULL
-          END as elim_type
-   FROM Rounds r
-   WHERE r.roundid = :roundid',
-      [':roundid' => $roundid]
+      'SELECT r.roundid, r.round, r.roundname, r.classid
+       FROM Rounds r
+       WHERE r.roundid = :roundid',
+      [':roundid' => $roundid],
+      PDO::FETCH_ASSOC  // Force associative array
     );
 
     if (!$round_info) {
@@ -121,32 +108,61 @@ if (have_permission(CONTROL_RACE_PERMISSION)) {
       return;
     }
 
-    // Check if triple elimination is enabled and apply defaults only if user hasn't overridden
-    if (isset($round_info['is_triple_elim']) && $round_info['is_triple_elim'] && $n_times_per_lane == 1) {
-      if (!isset($round_info['elim_type'])) {
-        error_log("Warning: Triple elimination round without elimination type");
-        $round_info['elim_type'] = 'preliminary'; // Default to preliminary
-      }
+    // Debug: Show what we got from the query
+    error_log("Round info after SQL query: " . print_r($round_info, true));
 
-      // Only apply triple elimination defaults when user hasn't explicitly chosen a different value
-      switch ($round_info['elim_type']) {
-        case 'preliminary':
-        case 'Preliminary':
-          $n_times_per_lane = 3;
+    // Check for elimination tournaments and apply appropriate scheduling
+    require_once('inc/elimination-config.inc');
+    
+    error_log("Schedule generation: roundid={$roundid}, classid={$round_info['classid']}, round='{$round_info['roundname']}', n_times_per_lane={$n_times_per_lane}");
+    
+    // First check if this is a JSON-based elimination tournament
+    $elimination_state = get_elimination_tournament_state($round_info['classid']);
+    error_log("Elimination state result: " . ($elimination_state ? "FOUND" : "NOT FOUND"));
+    
+    if ($elimination_state) {
+      // This is an elimination tournament - always use JSON configuration values
+      $current_round = $elimination_state['current_round'];
+      $rounds_config = $elimination_state['age_group']['rounds'];
+      
+      error_log("Elimination tournament detected: current_round={$current_round}, looking for round='{$round_info['roundname']}'");
+      
+      // Find the round configuration for this specific round
+      $round_config = null;
+      foreach ($rounds_config as $config) {
+        error_log("Checking config round: '{$config['round_name']}' against '{$round_info['roundname']}'");
+        if ($config['round_name'] == $round_info['roundname']) {
+          $round_config = $config;
           break;
-        case 'semifinal':
-        case 'Semi-Final':
-          $n_times_per_lane = 1;
-          break;
-        case 'final':
-        case 'Final':
-          $n_times_per_lane = 1;
-          break;
-        default:
-          error_log("Warning: Unknown elimination type: " . $round_info['elim_type']);
-          $n_times_per_lane = 1;
+        }
       }
+      
+      if ($round_config) {
+        $old_value = $n_times_per_lane;
+        $races_per_racer = $round_config['races_per_racer'];
+        
+        if ($races_per_racer == 1) {
+          // For rounds with 1 race per racer: use custom elimination scheduling
+          write_raceinfo('max-runs-per-car', 0); // Disable max_runs_per_car 
+          $n_times_per_lane = 0; // Use special value to trigger custom elimination logic
+          error_log("Elimination tournament scheduling: Round {$round_info['roundname']} using custom single-race scheduling for {$races_per_racer} race per racer");
+        } else if ($races_per_racer == 3) {
+          // For rounds with 3 races per racer: use normal scheduling (1 time per lane)
+          write_raceinfo('max-runs-per-car', 0); // Disable max_runs_per_car limit
+          $n_times_per_lane = 1; // Each racer appears once per lane (3 total races)
+          error_log("Elimination tournament scheduling: Round {$round_info['roundname']} set n_times_per_lane=1 for {$races_per_racer} races per racer (once per lane)");
+        } else {
+          error_log("ERROR: Unsupported races_per_racer value: {$races_per_racer}");
+        }
+      } else {
+        error_log("ERROR: Could not find elimination round config for: '{$round_info['roundname']}'");
+        error_log("Available rounds: " . json_encode(array_column($rounds_config, 'round_name')));
+      }
+    } else {
+      error_log("No elimination state found for classid={$round_info['classid']} - using manual setting: {$n_times_per_lane}");
     }
+    
+    // Legacy triple elimination logic has been removed - replaced by JSON hardcoded approach
 
     // Check for unregistered or failed inspection racers
     $stmt = $db->prepare('SELECT carnumber, registered, passedinspection 

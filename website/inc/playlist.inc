@@ -178,10 +178,10 @@ function perform_playlist_after_round($roundid) {
         return;
     }
 
-    // Get current round info
+    // Get current round info (legacy triple elimination columns removed)
     $round_info = read_single_row(
-        'SELECT r.roundid, r.elim_type, r.classid, r.round, r.roundname,
-                r.is_triple_elim, c.class as den_name
+        'SELECT r.roundid, r.classid, r.round, r.roundname,
+                c.class as den_name
          FROM Rounds r
          JOIN Classes c ON c.classid = r.classid
          WHERE r.roundid = :roundid',

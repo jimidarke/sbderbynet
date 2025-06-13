@@ -206,64 +206,27 @@ function schedule_one_round(
 
   // Only schedule racers that are in the racing group
   if (!empty($valid_racers)) {
+    // Legacy triple elimination logic removed - replaced by JSON hardcoded approach
     $round_info = read_single_row(
       'SELECT r.roundid, 
              r.round, 
              r.roundname, 
              r.classid,
-             COALESCE(r.is_triple_elim, 0) as is_triple_elim,
-             COALESCE(r.elim_type, "preliminary") as elim_type,
              r.phase
       FROM Rounds r
       WHERE r.roundid = :roundid',
       [':roundid' => $roundid]
     );
 
-    $round_info = read_single_row(
-      'SELECT r.roundid, 
-            r.round, 
-            r.roundname, 
-            r.classid,
-            COALESCE(r.is_triple_elim, 0) as is_triple_elim,
-            COALESCE(r.elim_type, "preliminary") as elim_type,
-            r.phase
-     FROM Rounds r
-     WHERE r.roundid = :roundid',
-      [':roundid' => $roundid]
-    );
-
-    // Ensure consistent array format
-    if (isset($round_info[0])) {
-      $round_info = array(
-        'roundid' => $round_info[0],
-        'round' => $round_info[1],
-        'roundname' => $round_info[2],
-        'classid' => $round_info[3],
-        'is_triple_elim' => isset($round_info[4]) ? $round_info[4] : 0,
-        'elim_type' => isset($round_info[5]) ? $round_info[5] : 'preliminary',
-        'phase' => isset($round_info[6]) ? $round_info[6] : null
-      );
-    }
-
-    // Add safety checks
-    $round_info['is_triple_elim'] = isset($round_info['is_triple_elim']) ? $round_info['is_triple_elim'] : 0;
-    $round_info['elim_type'] = isset($round_info['elim_type']) ? $round_info['elim_type'] : 'preliminary';
-
-    error_log("Round info: " . print_r($round_info, true));
-
     if (!$round_info) {
       error_log("Round info not found for roundid: " . $roundid);
       return false;
     }
 
-    // Handle finals first
-    if ($round_info['is_triple_elim'] && $round_info['elim_type'] === 'final') {
-      return handle_final_round($roundid, $round_info);
+    // Check for custom elimination tournament single-race scheduling
+    if ($n_times_per_lane == 0) {
+      return schedule_elimination_single_race($roundid, $nlanes);
     }
-
-    // Note: n_times_per_lane should already be set correctly by action.schedule.generate.inc
-    // For elimination tournaments: preliminary=3, semifinal/final=1
-    // We don't override here to preserve the value from the action handler
 
     $rotation_schedule = read_raceinfo('rotation-schedule', 0);
     $roster = read_roster($roundid, $rotation_schedule);
@@ -309,152 +272,66 @@ function schedule_one_round(
   }
 }
 
-// New helper function to handle final round scheduling
-// function handle_final_round($roundid, $round_info) {
-//   global $db;
+// Legacy triple elimination helper functions removed - replaced by JSON hardcoded approach
 
-//   try {
-//     // Get top 3 from semifinals
-//     $stmt = $db->prepare(
-//       "SELECT racerid 
-//        FROM (
-//            SELECT racerid, MIN(finishtime) as best_time
-//            FROM RaceChart 
-//            WHERE roundid = :semifinal_round
-//            AND finishtime IS NOT NULL 
-//            GROUP BY racerid
-//            ORDER BY best_time ASC
-//            LIMIT 3
-//        ) top_racers"
-//     );
-
-//     $stmt->execute([':semifinal_round' => $roundid - 1]);
-//     $finalists = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-//     if (count($finalists) !== 3) {
-//       error_log("Error: Final round requires exactly 3 racers");
-//       return false;
-//     }
-
-//     $db->beginTransaction();
-
-//     // Clear existing race chart
-//     $db->exec('DELETE FROM RaceChart WHERE roundid = ' . $roundid);
-
-//     // Create single heat for finals
-//     $stmt = $db->prepare(
-//       'INSERT INTO RaceChart(roundid, heat, lane, racerid, classid)
-//        VALUES(:roundid, 1, :lane, :racerid, :classid)'
-//     );
-
-//     foreach ($finalists as $index => $racerid) {
-//       $stmt->execute([
-//         ':roundid' => $roundid,
-//         ':lane' => $index + 1,
-//         ':racerid' => $racerid,
-//         ':classid' => $round_info['classid']
-//       ]);
-//     }
-
-//     $db->commit();
-//     return true;
-
-//   } catch (Exception $e) {
-//     $db->rollBack();
-//     error_log("Error scheduling final round: " . $e->getMessage());
-//     return false;
-//   }
-// }
-
-function handle_final_round($roundid, $round_info) {
-    global $db;
-    
-    try {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        $db->beginTransaction();
-
-        // First verify racers exist in racing group
-        $stmt = $db->prepare(
-            "SELECT ri.racerid 
-             FROM RegistrationInfo ri
-             INNER JOIN Rounds r ON ri.classid = r.classid
-             WHERE r.roundid = :roundid
-             AND ri.registered = 1"
-        );
-        
-        $stmt->execute([':roundid' => $roundid]);
-        $valid_racers = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-        if (empty($valid_racers)) {
-            throw new Exception("No valid racers found in racing group");
-        }
-
-        // Get top 3 racers from semifinals who are in valid racing group
-        $stmt = $db->prepare(
-            "SELECT rc.racerid, MIN(rc.finishtime) as best_time
-             FROM RaceChart rc
-             INNER JOIN RegistrationInfo ri ON rc.racerid = ri.racerid 
-             WHERE rc.roundid = :semifinal_round
-             AND rc.finishtime IS NOT NULL
-             AND ri.registered = 1
-             AND ri.racerid IN (" . implode(',', $valid_racers) . ")
-             GROUP BY rc.racerid
-             ORDER BY best_time ASC
-             LIMIT 3"
-        );
-
-        $stmt->execute([':semifinal_round' => $roundid - 1]);
-        $finalists = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (count($finalists) !== 3) {
-            throw new Exception("Final round requires exactly 3 racers from racing group, found " . count($finalists));
-        }
-
-        // Clear existing race chart
-        $db->exec('DELETE FROM RaceChart WHERE roundid = ' . $roundid);
-
-        // First add finalists to Roster table
-        $stmt = $db->prepare('INSERT INTO Roster (roundid, racerid) VALUES (:roundid, :racerid)');
-        foreach ($finalists as $racer) {
-            $stmt->execute([
-                ':roundid' => $roundid,
-                ':racerid' => $racer['racerid']
-            ]);
-        }
-
-        // Create single heat with ordered lanes
-        $stmt = $db->prepare(
-            'INSERT INTO RaceChart (roundid, heat, lane, racerid, classid) 
-             VALUES (:roundid, :heat, :lane, :racerid, :classid)'
-        );
-
-        foreach ($finalists as $index => $racer) {
-            $stmt->execute([
-                ':roundid' => $roundid,
-                ':heat' => 1,
-                ':lane' => $index + 1,
-                ':racerid' => $racer['racerid'],
-                ':classid' => $round_info['classid']
-            ]);
-        }
-
-        // Verify single heat
-        $heat_count = $db->query("SELECT COUNT(DISTINCT heat) FROM RaceChart WHERE roundid = " . $roundid)->fetchColumn();
-        if ($heat_count !== 1) {
-            throw new Exception("Failed to create single heat for finals");
-        }
-
-        $db->commit();
-        error_log("Successfully scheduled final round with single heat");
-        return true;
-
-    } catch (Exception $e) {
-        if ($db->inTransaction()) {
-            $db->rollBack();
-        }
-        error_log("Error in final round scheduling: " . $e->getMessage());
-        return false;
+/**
+ * Custom scheduling for elimination tournaments with 1 race per racer
+ * Creates a simple sequential schedule where each racer gets exactly one race
+ */
+function schedule_elimination_single_race($roundid, $nlanes) {
+  global $db;
+  
+  try {
+    // Get roster of racers for this round
+    $roster = read_roster($roundid, false);
+    if (empty($roster)) {
+      error_log("No racers found in roster for roundid: " . $roundid);
+      return false;
     }
+    
+    error_log("Creating single-race elimination schedule for " . count($roster) . " racers on " . $nlanes . " lanes");
+    
+    // Clear existing race chart
+    $db->exec('DELETE FROM RaceChart WHERE roundid = ' . $roundid);
+    
+    // Get classid for the round
+    $classid = read_single_value('SELECT classid FROM Rounds WHERE roundid = ' . $roundid);
+    
+    // Create sequential heats
+    $stmt = $db->prepare('INSERT INTO RaceChart(roundid, heat, lane, racerid, classid)
+                         VALUES(:roundid, :heat, :lane, :racerid, :classid)');
+    
+    $heat_number = 1;
+    $lane_number = 1;
+    
+    foreach ($roster as $racerid) {
+      if ($racerid) { // Skip null/bye entries
+        $stmt->execute(array(
+          ':roundid' => $roundid,
+          ':heat' => $heat_number,
+          ':lane' => $lane_number,
+          ':racerid' => $racerid,
+          ':classid' => $classid
+        ));
+        
+        $lane_number++;
+        if ($lane_number > $nlanes) {
+          $lane_number = 1;
+          $heat_number++;
+        }
+      }
+    }
+    
+    record_event(EVENT_SCHEDULE_ADDED, array('roundid' => $roundid));
+    
+    $total_entries = count(array_filter($roster)); // Count non-null entries
+    $total_heats = ceil($total_entries / $nlanes);
+    error_log("Created elimination schedule: {$total_entries} entries across {$total_heats} heats");
+    
+    return true;
+    
+  } catch (Exception $e) {
+    error_log("Error in schedule_elimination_single_race: " . $e->getMessage());
+    return false;
+  }
 }

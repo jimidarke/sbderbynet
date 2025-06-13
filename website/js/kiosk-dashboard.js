@@ -108,6 +108,26 @@ var g_kiosk_page_handlers = {
         .appendTo(kiosk_select);
     }
   },
+  'kiosks/elimination-standings.kiosk': {
+    // Parameters: { classid: (int) }
+    decorate: function(kiosk, kiosk_select) {
+      $('<input type="button" value="Configure"/>')
+        .on("click", /* selector */null, /* data: */kiosk,
+            /* handler */ show_config_elimination_modal)
+        .appendTo(kiosk_select);
+      add_elimination_description(kiosk.parameters, kiosk_select);
+    }
+  },
+  'kiosks/elimination-results.kiosk': {
+    // Parameters: { classid: (int) }
+    decorate: function(kiosk, kiosk_select) {
+      $('<input type="button" value="Configure"/>')
+        .on("click", /* selector */null, /* data: */kiosk,
+            /* handler */ show_config_elimination_modal)
+        .appendTo(kiosk_select);
+      add_elimination_description(kiosk.parameters, kiosk_select);
+    }
+  },
 };
 
 function decorate_please_check_in(kiosk, kiosk_select) {
@@ -500,6 +520,32 @@ function show_config_qrcode_modal(event) {
                             content: $("#qrcode-content").val()});
     return false;
   });
+}
+
+function show_config_elimination_modal(event) {
+  var kiosk = event.data;  // { classid }
+  if (kiosk.parameters && kiosk.parameters.classid) {
+    $("#elimination-class-select").val(kiosk.parameters.classid);
+  } else {
+    $("#elimination-class-select").val("");
+  }
+  mobile_select_refresh($("#elimination-class-select"));
+  show_modal("#config_elimination_modal", function(event) {
+    close_modal("#config_elimination_modal");
+    var selectedClassId = $("#elimination-class-select").val();
+    if (selectedClassId) {
+      post_new_params(kiosk, {classid: parseInt(selectedClassId)});
+    }
+    return false;
+  });
+}
+
+function add_elimination_description(parameters, kiosk_select) {
+  if (parameters.classid) {
+    // Since the modal might not be loaded yet, we'll make an AJAX call to get the class name
+    // For now, just show the classid
+    $('<p class="parameters"/>').text("Class ID: " + parameters.classid).appendTo(kiosk_select);
+  }
 }
 
 // Uses #config_classes_modal with extra #slideshow_div turned on.

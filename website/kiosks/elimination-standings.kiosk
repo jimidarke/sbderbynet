@@ -6,21 +6,17 @@ require_once('inc/authorize.inc');
 require_once('inc/schema_version.inc');
 require_once('inc/elimination-standings.inc');
 
-// Get classid parameter - required for elimination tournaments
+// Get classid parameter from kiosk configuration
 $classid = null;
 $params = kiosk_parameters();
 if (isset($params['classid']) && is_numeric($params['classid'])) {
     $classid = $params['classid'];
-} else {
-    // Try to get from current racing round
-    $current_round = get_running_round();
-    if ($current_round && isset($current_round['classid'])) {
-        $classid = $current_round['classid'];
-    }
 }
 
 if (!$classid) {
-    echo "Error: No class specified for elimination tournament standings";
+    echo "<div style='text-align: center; padding: 50px; font-size: 24px; color: #666;'>";
+    echo "Please configure this kiosk to select a class for elimination tournament standings.";
+    echo "</div>";
     exit;
 }
 
@@ -49,37 +45,50 @@ body {
 
 .tournament-header {
     background: rgba(255, 255, 255, 0.95);
-    padding: 15px;
+    padding: 8px 15px;
     margin: 10px;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 50px;
 }
 
 .tournament-title {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: bold;
     color: #1e3c72;
-    margin-bottom: 5px;
+    margin: 0;
+    flex: 1;
+    text-align: left;
 }
 
 .tournament-subtitle {
-    font-size: 18px;
+    font-size: 24px;
+    font-weight: bold;
     color: #666;
-    margin-bottom: 10px;
+    margin: 0;
+    flex: 1;
+    text-align: center;
 }
 
 .tournament-progress {
-    font-size: 16px;
+    font-size: 24px;
+    font-weight: bold;
     color: #444;
+    margin: 0;
+    flex: 1;
+    text-align: right;
 }
 
 .main_table {
     background: white;
-    margin: 10px;
+    margin: 10px auto;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    width: 90%;
 }
 
 .main_table th {
@@ -96,30 +105,37 @@ body {
     vertical-align: middle;
 }
 
+/* Ensure header and data column widths match exactly */
+.main_table th:nth-child(1), .main_table td:nth-child(1) { width: 10%; } /* Place */
+.main_table th:nth-child(2), .main_table td:nth-child(2) { width: 10%; } /* Pinny/Car Number */
+.main_table th:nth-child(3), .main_table td:nth-child(3) { width: 30%; } /* Name */
+.main_table th:nth-child(4), .main_table td:nth-child(4) { width: 15%; } /* Status */
+.main_table th:nth-child(5), .main_table td:nth-child(5) { width: 10%; } /* Heats */
+.main_table th:nth-child(6), .main_table td:nth-child(6) { width: 15%; } /* Score */
+.main_table th:nth-child(7), .main_table td:nth-child(7) { width: 15%; } /* Best */
+.main_table th:nth-child(8), .main_table td:nth-child(8) { width: 15%; } /* Worst */
+
 .main_table tr:nth-child(even) {
     background-color: #f8f9fa;
-}
-
-.main_table tr:hover {
-    background-color: #e3f2fd;
 }
 
 .place {
     font-weight: bold;
     font-size: 18px;
     text-align: center;
-    min-width: 60px;
 }
 
 .name {
     font-weight: bold;
-    max-width: 200px;
 }
 
 .carnumber {
     font-weight: bold;
     text-align: center;
-    min-width: 60px;
+}
+
+.status {
+    text-align: center;
 }
 
 .status .advancing {
@@ -140,32 +156,53 @@ body {
     font-weight: bold;
 }
 
-.score, .best, .worst {
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    text-align: center;
-    min-width: 80px;
-}
-
 .heats {
     text-align: center;
     font-weight: bold;
 }
 
+.score, .best, .worst {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    text-align: center;
+    font-size: 18px;
+}
+
 /* Scrolling animation for long lists */
 @keyframes scroll-standings {
-    0% { transform: translateY(0); }
-    50% { transform: translateY(-50%); }
-    100% { transform: translateY(0); }
+    0% { transform: translateY(100vh); }
+    100% { transform: translateY(-100%); }
 }
 
 .standings-container {
-    height: calc(100vh - 120px);
+    height: calc(100vh - 90px);
     overflow: hidden;
+    position: relative;
+}
+
+.standings-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: white;
+}
+
+.standings-header .main_table {
+    margin-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    table-layout: fixed;
+}
+
+.scroll-content .main_table {
+    margin-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    table-layout: fixed;
 }
 
 .scroll-content {
-    animation: scroll-standings 30s linear infinite;
+    animation: scroll-standings 135s linear infinite;
     animation-play-state: paused;
 }
 
@@ -173,16 +210,18 @@ body {
     animation-play-state: running;
 }
 </style>
-<script type="text/javascript" src="js/standings-kiosk.js"></script>
 <script type="text/javascript">
 $(document).ready(function() {
-    // Auto-scroll if there are many racers
+    // Auto-scroll if there are many racers - start immediately
     var rowCount = $('.main_table tbody tr').length;
     if (rowCount > 12) {
-        setTimeout(function() {
-            $('.scroll-content').addClass('auto-scroll');
-        }, 5000); // Wait 5 seconds before starting scroll
+        $('.scroll-content').addClass('auto-scroll');
     }
+    
+    // Auto-refresh every 5 seconds to get updated standings
+    setInterval(function() {
+        window.location.reload();
+    }, 5000);
 });
 </script>
 </head>
@@ -205,9 +244,18 @@ $(document).ready(function() {
 </div>
 
 <div class="standings-container">
+    <div class="standings-header">
+        <table class="main_table">
+            <thead>
+                <?php $standings->write_standings_headers(); ?>
+            </thead>
+        </table>
+    </div>
     <div class="scroll-content">
         <table class="main_table">
-            <?php $standings->write_standings_table(); ?>
+            <tbody>
+                <?php $standings->write_standings_rows(); ?>
+            </tbody>
         </table>
     </div>
 </div>

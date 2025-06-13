@@ -215,33 +215,33 @@ function handle_discard_results_button() {
 function show_schedule_modal(roundid) {
   console.log("show_schedule_modal called for roundid:", roundid);
   
-  // Always prepare normal modal first as a fallback
-  prepare_normal_schedule_modal();
-  
   // Check if this round is part of an elimination tournament
-  check_elimination_tournament_status(roundid, function(is_elimination) {
+  check_elimination_tournament_status(roundid, function(is_elimination, round_data) {
     console.log("Elimination tournament status:", is_elimination);
     
-    if (is_elimination) {
-      // For elimination tournaments, update modal to disable the dropdown
-      console.log("Preparing elimination tournament modal");
-      prepare_elimination_schedule_modal();
+    if (is_elimination && round_data && round_data.races_per_racer) {
+      // For elimination tournaments, skip the modal and schedule directly
+      console.log("Elimination tournament detected - skipping modal, using races_per_racer:", round_data.races_per_racer);
+      
+      // Schedule directly with the value from JSON configuration
+      handle_schedule_submit(roundid, round_data.races_per_racer, true);
+      return;
     }
-    // Note: Normal modal is already prepared above
-  });
-  
-  // Show the modal immediately (don't wait for AJAX)
-  show_modal("#schedule_modal", function (event) {
-    // Check if dropdown is disabled to determine parameter handling
-    var useHardcodedParams = $("#schedule_num_rounds").prop("disabled");
-    var nTimesPerLane = useHardcodedParams ? 1 : $("#schedule_num_rounds").val();
     
-    handle_schedule_submit(
-      roundid,
-      nTimesPerLane,
-      $("input[clicked='true']", $(event.target)).attr("data-race") == "true"
-    );
-    return false;
+    // For non-elimination tournaments, show the normal modal
+    prepare_normal_schedule_modal();
+    
+    // Show the modal
+    show_modal("#schedule_modal", function (event) {
+      var nTimesPerLane = $("#schedule_num_rounds").val();
+      
+      handle_schedule_submit(
+        roundid,
+        nTimesPerLane,
+        $("input[clicked='true']", $(event.target)).attr("data-race") == "true"
+      );
+      return false;
+    });
   });
 }
 
@@ -268,68 +268,74 @@ function prepare_normal_schedule_modal() {
 function check_elimination_tournament_status(roundid, callback) {
   console.log("Checking elimination tournament status for roundid:", roundid);
   
-  // Get the classid for this round first
+  // Get the classid for this round directly from the database
   $.ajax(g_action_url, {
-    type: 'GET',
+    type: 'GET', 
     data: {
-      query: 'class.list'
+      query: 'poll.coordinator'
     },
     success: function(data) {
-      console.log("Class list response:", data);
-      if (data.outcome && data.outcome.summary === 'success') {
-        // Find the classid for this round
-        var classid = null;
-        if (data.classes) {
-          for (var i = 0; i < data.classes.length; i++) {
-            if (data.classes[i].rounds) {
-              for (var j = 0; j < data.classes[i].rounds.length; j++) {
-                if (data.classes[i].rounds[j].roundid == roundid) {
-                  classid = data.classes[i].classid;
-                  console.log("Found classid:", classid, "for roundid:", roundid);
-                  break;
-                }
-              }
-            }
-            if (classid) break;
+      console.log("Coordinator poll response for round lookup");
+      var classid = null;
+      
+      // Find classid from rounds data in coordinator poll
+      if (data.rounds) {
+        for (var i = 0; i < data.rounds.length; i++) {
+          if (data.rounds[i].roundid == roundid) {
+            classid = data.rounds[i].classid;
+            console.log("Found classid:", classid, "for roundid:", roundid);
+            break;
           }
         }
-        
-        if (classid) {
-          // Check if this class has an active elimination tournament
-          console.log("Checking elimination tournament status for classid:", classid);
-          $.ajax(g_action_url, {
-            type: 'GET',
-            data: {
-              query: 'elimination.tournament.status',
-              classid: classid
-            },
-            success: function(tournamentData) {
-              console.log("Tournament status response:", tournamentData);
-              var isElimination = tournamentData.outcome && 
-                                 tournamentData.outcome.summary === 'success' && 
-                                 tournamentData.active;
-              console.log("Is elimination tournament:", isElimination);
-              callback(isElimination);
-            },
-            error: function(xhr, status, error) {
-              console.log("Error checking tournament status:", status, error);
-              // If we can't check, assume it's not an elimination tournament
-              callback(false);
+      }
+      
+      if (classid) {
+        // Check if this class has an active elimination tournament
+        console.log("Checking elimination tournament status for classid:", classid);
+        $.ajax(g_action_url, {
+          type: 'GET',
+          data: {
+            query: 'elimination.tournament.status',
+            classid: classid
+          },
+          success: function(tournamentData) {
+            console.log("Tournament status response:", tournamentData);
+            var isElimination = tournamentData.outcome && 
+                               tournamentData.outcome.summary === 'success' && 
+                               tournamentData.active;
+            console.log("Is elimination tournament:", isElimination);
+            
+            if (isElimination && tournamentData.tournament) {
+              // The API returns races_per_racer directly in the tournament info
+              if (tournamentData.tournament.races_per_racer) {
+                console.log("Found elimination tournament with races_per_racer:", tournamentData.tournament.races_per_racer);
+                callback(true, {
+                  races_per_racer: tournamentData.tournament.races_per_racer,
+                  round_name: tournamentData.tournament.current_round_name
+                });
+              } else {
+                console.log("Elimination tournament found but no races_per_racer data");
+                callback(true, null);
+              }
+            } else {
+              callback(isElimination, null);
             }
-          });
-        } else {
-          console.log("Could not find classid for roundid:", roundid);
-          // If we can't find the classid, assume it's not an elimination tournament
-          callback(false);
-        }
+          },
+          error: function(xhr, status, error) {
+            console.log("Error checking tournament status:", status, error);
+            // If we can't check, assume it's not an elimination tournament
+            callback(false, null);
+          }
+        });
       } else {
-        console.log("Failed to get class list");
-        callback(false);
+        console.log("Could not find classid for roundid:", roundid, "in coordinator poll");
+        // If we can't find the classid, assume it's not an elimination tournament
+        callback(false, null);
       }
     },
     error: function(xhr, status, error) {
-      console.log("Error getting class list:", status, error);
-      callback(false);
+      console.log("Error getting coordinator poll:", status, error);
+      callback(false, null);
     }
   });
 }

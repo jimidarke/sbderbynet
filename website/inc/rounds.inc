@@ -35,9 +35,8 @@ function all_rounds($by_class = true) {
   $use_groups = use_groups();
   $stmt = $db->query('SELECT roundid, roundid AS groupid, round,'
                      .' Classes.classid, class,'
-                    //  .($use_groups ? "class || ', ' || " : "")
                      .' roundname As roundnamee,'
-                     .'\'Round \' || round AS roundname'
+                     .' class || \' \' || COALESCE(Rounds.roundname, \'Round \' || round) AS roundname'
                      .' FROM Rounds INNER JOIN Classes'
                      .' ON Rounds.classid = Classes.classid'
                      .' ORDER BY '
@@ -83,17 +82,21 @@ function all_rounds_with_counts($by_class = true) {
   global $db;
   $use_groups = use_groups();
   
-  // Add is_triple_elim and elim_type to the query
-  $stmt = $db->query('SELECT roundid, roundid AS groupid, round,
+  // Legacy triple elimination logic removed - replaced by JSON hardcoded approach
+  $stmt = $db->query('SELECT roundid, roundid AS groupid, 
+                   COALESCE(Rounds.roundname, round) AS round,
                    Classes.classid, class,
-                   COALESCE(is_triple_elim, 0) as is_triple_elim,
-                   elim_type,
+                   -- Round sequence for proper ordering
+                   CASE 
+                       WHEN Rounds.roundname LIKE \'%Preliminary%\' THEN 1
+                       WHEN Rounds.roundname LIKE \'%Quarter Finals%\' THEN 2  
+                       WHEN Rounds.roundname LIKE \'%Semi-Finals%\' THEN 3
+                       WHEN Rounds.roundname LIKE \'%Finals%\' THEN 4
+                       ELSE CAST(round AS INTEGER)
+                   END AS round_sequence,
                    ' . (schema_version() >= 3 ? ' constituents > \'\' AS aggregate,' : '0 AS aggregate,') . '
                    ' . ($use_groups ? " class || ', ' ||" : "") . '
-                   CASE 
-                       WHEN is_triple_elim = 1 THEN elim_type
-                       ELSE \'Round \' || round 
-                   END AS roundname,
+                   COALESCE(Rounds.roundname, \'Round \' || round) AS roundname,
                    (SELECT COUNT(*) FROM Roster 
                     WHERE Roster.roundid = Rounds.roundid) AS roster_size,
                    (SELECT COUNT(*) FROM Roster
@@ -110,8 +113,8 @@ function all_rounds_with_counts($by_class = true) {
                     AND (finishtime IS NOT NULL OR finishplace IS NOT NULL)) AS heats_run
                    FROM Rounds 
                    INNER JOIN Classes ON Rounds.classid = Classes.classid
-                   ORDER BY ' . ($by_class ? '' : 'round, ') .
-                   (schema_version() >= 2 ? 'Classes.sortorder, ' : '') . 'class, round');
+                   ORDER BY ' . ($by_class ? '' : 'round_sequence, ') .
+                   (schema_version() >= 2 ? 'Classes.sortorder, ' : '') . 'class, round_sequence');
 
   return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

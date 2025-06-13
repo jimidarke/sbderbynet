@@ -226,5 +226,34 @@ var g_url = <?php echo json_encode($urls[0],
   </form>
 </div>
 
+<div id='config_elimination_modal' class="modal_dialog hidden block_buttons">
+  <form>
+    <div>
+      <label for="elimination-class-select">Class for Elimination Tournament:</label>
+      <select id="elimination-class-select">
+        <option value="">Select a class...</option>
+        <?php
+          // Only show classes that have active elimination tournaments
+          $stmt = $db->prepare('SELECT DISTINCT c.classid, c.class'
+                               .' FROM Classes c'
+                               .' INNER JOIN EliminationTournaments et ON c.classid = et.classid'
+                               .' WHERE et.active = 1'
+                               .' ORDER BY c.sortorder, c.class');
+          $stmt->execute(array());
+
+          foreach ($stmt as $row) {
+            echo '<option value="'.$row['classid'].'">'
+                .htmlspecialchars($row['class'], ENT_QUOTES, 'UTF-8')
+                .'</option>'."\n";
+          }
+        ?>
+      </select>
+    </div>
+    <input type="submit" value="Configure Kiosk"/>
+    <input type="button" value="Cancel"
+      onclick='close_modal("#config_elimination_modal");'/>
+  </form>
+</div>
+
 </body>
 </html>

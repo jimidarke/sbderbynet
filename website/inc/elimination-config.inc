@@ -273,9 +273,15 @@ function initialize_elimination_tournament($classid, $config_file) {
         
         $tournament_id = $db->lastInsertId();
         
-        // Create rounds in database
-        foreach ($age_group['rounds'] as $round_config) {
-            create_elimination_round($classid, $tournament_id, $round_config);
+        // Create rounds in database - update existing Round 1 and create additional rounds
+        foreach ($age_group['rounds'] as $index => $round_config) {
+            if ($index === 0) {
+                // Update existing Round 1 instead of creating new
+                update_existing_round_for_elimination($classid, $round_config);
+            } else {
+                // Create new rounds for subsequent rounds
+                create_elimination_round($classid, $tournament_id, $round_config);
+            }
         }
         
         $db->commit();
@@ -323,6 +329,28 @@ function apply_elimination_scheduling_rules($config) {
 }
 
 /**
+ * Update existing Round 1 for elimination tournament
+ * @param int $classid Class ID
+ * @param array $round_config Round configuration for first round
+ */
+function update_existing_round_for_elimination($classid, $round_config) {
+    global $db;
+    
+    $round_name = $round_config['round_name'];
+    
+    // Update the existing Round 1 to be the first elimination round (legacy columns removed)
+    $stmt = $db->prepare('UPDATE Rounds 
+                         SET round = :round, roundname = :roundname
+                         WHERE classid = :classid AND round = \'1\' AND (roundname IS NULL OR roundname = \'\')');
+    
+    $stmt->execute(array(
+        ':classid' => $classid,
+        ':round' => $round_name,
+        ':roundname' => $round_name
+    ));
+}
+
+/**
  * Create elimination round in database
  * @param int $classid Class ID
  * @param int $tournament_id Tournament ID
@@ -334,15 +362,14 @@ function create_elimination_round($classid, $tournament_id, $round_config) {
     
     $round_name = $round_config['round_name'];
     
-    // Insert round using existing schema columns
-    $stmt = $db->prepare('INSERT INTO Rounds (classid, round, roundname, is_triple_elim, elim_type)
-                         VALUES (:classid, :round, :roundname, 1, :elim_type)');
+    // Insert round using existing schema columns (legacy columns removed)
+    $stmt = $db->prepare('INSERT INTO Rounds (classid, round, roundname)
+                         VALUES (:classid, :round, :roundname)');
     
     $stmt->execute(array(
         ':classid' => $classid,
-        ':round' => $round_config['round_sequence'],
-        ':roundname' => $round_name,
-        ':elim_type' => $round_config['round_name']
+        ':round' => $round_name,
+        ':roundname' => $round_name
     ));
     
     return $db->lastInsertId();

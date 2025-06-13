@@ -68,11 +68,20 @@ foreach (all_rounds_with_counts() as $round) {
     $stmt = $db->query('SELECT queueid, seq, Playlist.classid, Playlist.round,'
                        .' bucket_limit, bucketed, n_times_per_lane,'
                        .' sceneid_at_finish, continue_racing,'
-                       .' Classes.classid, class, round,'
+                       .' Classes.classid, class, 
+                       COALESCE(Rounds.roundname, Playlist.round) AS round,
+                       CASE 
+                           WHEN Rounds.roundname LIKE \'%Preliminary%\' THEN 1
+                           WHEN Rounds.roundname LIKE \'%Quarter Finals%\' THEN 2  
+                           WHEN Rounds.roundname LIKE \'%Semi-Finals%\' THEN 3
+                           WHEN Rounds.roundname LIKE \'%Finals%\' THEN 4
+                           ELSE CAST(Playlist.round AS INTEGER)
+                       END AS round_sequence,'
                        .($use_groups ? "class || ', ' || " : "")
-                       .'\'Round \' || round AS roundname'
+                       .'COALESCE(Rounds.roundname, \'Round \' || Playlist.round) AS roundname'
                        .' FROM '.inner_join('Playlist', 'Classes',
                                             'Playlist.classid = Classes.classid')
+                       .' LEFT JOIN Rounds ON (Playlist.classid = Rounds.classid AND Playlist.round = Rounds.round)'
                        .' ORDER BY seq');
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC),
                  JSON_HEX_TAG | JSON_HEX_AMP  | JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);

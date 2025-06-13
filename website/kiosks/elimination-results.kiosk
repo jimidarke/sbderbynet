@@ -8,21 +8,17 @@ require_once('inc/elimination-config.inc');
 require_once('inc/name-mangler.inc');
 require_once('inc/running_round_header.inc');
 
-// Get classid parameter - required for elimination tournaments
+// Get classid parameter from kiosk configuration
 $classid = null;
 $params = kiosk_parameters();
 if (isset($params['classid']) && is_numeric($params['classid'])) {
     $classid = $params['classid'];
-} else {
-    // Try to get from current racing round
-    $current_round = get_running_round();
-    if ($current_round && isset($current_round['classid'])) {
-        $classid = $current_round['classid'];
-    }
 }
 
 if (!$classid) {
-    echo "Error: No class specified for elimination tournament results";
+    echo "<div style='text-align: center; padding: 50px; font-size: 24px; color: #666;'>";
+    echo "Please configure this kiosk to select a class for elimination tournament results.";
+    echo "</div>";
     exit;
 }
 
@@ -208,11 +204,11 @@ $(document).ready(function() {
                                      'Roster', 'Roster.racerid = RegistrationInfo.racerid',
                                      'Rounds', 'Rounds.roundid = Roster.roundid')
                 .' WHERE Rounds.roundid = RaceChart.roundid'
-                .' AND Rounds.classid = :classid AND Rounds.round = :round_number'
+                .' AND Rounds.classid = :classid AND Rounds.round = :round_name'
                 .' ORDER BY lastname, firstname, carnumber, resultid, lane';
 
             $stmt = $db->prepare($sql);
-            $stmt->execute([':classid' => $classid, ':round_number' => $current_round]);
+            $stmt->execute([':classid' => $classid, ':round_name' => $round_config['round_name']]);
             
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
             

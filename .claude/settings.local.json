@@ -10,7 +10,10 @@
       "Bash(chmod:*)",
       "Bash(ls:*)",
       "Bash(mkdir:*)",
-      "Bash(od:*)"
+      "Bash(od:*)",
+      "Bash(sqlite3:*)",
+      "Bash(python3 test_elimination_tournaments.py:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   },

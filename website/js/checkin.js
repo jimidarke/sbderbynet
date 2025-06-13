@@ -869,6 +869,10 @@ function make_table_row(racer, xbs) {
   let userPreferredUnit = getSelectedWeightUnit();
   var weightData = convertWeight(racer.carweight, "kg", userPreferredUnit);
 
+  // Handle case where weight conversion fails
+  if (!weightData) {
+    weightData = { kg: '0.00', lbs: '0.00' };
+  }
 
   tr.append($('<td class="sort-carweight"/>')
     .attr('id', 'carweight-' + racer.racerid)
@@ -960,7 +964,7 @@ function validateFloat(input) {
 
 // 24-03-2025 Saving Weight in Kgs while allowing users to input in lbs
 function convertWeight(weight, fromUnit, toUnit) {
-  if (!weight || isNaN(weight)) return null;
+  if (weight === null || weight === undefined || weight === '' || isNaN(weight)) return null;
 
   const conversionFactor = 2.2046226218; // 1 kg = 2.2046226218 lbs
   let weightFloat = parseFloat(weight);

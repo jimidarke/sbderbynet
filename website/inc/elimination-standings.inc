@@ -48,21 +48,28 @@ class EliminationStandingsOracle {
         switch ($scoring_method) {
             case 'total_time':
                 $score_expr = 'SUM(rc.finishtime)';
-                $order_clause = 'score ASC';
+                $order_clause = 'score DESC';  // Reverse order: slowest times first for dramatic reveal
                 break;
             case 'best_time':
                 $score_expr = 'MIN(rc.finishtime)';
-                $order_clause = 'score ASC';
+                $order_clause = 'score DESC';  // Reverse order: slowest times first for dramatic reveal
                 break;
             case 'average_time':
                 $score_expr = 'AVG(rc.finishtime)';
-                $order_clause = 'score ASC';
+                $order_clause = 'score DESC';  // Reverse order: slowest times first for dramatic reveal
+                break;
+            case 'placement':
+                $score_expr = 'MIN(rc.finishplace)';  // Best placement (1st place = 1, 2nd place = 2, etc.)
+                $order_clause = 'score ASC';  // Normal order: 1st place first, 2nd place second, etc.
                 break;
             default:
                 throw new Exception("Unsupported scoring method: " . $scoring_method);
         }
         
-        // Query for current round standings
+        // Get the round name from the tournament configuration
+        $round_name = $this->current_round_config['round_name'];
+        
+        // Query for current round standings - using round name instead of number
         $sql = "SELECT 
                     ri.racerid,
                     ri.firstname,
@@ -76,15 +83,19 @@ class EliminationStandingsOracle {
                     MIN(rc.finishtime) as best_time,
                     MAX(rc.finishtime) as worst_time
                 FROM RaceChart rc
-                INNER JOIN Rounds rd ON rc.roundid = rd.roundid
                 INNER JOIN RegistrationInfo ri ON rc.racerid = ri.racerid
                 INNER JOIN Classes c ON ri.classid = c.classid
                 LEFT JOIN Ranks r ON ri.rankid = r.rankid
-                WHERE rd.classid = :classid 
-                  AND rd.round = :round_number
-                  AND rc.finishtime IS NOT NULL 
-                  AND rc.finishtime > 0
-                  AND rc.finishtime < 999.0
+                WHERE rc.classid = :classid 
+                  AND rc.roundid = (
+                      SELECT roundid FROM Rounds 
+                      WHERE classid = :classid AND round = :round_name 
+                      LIMIT 1
+                  )
+                  AND (
+                      (rc.finishtime IS NOT NULL AND rc.finishtime > 0 AND rc.finishtime < 999.0) OR
+                      (rc.finishplace IS NOT NULL AND rc.finishplace > 0)
+                  )
                 GROUP BY ri.racerid, ri.firstname, ri.lastname, ri.carnumber, 
                          ri.carname, c.class, r.rank
                 ORDER BY {$order_clause}, ri.lastname, ri.firstname";
@@ -92,7 +103,7 @@ class EliminationStandingsOracle {
         $stmt = $db->prepare($sql);
         $stmt->execute([
             ':classid' => $classid,
-            ':round_number' => $current_round
+            ':round_name' => $round_name
         ]);
         
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -139,10 +150,6 @@ class EliminationStandingsOracle {
         echo "<th>Place</th>";
         echo "<th>Pinny</th>";
         echo "<th>Name</th>";
-        echo "<th>Class</th>";
-        if (use_subgroups()) {
-            echo "<th>".subgroup_label()."</th>";
-        }
         if ($this->has_advancement()) {
             echo "<th>Status</th>";
         }
@@ -160,15 +167,31 @@ class EliminationStandingsOracle {
         $name_style = read_name_style();
         $time_format = get_finishtime_formatting_string();
         $advance_count = $this->get_advance_count();
+        $total_racers = count($this->current_standings);
         
-        $place = 1;
         foreach ($this->current_standings as $i => $racer) {
-            // Handle ties - if score matches previous racer, use same place
-            if ($i > 0 && $racer['score'] == $this->current_standings[$i-1]['score']) {
-                $display_place = "T$place";
+            // For placement scoring, display in normal order; for time scoring, reverse order (slowest first for drama)
+            if ($this->current_round_config['scoring_method'] == 'placement') {
+                $actual_place = $i + 1; // Normal order: 1st, 2nd, 3rd
             } else {
-                $place = $i + 1;
-                $display_place = $place;
+                $actual_place = $total_racers - $i; // Reverse order: slowest first
+            }
+            
+            // Handle ties - adjust logic based on scoring method
+            if ($this->current_round_config['scoring_method'] == 'placement') {
+                // For placement, ties are unlikely but check adjacent scores
+                if ($i > 0 && $racer['score'] == $this->current_standings[$i-1]['score']) {
+                    $display_place = "T$actual_place";
+                } else {
+                    $display_place = $actual_place;
+                }
+            } else {
+                // For time scoring, check next racer (since we're reversed)
+                if ($i < $total_racers - 1 && $racer['score'] == $this->current_standings[$i+1]['score']) {
+                    $display_place = "T$actual_place";
+                } else {
+                    $display_place = $actual_place;
+                }
             }
             
             echo "<tr data-racerid='".$racer['racerid']."' class='d".($i & 1)."'>";
@@ -176,27 +199,19 @@ class EliminationStandingsOracle {
             // Place
             echo "<td class='place'>$display_place</td>";
             
-            // Car Number
-            echo "<td class='carnumber'>".$racer['carnumber']."</td>";
+            // Car Number (zero-padded to 4 digits)
+            echo "<td class='carnumber'>".str_pad($racer['carnumber'], 4, '0', STR_PAD_LEFT)."</td>";
             
             // Name
             echo "<td class='name'>".htmlspecialchars(mangled_name($racer, $name_style), ENT_QUOTES, 'UTF-8')."</td>";
             
-            // Class
-            echo "<td class='class'>".htmlspecialchars($racer['class'], ENT_QUOTES, 'UTF-8')."</td>";
-            
-            // Subgroup/Rank
-            if (use_subgroups()) {
-                echo "<td class='subgroup'>".htmlspecialchars($racer['rank'] ?? '', ENT_QUOTES, 'UTF-8')."</td>";
-            }
-            
-            // Advancement Status
+            // Advancement Status - use actual_place for advancement determination
             if ($this->has_advancement()) {
                 $status = '';
-                if ($place <= $advance_count) {
+                if ($actual_place <= $advance_count) {
                     $status = '<span class="advancing">ADVANCING</span>';
                 } else {
-                    $status = '<span class="eliminated">ELIMINATED</span>';
+                    $status = '<span class="eliminated">Good Try</span>';
                 }
                 echo "<td class='status'>$status</td>";
             }
@@ -205,7 +220,9 @@ class EliminationStandingsOracle {
             echo "<td class='heats'>".$racer['heats_run']."</td>";
             
             // Score
-            if ($this->use_points) {
+            if ($this->current_round_config['scoring_method'] == 'placement') {
+                echo "<td class='score'>".ordinal($racer['score'])."</td>";
+            } else if ($this->use_points) {
                 echo "<td class='score'>".sprintf("%.1f", $racer['score'])."</td>";
             } else {
                 echo "<td class='score'>".sprintf($time_format, $racer['score'])."</td>";

@@ -59,17 +59,19 @@ function insert_new_racer($values) {
   }
 
 
-  $stmt = $db->prepare('INSERT INTO RegistrationInfo (carnumber, lastname, firstname, carname, note, partitionid, rankid, classid, exclude, carweight, checkin_time)
-                       VALUES(:carnumber, :lastname, :firstname, :carname, :note, :partitionid, :rankid, :classid, :exclude, :carweight, :checkin_time)');
+  $stmt = $db->prepare('INSERT INTO RegistrationInfo (carnumber, lastname, firstname, carname, note, partitionid, rankid, classid, exclude, carweight, checkin_time, registered, passedinspection)
+                       VALUES(:carnumber, :lastname, :firstname, :carname, :note, :partitionid, :rankid, :classid, :exclude, :carweight, :checkin_time, :registered, :passedinspection)');
 
   $values['checkin_time'] = isset($values['checkin_time']) ? $values['checkin_time'] : floor(microtime(true) * 1000);  // Set default if missing
   $values['carweight'] = isset($values['carweight']) ? $values['carweight'] : '0';  // Set default if missing
+  $values['registered'] = isset($values['registered']) ? $values['registered'] : 1;  // Default to registered
+  $values['passedinspection'] = isset($values['passedinspection']) ? $values['passedinspection'] : 0;  // Default to not inspected
 
   try {
       $stmt->execute(array(
           ':carnumber' => trim($values['carnumber']),
-//          ':carname' => trim($values['carname']),
-//          ':note' => trim($values['note']), // Ensure 'note' exists
+          ':carname' => isset($values['carname']) ? trim($values['carname']) : '',
+          ':note' => isset($values['note']) ? trim($values['note']) : '',
           ':firstname' => trim($values['firstname']),
           ':lastname' => trim($values['lastname']),
           ':partitionid' => $values['partitionid'],
@@ -77,7 +79,9 @@ function insert_new_racer($values) {
           ':classid' => $values['classid'],
           ':checkin_time' => $values['checkin_time'],
           ':exclude' => (isset($values['exclude']) && $values['exclude']) ? 1 : 0,
-          ':carweight' => $values['carweight']
+          ':carweight' => $values['carweight'],
+          ':registered' => $values['registered'],
+          ':passedinspection' => $values['passedinspection']
       ));
   } catch (PDOException $e) {
       error_log("PDO Exception while inserting new racer" . $e->getMessage() . " at " . date('Y-m-d H:i:s') . " in " . __FILE__ . " on line " . __LINE__);
