@@ -2,62 +2,72 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
 This is a comprehensive soapbox derby race management system built by extensively modifying the DerbyNet software. DerbyNet was originally created for Pinewood Derby racing events (small wooden cars racing down a gravity track), but has been extensively modified to support children's Soapbox Derby events (larger gravity-powered cars with children riding in them).
 
 **Current Version: 0.5.0**
 
-## System Overview
+## Complete Documentation
 
-This project is a comprehensive soapbox derby race management system built by extensively modifying the DerbyNet software. DerbyNet was originally created for Pinewood Derby racing events (small wooden cars racing down a gravity track), but has been extensively modified to support children's Soapbox Derby events (larger gravity-powered cars with children riding in them).
+For comprehensive documentation including:
+- Pull request summary and technical contributions
+- System architecture and requirements
+- Installation and setup instructions
+- Feature documentation and usage guides
+- Hardware integration details
+- Testing and quality assurance information
 
-The system consists of several integrated components:
+**Please refer to the main [README.md](README.md) file which contains all consolidated documentation for this project.**
 
-1. **DerbyNet PHP Core** (`/website/`): A PHP-based web application that handles race management, timing, results tracking, and award management
-2. **Race Server** (`/extras/soapbox/infra/server/`): Central coordination server that manages race state and communicates with hardware components
-3. **Finish Timer** (`/extras/soapbox/infra/finishtimer/`): Hardware-based finish line detection system using toggle switches on Raspberry Pi
-4. **Start Timer** (`/extras/soapbox/infra/starttimer/`): ESP32-based device that detects race start signals 
-5. **Derby Display** (`/extras/soapbox/infra/derbydisplay/`): Display screens showing race status and results
-6. **HLS Feed** (`/extras/soapbox/hlsfeed/`): Camera streaming service for race viewing and replay
+## Quick Technical Reference
 
-[... rest of the existing content ...]
+### Key System Components
 
-## Memory Guidance
+1. **DerbyNet PHP Core** (`/website/`): Web-based race management system
+2. **Race Server** (`/extras/soapbox/infra/server/`): Central coordination server with MQTT messaging
+3. **Finish Timer** (`/extras/soapbox/infra/finishtimer/`): Hardware-based finish line detection
+4. **Start Timer** (`/extras/soapbox/infra/starttimer/`): ESP32-based race start detection
+5. **Derby Display** (`/extras/soapbox/infra/derbydisplay/`): Display screens for race information
+6. **HLS Feed** (`/extras/soapbox/hlsfeed/`): Camera streaming service for race viewing
+
+### Major Enhancements Made
+
+- **~40 new files** in complete hardware infrastructure
+- **Critical scheduling engine fixes** resolving parameter interpretation bugs
+- **JSON-based elimination tournament system** with 3 new database tables
+- **Professional kiosk displays** with modern UI/UX
+- **MQTT messaging architecture** for hardware coordination
+- **Broadcast messaging system** for real-time announcements
+- **Complete backward compatibility** with existing DerbyNet functionality
+
+### Memory Guidance
 
 - All names of racing rounds must start with a number to allow proper sequencing
-- The database file is a cached copy of production you can read from it but any changes will be discarded and any commands to the server will not be evident after the file was refreshed
+- The database file is a cached copy of production - changes will be discarded when refreshed
+- Tournament configurations use JSON files in `/inc/elimination-configs/`
+- Heat generation uses weighted parameters: avoid_consecutive=5000, group_weighted_cars=100, avoid_same_lane=200, heat_counts=10
 
-## Critical Heat Generation Fix (2025-06-12)
+### Critical Bug Fixes Applied
 
-**IMPORTANT**: The elimination tournament heat generation was completely fixed after discovering the root cause of incorrect scheduling.
+**Heat Generation Parameter Fix (2025-06-12)**:
+- Fixed `n_times_per_lane` parameter interpretation in scheduling engine
+- JSON `races_per_racer: 3` → `n_times_per_lane = 1` (3 total races: 1 per lane)
+- JSON `races_per_racer: 1` → Custom sequential scheduling function
+- Removed conflicting legacy triple elimination logic
 
-### Problem:
-- **Preliminary rounds** were generating 3 races per lane (9 total per racer) instead of 3 races per racer (1 per lane)
-- **Quarter finals** were generating 27 heats (81 entries) instead of 9 heats (27 entries)
-- Legacy triple elimination logic was conflicting with JSON hardcoded configurations
+**Key Files Modified**:
+- `website/ajax/action.schedule.generate.inc` - Fixed elimination tournament detection
+- `website/inc/schedule_one_round.inc` - Added custom single-race scheduling
+- `website/inc/elimination-config.inc` - Tournament configuration management
+- `website/sql/sqlite/elimination-tables.inc` - New database schema
 
-### Root Cause:
-DerbyNet's scheduling system has a parameter `n_times_per_lane` that was being misinterpreted:
-- `n_times_per_lane = 3` means racer appears 3 times in EACH lane (9 total races on 3-lane track)
-- `n_times_per_lane = 1` means racer appears 1 time in EACH lane (3 total races on 3-lane track)
+## Development Notes
 
-### Solution:
-1. **Fixed Parameter Logic** (`ajax/action.schedule.generate.inc`):
-   - JSON `races_per_racer: 3` → `n_times_per_lane = 1` (once per lane = 3 total)
-   - JSON `races_per_racer: 1` → Custom sequential scheduling
+- This system maintains full backward compatibility with original DerbyNet
+- The `extras/soapbox/` directory contains completely new infrastructure
+- Core scheduling engine fixes benefit all DerbyNet users
+- Elimination tournament system is designed as reusable framework
+- Professional display enhancements work with any derby type
 
-2. **Added Custom Single-Race Scheduling** (`inc/schedule_one_round.inc`):
-   - New function `schedule_elimination_single_race()` 
-   - Creates sequential heat assignment for rounds with 1 race per racer
-   - Bypasses problematic `max_runs_per_car` rotation logic
-
-3. **Removed All Legacy Logic**:
-   - Eliminated conflicting triple elimination detection
-   - Cleaned up legacy database column references
-
-### Key Files Modified:
-- `website/ajax/action.schedule.generate.inc` - Fixed elimination tournament detection and parameter setting
-- `website/inc/schedule_one_round.inc` - Added custom single-race scheduling function
-- Multiple files - Removed legacy triple elimination logic conflicts
-
-**Result**: Elimination tournaments now generate correct heat counts as specified in JSON configuration.
-```
+For detailed technical information, architecture diagrams, installation guides, and complete feature documentation, see the main [README.md](README.md).

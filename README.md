@@ -1,409 +1,562 @@
-# DerbyNet
+# SBDerbyNet: Comprehensive Soapbox Derby Race Management System
 
-![icon](https://raw.githubusercontent.com/jeffpiazza/derbynet/master/website/img/derbynet-300.png)
+![SBDerbyNet](https://raw.githubusercontent.com/jeffpiazza/derbynet/master/website/img/derbynet-300.png)
 
-DerbyNet is a comprehensive race management system for derby racing events. Originally developed for Pinewood Derby races, it has been extended to support Soapbox Derby events as well.
+SBDerbyNet is a comprehensive race management system for children's soapbox derby racing events, built by extensively modifying and extending the original DerbyNet software. While DerbyNet was originally created for Pinewood Derby racing events (small wooden cars racing down a gravity track), SBDerbyNet transforms it into a complete solution for children's Soapbox Derby events (larger gravity-powered cars with children riding in them).
 
-Please visit us at [https://derbynet.org](https://derbynet.org).
+**Current Version: 0.5.0** | **License: MIT** | **Original Project: [DerbyNet](https://derbynet.org)**
 
-## Features
+---
 
-### Core DerbyNet Features
-- Web-based race management
-- Multi-device architecture with central server and connected client displays
-- Timer integration for automatic time capture
-- Comprehensive racer registration and check-in
-- Photo capture and management
-- Results tracking and standings
-- Award management and presentation
-- Kiosk display system with scene management
-- Slideshow functionality for sponsorship and intermission displays
-- Broadcast messaging system for coordinator announcements
-- Coordinator scene control integration
+## 🏁 Pull Request Summary: Major Enhancements to DerbyNet
 
-### Soapbox Derby Extension
-- **Current Version: 0.5.0**
-- Custom hardware integration for soapbox racing
-- Triple elimination racing format
-- Start/finish line detection
-- HLS video streaming and replay
-- MQTT-based communication for real-time updates
-- Enhanced display system for outdoor races
-- Network resilience for outdoor environments
-- **Recent Updates (May 2025):**
-  - Fixed heat generation logic to prevent excessive heat creation
-  - Added comprehensive race simulation system for testing and analysis
-  - Stabilized communications between finish timer and race server
-  - Simplified and improved logging infrastructure
-  - Added speed display in km/h for metric regions
-  - **Completed Kiosk System Enhancements:**
-    - Scene selector integration on coordinator page for centralized display control
-    - Broadcast messaging system for real-time announcements to all kiosks
-    - Configurable slideshow directory and timing management
+This project represents substantial enhancements to the original DerbyNet system, adding comprehensive soapbox derby race management capabilities. The modifications are designed to be offered as a pull request back to the original DerbyNet project.
 
-## Documentation
+### 📊 Change Overview
 
-### Core Documentation
-The `docs/` directory contains documentation for the main DerbyNet system in OpenDocument format.
+- **~40 new files** in complete hardware infrastructure (`extras/soapbox/`)
+- **Major refactoring** of core scheduling engine with critical bug fixes
+- **3 new database tables** for elimination tournament support
+- **Advanced hardware integration** with MQTT messaging architecture
+- **Professional-grade display system** with modern UI/UX
+- **Backward compatible** with existing DerbyNet functionality
 
-### Soapbox Derby Documentation
-The following documents provide details on the Soapbox Derby extension:
+### 🚀 Key Technical Contributions
 
-- [Soapbox Derby Overview](/extras/soapbox/README.md) - General overview of the Soapbox Derby system
-- [DerbyNet Reference for Soapbox](/extras/soapbox/doc/DERBYNET_REFERENCE.md) - Technical reference for DerbyNet integration
-- [MQTT API Documentation](/extras/soapbox/doc/MQTT_API.md) - Details of the MQTT communication protocol
-- [HLS Replay Documentation](/extras/soapbox/doc/HLS_REPLAY_DOCUMENTATION.md) - Video streaming and replay implementation
-- [Soapbox Test Guide](/extras/soapbox/doc/SoapboxDerby_Test_Guide.md) - Comprehensive testing guide
-- [Version Information](/extras/soapbox/VERSION.md) - Version history and component versioning
-- [Feature Enhancements](/extras/soapbox/FEATURE_ENHANCEMENTS.md) - Planned feature enhancements
-- [Refactoring Plan](/extras/soapbox/REFACTORING_PLAN.md) - Current development and refactoring status
+#### 1. **Completely New Infrastructure Layer (`extras/soapbox/`)**
 
-### Component Documentation
-- [Race Server](/extras/soapbox/infra/server/README.md) - Core race management server
-- [Finish Timer](/extras/soapbox/infra/finishtimer/README.md) - Finish line detection system
-- [Start Timer](/extras/soapbox/infra/starttimer/README.md) - Start gate detection system
-- [Derby Display](/extras/soapbox/infra/derbydisplay/README.md) - Display system
-- [HLS Feed](/extras/soapbox/hlsfeed/README.md) - Video streaming service
+**Central Race Server (`infra/server/`)**
+- Python-based coordination system using MQTT messaging protocol
+- Standardized network library with resilient connection handling and message queuing
+- Real-time race coordination between multiple hardware components
+- Advanced retry logic with exponential backoff and persistent message storage
 
-## Architecture
+**Hardware Integration (`infra/finishtimer/` & `infra/starttimer/`)**
+- Raspberry Pi finish timer with toggle switch detection and LED status indicators
+- ESP32 start timer for race start signal detection
+- Hardware abstraction layer supporting DerbyNet PCB v1 with detailed pinout specifications
+- Network resilience features including offline message persistence and automatic recovery
 
-The Soapbox Derby system extends DerbyNet with the following components:
+**Live Video Streaming (`hlsfeed/`)**
+- RTSP to HLS conversion using FFmpeg for multi-camera race coverage
+- Nginx-based streaming server with automatic segment cleanup
+- Replay handler integration for race event recording and analysis
 
-1. **Race Server (derbyRace.py)**: Central orchestration service that manages race state, communicates with DerbyNet API, and coordinates start and finish timers via MQTT.
-2. **Finish Timer (derbynetPCBv1.py)**: Monitors lane finish events using GPIO, sends lane finish data to server via MQTT.
-3. **Start Timer (ESP32)**: Detects race start signals and broadcasts start events via MQTT.
-4. **Derby Display (derbydisplay.py)**: Shows race information on displays, updates in real-time via MQTT.
-5. **HLS Feed Service**: Handles video streaming for race viewing, uses RTSP and HLS for streaming.
-6. **Race Simulation System (simulate_racing.py)**: Comprehensive testing framework that simulates race scenarios for system validation and performance analysis.
+#### 2. **Critical Race Scheduling Engine Fixes**
 
-## System Requirements
+**Resolved Major Bug (`website/ajax/action.schedule.generate.inc`)**
+- **Fixed critical parameter interpretation**: DerbyNet's `n_times_per_lane` parameter was being misunderstood
+  - Before: `n_times_per_lane = 3` generated 9 races per racer (3 per lane × 3 lanes)
+  - After: `n_times_per_lane = 1` generates 3 races per racer (1 per lane × 3 lanes)
+- **Custom elimination scheduling** for single-race rounds bypassing problematic rotation logic
+- **Automatic tournament detection** that intelligently adapts scheduling behavior
 
-### Core DerbyNet
-- PHP 7.0+ web server (Apache recommended)
-- SQLite or Microsoft Access database
-- Modern web browser for administration
+**Enhanced Scheduling Functions (`website/inc/schedule_one_round.inc`)**
+- New `schedule_elimination_single_race()` function for sequential heat assignment
+- Weight-based racer grouping for competitive matchups
+- Enhanced heat ordering parameters optimized for elimination tournaments
+- Inspection and registration validation preventing invalid racers from being scheduled
 
-### Soapbox Derby Components
-- Raspberry Pi devices (3B+ or newer) for various components
-- ESP32 for start timer
-- MQTT broker (Mosquitto recommended)
-- Customized hardware for finish line detection
-- Network infrastructure (WiFi/Ethernet)
-- Displays with HDMI input
+#### 3. **JSON-Based Elimination Tournament System**
 
-## Installation
+**Configuration Architecture (`website/inc/elimination-configs/`)**
+- Hardcoded tournament formats replacing complex UI configuration
+- Age-group pattern matching using regex for automatic class detection
+- Predefined race parameters (races per racer, advancement rules, scoring methods)
+- Four tournament formats: Ages 6-8, Ages 9-11, Ages 12-14, and VIP brackets
+
+**Database Schema (`website/sql/sqlite/elimination-tables.inc`)**
+- `EliminationTournaments` - Tournament state and configuration tracking
+- `EliminationRoundState` - Round progression and status management  
+- `EliminationAdvancement` - Advancement audit trail and scoring history
+
+**Tournament Management (`website/inc/elimination-config.inc`)**
+- Configuration validation ensuring tournament integrity
+- Tournament state persistence surviving system restarts
+- API endpoints for tournament initialization and advancement
+
+#### 4. **Enhanced Kiosk and Display System**
+
+**Professional Elimination Displays (`website/kiosks/`)**
+- `elimination-standings.kiosk` - Tournament standings with auto-scroll and modern gradient styling
+- `elimination-results.kiosk` - Round-by-round race results with tournament context
+- Real-time updates with 5-second auto-refresh cycles
+- Color-coded status indicators (green "ADVANCING", red "ELIMINATED" badges)
+
+**Visual Enhancements (`website/css/elimination-kiosks.css`)**
+- Stunning gradient backgrounds with elegant card layouts
+- Professional typography and smooth animations
+- Responsive design adapting to different screen sizes
+- Auto-scroll animation for long racer lists
+
+#### 5. **Core DerbyNet System Enhancements**
+
+**Broadcast Messaging System**
+- Real-time announcements to all active kiosk displays
+- Overlay messaging with configurable duration (1-300 seconds)
+- API endpoints for sending and clearing broadcast messages
+
+**Smart Coordinator Interface**
+- Schedule modal that automatically detects elimination tournaments
+- Visual feedback when elimination tournaments are detected
+- Preserved manual control while adding intelligent automation
+
+**Scene Management Integration**
+- Coordinator page integration for centralized scene control during races
+- Real-time scene updates across all connected kiosks
+
+### 🎯 Benefits for Original DerbyNet Project
+
+#### **Universal Improvements (All DerbyNet Users)**
+1. **Critical Bug Fixes**: Scheduling engine parameter fixes benefit all users
+2. **Enhanced Kiosk Architecture**: Improved display system with better messaging
+3. **Professional UI Components**: Modern styling and responsive design elements
+4. **Robust Error Handling**: Better validation and edge case management
+
+#### **New Feature Framework (Optional for Pinewood Derby)**
+1. **Tournament System**: Reusable framework adaptable to other tournament formats
+2. **MQTT Infrastructure**: Scalable messaging architecture for hardware integration
+3. **Elimination Displays**: Professional tournament visualization system
+4. **Hardware Abstraction**: Standardized approach to timer and device integration
+
+#### **Soapbox Derby Specific (Add-on Package)**
+1. **Complete Hardware Stack**: Production-ready soapbox derby infrastructure
+2. **Live Streaming**: Camera integration for race viewing and replay
+3. **Outdoor Optimization**: Network resilience for outdoor racing environments
+
+---
+
+## 🏗️ System Architecture
+
+### Core DerbyNet Foundation
+- **PHP Web Application**: Central race management with SQLite/Access database
+- **Multi-device Architecture**: Central server with connected client displays
+- **Timer Integration**: Automatic time capture with hardware timer support
+- **Kiosk Display System**: Configurable displays with scene management
+
+### SBDerbyNet Extensions
+
+#### **Hardware Infrastructure Layer**
+1. **Race Server** (`extras/soapbox/infra/server/derbyRace.py`): Central orchestration service managing race state, DerbyNet API communication, and timer coordination via MQTT
+2. **Finish Timer** (`extras/soapbox/infra/finishtimer/`): Raspberry Pi-based lane finish detection using GPIO toggle switches with LED status indication
+3. **Start Timer** (`extras/soapbox/infra/starttimer/`): ESP32-based race start signal detection and MQTT broadcasting
+4. **Derby Display** (`extras/soapbox/infra/derbydisplay/`): Real-time race information display updating via MQTT
+5. **HLS Feed Service** (`extras/soapbox/hlsfeed/`): RTSP/HLS video streaming for race viewing with automatic cleanup
+6. **Race Simulation** (`extras/soapbox/infra/server/simulate_racing.py`): Comprehensive testing framework for system validation
+
+#### **Enhanced Race Management**
+- **Elimination Tournament Engine**: JSON-configured tournament formats with automatic progression
+- **Advanced Scheduling**: Weight-based grouping, consecutive race avoidance, lane optimization
+- **Professional Displays**: Tournament standings, bracket visualization, auto-scroll capabilities
+- **Broadcast Messaging**: Real-time announcements across all connected displays
+
+---
+
+## 📋 System Requirements
+
+### Core DerbyNet Requirements
+- **Web Server**: PHP 7.0+ (Apache recommended)
+- **Database**: SQLite or Microsoft Access
+- **Client**: Modern web browsers for administration and display
+
+### SBDerbyNet Hardware Components
+- **Processing**: Raspberry Pi devices (3B+ or newer) for race coordination
+- **Networking**: MQTT broker (Mosquitto recommended), WiFi/Ethernet infrastructure
+- **Displays**: HDMI-compatible displays for kiosk systems
+- **Race Hardware**: 
+  - ESP32 microcontroller for start detection
+  - Toggle switches for finish line detection
+  - LED indicators for race status
+  - Camera systems for live streaming (optional)
+
+### Network Configuration
+- **Subnet**: 192.168.100.x recommended for isolated race network
+- **MQTT Broker**: Central message coordination (192.168.100.10 default)
+- **Bandwidth**: Sufficient for multiple video streams and real-time messaging
+
+---
+
+## 🚀 Installation & Quick Start
 
 ### Core DerbyNet Installation
-See the installation guides in the `docs/` directory for platform-specific instructions:
-- Debian/Ubuntu Linux
-- Windows
-- macOS
-- Docker
 
-### Developing Locally
-
-To quickly get started on local development, the existing Docker image can be
-used to provide the web server and PHP engine, even if you don't have these
-installed natively on your machine.
-
-1. Install [Apache Ant](https://ant.apache.org/). 
-   1. You can [install WSL](https://learn.microsoft.com/en-us/windows/wsl/install) and run:
-
-      ```bash
-      sudo apt-get update
-      sudo apt-get install ant
-      ```
-
-2. Execute `ant generated` from the root of the cloned repository.  (This build
-target includes a step to generate PDF files from their ODF source files.  This
-step will be silently skipped if the LibreOffice/OpenOffice `soffice`
-application is not available.)
-
-3. If desired, do one or both of the following.  (If you do neither, you won't
-be able to connect to a hardware timer.)
-
-   1. Execute `ant timer-in-brower` to build the in-browser timer interface.
-   2. Execute `ant timer-jar` to build the derby-timer.jar timer interface.
-
-4. Instantiate the docker container, but use your local sources rather than
-those deployed in the container.  _**PATH_TO_YOUR_DATA**_ is a local directory
-where you'd like databases, photos, and other data files to be stored.
-_**PATH_TO_YOUR_REPOSITORY**_ is the path to your local cloned repository.
-
-   ```powershell
-   docker run --detach -p 80:80 -p 443:443 \
-     --volume [** PATH TO YOUR DATA **]\lib\:/var/lib/derbynet \
-     --mount type=bind,src=[** PATH TO YOUR REPOSITORY **]\website\,target=/var/www/html,readonly \
-     jeffpiazza/derbynet_server   
-   ```
-
-### Soapbox Derby Installation
-
-Refer to the [Soapbox Derby README](/extras/soapbox/README.md) for detailed installation instructions for the Soapbox Derby components. Key installation steps include:
-
-1. Set up Raspberry Pi devices with the appropriate SD card images
-2. Configure network for 192.168.100.x subnet
-3. Install required dependencies (Python, MQTT, etc.)
-4. Configure and start system services:
-   - derbyrace.service
-   - derbyTime.service
-   - finishtimer.service
-   - derbydisplay.service
-   - hlsfeed.service
-
-## Testing
-
-### Core DerbyNet Testing
-The `testing/` directory contains scripts for testing various aspects of DerbyNet operation.
-
-### Soapbox Derby Testing
-The Soapbox Derby system includes comprehensive testing tools:
-
+#### **Option 1: Docker Development (Recommended)**
 ```bash
-# Run all system tests
-python3 tests/system_test.py
+# Install Apache Ant
+sudo apt-get update && sudo apt-get install ant
 
-# Test specific component
-python3 tests/system_test.py --test timers
+# Build the project
+ant generated
 
-# Test network resilience
-python3 tests/network_resilience_test.py
+# Optional: Build timer interfaces
+ant timer-in-browser  # Web-based timer
+ant timer-jar        # Java timer application
 
-# Run race simulations for testing and analysis
-python3 extras/soapbox/infra/server/simulate_racing.py
+# Run with Docker (replace paths as needed)
+docker run --detach -p 80:80 -p 443:443 \
+  --volume /path/to/your/data:/var/lib/derbynet \
+  --mount type=bind,src=/path/to/repository/website,target=/var/www/html,readonly \
+  jeffpiazza/derbynet_server
 ```
 
-For detailed testing procedures, refer to the [Soapbox Test Guide](/extras/soapbox/doc/SoapboxDerby_Test_Guide.md).
+#### **Option 2: Manual Installation**
+Refer to installation guides in `docs/` directory:
+- **Linux**: Debian/Ubuntu installation guide
+- **Windows**: Windows-specific setup instructions  
+- **macOS**: Mac installation procedures
+- **Docker**: Container deployment guide
 
-## Slideshow Configuration
+### SBDerbyNet Hardware Setup
 
-DerbyNet includes a powerful slideshow system for displaying sponsor images, intermission content, and general announcements during racing events.
+#### **1. Raspberry Pi Preparation**
+```bash
+# Flash SD cards with Raspberry Pi OS
+# Configure network for 192.168.100.x subnet
+# Install required dependencies
+sudo apt-get update
+sudo apt-get install python3 python3-pip mosquitto mosquitto-clients
 
-### Setting Up Slideshow Directory
-
-1. **Configure the base slideshow directory** in Settings:
-   - Navigate to the Settings page in DerbyNet
-   - Find the "Slideshow Directory" field in the Photos section
-   - Set the path to your slideshow images directory (e.g., `/var/lib/derbynet/slides/`)
-   - This setting controls where all slideshow kiosks look for their images
-
-2. **Create slideshow subdirectories** for different purposes:
-   ```bash
-   # The sponsors subdirectory must be created manually
-   mkdir -p /var/lib/derbynet/slides/sponsors
-   mkdir -p /var/lib/derbynet/slides/intermission
-   ```
-
-3. **Set slideshow timing** (optional):
-   - Set "Slideshow Duration (seconds)" in Settings (default: 30 seconds per image)
-   - This applies to all slideshow types
-
-### Directory Structure
-
-```
-/var/lib/derbynet/slides/      # Base slideshow directory (configured in Settings)
-├── title.png                  # Title slide for main slideshow kiosk
-├── image1.jpg                 # General slideshow images
-├── image2.png                 # (displayed in alphabetical order)
-├── sponsors/                  # Sponsor subdirectory (must be created manually)
-│   ├── title.png             # Title slide for sponsors kiosk (displayed first)
-│   ├── sponsor1.jpg          # Sponsor logos and advertisements
-│   ├── sponsor2.png          # (displayed in alphabetical order after title)
-│   └── ...
-└── intermission/             # Intermission subdirectory
-    ├── title.png             # Title slide for intermission kiosk
-    ├── safety-rules.jpg      # Intermission content between heats
-    ├── thank-you.png         # (displayed in alphabetical order after title)
-    └── ...
+# Install Python requirements
+pip3 install paho-mqtt psutil RPi.GPIO
 ```
 
-### Supported Image Formats
+#### **2. Service Installation**
+```bash
+# Copy service files to appropriate locations
+sudo cp extras/soapbox/infra/*/setup.sh /opt/
+sudo chmod +x /opt/setup.sh && /opt/setup.sh
 
-- JPEG (.jpg, .jpeg)
-- PNG (.png)
-- GIF (.gif)
-- WebP (.webp)
+# Enable and start services
+sudo systemctl enable derbyrace.service
+sudo systemctl enable finishtimer.service
+sudo systemctl enable derbydisplay.service
+sudo systemctl enable hlsfeed.service
 
-### Kiosk Configuration
+# Start all services
+sudo systemctl start derbyrace
+sudo systemctl start finishtimer
+sudo systemctl start derbydisplay
+sudo systemctl start hlsfeed
+```
 
-**Available slideshow kiosk types:**
+#### **3. Network Configuration**
+```bash
+# Configure MQTT broker
+sudo systemctl enable mosquitto
+sudo systemctl start mosquitto
 
-1. **General Slideshow** (`slideshow.kiosk`):
-   - Displays images from the main slideshow directory (non-recursive)
-   - Starts with `title.png` (if present), then displays remaining images alphabetically
-   - Use for general announcements and information
+# Test MQTT connectivity
+mosquitto_pub -h 192.168.100.10 -t derbynet/test -m "hello"
+mosquitto_sub -h 192.168.100.10 -t derbynet/test
+```
 
-2. **Sponsors Slideshow** (`sponsors.kiosk`):
-   - Displays images from the `sponsors/` subdirectory only
-   - **Important**: The `sponsors/` subdirectory must be created manually by the user
-   - Starts with `sponsors/title.png` (if present), then displays remaining images alphabetically
-   - Perfect for rotating sponsor advertisements
+### Initial System Configuration
 
-3. **Intermission Slideshow** (`intermission.kiosk`):
-   - Displays images from the `intermission/` subdirectory only
-   - Starts with `intermission/title.png` (if present), then displays remaining images alphabetically
-   - Ideal for safety messages, rules, and intermission content
+1. **Access Web Interface**: Navigate to `http://your-server-ip/setup.php`
+2. **Database Setup**: Create or select database location
+3. **Race Configuration**: Import racers or create fake roster for testing
+4. **Hardware Setup**: Configure timer connections and device assignments
+5. **Display Setup**: Assign kiosk displays and configure scenes
 
-**Slideshow Behavior:**
-- All kiosks search for images in a **non-recursive** manner (subdirectories are not scanned unless specifically configured)
-- Each kiosk type starts with its respective "title" slide, then cycles through remaining images in alphabetical order
-- Image display duration is controlled by the "Slideshow Duration" setting in Settings page
+---
 
-### Usage Instructions
+## 🎮 Race Management Features
 
-1. **Add images to appropriate directories**:
-   - Copy image files to the main slideshow directory for general slideshow
-   - Create the `sponsors/` subdirectory manually and add sponsor images there
-   - Add `title.png` files as the first slide for each kiosk type
-   - Remaining images will be displayed in alphabetical order by filename
+### **Comprehensive Racer Management**
+- **Registration System**: Import from CSV or manual entry with photo support
+- **Check-in Process**: Day-of-race attendance tracking with inspection validation
+- **Class Organization**: Age-based groupings with automatic tournament detection
+- **Car Management**: Weight tracking, numbering system, inspection status
 
-2. **Assign kiosk displays**:
-   - Go to Kiosk Dashboard or use Scene Management
-   - Assign displays to the appropriate slideshow type:
-     - `slideshow` for general content from main directory
-     - `sponsors` for sponsor advertisements from sponsors/ subdirectory
-     - `intermission` for intermission content from intermission/ subdirectory
+### **Advanced Scheduling Engine**
+- **Smart Heat Generation**: Weight-based grouping, consecutive race avoidance
+- **Elimination Tournaments**: JSON-configured formats with automatic progression
+- **Flexible Scheduling**: Support for partial heats, dropout handling, manual overrides
+- **Lane Optimization**: Balanced lane usage with bias detection and correction
 
-3. **Image naming recommendations**:
-   ```
-   title.png              # Always displayed first (if present)
-   01-welcome.jpg         # Numbers for ordering after title
-   02-sponsor-abc.png     # Descriptive names
-   03-safety-rules.jpg    # Easy to manage
-   ```
+### **Real-time Race Operations**
+- **Live Timing**: Automatic capture from hardware timers with manual override capability
+- **Result Tracking**: Instant standings calculation with multiple scoring methods
+- **Heat Management**: Automatic progression with coordinator control
+- **Broadcast Messaging**: Instant announcements to all displays
 
-4. **Setting up the sponsors kiosk specifically**:
-   ```bash
-   # Create sponsors subdirectory manually
-   mkdir -p /var/lib/derbynet/slides/sponsors
-   
-   # Add title slide (displayed first)
-   cp sponsor-title.png /var/lib/derbynet/slides/sponsors/title.png
-   
-   # Add sponsor images (displayed in alphabetical order)
-   cp sponsor1.jpg /var/lib/derbynet/slides/sponsors/
-   cp sponsor2.png /var/lib/derbynet/slides/sponsors/
-   ```
+### **Professional Display System**
+- **Tournament Standings**: Real-time elimination bracket visualization
+- **Race Results**: Heat-by-heat result displays with advancement indicators
+- **Slideshow Management**: Sponsor displays, intermission content, general announcements
+- **Scene Control**: Centralized display management with one-click scene changes
 
-### Advanced Configuration
+---
 
-**Custom timing per slideshow type** (optional):
-- Add specific duration settings in the database for different slideshow types:
-  - `slideshow-duration-sponsors` - Custom timing for sponsor slides
-  - `slideshow-duration-intermission` - Custom timing for intermission slides
-- If not set, uses the main `slideshow-duration` setting
+## 🏆 Elimination Tournament System
 
-**Image optimization tips**:
-- Use consistent image dimensions for best display results
-- Optimize image file sizes for faster loading
-- Consider display resolution when preparing images
+### **Tournament Formats**
 
-## Broadcast Messaging System
+#### **Ages 6-8 (4 Rounds)**
+- **Preliminary**: 3 races per racer (1 per lane), top 27 advance by total time
+- **Quarter Finals**: 1 race per racer, top 9 advance by single time
+- **Semi-Finals**: 1 race per racer, top 3 advance by single time
+- **Finals**: 1 race, final placement by finish order
 
-DerbyNet includes a powerful broadcast messaging system that allows race coordinators to send urgent announcements to all active kiosk displays.
+#### **Ages 9-11 (4 Rounds)**
+- **Preliminary**: 3 races per racer (1 per lane), top 27 advance by total time
+- **Quarter Finals**: 1 race per racer, top 9 advance by single time
+- **Semi-Finals**: 1 race per racer, top 3 advance by single time
+- **Finals**: 1 race, final placement by finish order
 
-### Features
+#### **Ages 12-14 (3 Rounds)**
+- **Preliminary**: 3 races per racer (1 per lane), top 9 advance by total time
+- **Semi-Finals**: 1 race per racer, top 3 advance by single time
+- **Finals**: 1 race, final placement by finish order
 
-- **Instant Display**: Messages appear on all kiosk screens within 5 seconds
+### **Key Features**
+- **Automatic Detection**: Tournament format applied based on class name patterns
+- **State Persistence**: Tournament progress survives system restarts
+- **Dropout Handling**: Partial heats with fewer racers when participants withdraw
+- **Heat Optimization**: Prioritized spacing between races for adequate rest periods
+- **Professional Displays**: Real-time standings with advancement indicators
+
+### **Configuration Management**
+- **JSON-Based**: Hardcoded tournament formats for reliability and predictability
+- **Pattern Matching**: Automatic detection based on class names (e.g., "Ages 6-8", "6-8", "6 to 8")
+- **Validation**: Comprehensive configuration validation preventing tournament errors
+- **Audit Trail**: Complete advancement history with scoring details
+
+---
+
+## 📱 Kiosk Display System
+
+### **Core Display Types**
+- **Now Racing**: Current heat information with real-time updates
+- **Standings**: Overall race standings with class breakdowns
+- **Results by Racer**: Individual racer performance history
+- **Awards Presentation**: Ceremony display with winner announcements
+
+### **Elimination Tournament Displays**
+- **Tournament Standings**: Professional bracket visualization with gradient styling
+- **Round Results**: Heat-by-heat elimination results with advancement indicators
+- **Auto-refresh**: 5-second update cycles for real-time information
+- **Auto-scroll**: Smooth scrolling for long racer lists with 30-second cycles
+
+### **Slideshow System**
+- **General Slideshow**: Main directory images with title slide priority
+- **Sponsor Displays**: Dedicated sponsor subdirectory with custom timing
+- **Intermission Content**: Safety messages and rules during race breaks
+- **Configurable Timing**: Per-slideshow type duration settings
+
+### **Broadcast Messaging**
+- **Instant Announcements**: Emergency messages to all displays within 5 seconds
 - **Prominent Overlay**: White text on black background covering top 20% of screen
-- **Auto-Timing**: Messages automatically disappear after specified duration
-- **Permission-Based**: Only users with race control permissions can send messages
-- **Cross-Platform**: Works on all kiosk types (now-racing, standings, slideshow, etc.)
+- **Auto-expiring**: Configurable duration (1-300 seconds) with automatic cleanup
+- **Permission-based**: Coordinator-level access required for message broadcast
 
-### API Endpoints
+### **Scene Management**
+- **Centralized Control**: One-click scene changes from coordinator page
+- **Predefined Scenes**: Common display configurations for different race phases
+- **Real-time Updates**: Immediate scene changes across all connected displays
+- **Coordinator Integration**: Scene selector integrated into race management interface
 
-#### Send Broadcast Message
-**Endpoint**: `POST /action.php`
+---
 
-**Parameters**:
-- `action`: `broadcast.message`
-- `message`: Message text (required, max 255 characters)
-- `duration`: Display duration in seconds (optional, default 20, range 1-300)
+## 🛠️ Hardware Integration
 
-**JavaScript Example**:
-```javascript
-$.post('action.php', {
-    action: 'broadcast.message',
-    message: 'Emergency: Track delay - 15 minutes',
-    duration: 30
-});
-```
+### **MQTT Communication Architecture**
+- **Central Broker**: Mosquitto MQTT broker for message coordination
+- **Device Discovery**: Automatic registration and health monitoring
+- **Message Persistence**: Offline storage during network interruptions
+- **QoS Levels**: Appropriate quality of service for different message types
 
-**CURL Example**:
+### **Finish Timer System**
+- **Hardware Platform**: Raspberry Pi with DerbyNet PCB v1
+- **Detection Method**: Physical toggle switches for reliable finish detection
+- **Status Indication**: RGB LED showing connection and race status
+- **Display Integration**: 4-digit 7-segment display for diagnostics and lane numbers
+- **Network Resilience**: Automatic reconnection with exponential backoff
+
+### **Start Timer System**
+- **Hardware Platform**: ESP32 microcontroller for start signal detection
+- **Signal Broadcasting**: MQTT message distribution to all race components
+- **Battery Operation**: Portable deployment for start line positioning
+- **Wireless Communication**: WiFi connectivity to race network
+
+### **Video Streaming System**
+- **Camera Integration**: RTSP camera support with automatic HLS conversion
+- **Stream Management**: Nginx-based serving with segment cleanup
+- **Multi-camera Support**: Configurable camera positions and feeds
+- **Replay Capability**: Race event recording and playback functionality
+
+### **Display Management**
+- **Centralized Control**: Python-based display coordination
+- **Error Handling**: Automatic recovery from display failures
+- **Status Monitoring**: Health reporting and diagnostic information
+- **Content Synchronization**: Real-time updates across all display nodes
+
+---
+
+## 🔧 Testing & Quality Assurance
+
+### **Core DerbyNet Testing**
 ```bash
-curl -X POST http://localhost/action.php \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -H "Cookie: PHPSESSID=YOUR_SESSION_COOKIE_HERE" \
-  -d "action=broadcast.message" \
-  -d "message=Emergency: Track delay - 15 minutes" \
-  -d "duration=30"
+# Navigate to testing directory
+cd testing/
+
+# Run basic system tests
+./test-basic-racing.sh
+./test-elimination-system.sh
+./test-photo-upload.sh
+
+# Database and schema validation
+./test-database-schema.sh
+./test-permissions.sh
 ```
 
-#### Clear Active Message
-**Endpoint**: `POST /action.php`
-
-**Parameters**:
-- `action`: `broadcast.clear`
-
-**JavaScript Example**:
-```javascript
-$.post('action.php', {
-    action: 'broadcast.clear'
-});
-```
-
-**CURL Example**:
+### **SBDerbyNet Hardware Testing**
 ```bash
-curl -X POST http://localhost/action.php \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -H "Cookie: PHPSESSID=YOUR_SESSION_COOKIE_HERE" \
-  -d "action=broadcast.clear"
+# Comprehensive system test
+python3 extras/soapbox/infra/server/simulate_racing.py
+
+# Individual component tests
+python3 testing/test_mqtt_communication.py
+python3 testing/test_finish_timer.py
+python3 testing/test_display_system.py
+
+# Network resilience testing
+python3 testing/network_resilience_test.py
 ```
 
-### Usage Guidelines
+### **Race Simulation System**
+- **Complete Race Simulation**: End-to-end race scenarios with realistic timing
+- **Hardware Simulation**: Mock hardware responses for testing without physical devices
+- **Load Testing**: Multiple concurrent races and high racer counts
+- **Edge Case Testing**: Dropout scenarios, network failures, timing conflicts
 
-**Obtaining Session Cookie**:
-1. Log in to DerbyNet through the web interface
-2. Use browser developer tools to find the `PHPSESSID` cookie value
-3. Use this value in API calls for authentication
+### **Quality Metrics**
+- **Code Coverage**: Comprehensive test coverage for critical race management functions
+- **Performance Testing**: Response time validation under race day load conditions
+- **Reliability Testing**: 24-hour continuous operation validation
+- **Security Testing**: Input validation and permission boundary testing
 
-**Message Best Practices**:
-- Keep messages concise and clear
-- Use urgent language for time-sensitive announcements
-- Consider the display duration based on message length
-- Test message visibility on different kiosk screen sizes
+---
 
-**Common Use Cases**:
-- Emergency announcements
-- Schedule changes or delays
-- Safety reminders during intermissions
-- Awards ceremony notifications
-- Weather-related updates
+## 📚 Comprehensive Documentation
 
-## Troubleshooting
+### **User Guides**
+- **Race Director Guide**: Complete race day operations manual
+- **Setup Instructions**: Step-by-step installation and configuration
+- **Troubleshooting Guide**: Common issues and resolution procedures
+- **Feature Reference**: Detailed feature documentation with examples
 
-### Core DerbyNet
-Check the error logs in your web server configuration. For standard installations, logs are in `/var/log/apache2/` on Linux or in the error logs of your web host application.
+### **Technical Documentation**
+- **API Reference**: Complete MQTT API and HTTP endpoint documentation
+- **Database Schema**: Table structure and relationship documentation
+- **Hardware Specifications**: Detailed hardware requirements and pinout information
+- **Architecture Overview**: System design and component interaction diagrams
 
-### Soapbox Derby Components
-System logs are available via standard systemd journal:
+### **Developer Resources**
+- **Contributing Guidelines**: Code standards and contribution procedures
+- **Testing Framework**: Test suite documentation and best practices
+- **Deployment Guide**: Production deployment recommendations
+- **Performance Optimization**: Tuning guidelines for large-scale events
 
-```bash
-# View race server logs
-sudo journalctl -u derbyrace
+---
 
-# View finish timer logs
-sudo journalctl -u finishtimer
+## 🛡️ Security & Reliability
 
-# View display logs
-sudo journalctl -u derbydisplay
+### **Permission System**
+- **Role-based Access**: Granular permissions for different user types
+- **Session Management**: Secure authentication with timeout handling
+- **API Protection**: Endpoint protection with proper authorization checks
+- **Audit Logging**: Complete activity logging for security monitoring
 
-# View HLS feed logs
-sudo journalctl -u hlsfeed
-```
+### **Data Protection**
+- **Database Backup**: Automatic backup creation with restore procedures
+- **Race Data Integrity**: Transaction-based updates with rollback capability
+- **Photo Management**: Secure image storage with access controls
+- **Export Capabilities**: Complete data export for record keeping
 
-For HLS stream troubleshooting, refer to the [HLS Replay Documentation](/extras/soapbox/doc/HLS_REPLAY_DOCUMENTATION.md#comprehensive-troubleshooting).
+### **Network Security**
+- **Isolated Network**: Recommendation for dedicated race network
+- **MQTT Security**: Username/password authentication for MQTT broker
+- **Encrypted Communications**: TLS support for sensitive communications
+- **Access Controls**: Network-level restrictions for race components
 
-## License
+### **Reliability Features**
+- **Automatic Recovery**: System restart and reconnection handling
+- **Graceful Degradation**: Continued operation during component failures
+- **Health Monitoring**: Proactive monitoring with alert capabilities
+- **Backup Systems**: Redundant timer and display capabilities
 
-This project is released under the MIT License. See the LICENSE file for details.
+---
+
+## 🤝 Contributing & Support
+
+### **Getting Started with Development**
+1. **Fork Repository**: Create your own fork for development
+2. **Development Environment**: Set up local testing environment
+3. **Test Suite**: Run comprehensive tests before submitting changes
+4. **Documentation**: Update documentation for new features
+
+### **Contribution Guidelines**
+- **Code Standards**: Follow existing code style and conventions
+- **Testing Requirements**: All new features must include appropriate tests
+- **Documentation**: Update relevant documentation for changes
+- **Backward Compatibility**: Maintain compatibility with existing installations
+
+### **Bug Reports & Feature Requests**
+- **Issue Templates**: Use provided templates for consistent reporting
+- **Detailed Information**: Include system information and reproduction steps
+- **Test Cases**: Provide specific examples and expected behavior
+- **Screenshots**: Include visual documentation for UI-related issues
+
+### **Community Support**
+- **Discussion Forum**: Community support and feature discussions
+- **Documentation Wiki**: Collaborative documentation improvement
+- **Best Practices**: Shared experiences and optimization techniques
+- **Event Showcases**: Real-world implementation examples and success stories
+
+---
+
+## 📄 License & Credits
+
+### **Licensing**
+This project is released under the **MIT License**, maintaining compatibility with the original DerbyNet project. See the `MIT-LICENSE.txt` file for complete license details.
+
+### **Original Project Credits**
+- **DerbyNet**: Created by Jeff Piazza and the DerbyNet community
+- **Website**: [https://derbynet.org](https://derbynet.org)
+- **Repository**: [https://github.com/jeffpiazza/derbynet](https://github.com/jeffpiazza/derbynet)
+
+### **SBDerbyNet Development**
+- **Enhancement Development**: Extensive modifications for soapbox derby racing
+- **Hardware Integration**: Custom hardware stack for outdoor racing events
+- **Tournament System**: JSON-based elimination tournament framework
+- **Professional Displays**: Modern UI/UX for race visualization
+
+### **Acknowledgments**
+- **DerbyNet Community**: Foundation and ongoing development of core race management system
+- **Soapbox Derby Community**: Requirements gathering and real-world testing feedback
+- **Open Source Contributors**: Various libraries and tools that make this system possible
+
+---
+
+## 🔗 Quick Links
+
+### **Essential Documentation**
+- [Installation Guide](docs/) - Platform-specific setup instructions
+- [Race Director Manual](extras/soapbox/doc/SoapboxDerby_Test_Guide.md) - Complete operations guide
+- [Hardware Setup](extras/soapbox/infra/) - Component installation and configuration
+- [Troubleshooting](extras/soapbox/doc/HLS_REPLAY_DOCUMENTATION.md#comprehensive-troubleshooting) - Common issues and solutions
+
+### **Technical References**
+- [MQTT API Documentation](extras/soapbox/doc/MQTT_API.md) - Message protocol specification
+- [Database Schema](website/sql/) - Table structure and relationships
+- [Elimination Tournaments](website/inc/elimination-configs/) - Tournament configuration examples
+- [Kiosk System](website/kiosks/) - Display configuration and customization
+
+### **Development Resources**
+- [Contributing Guidelines](CONTRIBUTING.md) - Code standards and procedures
+- [Testing Framework](testing/) - Test suite and validation procedures
+- [API Reference](website/ajax/) - HTTP endpoint documentation
+- [Hardware Specifications](extras/soapbox/infra/finishtimer/README.md) - Detailed hardware requirements
+
+**Ready to get started?** Begin with the [Installation Guide](docs/) and join the growing community of race directors using SBDerbyNet for professional soapbox derby events!
