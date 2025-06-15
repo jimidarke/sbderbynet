@@ -157,10 +157,10 @@ function racing_state_allowed(&$current)
   // }
 
 
-  // Check registration status first
-  if (!check_registration_status($current['roundid'])) {
-    return false;
-  }
+  // Check registration status first - DISABLED to allow racing without registration requirement
+  // if (!check_registration_status($current['roundid'])) {
+  //   return false;
+  // }
 
   $finished = read_single_value(
     'SELECT COUNT(*) FROM RaceChart'

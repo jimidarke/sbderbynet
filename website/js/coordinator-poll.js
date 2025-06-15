@@ -1191,7 +1191,8 @@ $(function () {
 });
 
 
-// Handle AJAX success events to show notifications
+// Handle AJAX success events to show notifications - DISABLED to remove registration restrictions
+/*
 $(document).ajaxSuccess(function (event, xhr, options, data) {
   if (data && data.registration_status) {
     const status = data.registration_status;
@@ -1242,6 +1243,7 @@ $(document).ajaxSuccess(function (event, xhr, options, data) {
     }
   }
 });
+*/
 
 function handleRacerDropout(racerid, roundid) {
   if (confirm('Are you sure you want to remove this racer from the current round?')) {
