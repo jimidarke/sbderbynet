@@ -23,16 +23,15 @@ This project represents substantial enhancements to the original DerbyNet system
 
 ### 🚀 Key Technical Contributions
 
-#### 1. **Completely New Infrastructure Layer (`extras/soapbox/`)**
+#### 1. **New SoapBox Infrastructure Layer (`extras/soapbox/`)**
 
 **Central Race Server (`infra/server/`)**
 - Python-based coordination system using MQTT messaging protocol
 - Standardized network library with resilient connection handling and message queuing
-- Real-time race coordination between multiple hardware components
-- Advanced retry logic with exponential backoff and persistent message storage
+- Real-time race coordination between multiple hardware components such as finish timers and starting triggers
 
 **Hardware Integration (`infra/finishtimer/` & `infra/starttimer/`)**
-- Raspberry Pi finish timer with toggle switch detection and LED status indicators
+- Raspberry Pi finish timer with toggle switch detection and LED status indicators for each lane
 - ESP32 start timer for race start signal detection
 - Hardware abstraction layer supporting DerbyNet PCB v1 with detailed pinout specifications
 - Network resilience features including offline message persistence and automatic recovery
@@ -92,7 +91,7 @@ This project represents substantial enhancements to the original DerbyNet system
 #### 5. **Core DerbyNet System Enhancements**
 
 **Broadcast Messaging System**
-- Real-time announcements to all active kiosk displays
+- Real-time text announcements to all active kiosk displays
 - Overlay messaging with configurable duration (1-300 seconds)
 - API endpoints for sending and clearing broadcast messages
 
@@ -162,7 +161,7 @@ This project represents substantial enhancements to the original DerbyNet system
 ### SBDerbyNet Hardware Components
 - **Processing**: Raspberry Pi devices (3B+ or newer) for race coordination
 - **Networking**: MQTT broker (Mosquitto recommended), WiFi/Ethernet infrastructure
-- **Displays**: HDMI-compatible displays for kiosk systems
+- **Displays**: HDMI-compatible displays for kiosk systems (Raspberry Pi 4+)
 - **Race Hardware**: 
   - ESP32 microcontroller for start detection
   - Toggle switches for finish line detection
