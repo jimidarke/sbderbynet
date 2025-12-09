@@ -1,69 +1,97 @@
 <?php
 
-require_once('inc/data.inc');
-require_once('inc/authorize.inc');
-require_once('inc/elimination-config.inc');
-require_once('inc/permissions.inc');
+/**
+ * Action endpoint to save elimination configuration
+ *
+ * POST parameters:
+ *   operation - 'update'|'create' (update existing file or create new)
+ *   filename - Configuration filename (for update operation)
+ *   config_json - JSON string of full configuration object
+ *
+ * Returns:
+ *   - outcome: success/failure
+ *   - filename: Saved filename
+ *   - message: Success/error message
+ */
 
-if (have_permission(CONTROL_RACE_PERMISSION)) {
-  try {
-    $classid = $_POST['classid'];
-    $configid = isset($_POST['configid']) ? $_POST['configid'] : null;
-    $config_name = $_POST['config_name'];
-    $rounds_data = json_decode($_POST['rounds_data'], true);
-    
-    if (!$classid || !$config_name || !$rounds_data) {
-      json_failure('missing-data', 'Missing required data');
-      return;
+require_once('inc/elimination-config.inc');
+require_once('inc/elimination-config-file-ops.inc');
+
+if (have_permission(SET_UP_PERMISSION)) {
+    try {
+        $operation = $_POST['operation'] ?? 'update';
+        $filename = $_POST['filename'] ?? null;
+        $config_json = $_POST['config_json'] ?? null;
+
+        if (!$config_json) {
+            json_failure('missing-data', 'Configuration data is required');
+            return;
+        }
+
+        // Parse JSON configuration
+        $config_data = json_decode($config_json, true);
+        if (!$config_data) {
+            json_failure('invalid-json', 'Invalid JSON data: ' . json_last_error_msg());
+            return;
+        }
+
+        // Validate configuration structure
+        if (!validate_elimination_config($config_data)) {
+            json_failure('invalid-config', 'Configuration validation failed. Check format_name, age_groups, and rounds structure.');
+            return;
+        }
+
+        // Generate filename for new configs
+        if ($operation === 'create') {
+            $format_name = $config_data['format_name'] ?? 'unnamed';
+            $filename = generate_safe_filename($format_name) . '.json';
+
+            // Check if file already exists
+            $config_dir = 'inc/elimination-configs';
+            if (file_exists($config_dir . '/' . $filename)) {
+                // Append timestamp to make unique
+                $filename = generate_safe_filename($format_name) . '-' . date('His') . '.json';
+            }
+        }
+
+        if (!$filename) {
+            json_failure('missing-filename', 'Filename is required for update operation');
+            return;
+        }
+
+        // Validate filename (security check)
+        if (strpos($filename, '..') !== false || strpos($filename, '/') !== false) {
+            json_failure('invalid-filename', 'Invalid filename');
+            return;
+        }
+
+        // Check if modifying active tournament config
+        if ($operation === 'update') {
+            $active_classes = get_classes_using_config($filename);
+            if (!empty($active_classes)) {
+                json_failure('tournament-active',
+                           'Cannot modify: active tournaments exist for classes: ' .
+                           implode(', ', $active_classes));
+                return;
+            }
+        }
+
+        // Save configuration file
+        if (save_elimination_config_file($filename, $config_data)) {
+            json_success(array(
+                'message' => 'Configuration saved successfully',
+                'filename' => $filename
+            ));
+        } else {
+            json_failure('save-failed', 'Failed to save configuration file. Check error log for details.');
+        }
+
+    } catch (Exception $e) {
+        error_log("Error in elimination config save: " . $e->getMessage());
+        json_failure('exception', $e->getMessage());
     }
-    
-    if (!is_array($rounds_data) || empty($rounds_data)) {
-      json_failure('invalid-rounds', 'Invalid rounds data');
-      return;
-    }
-    
-    // Validate rounds data
-    foreach ($rounds_data as $i => $round) {
-      if (!isset($round['name']) || !isset($round['runs_per_racer'])) {
-        json_failure('invalid-round-data', "Round $i is missing required fields");
-        return;
-      }
-      
-      if ($round['runs_per_racer'] < 1 || $round['runs_per_racer'] > 6) {
-        json_failure('invalid-runs', "Round $i runs per racer must be between 1 and 6");
-        return;
-      }
-      
-      if (isset($round['advancement_count']) && $round['advancement_count'] < 1) {
-        json_failure('invalid-advancement', "Round $i advancement count must be positive");
-        return;
-      }
-    }
-    
-    if ($configid) {
-      // Update existing configuration
-      $result = update_elimination_config($configid, $config_name, $rounds_data);
-      if ($result) {
-        json_success(array('message' => 'Configuration updated successfully', 'configid' => $configid));
-      } else {
-        json_failure('update-failed', 'Failed to update configuration');
-      }
-    } else {
-      // Create new configuration
-      $new_configid = create_elimination_config($classid, $config_name, $rounds_data);
-      if ($new_configid) {
-        json_success(array('message' => 'Configuration created successfully', 'configid' => $new_configid));
-      } else {
-        json_failure('create-failed', 'Failed to create configuration');
-      }
-    }
-    
-  } catch (Exception $e) {
-    error_log("Error in elimination config save: " . $e->getMessage());
-    json_failure('exception', $e->getMessage());
-  }
 } else {
-  json_not_authorized();
+    json_not_authorized();
 }
 
 ?>

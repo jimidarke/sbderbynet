@@ -1,14 +1,17 @@
 '''
 Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library and communicates over MQTT
-Uses service discovery for improved resilience
+Uses service discovery for improved resilience 
 
-VERSION = "0.6.0"
-  
 Version History:
+- 0.6.3 - Dec 08, 2025 - Fixed rsyslog TAG/programname for unified logging
+- 0.6.2 - Dec 08, 2025 - Simplified boot sequence: show version then lane with LED cycle
+- 0.6.1 - Dec 08, 2025 - Unified logging system integration
 - 0.6.0 - May 25, 2025 - Fixed the AI logging crap and added more robust error handling
 - 0.5.1 - May 22, 2025 - Enhanced logging system with improved source file/line tracking and rsyslog integration
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 '''
+
+VERSION = "0.6.3"
 
 import json
 import time
@@ -46,7 +49,7 @@ except Exception as e:
 
 DEFAULT_MQTT_BROKER = "192.168.100.10"
 DEFAULT_MQTT_PORT = 1883
-TELEMETRY_INTERVAL = 2 # seconds
+TELEMETRY_INTERVAL = 1 # seconds - tightened for faster is-ready detection
 
 # Topics to publish to
 TOGGLE_TOPIC        = "derbynet/device/{}/state"        # toggle state and timestamp
@@ -145,18 +148,28 @@ def send_telemetry():
     client.publish(TELEMETRY_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=1, retain=True)
     client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", qos=1, retain=True)
 
-def post_sequence(): # runs through a sequence of LED colors and pinny displays 
+def post_sequence(): # runs through a sequence of LED colors and pinny displays
     logger.info("Running post sequence")
-    led_sequence = ["white", "red", "green", "blue", "purple", "yellow"]
+
+    # Extract version number for display (e.g., "0.6.2" -> "0062" for 4-digit display)
+    version_parts = VERSION.split('.')
+    version_display = "".join(part.zfill(1) for part in version_parts[:3]).zfill(4)[-4:]  # e.g., "0062"
+
+    # Show version for 2 seconds
+    pcb.setLED("white", False)
+    pcb.setPinny(version_display, False)
+    logger.info(f"Displaying version: {VERSION} as {version_display}")
+    time.sleep(2)
+
+    # Show lane number while cycling through LED colors (10 seconds total)
     lanestr = "LAN" + str(int(pcb.get_Lane()))
-    pinny_sequence = ["----", "err-", "stop", "0000", "batt", lanestr]
-    for i in range(len(led_sequence)):
-        led = led_sequence[i]
-        pinny = pinny_sequence[i]
-        pcb.setLED(led, False)
-        pcb.setPinny(pinny, False)
-        time.sleep(1)
-    time.sleep(15)    
+    led_sequence = ["red", "green", "blue", "purple", "yellow", "white"]
+    led_duration = 10.0 / len(led_sequence)  # ~1.67 seconds per color
+
+    for led_color in led_sequence:
+        pcb.setLED(led_color, False)
+        pcb.setPinny(lanestr, False)
+        time.sleep(led_duration)    
 
 ###########################     MAIN     ###########################
 def main():

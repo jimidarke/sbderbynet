@@ -73,9 +73,13 @@ if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then
     sudo bash -c "echo 'dtparam=uart=off' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'dtoverlay=disable-bt' >> /boot/firmware/config.txt"
     sudo systemctl disable --now systemd-journald
-    sudo systemctl disable --now rsyslog
-    sudo systemctl disable --now logrotate 
+    # Note: Local logs go to /var/log/derbynet.log (backup on this device)
+    # nodelogger.py also sends logs via rsyslog UDP to central server (derby.jsonl)
+    sudo systemctl disable --now logrotate
     sudo systemctl disable --now cron
+    # Create log file with proper permissions
+    sudo touch /var/log/derbynet.log
+    sudo chmod 666 /var/log/derbynet.log
     sudo systemctl mask tmp.mount
     TOREBOOT=1
 fi
@@ -88,7 +92,7 @@ if [ ! -f /boot/firmware/updated ]; then
         sudo apt update
         sudo apt upgrade -y
         sudo apt install -y rsync python3-pip mosquitto-clients
-        sudo pip install paho-mqtt psutil raspberrypi-tm1637 zeroconf --break
+        sudo pip install paho-mqtt psutil raspberrypi-tm1637 zeroconf --break-system-packages
         sudo apt autoremove -y
         sudo apt clean
         sudo touch /boot/firmware/updated

@@ -1,6 +1,7 @@
 <?php
 
 require_once('inc/data.inc');
+require_once('inc/heartbeat-config.inc');
 
 // TODO Note that coordinator.js also receives these values, but doesn't seem to do anything with them
 
@@ -69,7 +70,8 @@ class TimerState {
       $this->malfunction_message = $cooked[3];
     }
 
-    if ($this->last_contact >= 0 && $this->last_contact + 60 < time()) {
+    // Use centralized timeout threshold from heartbeat-config.inc
+    if ($this->last_contact >= 0 && $this->last_contact + TIMER_DISCONNECT_THRESHOLD < time()) {
       $timed_out = ($this->state != TIMER_NOT_CONNECTED);
       $this->state = TIMER_NOT_CONNECTED;
       if ($timed_out) {

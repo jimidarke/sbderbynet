@@ -1,174 +1,88 @@
-# Server Logging Guide
+# DerbyNet Logging
 
-This document explains the logging system used by Derby server components.
+All logs → `/var/log/derbynet.log`
 
-## Overview
+## Format
 
-The `serverlogger.py` module provides unified logging for all server components with support for:
-- **File logging**: Always enabled (`/var/log/derbynet.log`)
-- **Rsyslog**: For centralized logging (production mode)
-- **Console logging**: For debugging (disables rsyslog to avoid conflicts)
+```
+2025-12-08 14:35:22.123 DERBYPI:INFO [finishtimer.py:234] Lane 1 triggered
+```
 
-## Quick Debug Mode
+| Part | Description |
+|------|-------------|
+| Timestamp | `YYYY-MM-DD HH:MM:SS.mmm` (America/Edmonton) |
+| Device:Level | Hostname uppercase, level: DEBUG/INFO/WARNING/ERROR/CRITICAL |
+| Location | `[filename:line]` |
 
-For immediate troubleshooting, use the debug runner:
+## Usage
+
+**Python (server)**
+```python
+from derbylogger import setup_logger
+logger = setup_logger('derbyrace')
+logger.info("Heat started")
+```
+
+**Python (remote device)**
+```python
+from nodelogger import NodeLogger
+logger = NodeLogger(name='finishtimer').get_logger()
+logger.info("Lane triggered")
+```
+
+**PHP**
+```php
+require_once('inc/error-logging.inc');
+derby_log_info("Heat started");
+derby_log_error("Database failed");
+```
+
+## Viewing Logs
 
 ```bash
-# Run any server component with debug console logging
-./debug-run.sh derbyRace.py
-./debug-run.sh derbyTime.py
-./debug-run.sh lcdscreen/derbyLCD.py
+tail -f /var/log/derbynet.log           # Live tail
+grep ':ERROR \[' /var/log/derbynet.log  # By level
+grep 'FINISH1:' /var/log/derbynet.log   # By device
+grep 'derbyRace.py' /var/log/derbynet.log  # By file
 ```
 
-This automatically enables:
-- Console output (visible in terminal)
-- Debug level logging (shows all messages)
-- Disables rsyslog (prevents conflicts)
+## Configuration
 
-## Environment Variables
+**Timezone** - edit constant in each logger:
+- Python: `DERBY_TIMEZONE = 'America/Edmonton'`
+- PHP: `define('DERBY_TIMEZONE', 'America/Edmonton');`
+- rsyslog: `sudo timedatectl set-timezone America/Edmonton`
 
-Control logging behavior with environment variables:
-
+**Debug mode**:
 ```bash
-# Enable console output (disables rsyslog)
-export DERBY_CONSOLE_LOG=true
-
-# Enable debug level logging
-export DERBY_DEBUG=true
-
-# Run service
-python3 derbyRace.py
+export DERBY_DEBUG=true        # Python
+export DERBY_PHP_DEBUG=true    # PHP
+export DERBY_CONSOLE_LOG=true  # Python console output
 ```
 
-## Logging Modes
+## Architecture
 
-### Production Mode (Default)
-```python
-from serverlogger import ServerLogger
-import logging
+- Server components write directly to log file
+- Remote devices (finish/start timer) send via rsyslog UDP 514
 
-logger = ServerLogger(
-    name='derbyrace',
-    level=logging.INFO,
-    console=False  # Default - uses rsyslog + file
-).get_logger()
-```
+## Files
 
-**Output:**
-- File: `/var/log/derbynet.log`
-- Rsyslog: Sent to syslog daemon
-- Console: None
-
-### Debug Mode
-```python
-logger = ServerLogger(
-    name='derbyrace',
-    level=logging.DEBUG,
-    console=True  # Enables console, disables rsyslog
-).get_logger()
-```
-
-**Output:**
-- File: `/var/log/derbynet.log`
-- Console: All messages visible in terminal
-- Rsyslog: Disabled (prevents conflicts)
-
-### Environment-Controlled Mode
-```python
-import os
-console_mode = os.getenv('DERBY_CONSOLE_LOG', 'false').lower() == 'true'
-debug_mode = os.getenv('DERBY_DEBUG', 'false').lower() == 'true'
-
-logger = ServerLogger(
-    name='derbyrace',
-    level=logging.DEBUG if debug_mode else logging.INFO,
-    console=console_mode
-).get_logger()
-```
-
-## Log Format
-
-All logs use a consistent format:
-```
-2025-05-31 15:30:45 INFO [derbyRace.py:123] Race started for Class A
-2025-05-31 15:30:46 DEBUG [derbyRace.py:145] MQTT message: {"lane": 1, "time": 3.45}
-2025-05-31 15:30:47 ERROR [derbyRace.py:167] Sensor timeout on lane 2
-```
-
-Format: `timestamp level [filename:line] message`
-
-## Why Console and Rsyslog Conflict
-
-**Problem**: When both console and rsyslog handlers are active simultaneously, log messages can be duplicated or interfere with each other, especially in systemd services.
-
-**Solution**: The logger automatically disables rsyslog when console logging is enabled.
-
-## Integration Examples
-
-### Existing Service (derbyRace.py)
-```python
-# Already updated to use environment variables
-from serverlogger import ServerLogger
-import os
-import logging
-
-console_mode = os.getenv('DERBY_CONSOLE_LOG', 'false').lower() == 'true'
-debug_mode = os.getenv('DERBY_DEBUG', 'false').lower() == 'true'
-
-logger = ServerLogger(
-    name='derbyrace',
-    level=logging.DEBUG if debug_mode else logging.INFO,
-    console=console_mode
-).get_logger()
-```
-
-### New Service
-```python
-from serverlogger import ServerLogger
-import logging
-
-# Simple production logging
-logger = ServerLogger(name='mynewservice').get_logger()
-
-# Use logger
-logger.info("Service started")
-logger.debug("This won't show unless debug is enabled")
-logger.error("Something went wrong")
-```
+| File | Purpose |
+|------|---------|
+| `extras/soapbox/infra/server/derbylogger.py` | Python logger (server) |
+| `extras/soapbox/infra/finishtimer/files/nodelogger.py` | Python logger (remote) |
+| `website/inc/error-logging.inc` | PHP logger |
+| `extras/soapbox/infra/server/rsyslog/10-derbynet.conf` | rsyslog config |
 
 ## Troubleshooting
 
-### No Console Output
-- Ensure `DERBY_CONSOLE_LOG=true` is set
-- Check that service isn't running as systemd service (use debug-run.sh)
-
-### Debug Messages Not Showing
-- Set `DERBY_DEBUG=true` to enable debug level
-- Check that logger level is set to `logging.DEBUG`
-
-### Rsyslog Not Working
-- Ensure console logging is disabled (`DERBY_CONSOLE_LOG=false`)
-- Check that rsyslog daemon is running: `systemctl status rsyslog`
-- Verify syslog configuration allows connections on port 514
-
-### Permission Errors
-- Ensure log directory exists: `sudo mkdir -p /var/log`
-- Check write permissions: `sudo touch /var/log/derbynet.log`
-- Run with appropriate user permissions
-
-## Service Integration
-
-For systemd services, add environment variables to the service file:
-
-```ini
-[Service]
-Environment=DERBY_CONSOLE_LOG=false
-Environment=DERBY_DEBUG=false
-ExecStart=/usr/bin/python3 /opt/derbynet/derbyRace.py
-```
-
-For debug sessions, temporarily enable console logging:
 ```bash
-sudo systemctl stop derbyrace
-sudo -E ./debug-run.sh derbyRace.py
+# Check file/permissions
+ls -la /var/log/derbynet.log
+
+# Test Python logger
+python3 /extras/soapbox/infra/server/derbylogger.py
+
+# Check rsyslog
+sudo systemctl status rsyslog
 ```

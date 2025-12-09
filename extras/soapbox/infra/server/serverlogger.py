@@ -1,24 +1,29 @@
 '''
-Logging framework for Derby nodes and server components.
+Logging framework for Derby server components.
+
+This module provides backward compatibility with existing code while
+using the unified DerbyLogger for text-format logging.
+
+Version: 2.0.0
+Date: 2025-12-08
 
 SAMPLE USAGE:
 
 from serverlogger import ServerLogger
 import logging
 
-# Production logging (file + rsyslog)
+# Production logging (file only)
 logger = ServerLogger(
     name='finishtimer',
     log_file='/var/log/derbynet.log',
     level=logging.INFO
 ).get_logger()
 
-# Debug logging to console (disables rsyslog to avoid conflicts)
+# Debug logging to console
 debug_logger = ServerLogger(
     name='finishtimer',
-    log_file='/var/log/derbynet.log',
     level=logging.DEBUG,
-    console=True  # Enables console output, disables rsyslog
+    console=True
 ).get_logger()
 
 # Environment variable control for easy debugging
@@ -40,117 +45,90 @@ logger.warning("Low battery on node 3.")
 
 '''
 
-#DERBY_LOG_FORMAT = '%(asctime)s [%(levelname)s] [{}] [%(filename)s] [%(lineno)d] %(message)s'  
-#LOG_FORMAT_SYSLOG  = '{hwID} %(levelname)s - [%(filename)s:%(lineno)d] %(message)s'
-
-DERBY_LOG_FORMAT   = '%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s'  
-DERBY_SYSLOG_FORMAT = '{} %(levelname)s [%(filename)s:%(lineno)d] %(message)s'
-
-DERBY_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-DERBY_RSYSLOG_IP = '127.0.0.1'
-
 import logging
-import logging.handlers
 import os
-import socket
-import inspect
+
+# Import from derbylogger (in same directory)
+from derbylogger import DerbyLogger, DEFAULT_LOG_FILE, DERBY_TIMEZONE
+
+# Re-export for convenience
+__all__ = ['ServerLogger', 'DEFAULT_LOG_FILE', 'DERBY_TIMEZONE']
+
 
 class ServerLogger:
     """
-    A logger for Derby nodes that supports local and rsyslog logging with a consistent format.
-    
+    A logger for Derby server components that supports file and console logging.
+
+    This class wraps DerbyLogger for backward compatibility.
+
     Args:
-        name: Logger name
-        log_file: Path to log file
-        level: Logging level
-        console: Enable console output (disables rsyslog to avoid conflicts)
-        enable_rsyslog: Enable rsyslog output (disabled if console=True)
+        name: Logger name / component name
+        log_file: Path to log file (default: /var/log/derbynet.log)
+        level: Logging level (default: logging.INFO)
+        console: Enable console output (disables rsyslog)
+        enable_rsyslog: Enable rsyslog output (for remote devices only)
     """
-    def __init__(self, name='derbyserver', log_file='/var/log/derbynet.log', level=logging.INFO, 
-                 console=False, enable_rsyslog=True):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
 
-        formatter = logging.Formatter(fmt=DERBY_LOG_FORMAT, datefmt=DERBY_DATE_FORMAT)
+    def __init__(self, name='derbyserver', log_file=None, level=logging.INFO,
+                 console=False, enable_rsyslog=False):
+        self.name = name
 
-        # Avoid adding handlers multiple times if already configured
-        if not self.logger.hasHandlers():
-            
-            # File handler - always enabled
-            try:
-                # Create log directory if it doesn't exist
-                os.makedirs(os.path.dirname(log_file), exist_ok=True)
-                file_handler = logging.FileHandler(log_file)
-                file_handler.setFormatter(formatter)
-                file_handler.setLevel(level)
-                self.logger.addHandler(file_handler)
-            except Exception as e:
-                # If file logging fails, at least get console output
-                console = True
-                print(f"Warning: Failed to create file handler for {log_file}: {e}")
-            
-            # Console handler - for debugging (conflicts with rsyslog)
-            if console:
-                console_handler = logging.StreamHandler()
-                console_handler.setFormatter(formatter)
-                console_handler.setLevel(level)
-                self.logger.addHandler(console_handler)
-                enable_rsyslog = False  # Disable rsyslog when console is enabled
-                
-            # Syslog handler - disabled when console logging is enabled
-            if enable_rsyslog:
-                try:
-                    syslog_formatter = logging.Formatter(fmt=DERBY_SYSLOG_FORMAT.format(name))
-                    syslog_handler = logging.handlers.SysLogHandler(address=(DERBY_RSYSLOG_IP, 514))
-                    syslog_handler.setFormatter(syslog_formatter)
-                    syslog_handler.setLevel(level)
-                    self.logger.addHandler(syslog_handler)
-                except Exception as e:
-                    # If syslog fails, don't crash - just log to console if available
-                    if console:
-                        print(f"Warning: Failed to create syslog handler: {e}")
-                    else:
-                        # Enable console as fallback
-                        console_handler = logging.StreamHandler()
-                        console_handler.setFormatter(formatter)
-                        console_handler.setLevel(level)
-                        self.logger.addHandler(console_handler)
+        # Convert level int to string for DerbyLogger
+        log_level_name = logging.getLevelName(level) if isinstance(level, int) else level
+
+        # Use default log file if not specified
+        if log_file is None:
+            log_file = DEFAULT_LOG_FILE
+
+        # Create DerbyLogger instance
+        self._derby_logger = DerbyLogger(
+            component=name,
+            device_id='SERVER',
+            log_level=log_level_name,
+            log_file=log_file,
+            console=console,
+            syslog=enable_rsyslog
+        )
+        self.logger = self._derby_logger.get_logger()
 
     def get_logger(self):
+        """Get the underlying Python logger."""
         return self.logger
 
+
 if __name__ == "__main__":
-    import sys
-    
+    print("=== ServerLogger Test ===")
+    print(f"Timezone: {DERBY_TIMEZONE}")
+    print(f"Log File: {DEFAULT_LOG_FILE}")
+    print("")
+
     # Test with console output enabled (for debugging)
     print("=== Testing Console Debug Logging ===")
     debug_logger = ServerLogger(
-        name='derby-test', 
-        level=logging.DEBUG, 
-        console=True  # This disables rsyslog
+        name='derby-test',
+        level=logging.DEBUG,
+        console=True
     ).get_logger()
-    
+
     debug_logger.debug("DEBUG: This message shows in console with debug logging")
-    debug_logger.info("INFO: Derby node logger test with console output")
+    debug_logger.info("INFO: Derby server logger test with console output")
     debug_logger.warning("WARNING: Example warning message")
     debug_logger.error("ERROR: Example error message")
     debug_logger.critical("CRITICAL: Example critical message")
-    
-    print("\n=== Testing Production Logging (file + rsyslog) ===")
+
+    print("\n=== Testing Production Logging (file only) ===")
     prod_logger = ServerLogger(
         name='derby-prod',
         level=logging.INFO,
-        console=False  # Uses rsyslog + file
+        console=False
     ).get_logger()
-    
+
     prod_logger.debug("DEBUG: This won't show (level=INFO)")
     prod_logger.info("INFO: Production logging test - check /var/log/derbynet.log")
     prod_logger.warning("WARNING: Production warning message")
-    
-    print(f"\nLogger test complete. Console output shown above.")
-    print(f"File output: Check /var/log/derbynet.log")
-    print(f"Syslog output: Check syslog if rsyslog is configured")
-    print(f"\nTo enable debug console logging in services:")
+
+    print(f"\nLogger test complete.")
+    print(f"To enable debug console logging in services:")
     print(f"  export DERBY_CONSOLE_LOG=true")
     print(f"  export DERBY_DEBUG=true")
     print(f"  python3 your_service.py")

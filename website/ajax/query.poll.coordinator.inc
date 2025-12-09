@@ -11,6 +11,7 @@ require_once('inc/json-replay.inc');
 require_once('inc/json-rounds.inc');
 require_once('inc/json-timer-state.inc');
 require_once('inc/name-mangler.inc');
+require_once('inc/racing-state.inc');
 
 // Device status is used by the coordinator to show the status of the timer
 require_once('inc/json-device-status.inc');
@@ -80,5 +81,7 @@ do {
 
 json_out('ready-aggregate', $aggregates_ready_to_populate);
 
+// Race state integrity check - detects edge cases where state is inconsistent
+json_out('race-integrity', check_race_integrity());
 
 ?>

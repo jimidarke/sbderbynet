@@ -138,6 +138,12 @@ $(function() {
          value="Add Aggregate"/>
 </div>
 
+<div class="block_buttons add_button">
+  <input id="config-editor-button" class="modest-button" type="button"
+         value="Edit Elimination Configurations"
+         onclick="window.location.href='elimination-config-editor.php'"/>
+</div>
+
 </div><!-- race-structure -->
 
 </div><!-- below-banner -->
@@ -239,8 +245,17 @@ $(function() {
           <select id="elimination_config_select">
             <option value="">Select configuration...</option>
           </select>
-          <input id="initialize_tournament_button" type="button" 
-                 value="Initialize Tournament" 
+          <br/>
+          <div id="elimination_age_group_selector" class="hidden" style="margin-top: 10px;">
+            <label for="elimination_age_group_select">Age Group for this Class:</label>
+            <select id="elimination_age_group_select">
+              <option value="">Select age group...</option>
+            </select>
+            <div id="age_group_match_info" style="display:none; margin-top: 5px;"></div>
+          </div>
+          <br/>
+          <input id="initialize_tournament_button" type="button"
+                 value="Initialize Tournament"
                  onclick="initialize_elimination_tournament();" />
         </div>
         <div id="elimination_tournament_info" class="hidden">

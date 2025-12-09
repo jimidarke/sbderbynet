@@ -377,6 +377,7 @@ mosquitto_sub -h 192.168.100.10 -t derbynet/test
 - **Signal Broadcasting**: MQTT message distribution to all race components
 - **Battery Operation**: Portable deployment for start line positioning
 - **Wireless Communication**: WiFi connectivity to race network
+- **Manual Start Fallback**: When hardware start timer is unavailable, the Race Coordinator page displays a green "Start" button in the Timer Status table. Clicking this button publishes an MQTT GO signal to `derbynet/device/manualstart/state`, ensuring the race server records the start time for accurate elapsed time calculations. Requires `mosquitto_pub` on the web server.
 
 ### **Video Streaming System**
 - **Camera Integration**: RTSP camera support with automatic HLS conversion

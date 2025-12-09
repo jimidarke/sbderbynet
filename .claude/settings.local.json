@@ -14,7 +14,12 @@
       "Bash(sqlite3:*)",
       "Bash(python3 test_elimination_tournaments.py:*)",
       "Bash(node:*)",
-      "Bash(ssconvert:*)"
+      "Bash(ssconvert:*)",
+      "Bash(cat:*)",
+      "Bash(sftp:*)",
+      "Bash(git fetch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   },

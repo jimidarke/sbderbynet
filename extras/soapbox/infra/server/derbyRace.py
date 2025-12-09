@@ -49,9 +49,10 @@ MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
 MQTT_TOPIC_TELEMETRY    = "derbynet/device/+/telemetry"
 MQTT_TOPIC_STATE        = "derbynet/device/+/state"
 
-# Race timing and reliability settings 
+# Race timing and reliability settings
+# IMPORTANT: These values should align with PHP heartbeat-config.inc for state consistency
 LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion
-HEARTBEAT_TIMEOUT       = 4     # seconds to consider a timer offline if no heartbeat received
+HEARTBEAT_TIMEOUT       = 3     # seconds to consider a timer offline (aligned with TIMER_RECENT_THRESHOLD)
 HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
 RACE_TIMEOUT            = 70    # seconds maximum race time before marking DNF
 DNF_TIME               = 99.999 # DNF (Did Not Finish) time value
@@ -102,65 +103,72 @@ class derbyRace:
     def on_message(self, client, userdata, message): # callback for mqtt messages
         topic = message.topic
         payload = message.payload.decode("utf-8")
-        logger.debug(f"Received message on {topic} {payload}") 
-        
+        logger.debug(f"Received message on {topic} {payload}")
+
         # Validate message format first
         try:
             payload_data = json.loads(payload)
-            
+
             # Extract device identification
             dip = payload_data.get("dip", "")
             hwid = payload_data.get("hwid", None)
             lane = self.getDIPName(dip)  # get the lane number from the dip switch
-            
+
             ########### Trigger for START RACE ###########
             if "state" in topic:
-                logging.info(f"Received state change on {topic} with payload: {payload_data}")
-                
-            ########### Trigger for START RACE ###########
+                logger.info(f"Received state message on {topic}: toggle={payload_data.get('toggle')}, lane={lane}, race_state={self.race_state}")
+
                 val = payload_data.get("state", False)
-                if val == "GO":
+                if val == "GO" and self.race_state != "RACING":
                     self.startRace()
                     self.api.send_start()
             
             ########### Trigger for LANE FINISH ###########
-                if self.race_state == "RACING" and lane > 0: 
+                if self.race_state == "RACING" and lane > 0:
                     # Extract toggle state and validate
+                    # Switch DOWN (car crosses finish) sends toggle=False
                     toggle = payload_data.get("toggle", None)
-                    if not toggle: # must be a downward toggle to mimic crossing the finish line
+                    logger.info(f"Lane {lane} toggle check: toggle={toggle}, type={type(toggle).__name__}")
+                    if toggle is False:  # explicit False check - switch DOWN = car crossed finish
                         # Only count finish if this lane hasn't already finished in this race
                         if lane not in self.lane_times:
+                            logger.info(f"Lane {lane} FINISH TRIGGERED!")
                             self.laneFinish(lane)
                         else:
                             logger.warning(f"Lane {lane} finish ignored - already finished this race with time {self.lane_times[lane]}s")
                 
-            ########### Trigger for DEVICE TELEMETRY (ignore if active racing) ###########
-            if "telemetry" in topic and self.race_state != "RACING":
-                # Validate telemetry payload before sending to API
-                required_fields = ["hostname", "hwid", "uptime", "ip", "mac"]
-                if all(field in payload_data for field in required_fields):
-                    # Send to API
-                    success = self.api.send_device_status(payload_data)
-                    if not success:
-                        logger.warning(f"Failed to send device telemetry for {hwid}")
-                else:
-                    logger.error(f"Incomplete telemetry data from {hwid}: missing required fields")
-                
-                # Update heartbeat timestamp 
+            ########### Trigger for DEVICE TELEMETRY ###########
+            if "telemetry" in topic:
+                # ALWAYS update heartbeats - even during racing
+                # This keeps PHP informed that timers are still connected
+                # Without this, PHP times out after TIMER_DISCONNECT_THRESHOLD (10s) and resets state
                 isReady = payload_data.get("readyToRace", False)
                 if lane > 0:
                     self.timerHeartbeat(lane, isReady)
                     logger.debug(f"Updated heartbeat for lane {lane}, ready: {isReady}")
+
+                # Only forward full device telemetry when NOT racing (for timing accuracy)
+                if self.race_state != "RACING":
+                    required_fields = ["hostname", "hwid", "uptime", "ip", "mac"]
+                    if all(field in payload_data for field in required_fields):
+                        success = self.api.send_device_status(payload_data)
+                        if not success:
+                            logger.warning(f"Failed to send device telemetry for {hwid}")
+                    else:
+                        logger.error(f"Incomplete telemetry data from {hwid}: missing required fields")
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error for message on {topic}: {e}")
         except Exception as e:
             logger.error(f"Error processing message on {topic}: {e}")
 
-    def updateFromDerbyAPI(self): 
+    def updateFromDerbyAPI(self):
         # sets online
         self.client.publish("derbynet/status", payload="online", qos=1, retain=True)
         # called frequently once a second to update the finish timers and led colours
         racestats = self.api.get_race_status()
+        if not racestats or not isinstance(racestats, dict):
+            logger.warning("Failed to get race status from DerbyNet API, skipping update")
+            return
         self.roundid = racestats.get("roundid",0)
         self.heatid = racestats.get("heat",0)
         self.class_name = racestats.get("class","")
@@ -245,11 +253,26 @@ class derbyRace:
         return payload
 
     def startRace(self, timer=None):
-        """Initialize a new race with start time"""
-        if timer is None:  # set to current timestamp 
+        """Initialize a new race with start time.
+
+        Includes integrity validation to detect state mismatches between
+        Python server and PHP backend. Logs warnings but proceeds since
+        physical start actuator cannot be blocked once triggered.
+        """
+        if timer is None:  # set to current timestamp
             timer = time.time()
-            
+
         if self.start_time == 0:  # not started yet
+            # Validate state with PHP backend before accepting start
+            # This helps detect edge cases but doesn't block (can't stop physical actuator)
+            try:
+                api_status = self.api.get_race_status()
+                if api_status and not api_status.get('active'):
+                    logger.warning("START detected but DerbyNet NowRacingState is OFF - recording anyway")
+                    logger.warning("This may indicate a state synchronization issue")
+            except Exception as e:
+                logger.error(f"Could not validate start with DerbyNet API: {e}")
+
             # Reset race state
             self.lanesFinished = 0
             self.lane_times = {}
@@ -257,13 +280,23 @@ class derbyRace:
             logger.info(f"RACE STARTED {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} ({timer})")
             self.race_state = "RACING"
             self.updateLED("green")
+
+            # Immediately publish race state change to MQTT for faster propagation
+            self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+
+            # Notify PHP of physical start
+            self.api.send_start()
         
     def stopRace(self,timer = None):
-        if timer == None: # set to utc timestamp 
+        if timer == None: # set to utc timestamp
             timer = time.time()
         logger.info(f"RACE FINISHED {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} ({timer})")
         self.race_state = "FINISHED"
         logger.info(self.lane_times)
+
+        # Immediately publish race state change to MQTT for faster propagation
+        self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+
         self.api.send_finish(self.roundid,self.heatid,self.lane_times)
         self.lanesFinished = 0
         self.lane_times = {}
@@ -326,7 +359,53 @@ class derbyRace:
                     return True
                     
         return False
-    
+
+    def check_race_integrity(self):
+        """Check race state integrity between Python server and PHP backend.
+
+        Detects edge cases where state might be inconsistent:
+        - Python racing but PHP not active
+        - PHP shows running but Python not racing
+        - Racing without valid start time
+
+        Returns dict with 'valid' bool and 'issues' list.
+        """
+        issues = []
+
+        try:
+            api_status = self.api.get_race_status()
+            if not api_status:
+                return {'valid': True, 'issues': ['Could not fetch API status']}
+
+            # Check 1: Python racing but PHP not active
+            if self.race_state == "RACING" and not api_status.get('active'):
+                issues.append("Python racing but PHP NowRacingState is OFF")
+
+            # Check 2: PHP shows running but Python not racing
+            timer_state_string = api_status.get('timer-state-string', '')
+            if 'running' in timer_state_string.lower() and self.race_state != "RACING":
+                issues.append("PHP timer shows running but Python not racing")
+
+            # Check 3: Racing state without valid start time
+            if self.race_state == "RACING" and self.start_time == 0:
+                issues.append("Racing state without valid start time")
+
+            # Check 4: Round/heat mismatch
+            if (self.roundid != api_status.get('roundid', 0) or
+                self.heatid != api_status.get('heat', 0)):
+                if self.race_state == "RACING":
+                    issues.append(f"Heat mismatch during race: Python={self.roundid}/{self.heatid}, PHP={api_status.get('roundid')}/{api_status.get('heat')}")
+
+        except Exception as e:
+            logger.error(f"Error checking race integrity: {e}")
+            return {'valid': True, 'issues': [f'Error: {e}']}
+
+        if issues:
+            for issue in issues:
+                logger.warning(f"Race integrity issue: {issue}")
+
+        return {'valid': len(issues) == 0, 'issues': issues}
+
     def timerHeartbeat(self, lane, isReady = False): # is called from the telemetry message
         """Update timer heartbeat timestamp and check status"""
         current_time = time.time()

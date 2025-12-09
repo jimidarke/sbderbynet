@@ -7,7 +7,7 @@ require_once('inc/banner.inc');
 require_once('inc/partitions.inc');
 require_once('inc/scenes.inc');
 
-require_permission(SET_UP_PERMISSION);  // TODO: What's the correct permission?
+//require_permission(SET_UP_PERMISSION);  // TODO: What's the correct permission? 
 
 $warn_no_timer = warn_no_timer();
 
@@ -30,7 +30,7 @@ $warn_no_timer = warn_no_timer();
   <script type="text/javascript" src="js/coordinator-poll.js"></script>
 
   <!-- As of 28-03-2025 -->
-  <!-- <script type="text/javascript" src="js/fake-timer.js"></script> -->
+  <!-- <script type="text/javascript" src="js/fake-timer.js"></script> -->  
 
   <script type="text/javascript" src="js/timer-alive.js"></script>
   <script type="text/javascript">

@@ -48,6 +48,19 @@ For comprehensive documentation including:
 - Tournament configurations use JSON files in `/inc/elimination-configs/`
 - Heat generation uses weighted parameters: avoid_consecutive=5000, group_weighted_cars=100, avoid_same_lane=200, heat_counts=10
 
+### Production Data Access
+
+For troubleshooting, the live database can be accessed via SFTP. See [SECURE/SFTP_ACCESS.md](SECURE/SFTP_ACCESS.md) for connection details and usage instructions.
+
+Quick reference:
+```bash
+# Setup (once): copy key to Linux filesystem for proper permissions
+mkdir -p ~/.ssh/derbynet && cp SECURE/keys/derby/id_rsa ~/.ssh/derbynet/ && chmod 600 ~/.ssh/derbynet/id_rsa
+
+# Download current database
+sftp -i ~/.ssh/derbynet/id_rsa -P 22 derbynet@192.168.100.10:/var/lib/derbynet/2025/test1/derbynet.sqlite3 /tmp/derbynet/
+```
+
 ### Critical Bug Fixes Applied
 
 **Heat Generation Parameter Fix (2025-06-12)**:

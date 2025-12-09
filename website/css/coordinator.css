@@ -4,7 +4,7 @@
   width: 560px;
 }
 
-.double_control_column {
+.double_control_column {  
   width: 1095px;
   margin-left: auto;
   margin-right: auto;
@@ -443,6 +443,35 @@ div.block_buttons[data-name=buttons] {
   color: #ffffff;
 }
 
+/* Manual start button for when hardware start timer is unavailable */
+.timer-manual-start-cell {
+  text-align: center;
+  padding: 4px;
+}
+
+.manual-start-btn {
+  background-color: #008000;
+  color: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 11px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.manual-start-btn:hover {
+  background-color: #00a000;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.manual-start-btn:active {
+  background-color: #006000;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
 /* Update AS OF 17-04-2025 */
 .status-error {
   background-color: #ffebee;
@@ -622,4 +651,79 @@ div#broadcast-input-wrap-coordinator {
   background-color: #F0F0F0;
   color: #888;
   cursor: not-allowed;
+}
+
+/* =============================================================================
+   RACE STATE INTEGRITY - Health Warning Styles
+   ============================================================================= */
+
+/* Base health warning styles */
+.health-warning {
+  padding: 12px 16px;
+  margin: 10px 0;
+  border-radius: 6px;
+  font-weight: bold;
+  display: none;
+  text-align: center;
+  font-size: 14px;
+}
+
+.health-warning .warning-icon {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+/* Hidden state (default when healthy) */
+.health-healthy {
+  display: none;
+}
+
+/* Degraded - timer(s) offline but not racing */
+.health-degraded {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+}
+
+/* Warning - some issue detected */
+.health-warning.health-warning {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+}
+
+/* Critical - timer(s) offline during active race */
+.health-critical {
+  background-color: #f8d7da;
+  border: 2px solid #dc3545;
+  color: #721c24;
+  animation: pulse-warning 1s infinite;
+}
+
+/* Pulse animation for critical warnings */
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.01);
+  }
+}
+
+/* Timer status table row styles for offline timers */
+.timer-status-row.timer-offline {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.timer-status-row.timer-online {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.timer-status-row.timer-not-ready {
+  background-color: #fff3cd;
+  color: #856404;
 }

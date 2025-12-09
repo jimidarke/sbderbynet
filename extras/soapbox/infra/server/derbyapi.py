@@ -45,6 +45,10 @@ TIMER_STATE_RUNNING         = "RUNNING"
 TIMER_STATE_UNHEALTHY       = "UNHEALTHY"
 TIMER_STATE_NOT_CONNECTED   = "NOT_CONNECTED"
 
+# Heartbeat timing configuration (must align with PHP heartbeat-config.inc)
+TIMER_RECENT_THRESHOLD      = 3.0   # seconds - max age for timer to be considered "recent"
+HEARTBEAT_INTERVAL          = 2     # seconds - how often to send heartbeats to DerbyNet
+
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
 
@@ -86,7 +90,12 @@ class DerbyNetClient:
             self.timer_state = TIMER_STATE_NOT_CONNECTED
             exit(1)
             return None
-        response_json = response.json()
+        try:
+            response_json = response.json()
+        except Exception as e:
+            logger.error(f"Login response not valid JSON: {e}. Response text: {response.text[:200] if response.text else 'empty'}")
+            self.timer_state = TIMER_STATE_NOT_CONNECTED
+            return None
         if response_json.get("outcome", {}).get("code") == "success":
             auth_code = response.headers.get('Set-Cookie', '').split(';')[0]
             logger.debug("Successfully logged in with authcode: %s", auth_code)
@@ -106,9 +115,9 @@ class DerbyNetClient:
         """
         current_time = time.time()
         
-        # Send heartbeat every 5 seconds to ensure responsive updates
+        # Send heartbeat every HEARTBEAT_INTERVAL seconds to ensure responsive updates
         # This balances responsiveness with not overwhelming DerbyNet
-        if (current_time - self.last_heartbeat_time) < 5:
+        if (current_time - self.last_heartbeat_time) < HEARTBEAT_INTERVAL:
             # Still too soon for another heartbeat, unless this is the first one
             if self.last_heartbeat_time > 0:
                 return True
@@ -120,7 +129,7 @@ class DerbyNetClient:
                 self.timer_state = TIMER_STATE_NOT_CONNECTED
                 return False
         
-        # Only confirm if ALL timers have checked in within the last 5 seconds
+        # Only confirm if ALL timers have checked in within TIMER_RECENT_THRESHOLD (3 seconds)
         # This prevents stale heartbeats from showing as confirmed
         confirmed = 0
         
@@ -129,9 +138,9 @@ class DerbyNetClient:
         all_present = all(lane in timer_heartbeats for lane in expected_timers)
         
         if all_present:
-            # Verify all timers have checked in within the last 5 seconds
+            # Verify all timers have checked in within TIMER_RECENT_THRESHOLD
             all_recent = all(
-                (current_time - timer_heartbeats[lane]['time']) <= 5.0 
+                (current_time - timer_heartbeats[lane]['time']) <= TIMER_RECENT_THRESHOLD
                 for lane in expected_timers
             )
             
@@ -150,10 +159,10 @@ class DerbyNetClient:
             else:
                 # Some timers are stale
                 stale_timers = [
-                    lane for lane in expected_timers 
-                    if (current_time - timer_heartbeats[lane]['time']) > 5.0
+                    lane for lane in expected_timers
+                    if (current_time - timer_heartbeats[lane]['time']) > TIMER_RECENT_THRESHOLD
                 ]
-                logger.debug(f"Some timers are stale (>5s old): {stale_timers}")
+                logger.debug(f"Some timers are stale (>{TIMER_RECENT_THRESHOLD}s old): {stale_timers}")
         else:
             missing_timers = [lane for lane in expected_timers if lane not in timer_heartbeats]
             logger.debug(f"Missing timers: {missing_timers}")

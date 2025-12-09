@@ -20,6 +20,8 @@ GREENLED    7       26        OUTPUT
 BLUELED     1       28        OUTPUT
 
 Version History:
+- 0.6.3 - Dec 08, 2025 - Fixed rsyslog TAG/programname for unified logging
+- 0.6.2 - Dec 08, 2025 - Unified logging system integration
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 - 0.4.0 - May 10, 2025 - Added service discovery for MQTT broker
 - 0.3.3 - April 30, 2025 - Fixed timing synchronization issues
@@ -30,7 +32,7 @@ Version History:
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.6.0"  # Updated to standardized version
+PCB_VERSION     = "0.6.3"  # Fixed rsyslog TAG/programname for unified logging
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24

@@ -1,7 +1,7 @@
 // Requires dashboard-ajax.js
 
 // g_current_heat_racers remembers who the racers in the current heat
-// are, so the modal for manual heat results can be populated when
+// are, so the modal for manual heat result s can be populated when 
 // displayed.
 g_current_heat_racers = new Array();
 
@@ -75,6 +75,23 @@ function handle_previous_heat_button() {
     data: { action: "heat.select", heat: "prev" },
     success: function (json) {
       process_coordinator_poll_json(json);
+    },
+  });
+}
+
+// Manual start trigger for when hardware start timer is unavailable
+function handle_manual_start_trigger() {
+  $.ajax(g_action_url, {
+    type: "POST",
+    data: {
+      action: "timer-message",
+      message: "STARTED",
+    },
+    success: function (data) {
+      console.log("Manual race start triggered");
+    },
+    error: function (xhr, status, error) {
+      alert("Failed to trigger race start: " + error);
     },
   });
 }

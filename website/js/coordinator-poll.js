@@ -1,8 +1,8 @@
 // Requires dashboard-ajax.js
 
 // Data structure describing each round:
-//
-// round = { roundid:
+// 
+// round = { roundid: 
 //           class:
 //           name:
 //           round: (number)
@@ -957,10 +957,37 @@ function process_coordinator_poll_json(json) {
   // Check if a race is currently running
   const nowRacing = json["current-heat"]["now_racing"] || false;
 
+  // Process health status and display warnings
+  const healthStatus = json["timer-state"].health_status || 'healthy';
+  const healthMessage = json["timer-state"].health_message || '';
+  const raceIntegrity = json["race-integrity"] || { status: 'ok' };
+
+  // Show/hide health warning based on status
+  if ((nowRacing && (healthStatus === 'critical' || healthStatus === 'warning')) ||
+      raceIntegrity.status === 'warn' || raceIntegrity.status === 'error') {
+    showTimerHealthWarning(healthStatus, healthMessage, raceIntegrity);
+  } else if (healthStatus === 'degraded') {
+    // Show degraded warning even when not racing
+    showTimerHealthWarning(healthStatus, healthMessage, raceIntegrity);
+  } else {
+    hideTimerHealthWarning();
+  }
+
   // Determine each lane's status using the timers array
+  // Use is_online from server if available, fall back to local calculation
+  const OFFLINE_THRESHOLD = json["timer-state"].server_time ? 8 : 10; // Use 8s if server-synced
+  const serverTime = json["timer-state"].server_time || (currentTime / 1000);
+
   const tstate = json["timer-state"].timers.map((timer) => {
-    const timeSinceHeartbeat = currentTime / 1000 - timer.last_heartbeat;
-    const isOnline = timeSinceHeartbeat <= 10; // 10 seconds thresholds
+    // Prefer server-calculated is_online if available
+    const isOnline = timer.is_online !== undefined
+      ? timer.is_online
+      : (timer.seconds_ago !== undefined
+        ? timer.seconds_ago <= OFFLINE_THRESHOLD
+        : (currentTime / 1000 - timer.last_heartbeat) <= OFFLINE_THRESHOLD);
+    const timeSinceHeartbeat = timer.seconds_ago !== undefined
+      ? timer.seconds_ago
+      : currentTime / 1000 - timer.last_heartbeat;
     const isReady = timer.ready || false;
 
     // Assign lane status based on its online state and the global race status
@@ -978,36 +1005,48 @@ function process_coordinator_poll_json(json) {
     }
 
     return {
-      lane: `Lane ${timer.lane} Timer (${timer.timerID || "Unknown"})`,
+      lane: timer.is_starter
+        ? `Start Timer (${timer.timerID || "STARTER"})`
+        : `Lane ${timer.lane} Timer (${timer.timerID || "Unknown"})`,
       ready: isReady,
       online: isOnline,
-      // status: isOnline ? (nowRacing ? "Running" : (isReady ? 'Ready' : 'NOT READY')) : "NOT READY",
       status: laneStatus,
       lastHeartbeat: isNaN(timeSinceHeartbeat)
         ? "Unknown"
         : `${Math.round(timeSinceHeartbeat)}`,
+      is_starter: timer.is_starter || false,
     };
   });
 
-  // Generate the table dynamically
-  generate_timer_capture_status_table(tstate);
+  // Separate start timer from lane timers
+  const startTimer = tstate.find(t => t.is_starter);
+  const laneTimers = tstate.filter(t => !t.is_starter);
 
-  function generate_timer_capture_status_table(timers) {
+  // Build ordered array: starter first (or placeholder if missing), then lanes
+  let orderedTimers = [...laneTimers];
+  if (startTimer) {
+    orderedTimers.unshift(startTimer);
+  } else {
+    // No start timer entry - show placeholder with manual trigger
+    orderedTimers.unshift({
+      lane: "Start Timer",
+      ready: false,
+      online: false,
+      status: "NOT DETECTED",
+      lastHeartbeat: "-",
+      is_starter: true,
+    });
+  }
+
+  // Determine if manual start button should be shown
+  const showManualStart = !startTimer || !startTimer.online;
+
+  // Generate the table dynamically
+  generate_timer_capture_status_table(orderedTimers, showManualStart);
+
+  function generate_timer_capture_status_table(timers, showManualStart) {
     const tbody = document.getElementById("timer-statuses");
     tbody.innerHTML = ""; // Clear existing rows
-
-    // Add starter first if present
-    // const starter = timers.find(t => t.is_starter);
-    // if (starter) {
-    //     addTimerRow(tbody, "Starter", starter);
-    // }
-
-    // Add finish line timers
-    // timers.filter(t => !t.is_starter)
-    //       .forEach(timer => {
-    //           addTimerRow(tbody, `Lane ${timer.lane}`, timer);
-    //       });
-
 
     timers.forEach((timer) => {
       const row = document.createElement("tr");
@@ -1022,27 +1061,33 @@ function process_coordinator_poll_json(json) {
       isOnlineCell.className = timer.online ? "timer-online" : "timer-offline";
       isOnlineCell.textContent = timer.online == true ? "Online" : "OFFLINE";
 
-      // Status Cell
+      // Status/Is-Ready Cell - show Manual Start button for offline start timer
       const statusCell = document.createElement("td");
-      // statusCell.className = timer.online
-      //   ? timer.status === "Running"
-      //     ? "timer-running"
-      //     : "timer-ready"
-      //   : "timer-offline";
-      if (timer.online && timer.status === "Running") {
-        statusCell.className = "timer-online"
-      } else if (!timer.online) {
-        statusCell.className = "timer-offline";
-      } else if (timer.status === "Staging") {
-        statusCell.className = "timer-staging";
-      } else if (timer.status === "Running") {
-        statusCell.className = "timer-running";
-      } else if (timer.status === "Ready") {
-        statusCell.className = "timer-ready";
+      if (timer.is_starter && showManualStart) {
+        // Start timer is offline - show Manual Start button instead of status text
+        statusCell.className = "timer-manual-start-cell";
+        const btn = document.createElement("button");
+        btn.textContent = "Start";
+        btn.className = "manual-start-btn";
+        btn.onclick = handle_manual_start_trigger;
+        statusCell.appendChild(btn);
       } else {
-        statusCell.className = "timer-not-ready";
+        // Normal status display
+        if (timer.online && timer.status === "Running") {
+          statusCell.className = "timer-online"
+        } else if (!timer.online) {
+          statusCell.className = "timer-offline";
+        } else if (timer.status === "Staging") {
+          statusCell.className = "timer-staging";
+        } else if (timer.status === "Running") {
+          statusCell.className = "timer-running";
+        } else if (timer.status === "Ready") {
+          statusCell.className = "timer-ready";
+        } else {
+          statusCell.className = "timer-not-ready";
+        }
+        statusCell.textContent = timer.status;
       }
-      statusCell.textContent = timer.status;
 
       let convertedTime = formatTimeAgo(timer.lastHeartbeat);
       // Last Heartbeat Cell
@@ -1288,5 +1333,70 @@ function handleRacerDNF(racerid, roundid, heat) {
         alert('Failed to communicate with server');
       }
     });
+  }
+}
+
+// =============================================================================
+// RACE STATE INTEGRITY - Health Warning Display Functions
+// =============================================================================
+
+/**
+ * Show timer health warning banner in the coordinator interface.
+ * Displays warnings for timer offline issues and state integrity problems.
+ *
+ * @param {string} healthStatus - 'healthy', 'degraded', 'warning', or 'critical'
+ * @param {string} healthMessage - Human-readable description of the issue
+ * @param {object} raceIntegrity - Race integrity check result from PHP
+ */
+function showTimerHealthWarning(healthStatus, healthMessage, raceIntegrity) {
+  let warningDiv = document.getElementById('timer-health-warning');
+
+  // Create warning div if it doesn't exist
+  if (!warningDiv) {
+    warningDiv = document.createElement('div');
+    warningDiv.id = 'timer-health-warning';
+    warningDiv.className = 'health-warning';
+
+    // Insert at the top of the timer control group
+    const timerGroup = document.querySelector('.timer_control_group');
+    if (timerGroup) {
+      timerGroup.insertBefore(warningDiv, timerGroup.firstChild);
+    } else {
+      // Fallback: insert at start of main content
+      const mainContent = document.querySelector('#coordinator_body') || document.body;
+      mainContent.insertBefore(warningDiv, mainContent.firstChild);
+    }
+  }
+
+  // Build warning message combining health and integrity issues
+  let messages = [];
+  if (healthMessage) {
+    messages.push(healthMessage);
+  }
+  if (raceIntegrity && raceIntegrity.status !== 'ok' && raceIntegrity.message) {
+    messages.push(raceIntegrity.message);
+  }
+
+  // Determine the most severe status
+  let displayStatus = healthStatus;
+  if (raceIntegrity && (raceIntegrity.status === 'error')) {
+    displayStatus = 'critical';
+  } else if (raceIntegrity && raceIntegrity.status === 'warn' && displayStatus !== 'critical') {
+    displayStatus = 'warning';
+  }
+
+  // Update warning div classes and content
+  warningDiv.className = `health-warning health-${displayStatus}`;
+  warningDiv.innerHTML = `<span class="warning-icon">&#9888;</span> ${messages.join(' | ')}`;
+  warningDiv.style.display = 'block';
+}
+
+/**
+ * Hide the timer health warning banner.
+ */
+function hideTimerHealthWarning() {
+  const warningDiv = document.getElementById('timer-health-warning');
+  if (warningDiv) {
+    warningDiv.style.display = 'none';
   }
 }

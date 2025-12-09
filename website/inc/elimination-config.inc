@@ -231,23 +231,37 @@ function get_elimination_tournament_state($classid) {
 
 /**
  * Initialize elimination tournament for a class
- * @param int $classid DerbyNet class ID  
+ * @param int $classid DerbyNet class ID
  * @param string $config_file Configuration file to use
+ * @param string $age_group_key (Optional) Explicit age group key to use
  * @return bool True on success
  */
-function initialize_elimination_tournament($classid, $config_file) {
+function initialize_elimination_tournament($classid, $config_file, $age_group_key = null) {
     global $db;
-    
+
     // Load and validate configuration
     $config = load_elimination_config($config_file);
     if (!$config) {
         return false;
     }
-    
-    // Find matching age group
-    $age_group = find_age_group_for_class($config, $classid);
-    if (!$age_group) {
-        return false;
+
+    // Find matching age group - use explicit key if provided, otherwise pattern match
+    if ($age_group_key) {
+        // Use explicit age group key
+        if (!isset($config['age_groups'][$age_group_key])) {
+            error_log("Age group key not found in config: " . $age_group_key);
+            return false;
+        }
+        $age_group = $config['age_groups'][$age_group_key];
+        $age_group['group_key'] = $age_group_key;
+        error_log("Using explicit age group key: " . $age_group_key . " for class " . $classid);
+    } else {
+        // Fall back to pattern matching
+        $age_group = find_age_group_for_class($config, $classid);
+        if (!$age_group) {
+            return false;
+        }
+        error_log("Using pattern-matched age group: " . $age_group['group_key'] . " for class " . $classid);
     }
     
     try {
@@ -330,22 +344,24 @@ function apply_elimination_scheduling_rules($config) {
 
 /**
  * Update existing Round 1 for elimination tournament
- * @param int $classid Class ID
+ * @param int $classid Class ID  
  * @param array $round_config Round configuration for first round
  */
 function update_existing_round_for_elimination($classid, $round_config) {
     global $db;
-    
-    $round_name = $round_config['round_name'];
-    
-    // Update the existing Round 1 to be the first elimination round (legacy columns removed)
-    $stmt = $db->prepare('UPDATE Rounds 
+
+    $round_sequence = $round_config['round_sequence'];  // Numeric value (1, 2, 3, etc.)
+    $round_name = $round_config['round_name'];          // Display name ("1 Preliminary", etc.)
+
+    // Update the existing Round 1 to be the first elimination round
+    // IMPORTANT: round column must remain numeric for fill_in_missing_roster_entries() to work
+    $stmt = $db->prepare('UPDATE Rounds
                          SET round = :round, roundname = :roundname
-                         WHERE classid = :classid AND round = \'1\' AND (roundname IS NULL OR roundname = \'\')');
-    
+                         WHERE classid = :classid AND round = 1 AND (roundname IS NULL OR roundname = \'\')');
+
     $stmt->execute(array(
         ':classid' => $classid,
-        ':round' => $round_name,
+        ':round' => $round_sequence,  // Use numeric sequence, NOT the name
         ':roundname' => $round_name
     ));
 }
@@ -359,19 +375,21 @@ function update_existing_round_for_elimination($classid, $round_config) {
  */
 function create_elimination_round($classid, $tournament_id, $round_config) {
     global $db;
-    
-    $round_name = $round_config['round_name'];
-    
-    // Insert round using existing schema columns (legacy columns removed)
+
+    $round_sequence = $round_config['round_sequence'];  // Numeric value (1, 2, 3, etc.)
+    $round_name = $round_config['round_name'];          // Display name ("2 Quarter Finals", etc.)
+
+    // Insert round using existing schema columns
+    // IMPORTANT: round column must be numeric for proper ordering and roster population
     $stmt = $db->prepare('INSERT INTO Rounds (classid, round, roundname)
                          VALUES (:classid, :round, :roundname)');
-    
+
     $stmt->execute(array(
         ':classid' => $classid,
-        ':round' => $round_name,
+        ':round' => $round_sequence,  // Use numeric sequence, NOT the name
         ':roundname' => $round_name
     ));
-    
+
     return $db->lastInsertId();
 }
 

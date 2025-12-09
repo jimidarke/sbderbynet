@@ -1,0 +1,472 @@
+/* Elimination Tournament Configuration Editor Styles */
+
+#config-editor-container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+}
+
+.editor-section {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.section-header h2 {
+    margin: 0;
+}
+
+.config-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn {
+    padding: 8px 16px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.action-btn:hover {
+    background: #45a049;
+}
+
+.action-btn.delete-btn {
+    background: #f44336;
+}
+
+.action-btn.delete-btn:hover {
+    background: #da190b;
+}
+
+.action-btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.config-select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+#lock-warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 10px;
+    display: none;
+}
+
+#lock-warning.show {
+    display: block;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+}
+
+.form-row label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.form-row input[type="text"],
+.form-row input[type="number"],
+.form-row select,
+.form-row textarea {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.form-row input[readonly],
+.form-row select:disabled,
+.form-row textarea[readonly] {
+    background: #e9ecef;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.form-row small {
+    color: #666;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Age Group Panels */
+.age-group-panel {
+    background: white;
+    border: 2px solid #8da5c6;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.age-group-header {
+    background: #8da5c6;
+    padding: 15px;
+}
+
+.age-group-header h3 {
+    margin: 0;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.remove-age-group-btn {
+    padding: 5px 15px;
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.remove-age-group-btn:hover {
+    background: #da190b;
+}
+
+.remove-age-group-btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+.age-group-body {
+    padding: 20px;
+}
+
+.age-group-body h4 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: #333;
+    border-bottom: 2px solid #8da5c6;
+    padding-bottom: 5px;
+}
+
+/* Round Panels */
+.rounds-list {
+    min-height: 50px;
+    margin: 10px 0;
+}
+
+.round-panel {
+    background: #fff;
+    border: 1px solid #e8eb63;
+    border-left: 5px solid #e8eb63;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    transition: box-shadow 0.2s;
+}
+
+.round-panel:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.round-header {
+    background: #e8eb63;
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.round-drag-handle {
+    cursor: move;
+    font-size: 20px;
+    color: #666;
+    user-select: none;
+}
+
+.round-drag-handle.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.round-title {
+    flex: 1;
+    font-weight: bold;
+    color: #333;
+}
+
+.remove-round-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    color: #f44336;
+    cursor: pointer;
+    padding: 0 8px;
+    line-height: 1;
+}
+
+.remove-round-btn:hover {
+    color: #da190b;
+}
+
+.remove-round-btn:disabled {
+    color: #cccccc;
+    cursor: not-allowed;
+}
+
+.round-body {
+    padding: 15px;
+}
+
+.add-round-btn {
+    width: 100%;
+    padding: 10px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.add-round-btn:hover {
+    background: #0b7dda;
+}
+
+.add-round-btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+#add-age-group-btn {
+    padding: 10px 20px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#add-age-group-btn:hover {
+    background: #45a049;
+}
+
+#add-age-group-btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+/* Footer Actions */
+.editor-footer {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 30px 0;
+    background: #f9f9f9;
+    border-top: 2px solid #ddd;
+    margin-top: 20px;
+}
+
+.primary-btn {
+    padding: 15px 40px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.primary-btn:hover {
+    background: #45a049;
+}
+
+.primary-btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+.secondary-btn {
+    padding: 15px 40px;
+    background: #9E9E9E;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.secondary-btn:hover {
+    background: #757575;
+}
+
+/* Sortable placeholder */
+.ui-sortable-placeholder {
+    border: 2px dashed #ccc !important;
+    background: #f0f0f0 !important;
+    visibility: visible !important;
+    min-height: 60px;
+}
+
+.ui-sortable-helper {
+    opacity: 0.8;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Scheduling Rules Styling */
+#scheduling-rules-form .form-row {
+    max-width: 400px;
+}
+
+#scheduling-rules-form select,
+#scheduling-rules-form input[type="number"],
+#scheduling-rules-form input[type="checkbox"] {
+    max-width: 300px;
+}
+
+#scheduling-rules-form input[type="checkbox"] {
+    width: auto;
+    margin-right: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #config-editor-container {
+        padding: 10px;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .config-actions {
+        margin-top: 10px;
+        width: 100%;
+    }
+
+    .action-btn {
+        flex: 1;
+    }
+
+    .editor-footer {
+        flex-direction: column;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+        width: 100%;
+    }
+
+    .age-group-header h3 {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .remove-age-group-btn {
+        width: 100%;
+    }
+
+    .round-header {
+        flex-wrap: wrap;
+    }
+
+    .round-title {
+        flex-basis: 100%;
+        order: 2;
+        margin-top: 5px;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .editor-footer,
+    .config-actions,
+    .remove-age-group-btn,
+    .remove-round-btn,
+    .add-round-btn,
+    #add-age-group-btn,
+    .round-drag-handle {
+        display: none !important;
+    }
+
+    .age-group-panel,
+    .round-panel {
+        page-break-inside: avoid;
+    }
+}
+
+/* Additional UI Polish */
+.editor-section h2 {
+    color: #333;
+    font-size: 24px;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+}
+
+.advance-count-row {
+    transition: all 0.3s ease;
+}
+
+/* Success message styling (if enhanced later) */
+.success-message {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 12px 20px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    display: none;
+}
+
+.success-message.show {
+    display: block;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -5,66 +5,81 @@ require_once('inc/remote-start.inc');
 require_once('inc/timer-state-xml.inc');  // For expand_timer_state_status
 require_once('inc/error-logging.inc');  // For derby_log_warning
 require_once('inc/data.inc');  // For read_single_value
+require_once('inc/heartbeat-config.inc');  // For timeout thresholds
 
-// // Old Timer States
-// function json_timer_state() {
-//   $timer_state = new TimerState();
-//   list($msg, $icon) = expand_timer_state_status($timer_state);
-//   $tstate = $timer_state->state();
-
-//   return array(
-//     'lanes' => get_lane_count(),
-//     'last-contact' => $timer_state->last_contact(),
-//     'state' => $tstate,
-//     // 'state1' => $tstate,
-//     'icon' => $icon,
-//     'remote-start' => has_remote_start() ? true : false,
-//     'message' => $msg);
-// }
-
-// // Working Timer States 
+// Working Timer States with Health Status
 function json_timer_state() {
   global $db;
 
   $timer_state = new TimerState();
   list($msg, $icon) = expand_timer_state_status($timer_state);
   $tstate = $timer_state->state();
+  $current_time = time();
 
   // Fetch timer statuses from the database
   $timers = array();
+  $online_count = 0;
+  $ready_count = 0;
+
   try {
       // First check if TimerStatus table exists
       $table_exists = read_single_value("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='TimerStatus'") > 0;
-      
+
       if (!$table_exists) {
           derby_log_warning("TimerStatus table does not exist in database");
       } else {
           $stmt = $db->query('SELECT lane, timerid as timerID, last_heartbeat, ready, is_starter FROM TimerStatus ORDER BY lane ASC');
           if ($stmt) {
               while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                  // Debug logging for column structure (only in debug mode and first row)
-                  //if (empty($timers)) {
-                  //    derby_log_info("TimerStatus row structure", [
-                  //        'columns' => array_keys($row)
-                  //    ]);
-                  //}
-                  
+                  $seconds_since_heartbeat = $current_time - (int)$row['last_heartbeat'];
+                  $is_online = $seconds_since_heartbeat <= FRONTEND_OFFLINE_THRESHOLD;
+
                   // Build timer status array with proper column mapping
                   $timers[] = array(
                       'lane' => (int)$row['lane'],
-                      'timerID' => $row['timerID'] ?? $row['timerid'], // Now correctly aliased from timerid
+                      'timerID' => $row['timerID'] ?? $row['timerid'],
                       'last_heartbeat' => (int)$row['last_heartbeat'],
                       'ready' => (bool)$row['ready'],
                       'is_starter' => (bool)$row['is_starter'],
+                      'is_online' => $is_online,
+                      'seconds_ago' => $seconds_since_heartbeat,
                   );
+
+                  // Count online finish timers (not starter)
+                  if ($is_online && !$row['is_starter']) {
+                      $online_count++;
+                      if ($row['ready']) {
+                          $ready_count++;
+                      }
+                  }
               }
           }
       }
   } catch (Exception $e) {
-      derby_log_warning("Error fetching timer status from database", [
-          'error' => $e->getMessage(),
-          'query' => 'SELECT lane, timerid as timerID, last_heartbeat, ready, is_starter FROM TimerStatus'
-      ]);
+      derby_log_warning("Error fetching timer status from database: " . $e->getMessage());
+  }
+
+  // Determine system health status based on timer availability
+  $race_active = read_raceinfo('NowRacingState', 0) != 0;
+  $required_timers = MIN_TIMERS_FOR_RACE;
+  $health_status = 'healthy';
+  $health_message = '';
+
+  if ($race_active) {
+      // During active racing, missing timers are critical
+      if ($online_count < $required_timers) {
+          $health_status = 'critical';
+          $health_message = "WARNING: Only {$online_count}/{$required_timers} timers online during active race!";
+      } elseif ($ready_count < $required_timers) {
+          $health_status = 'warning';
+          $health_message = "Some timers not ready ({$ready_count}/{$required_timers})";
+      }
+  } else {
+      // When not racing, missing timers are degraded (warning)
+      if ($online_count < $required_timers) {
+          $health_status = 'degraded';
+          $health_message = "{$online_count}/{$required_timers} finish timers online";
+      }
   }
 
   return array(
@@ -74,7 +89,14 @@ function json_timer_state() {
       'icon' => $icon,
       'remote-start' => has_remote_start() ? true : false,
       'message' => $msg,
-      'timers' => $timers // Include timer statuses
+      'timers' => $timers,
+      // Health status fields for state integrity
+      'server_time' => $current_time,
+      'timers_online' => $online_count,
+      'timers_ready' => $ready_count,
+      'timers_required' => $required_timers,
+      'health_status' => $health_status,
+      'health_message' => $health_message,
   );
 }
 

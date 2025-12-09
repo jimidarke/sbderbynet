@@ -463,3 +463,73 @@ function handle_racer_dropout($racerid, $roundid)
     return false;
   }
 }
+
+/**
+ * Check race state integrity between PHP timer state and physical start tracking.
+ *
+ * This function detects edge cases where the system might think a race is running
+ * but the physical start hasn't actually occurred, or vice versa.
+ *
+ * @return array Integrity status with 'status' (ok|warn|error), 'code', and 'message'
+ */
+function check_race_integrity() {
+  require_once('inc/timer-state.inc');
+  require_once('inc/heartbeat-config.inc');
+
+  $timer_state = new TimerState();
+  $tstate = $timer_state->state();
+  $physical_start = read_raceinfo('physical_start_time', 0);
+  $physical_source = read_raceinfo('physical_start_source', '');
+  $now_racing = read_raceinfo('NowRacingState', 0);
+  $seconds_since_contact = $timer_state->seconds_since_last_contact();
+
+  // Case 1: TIMER_RUNNING but no physical start recorded (after grace period)
+  // This indicates a potential state mismatch - timer thinks race is running but
+  // no start signal was recorded
+  if ($tstate == TIMER_RUNNING && $physical_start == 0) {
+    if ($seconds_since_contact > INTEGRITY_GRACE_PERIOD) {
+      write_raceinfo('race_integrity', 'WARN:no_physical_start');
+      return array(
+        'status' => 'warn',
+        'code' => 'no_physical_start',
+        'message' => 'Race running without confirmed physical start'
+      );
+    }
+  }
+
+  // Case 2: Physical start detected but racing not enabled
+  // This is an orphaned start - either racing was disabled after start or
+  // start signal arrived before racing was enabled
+  if (!$now_racing && $physical_start > 0 && (time() - $physical_start) < ORPHAN_START_TIMEOUT) {
+    write_raceinfo('race_integrity', 'WARN:orphan_start');
+    return array(
+      'status' => 'warn',
+      'code' => 'orphan_start',
+      'message' => 'Physical start detected but racing is disabled'
+    );
+  }
+
+  // Case 3: Clear orphaned start records after timeout
+  if (!$now_racing && $physical_start > 0 && (time() - $physical_start) >= ORPHAN_START_TIMEOUT) {
+    write_raceinfo('physical_start_time', 0);
+    write_raceinfo('physical_start_source', '');
+    write_raceinfo('race_integrity', 'CLEARED:orphan_start');
+  }
+
+  // Case 4: Manual start (warning but acceptable)
+  if ($tstate == TIMER_RUNNING && $physical_start > 0 && $physical_source == 'manual') {
+    return array(
+      'status' => 'ok',
+      'code' => 'manual_start',
+      'message' => 'Race started manually (no hardware start timer)'
+    );
+  }
+
+  // Normal state - everything is OK
+  write_raceinfo('race_integrity', 'OK');
+  return array(
+    'status' => 'ok',
+    'code' => 'ok',
+    'message' => ''
+  );
+}

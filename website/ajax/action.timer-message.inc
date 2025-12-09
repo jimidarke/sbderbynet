@@ -10,7 +10,7 @@ require_once('inc/events.inc');
 require_once('inc/timer-flags.inc');
 require_once('inc/event-lane-details.inc');
 require_once('inc/timer-logging.inc');
-// require_once('inc/error-logging.inc');
+require_once('inc/error-logging.inc');
 
 // Timer-controller-to-web-service messages:
 //
@@ -66,6 +66,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 	set_has_remote_start($remote_start == 'YES');
 
 	if ($message == 'HELLO') {
+		derby_log_info("Timer HELLO received - searching for timer device");
 		// Timer begins in TIMER_SEARCHING, almost the same as unhealthy, until we
 		// receive confirmation that derby-timer.jar has actually connected to the
 		// timer device.  Otherwise, all we know is that derby-timer.jar is alive
@@ -99,6 +100,10 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		echo "\n  <success/>\n";
 		echo "    <query/>\n";
 	} else if ($message == 'IDENTIFIED') {
+		$timer_human = $_POST['human'] ?? 'Unknown';
+		$timer_ident = $_POST['ident'] ?? '';
+		$lane_count = $_POST['lane_count'] ?? 0;
+		derby_log_info("Timer IDENTIFIED: $timer_human (ident: $timer_ident, lanes: $lane_count)");
 		if (isset($_POST['lane_count']) && $_POST['lane_count'] > 0) {
 			write_raceinfo('reported_lane_count', $_POST['lane_count']);
 			// TODO: If the timer disagrees with the user as to lane
@@ -130,8 +135,29 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		}
 		echo "\n  <success/>\n";
 	} else if ($message == 'STARTED') {
+		$current = get_running_round();
+		$start_source = isset($_POST['manual']) ? 'manual' : 'start_timer';
+		derby_log_info("RACE STARTED: Round {$current['roundid']} Heat {$current['heat']} (source: $start_source)");
 		$timer_state->to_state(TIMER_RUNNING);
 		send_replay_RACE_STARTS();
+
+		// Record physical start tracking for state integrity validation
+		// This allows detection of "running but not started" edge cases
+		write_raceinfo('physical_start_time', time());
+		write_raceinfo('physical_start_source', $start_source);
+		write_raceinfo('race_integrity', 'OK');
+
+		// Publish MQTT GO signal to notify race server (for manual start scenarios)
+		// This ensures the race server records the start time for elapsed time calculations
+		$mqtt_broker = read_raceinfo('mqtt-broker', '192.168.100.10');
+		$mqtt_topic = 'derbynet/device/manualstart/state';
+		$mqtt_payload = json_encode(['state' => 'GO', 'timestamp' => time(), 'source' => $start_source]);
+		$cmd = "mosquitto_pub -h " . escapeshellarg($mqtt_broker) . " -t " . escapeshellarg($mqtt_topic) . " -m " . escapeshellarg($mqtt_payload) . " 2>&1";
+		$output = shell_exec($cmd);
+		if ($output) {
+			error_log("MQTT publish result: " . $output);
+		}
+
 		echo "\n  <success/>\n";
 	} else if ($message == 'FINISHED') {
 		$nlanes = get_lane_count();
@@ -142,7 +168,17 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 				$results[$i] = $oldresults[$nlanes - $i - 1];
 			}
 		}
+		// Build times string for logging
+		$times_str = [];
+		for ($i = 0; $i < $nlanes; $i++) {
+			if (isset($results[$i]) && $results[$i]['time']) {
+				$times_str[] = "L" . ($i+1) . ":" . $results[$i]['time'] . "s";
+			}
+		}
+		$times_log = implode(' ', $times_str);
+
 		if (!$racing_state) {
+			derby_log_warning("RACE FINISHED but not racing - results refused: $times_log");
 			// TODO This might be a test run, or an actual race run while the "racing"
 			// switch was off.  We should prompt the race coordinator and offer to
 			// record these times somewhere.
@@ -151,9 +187,13 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 			record_timer_finish(EVENT_TIMER_RESULT_REFUSED, $results, null);
 		} else {
 			if (write_heat_results($results)) {
+				$current = get_running_round();
+				derby_log_info("RACE FINISHED: Round {$current['roundid']} Heat {$current['heat']} - $times_log");
 				send_replay_REPLAY();
 				write_raceinfo('timer_current', '');
-				$current = get_running_round();
+				// Clear physical start tracking - race has completed
+				write_raceinfo('physical_start_time', 0);
+				write_raceinfo('physical_start_source', '');
 				advance_heat($current, 'next', /* show failure */ false);
 				$racing_state = get_racing_state();
 				record_timer_finish(EVENT_HEAT_RESULT_FROM_TIMER, $results, $current);
@@ -290,8 +330,8 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 			}
 		}
 
-		// Mark stale timers as not ready
-		$staleThreshold = time() - 10; // 10 seconds threshold for stale timers
+		// Mark stale timers as not ready (uses centralized TIMER_STALE_THRESHOLD from heartbeat-config.inc)
+		$staleThreshold = time() - TIMER_STALE_THRESHOLD;
 		$stmt = $db->prepare('UPDATE TimerStatus SET ready = 0 WHERE last_heartbeat < :staleThreshold');
 		$success = $stmt->execute(array(':staleThreshold' => $staleThreshold));
 
@@ -340,6 +380,7 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		}
 	} else if ($message == 'MALFUNCTION') {
 		$error_string = isset($_POST['error']) ? $_POST['error'] : "Malfunction";
+		derby_log_error("Timer MALFUNCTION: $error_string");
 		if (!$timer_state->troubled()) {
 			record_event(EVENT_TIMER_MALFUNCTION, array('other' => $error_string));
 		}
@@ -438,6 +479,9 @@ if (have_permission(TIMER_MESSAGE_PERMISSION)) {
 		echo "\n  <abort/>\n";
 		$timer_state->to_state(TIMER_CONNECTED);
 		write_raceinfo('timer_current', '');
+		// Clear physical start tracking when racing is aborted
+		write_raceinfo('physical_start_time', 0);
+		write_raceinfo('physical_start_source', '');
 	}
 	$timer_state->write(true);
 } else {

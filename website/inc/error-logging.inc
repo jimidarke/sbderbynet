@@ -1,72 +1,142 @@
 <?php
 /**
- * DerbyNet Centralized Error Logging
- * 
- * This file provides centralized error handling and logging for all PHP components.
- * It integrates with the rsyslog system and provides production/debug toggles.
- * 
- * Version: 1.0.0
- * Date: 2025-05-24
- * 
- * Updated from basic error logging to centralized rsyslog integration
+ * DerbyNet Unified Logging - Text Format
+ *
+ * Centralized logging for all PHP components.
+ * Writes human-readable text format to unified log file.
+ *
+ * Version: 2.0.0
+ * Date: 2025-12-08
+ *
+ * OUTPUT FORMAT:
+ *     2025-12-08 14:35:22.123 DEVICE:LEVEL [filename:line] message
+ *
+ * USAGE:
+ *     require_once('inc/error-logging.inc');
+ *
+ *     derby_log_info("Heat started");
+ *     derby_log_warning("Slow response detected");
+ *     derby_log_error("Database connection failed");
  */
 
-// Production mode toggle - set to false for production deployment
-// TODO: Set DERBY_PHP_DEBUG=false in production environment
-$DERBY_PHP_DEBUG = (getenv('DERBY_PHP_DEBUG') !== false) ? 
+// ============================================================================
+// CONFIGURATION - Change these values as needed
+// ============================================================================
+define('DERBY_TIMEZONE', 'America/Edmonton');
+define('DERBY_LOG_FILE', '/var/log/derbynet.log');
+
+// Set timezone for all date functions
+date_default_timezone_set(DERBY_TIMEZONE);
+
+// Debug mode from environment
+$DERBY_PHP_DEBUG = (getenv('DERBY_PHP_DEBUG') !== false) ?
     filter_var(getenv('DERBY_PHP_DEBUG'), FILTER_VALIDATE_BOOLEAN) : true;
 
-// Log level configuration based on environment
-$DERBY_PHP_LOG_LEVEL = getenv('DERBY_PHP_LOG_LEVEL') ?: ($DERBY_PHP_DEBUG ? 'INFO' : 'WARNING');
+// Device ID from environment or hostname
+$DERBY_DEVICE_ID = strtoupper(getenv('DERBY_DEVICE_ID') ?: gethostname());
 
 /**
- * Initialize PHP error logging for DerbyNet
+ * Get timestamp with milliseconds in configured timezone.
+ *
+ * @return string Formatted timestamp: YYYY-MM-DD HH:MM:SS.mmm
+ */
+function derby_get_timestamp() {
+    $now = microtime(true);
+    $ms = sprintf('%03d', ($now - floor($now)) * 1000);
+    return date('Y-m-d H:i:s', (int)$now) . '.' . $ms;
+}
+
+/**
+ * Write a log entry in text format to the unified log file.
+ *
+ * Format: timestamp DEVICE:LEVEL [filename:line] message
+ *
+ * @param string $level Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+ * @param string $message Log message
+ */
+function derby_log($level, $message) {
+    global $DERBY_DEVICE_ID, $DERBY_PHP_DEBUG;
+
+    // Skip DEBUG logs in production mode
+    if ($level === 'DEBUG' && !$DERBY_PHP_DEBUG) {
+        return;
+    }
+
+    // Get caller info
+    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+    $caller = $backtrace[1] ?? $backtrace[0] ?? [];
+    $file = isset($caller['file']) ? basename($caller['file']) : 'unknown';
+    $line = $caller['line'] ?? 0;
+
+    // Build log line
+    $log_line = sprintf(
+        "%s %s:%s [%s:%d] %s\n",
+        derby_get_timestamp(),
+        $DERBY_DEVICE_ID,
+        strtoupper($level),
+        $file,
+        $line,
+        $message
+    );
+
+    // Ensure directory exists
+    $log_dir = dirname(DERBY_LOG_FILE);
+    if (!is_dir($log_dir)) {
+        @mkdir($log_dir, 0755, true);
+    }
+
+    // Append to file (atomic write with locking)
+    @file_put_contents(DERBY_LOG_FILE, $log_line, FILE_APPEND | LOCK_EX);
+}
+
+/**
+ * Convenience logging functions
+ */
+function derby_log_debug($message) {
+    derby_log('DEBUG', $message);
+}
+
+function derby_log_info($message) {
+    derby_log('INFO', $message);
+}
+
+function derby_log_warning($message) {
+    derby_log('WARNING', $message);
+}
+
+function derby_log_error($message) {
+    derby_log('ERROR', $message);
+}
+
+function derby_log_critical($message) {
+    derby_log('CRITICAL', $message);
+}
+
+/**
+ * Initialize PHP error logging
  */
 function derby_init_error_logging() {
-    global $DERBY_PHP_DEBUG, $DERBY_PHP_LOG_LEVEL;
-    
+    global $DERBY_PHP_DEBUG;
+
     // Configure error reporting based on debug mode
     if ($DERBY_PHP_DEBUG) {
-        // Development/Debug mode - show all errors
         error_reporting(E_ALL);
         ini_set('display_errors', '1');
         ini_set('display_startup_errors', '1');
-        ini_set('log_errors', '1');
     } else {
-        // Production mode - log errors but don't display them
         error_reporting(E_ERROR | E_WARNING | E_PARSE);
         ini_set('display_errors', '0');
         ini_set('display_startup_errors', '0');
-        ini_set('log_errors', '1');
     }
-    
-    // Set custom error log destination
-    // Try to use syslog first, fall back to file
-    if (function_exists('openlog')) {
-        // Use syslog for centralized logging
-        ini_set('log_errors_max_len', '0'); // No limit for syslog
-        openlog('derbynet-php', LOG_PID | LOG_PERROR, LOG_LOCAL0);
-        
-        // Set custom error handler for syslog
-        set_error_handler('derby_error_handler');
-        set_exception_handler('derby_exception_handler');
-        register_shutdown_function('derby_fatal_error_handler');
-    } else {
-        // Fallback to file logging (maintain compatibility with old system)
-        $log_dir = '/var/log/derbynet';
-        if (!is_dir($log_dir)) {
-            mkdir($log_dir, 0755, true);
-        }
-        
-        ini_set('error_log', $log_dir . '/derbyrace.log');
-        
-        // Use simplified handlers for file logging
-        set_error_handler('derby_simple_error_handler');
-        set_exception_handler('derby_simple_exception_handler');
-        register_shutdown_function('derby_simple_fatal_handler');
-    }
-    
-    // Set memory and time limits for better error handling
+
+    ini_set('log_errors', '1');
+
+    // Set custom error handlers
+    set_error_handler('derby_error_handler');
+    set_exception_handler('derby_exception_handler');
+    register_shutdown_function('derby_fatal_error_handler');
+
+    // Memory and time limits
     if ($DERBY_PHP_DEBUG) {
         ini_set('memory_limit', '256M');
         set_time_limit(60);
@@ -77,203 +147,112 @@ function derby_init_error_logging() {
 }
 
 /**
- * Custom error handler for syslog integration
+ * Map PHP error number to level string
+ */
+function derby_errno_to_level($errno) {
+    $map = [
+        E_ERROR => 'ERROR',
+        E_WARNING => 'WARNING',
+        E_PARSE => 'ERROR',
+        E_NOTICE => 'INFO',
+        E_CORE_ERROR => 'CRITICAL',
+        E_CORE_WARNING => 'WARNING',
+        E_COMPILE_ERROR => 'ERROR',
+        E_COMPILE_WARNING => 'WARNING',
+        E_USER_ERROR => 'ERROR',
+        E_USER_WARNING => 'WARNING',
+        E_USER_NOTICE => 'INFO',
+        E_STRICT => 'DEBUG',
+        E_RECOVERABLE_ERROR => 'ERROR',
+        E_DEPRECATED => 'DEBUG',
+        E_USER_DEPRECATED => 'DEBUG',
+    ];
+    return $map[$errno] ?? 'WARNING';
+}
+
+/**
+ * Custom error handler - writes to log file
  */
 function derby_error_handler($errno, $errstr, $errfile, $errline) {
-    global $DERBY_PHP_DEBUG;
-    
-    // Don't handle errors that are suppressed with @
+    // Don't handle errors suppressed with @
     if (!(error_reporting() & $errno)) {
         return false;
     }
-    
-    // Map PHP error levels to syslog priorities
-    $priority_map = [
-        E_ERROR => LOG_ERR,
-        E_WARNING => LOG_WARNING,
-        E_PARSE => LOG_ERR,
-        E_NOTICE => LOG_NOTICE,
-        E_CORE_ERROR => LOG_ERR,
-        E_CORE_WARNING => LOG_WARNING,
-        E_COMPILE_ERROR => LOG_ERR,
-        E_COMPILE_WARNING => LOG_WARNING,
-        E_USER_ERROR => LOG_ERR,
-        E_USER_WARNING => LOG_WARNING,
-        E_USER_NOTICE => LOG_NOTICE,
-        E_STRICT => LOG_NOTICE,
-        E_RECOVERABLE_ERROR => LOG_ERR,
-        E_DEPRECATED => LOG_NOTICE,
-        E_USER_DEPRECATED => LOG_NOTICE,
-    ];
-    
-    $priority = $priority_map[$errno] ?? LOG_WARNING;
-    $error_type = derby_get_error_type($errno);
-    
-    // Format error message with context
-    $message = sprintf(
-        "[%s] %s in %s:%d",
-        $error_type,
-        $errstr,
-        basename($errfile),
-        $errline
+
+    $level = derby_errno_to_level($errno);
+    $file = basename($errfile);
+
+    // Log with location from error, not from caller
+    global $DERBY_DEVICE_ID;
+    $log_line = sprintf(
+        "%s %s:%s [%s:%d] %s\n",
+        derby_get_timestamp(),
+        $DERBY_DEVICE_ID,
+        $level,
+        $file,
+        $errline,
+        $errstr
     );
-    
-    // Add request context in debug mode
-    if ($DERBY_PHP_DEBUG) {
-        $context = [
-            'request_uri' => $_SERVER['REQUEST_URI'] ?? 'CLI',
-            'request_method' => $_SERVER['REQUEST_METHOD'] ?? 'CLI',
-            'remote_addr' => $_SERVER['REMOTE_ADDR'] ?? 'Unknown',
-        ];
-        $message .= ' Context: ' . json_encode($context);
-    }
-    
-    // Log to syslog
-    syslog($priority, $message);
-    
+
+    @file_put_contents(DERBY_LOG_FILE, $log_line, FILE_APPEND | LOCK_EX);
+
     // Don't execute PHP internal error handler
     return true;
 }
 
 /**
- * Custom exception handler for syslog
+ * Custom exception handler - writes to log file
  */
 function derby_exception_handler($exception) {
-    $message = sprintf(
-        "[EXCEPTION] %s: %s in %s:%d",
-        get_class($exception),
-        $exception->getMessage(),
-        basename($exception->getFile()),
-        $exception->getLine()
+    global $DERBY_DEVICE_ID;
+
+    $file = basename($exception->getFile());
+    $line = $exception->getLine();
+    $message = get_class($exception) . ': ' . $exception->getMessage();
+
+    $log_line = sprintf(
+        "%s %s:ERROR [%s:%d] %s\n",
+        derby_get_timestamp(),
+        $DERBY_DEVICE_ID,
+        $file,
+        $line,
+        $message
     );
-    
-    syslog(LOG_ERR, $message);
-    
+
+    @file_put_contents(DERBY_LOG_FILE, $log_line, FILE_APPEND | LOCK_EX);
+
     global $DERBY_PHP_DEBUG;
     if ($DERBY_PHP_DEBUG) {
-        echo "<h1>Exception</h1><pre>$message</pre>";
+        echo "<h1>Exception</h1><pre>" . htmlspecialchars($exception->getMessage()) . "</pre>";
+        echo "<pre>" . htmlspecialchars($exception->getTraceAsString()) . "</pre>";
     } else {
         echo "<h1>Application Error</h1><p>An error occurred. Please contact support.</p>";
     }
 }
 
 /**
- * Fatal error handler for syslog (called on shutdown)
+ * Fatal error handler - called on shutdown
  */
 function derby_fatal_error_handler() {
     $error = error_get_last();
-    
+
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        $message = sprintf(
-            "[FATAL] %s in %s:%d",
-            $error['message'],
-            basename($error['file']),
-            $error['line']
+        global $DERBY_DEVICE_ID;
+
+        $file = basename($error['file']);
+        $log_line = sprintf(
+            "%s %s:CRITICAL [%s:%d] %s\n",
+            derby_get_timestamp(),
+            $DERBY_DEVICE_ID,
+            $file,
+            $error['line'],
+            $error['message']
         );
-        
-        syslog(LOG_CRIT, $message);
-    }
-}
 
-/**
- * Simple file-based error handlers (fallback)
- */
-function derby_simple_error_handler($errno, $errstr, $errfile, $errline) {
-    $message = "[Error] [$errno] $errstr in $errfile on line $errline";
-    error_log($message);
-    return false;
-}
-
-function derby_simple_exception_handler($exception) {
-    $message = "[Exception] " . $exception->getMessage() . " in " . $exception->getFile() . " on line " . $exception->getLine();
-    error_log($message);
-}
-
-function derby_simple_fatal_handler() {
-    $error = error_get_last();
-    if ($error && ($error['type'] === E_ERROR || $error['type'] === E_PARSE)) {
-        $message = "[Fatal Error] " . $error['message'] . " in " . $error['file'] . " on line " . $error['line'];
-        error_log($message);
-    }
-}
-
-/**
- * Get human-readable error type
- */
-function derby_get_error_type($errno) {
-    $types = [
-        E_ERROR => 'ERROR',
-        E_WARNING => 'WARNING',
-        E_PARSE => 'PARSE',
-        E_NOTICE => 'NOTICE',
-        E_CORE_ERROR => 'CORE_ERROR',
-        E_CORE_WARNING => 'CORE_WARNING',
-        E_COMPILE_ERROR => 'COMPILE_ERROR',
-        E_COMPILE_WARNING => 'COMPILE_WARNING',
-        E_USER_ERROR => 'USER_ERROR',
-        E_USER_WARNING => 'USER_WARNING',
-        E_USER_NOTICE => 'USER_NOTICE',
-        E_STRICT => 'STRICT',
-        E_RECOVERABLE_ERROR => 'RECOVERABLE_ERROR',
-        E_DEPRECATED => 'DEPRECATED',
-        E_USER_DEPRECATED => 'USER_DEPRECATED',
-    ];
-    
-    return $types[$errno] ?? 'UNKNOWN';
-}
-
-/**
- * Convenience logging functions for application use
- */
-function derby_log_error($message, $context = []) {
-    if (function_exists('syslog')) {
-        $formatted_message = $message;
-        if (!empty($context)) {
-            $formatted_message .= ' Context: ' . json_encode($context);
-        }
-        syslog(LOG_ERR, "[ERROR] $formatted_message");
-    } else {
-        error_log("[ERROR] $message");
-    }
-}
-
-function derby_log_warning($message, $context = []) {
-    if (function_exists('syslog')) {
-        $formatted_message = $message;
-        if (!empty($context)) {
-            $formatted_message .= ' Context: ' . json_encode($context);
-        }
-        syslog(LOG_WARNING, "[WARNING] $formatted_message");
-    } else {
-        error_log("[WARNING] $message");
-    }
-}
-
-function derby_log_info($message, $context = []) {
-    global $DERBY_PHP_DEBUG;
-    if ($DERBY_PHP_DEBUG) {
-        if (function_exists('syslog')) {
-            $formatted_message = $message;
-            if (!empty($context)) {
-                $formatted_message .= ' Context: ' . json_encode($context);
-            }
-            syslog(LOG_INFO, "[INFO] $formatted_message");
-        } else {
-            error_log("[INFO] $message");
-        }
+        @file_put_contents(DERBY_LOG_FILE, $log_line, FILE_APPEND | LOCK_EX);
     }
 }
 
 // Initialize error logging when this file is included
 derby_init_error_logging();
-
-// Log that error logging has been initialized
-//derby_log_info("DerbyNet PHP error logging initialized", [
-//    'debug_mode' => $DERBY_PHP_DEBUG,
-//    'log_level' => $DERBY_PHP_LOG_LEVEL,
-//    'script' => basename($_SERVER['SCRIPT_NAME'] ?? 'CLI')
-//]);
-
-// To Record errors: require_once('inc/error-logging.inc'); in a top-level of files
-// require_once('inc/error-logging.inc');
 ?>

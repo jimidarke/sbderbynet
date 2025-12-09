@@ -7,7 +7,7 @@
 //
 // $_POST['what']:
 //    'checkin' => set 'passedinspection' value
-//    'register' => set 'registered' value  
+//    'register' => set 'registered' value
 //    'number' => assign car numbers
 //    'eligibility' => change racer eligibility
 //
@@ -23,6 +23,7 @@
 // group, otherwise only those without a non-zero car number.
 //
 
+require_once('inc/error-logging.inc');
 require_once('inc/car-numbering.inc');
 require_once('inc/events.inc');
 
@@ -177,6 +178,9 @@ if ($ok) {
 }
 
 if ($ok) {
+  $what = $_POST['what'];
+  $who = $_POST['who'];
+  derby_log_info("Bulk racer update: $what for $who");
   json_success();
 }
 
