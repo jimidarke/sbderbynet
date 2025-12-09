@@ -1,5 +1,5 @@
 // Elimination Configuration Editor
-// Manages the complete lifecycle of editing JSON configuration files
+// Manages the complete lifecycle of editing JSON configuration files  
 
 var EliminationConfigEditor = (function() {
     var currentConfig = null;
@@ -7,12 +7,85 @@ var EliminationConfigEditor = (function() {
     var isLocked = false;
     var isDirty = false;
     var originalSchedulingRules = null;  // Preserve original scheduling_rules for round-trip
+    var availableClasses = [];  // List of classes from database
+    var labels = {  // Default labels, will be loaded from server
+        partition: ['Age Group', 'Age Groups'],
+        group: ['Group', 'Groups'],
+        subgroup: ['Subgroup', 'Subgroups'],
+        supergroup: ['Event', 'Events']
+    };
 
     return {
         init: function() {
-            this.loadConfigList();
+            var self = this;
+            this.loadLabels();
             this.setupEventHandlers();
             this.checkDirectoryWritable();
+            // Chain loadClasses -> loadConfigList to ensure classes are available for rendering
+            this.loadClasses(function() {
+                self.loadConfigList();
+            });
+        },
+
+        loadLabels: function() {
+            $.ajax({
+                url: 'action.php',
+                data: { query: 'poll', values: 'race-structure' },
+                success: function(data) {
+                    if (data.labels) {
+                        labels = data.labels;
+                        // Update any static label elements on the page
+                        updatePageLabels();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading labels:', error);
+                }
+            });
+        },
+
+        loadClasses: function(callback) {
+            $.ajax({
+                url: 'action.php',
+                data: { query: 'class.list' },
+                success: function(data) {
+                    if (data.classes) {
+                        availableClasses = data.classes;
+                    }
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error loading classes:', error);
+                    // Still call callback on error so UI isn't stuck
+                    if (typeof callback === 'function') {
+                        callback();
+                    }
+                }
+            });
+        },
+
+        getAvailableClasses: function() {
+            return availableClasses;
+        },
+
+        getLabels: function() {
+            return labels;
+        },
+
+        // Get singular label for partition (e.g., "Age Group")
+        getPartitionLabel: function() {
+            return labels.partition ? labels.partition[0] : 'Age Group';
+        },
+
+        // Get plural label for partition (e.g., "Age Groups")
+        getPartitionLabelPlural: function() {
+            return labels.partition ? labels.partition[1] : 'Age Groups';
+        },
+
+        isLocked: function() {
+            return isLocked;
         },
 
         checkDirectoryWritable: function() {
@@ -275,35 +348,59 @@ function renderConfigForm(config) {
 }
 
 function renderAgeGroup(groupKey, groupData) {
+    var classes = EliminationConfigEditor.getAvailableClasses();
+    var partitionLabel = EliminationConfigEditor.getPartitionLabel();
+
+    // Find matching class by: 1) classid, 2) class_name_pattern regex, 3) exact name match
+    var matchedClassId = null;
+    if (groupData.classid) {
+        matchedClassId = groupData.classid;
+    } else if (groupData.class_name_pattern) {
+        try {
+            var pattern = new RegExp(groupData.class_name_pattern, 'i');
+            var match = classes.find(function(cls) { return pattern.test(cls.name); });
+            if (match) matchedClassId = match.classid;
+        } catch (e) {
+            console.warn('Invalid class_name_pattern:', groupData.class_name_pattern);
+        }
+    }
+    // Fallback: try exact name match
+    if (!matchedClassId && groupData.name) {
+        var nameMatch = classes.find(function(cls) {
+            return cls.name.toLowerCase() === groupData.name.toLowerCase();
+        });
+        if (nameMatch) matchedClassId = nameMatch.classid;
+    }
+
+    var classOptions = classes.map(function(cls) {
+        var selected = (matchedClassId == cls.classid) ? 'selected' : '';
+        return '<option value="' + cls.classid + '" ' + selected + '>' +
+               escapeHtml(cls.name) + ' (' + cls.count + ' racers)</option>';
+    }).join('');
+
+    var roundCount = groupData.rounds ? groupData.rounds.length : 0;
+    var selectedClass = classes.find(function(cls) { return cls.classid == matchedClassId; });
+    var racerCount = selectedClass ? selectedClass.count : 0;
+
     var html = `
-        <div class="age-group-panel" data-group-key="${escapeHtml(groupKey)}">
+        <div class="age-group-panel collapsed" data-group-key="${escapeHtml(groupKey)}">
             <div class="age-group-header">
                 <h3>
                     <span class="age-group-name">${escapeHtml(groupData.name)}</span>
+                    <span class="age-group-summary">(${roundCount} rounds, ${racerCount} racers)</span>
                     <button class="remove-age-group-btn" type="button">Remove</button>
                 </h3>
             </div>
             <div class="age-group-body">
                 <div class="form-row">
-                    <label>Age Group Key:</label>
-                    <input type="text" class="group-key" value="${escapeHtml(groupKey)}" />
-                    <small>Lowercase letters, numbers, and underscores only</small>
+                    <label>Class:</label>
+                    <select class="class-selector">
+                        <option value="">-- Select a class --</option>
+                        ${classOptions}
+                    </select>
                 </div>
                 <div class="form-row">
-                    <label>Display Name:</label>
-                    <input type="text" class="group-name" value="${escapeHtml(groupData.name)}" />
-                </div>
-                <div class="form-row">
-                    <label>Class Name Pattern (regex):</label>
-                    <input type="text" class="class-pattern" value="${escapeHtml(groupData.class_name_pattern)}" />
-                    <small>Matches class names like: ${escapeHtml(groupData.name)}</small>
-                </div>
-                <div class="form-row">
-                    <label>Expected Racers:</label>
-                    <input type="number" class="expected-racers" value="${groupData.expected_racers || 0}" min="0" />
-                </div>
-                <div class="form-row">
-                    <label>Lanes:</label>
+                    <label>Lanes: <span class="help-icon" data-help="lanes">?</span></label>
                     <input type="number" class="lanes" value="${groupData.lanes || 3}" min="1" max="20" />
                 </div>
 
@@ -313,17 +410,41 @@ function renderAgeGroup(groupKey, groupData) {
             </div>
         </div>
     `;
+    // Hidden fields to store key and name (derived from class)
+    // Group key is auto-generated from class name
 
-    var $panel = $(html);
+    var $panel = $(html.trim());
     $('#age-groups-container').append($panel);
 
     // Setup event handlers
-    $panel.find('.remove-age-group-btn').on('click', function() {
+    $panel.find('.remove-age-group-btn').on('click', function(e) {
+        e.stopPropagation();  // Prevent collapse toggle
         removeAgeGroup($panel);
     });
 
     $panel.find('.add-round-btn').on('click', function() {
         addRound(groupKey);
+    });
+
+    // Collapse/expand on header click
+    $panel.find('.age-group-header').on('click', function(e) {
+        // Don't toggle if clicking on the remove button
+        if ($(e.target).closest('.remove-age-group-btn').length) return;
+        $panel.toggleClass('collapsed');
+    });
+
+    // When class is selected, update header and summary
+    $panel.find('.class-selector').on('change', function() {
+        var selectedOption = $(this).find('option:selected');
+        var className = selectedOption.text().replace(/ \(\d+ racers\)$/, '');
+        var racerCount = selectedOption.text().match(/\((\d+) racers\)/);
+        racerCount = racerCount ? racerCount[1] : '0';
+
+        if (className && className !== '-- Select a class --') {
+            $panel.find('.age-group-name').text(className);
+            updateAgeGroupSummary($panel);
+        }
+        isDirty = true;
     });
 
     // Render rounds for this age group
@@ -338,24 +459,30 @@ function renderAgeGroup(groupKey, groupData) {
 }
 
 function renderRound(ageGroupKey, roundData) {
+    // Strip leading number from round name for display in input
+    var displayName = stripRoundNumber(roundData.round_name);
+    var summaryText = buildRoundSummary(roundData);
+
     var html = `
-        <div class="round-panel" data-sequence="${roundData.round_sequence}">
+        <div class="round-panel collapsed" data-sequence="${roundData.round_sequence}">
             <div class="round-header">
                 <span class="round-drag-handle">☰</span>
+                <span class="round-collapse-indicator">▼</span>
                 <span class="round-title">
-                    Round ${roundData.round_sequence}: ${escapeHtml(roundData.round_name)}
+                    Round ${roundData.round_sequence}: ${escapeHtml(displayName)}
                 </span>
+                <span class="round-summary">${escapeHtml(summaryText)}</span>
                 <button class="remove-round-btn" type="button">×</button>
             </div>
             <div class="round-body">
                 <div class="form-row">
                     <label>Round Name:</label>
-                    <input type="text" class="round-name" value="${escapeHtml(roundData.round_name)}"
-                           placeholder="1 Preliminary" />
-                    <small>Must start with a number for proper sequencing</small>
+                    <input type="text" class="round-name" value="${escapeHtml(displayName)}"
+                           placeholder="Preliminary" />
+                    <small>Round number is prepended automatically</small>
                 </div>
                 <div class="form-row">
-                    <label>Races Per Racer:</label>
+                    <label>Races Per Racer: <span class="help-icon" data-help="races-per-racer">?</span></label>
                     <select class="races-per-racer">
                         ${[1,2,3,4,5,6].map(n =>
                             `<option value="${n}" ${roundData.races_per_racer == n ? 'selected' : ''}>${n}</option>`
@@ -363,7 +490,7 @@ function renderRound(ageGroupKey, roundData) {
                     </select>
                 </div>
                 <div class="form-row">
-                    <label>Advancement Rule:</label>
+                    <label>Advancement Rule: <span class="help-icon" data-help="advancement-rule">?</span></label>
                     <select class="advancement-rule">
                         <option value="top_count" ${roundData.advancement_rule === 'top_count' ? 'selected' : ''}>
                             Top Count
@@ -378,7 +505,7 @@ function renderRound(ageGroupKey, roundData) {
                 </div>
                 <div class="form-row advance-count-row"
                      style="${roundData.advancement_rule === 'placement' || roundData.advancement_rule === 'percentage' ? 'display:none' : ''}">
-                    <label>Advance Count:</label>
+                    <label>Advance Count: <span class="help-icon" data-help="advance-count">?</span></label>
                     <input type="number" class="advance-count" value="${roundData.advance_count || 0}" min="0" />
                 </div>
                 <div class="form-row advance-percentage-row"
@@ -388,7 +515,7 @@ function renderRound(ageGroupKey, roundData) {
                     <small>Percentage of racers to advance to next round</small>
                 </div>
                 <div class="form-row">
-                    <label>Scoring Method:</label>
+                    <label>Scoring Method: <span class="help-icon" data-help="scoring-method">?</span></label>
                     <select class="scoring-method">
                         <option value="total_time" ${roundData.scoring_method === 'total_time' ? 'selected' : ''}>
                             Total Time
@@ -412,12 +539,20 @@ function renderRound(ageGroupKey, roundData) {
         </div>
     `;
 
-    var $panel = $(html);
+    var $panel = $(html.trim());
     $(`[data-group-key="${ageGroupKey}"] .rounds-list`).append($panel);
 
     // Setup event handlers
-    $panel.find('.remove-round-btn').on('click', function() {
+    $panel.find('.remove-round-btn').on('click', function(e) {
+        e.stopPropagation();
         removeRound($panel);
+    });
+
+    // Collapse/expand on header click
+    $panel.find('.round-header').on('click', function(e) {
+        // Don't toggle if clicking on drag handle or remove button
+        if ($(e.target).closest('.round-drag-handle, .remove-round-btn').length) return;
+        $panel.toggleClass('collapsed');
     });
 
     $panel.find('.advancement-rule').on('change', function() {
@@ -435,6 +570,18 @@ function renderRound(ageGroupKey, roundData) {
             $countRow.show();
             $percentRow.hide();
         }
+        updateRoundSummary($panel);
+    });
+
+    // Update summary when values change
+    $panel.find('.races-per-racer, .advance-count, .advance-percentage, .scoring-method').on('change', function() {
+        updateRoundSummary($panel);
+    });
+
+    // Update title when name changes
+    $panel.find('.round-name').on('input', function() {
+        var seq = $panel.attr('data-sequence');
+        $panel.find('.round-title').text('Round ' + seq + ': ' + $(this).val());
     });
 }
 
@@ -459,16 +606,43 @@ function serializeFormToConfig() {
         scheduling_rules: serializeSchedulingRules()
     };
 
+    var usedKeys = {};  // Track keys to ensure uniqueness
+
     $('.age-group-panel').each(function() {
         var $panel = $(this);
-        var groupKey = $panel.find('.group-key').val();
+
+        // Get class name for auto-generating key and name
+        var $classSelector = $panel.find('.class-selector');
+        var selectedOption = $classSelector.find('option:selected');
+        var className = selectedOption.text().replace(/ \(\d+ racers\)$/, '');
+        var classid = $classSelector.val();
+
+        // Auto-generate key from class name, or use original key as fallback
+        var originalKey = $panel.attr('data-group-key');
+        var groupKey = className && className !== '-- Select a class --'
+            ? slugify(className)
+            : originalKey;
+
+        // Ensure unique key by appending suffix if needed
+        if (usedKeys[groupKey]) {
+            var suffix = 2;
+            while (usedKeys[groupKey + '_' + suffix]) suffix++;
+            groupKey = groupKey + '_' + suffix;
+        }
+        usedKeys[groupKey] = true;
 
         var rounds = [];
         $panel.find('.round-panel').each(function(index) {
             var $round = $(this);
+            var baseName = $round.find('.round-name').val();
+            var sequence = index + 1;
+
+            // Auto-prepend sequence number to round name
+            var roundName = sequence + ' ' + baseName;
+
             var roundData = {
-                round_sequence: index + 1,
-                round_name: $round.find('.round-name').val(),
+                round_sequence: sequence,
+                round_name: roundName,
                 races_per_racer: parseInt($round.find('.races-per-racer').val()),
                 advancement_rule: $round.find('.advancement-rule').val(),
                 scoring_method: $round.find('.scoring-method').val(),
@@ -487,10 +661,14 @@ function serializeFormToConfig() {
             rounds.push(roundData);
         });
 
+        // Use class name as display name
+        var displayName = className && className !== '-- Select a class --'
+            ? className
+            : 'Unnamed Group';
+
         config.age_groups[groupKey] = {
-            name: $panel.find('.group-name').val(),
-            class_name_pattern: $panel.find('.class-pattern').val(),
-            expected_racers: parseInt($panel.find('.expected-racers').val()) || 0,
+            name: displayName,
+            classid: classid ? parseInt(classid) : null,
             lanes: parseInt($panel.find('.lanes').val()) || 3,
             rounds: rounds
         };
@@ -519,35 +697,42 @@ function serializeSchedulingRules() {
 
 function validateConfig() {
     var errors = [];
+    var partitionLabel = EliminationConfigEditor.getPartitionLabel();
+    var partitionLabelLower = partitionLabel.toLowerCase();
 
     // Validate format name
     if (!$('#format-name').val().trim()) {
         errors.push('Format name is required');
     }
 
-    // Validate age groups
+    // Validate age groups (partitions)
     if ($('.age-group-panel').length === 0) {
-        errors.push('At least one age group is required');
+        errors.push('At least one ' + partitionLabelLower + ' is required');
     }
 
-    $('.age-group-panel').each(function() {
+    $('.age-group-panel').each(function(index) {
         var $panel = $(this);
-        var groupKey = $panel.find('.group-key').val();
+        var groupNum = index + 1;
 
-        if (!groupKey.match(/^[a-z0-9_]+$/)) {
-            errors.push('Age group key "' + groupKey + '" must contain only lowercase letters, numbers, and underscores');
+        // Validate class selection (class name is used as display name and key)
+        var classid = $panel.find('.class-selector').val();
+        var selectedOption = $panel.find('.class-selector option:selected');
+        var className = selectedOption.text().replace(/ \(\d+ racers\)$/, '');
+
+        if (!classid || className === '-- Select a class --') {
+            errors.push(partitionLabel + ' #' + groupNum + ' must have a class selected');
         }
 
         // Validate rounds
         var rounds = $panel.find('.round-panel');
         if (rounds.length === 0) {
-            errors.push('Age group "' + groupKey + '" must have at least one round');
+            errors.push(partitionLabel + ' "' + (className || '#' + groupNum) + '" must have at least one round');
         }
 
         rounds.each(function() {
             var roundName = $(this).find('.round-name').val();
-            if (!roundName.match(/^\d+/)) {
-                errors.push('Round name "' + roundName + '" must start with a number');
+            if (!roundName || !roundName.trim()) {
+                errors.push('All rounds must have a name');
             }
         });
     });
@@ -561,25 +746,33 @@ function validateConfig() {
 }
 
 function addAgeGroup() {
-    var groupKey = 'age_group_' + Date.now();
+    var partitionLabel = EliminationConfigEditor.getPartitionLabel();
+    var groupKey = 'new_group_' + Date.now();
     var groupData = {
-        name: 'New Age Group',
-        class_name_pattern: '^(New Group).*$',
-        expected_racers: 0,
+        name: 'New ' + partitionLabel,
+        classid: null,
         lanes: 3,
         rounds: []
     };
     renderAgeGroup(groupKey, groupData);
     // Add a default round
     addRound(groupKey);
+
+    // Expand the new group so user can edit it
+    var $newPanel = $('[data-group-key="' + groupKey + '"]');
+    $newPanel.removeClass('collapsed');
 }
 
 function addRound(ageGroupKey) {
     var $container = $(`[data-group-key="${ageGroupKey}"] .rounds-list`);
     var roundNum = $container.children().length + 1;
+
+    // Suggest appropriate default name based on round number
+    var defaultName = roundNum === 1 ? 'Preliminary' : 'Round ' + roundNum;
+
     var roundData = {
         round_sequence: roundNum,
-        round_name: roundNum + ' Round ' + roundNum,
+        round_name: defaultName,  // No number prefix - auto-prepended on save
         races_per_racer: 1,
         advancement_rule: 'top_count',
         advance_count: 0,
@@ -591,13 +784,22 @@ function addRound(ageGroupKey) {
 
     // Reinit sortable after adding
     initSortableRounds($container);
+
+    // Expand the new round so user can edit it
+    var $newRound = $container.find('.round-panel').last();
+    $newRound.removeClass('collapsed');
+
+    // Update age group summary
+    updateAgeGroupSummary($container.closest('.age-group-panel'));
 }
 
 function removeRound($roundElement) {
     if (confirm('Remove this round?')) {
         var $container = $roundElement.closest('.rounds-list');
+        var $ageGroupPanel = $container.closest('.age-group-panel');
         $roundElement.remove();
         renumberRounds($container);
+        updateAgeGroupSummary($ageGroupPanel);
     }
 }
 
@@ -609,15 +811,19 @@ function removeAgeGroup($ageGroupElement) {
 
 function renumberRounds($container) {
     $container.find('.round-panel').each(function(index) {
-        $(this).attr('data-sequence', index + 1);
-        var roundName = $(this).find('.round-name').val();
+        var $panel = $(this);
+        var seq = index + 1;
+        $panel.attr('data-sequence', seq);
+        var roundName = $panel.find('.round-name').val();
         // Update the title display
-        $(this).find('.round-title').text('Round ' + (index + 1) + ': ' + roundName);
+        $panel.find('.round-title').text('Round ' + seq + ': ' + roundName);
+        // Update summary
+        updateRoundSummary($panel);
     });
 }
 
 function initSortableRounds($container) {
-    if (isLocked) return;
+    if (EliminationConfigEditor.isLocked()) return;
 
     if ($container.hasClass('ui-sortable')) {
         $container.sortable('destroy');
@@ -651,8 +857,9 @@ function updateFormLockState() {
 
     // Disable/enable form elements
     $('#format-name, #description, #version').prop('readonly', disabled);
-    $('.group-key, .group-name, .class-pattern, .expected-racers, .lanes').prop('readonly', disabled);
-    $('.round-name, .round-description, .advance-count').prop('readonly', disabled);
+    $('.lanes').prop('readonly', disabled);
+    $('.class-selector').prop('disabled', disabled);
+    $('.round-name, .round-description, .advance-count, .advance-percentage').prop('readonly', disabled);
     $('.races-per-racer, .advancement-rule, .scoring-method').prop('disabled', disabled);
     $('.remove-age-group-btn, .remove-round-btn, .add-round-btn').prop('disabled', disabled);
     $('#add-age-group-btn, #save-config-btn').prop('disabled', disabled);
@@ -702,6 +909,109 @@ function showSuccessMessage(message) {
     alert(message);  // Simple alert for now, could be enhanced with toast notification
 }
 
+function updatePageLabels() {
+    // Update the section header to use dynamic partition label (e.g., "Age Groups")
+    var partitionLabelPlural = EliminationConfigEditor.getPartitionLabelPlural();
+    $('#age-groups-section-header').text(partitionLabelPlural);
+    $('#add-age-group-btn').text('Add ' + EliminationConfigEditor.getPartitionLabel());
+}
+
+// Helper: Strip leading number from round name (e.g., "1 Preliminary" -> "Preliminary")
+function stripRoundNumber(name) {
+    if (!name) return '';
+    return name.replace(/^\d+\s*/, '');
+}
+
+// Helper: Build summary text for collapsed round view
+function buildRoundSummary(roundData) {
+    var races = roundData.races_per_racer || 1;
+    var rule = roundData.advancement_rule || 'top_count';
+    var parts = [races + ' race' + (races > 1 ? 's' : '')];
+
+    if (rule === 'top_count' && roundData.advance_count) {
+        parts.push('top ' + roundData.advance_count + ' advance');
+    } else if (rule === 'percentage' && roundData.advance_percentage) {
+        parts.push('top ' + roundData.advance_percentage + '% advance');
+    } else if (rule === 'placement') {
+        parts.push('final standings');
+    }
+
+    return parts.join(', ');
+}
+
+// Helper: Update round summary from current form values
+function updateRoundSummary($panel) {
+    var races = parseInt($panel.find('.races-per-racer').val()) || 1;
+    var rule = $panel.find('.advancement-rule').val();
+    var parts = [races + ' race' + (races > 1 ? 's' : '')];
+
+    if (rule === 'top_count') {
+        var count = parseInt($panel.find('.advance-count').val()) || 0;
+        if (count > 0) parts.push('top ' + count + ' advance');
+    } else if (rule === 'percentage') {
+        var pct = parseInt($panel.find('.advance-percentage').val()) || 0;
+        if (pct > 0) parts.push('top ' + pct + '% advance');
+    } else if (rule === 'placement') {
+        parts.push('final standings');
+    }
+
+    $panel.find('.round-summary').text(parts.join(', '));
+}
+
+// Helper: Update age group summary from current state
+function updateAgeGroupSummary($panel) {
+    var roundCount = $panel.find('.round-panel').length;
+    var selectedOption = $panel.find('.class-selector option:selected');
+    var racerMatch = selectedOption.text().match(/\((\d+) racers\)/);
+    var racerCount = racerMatch ? racerMatch[1] : '0';
+
+    $panel.find('.age-group-summary').text('(' + roundCount + ' rounds, ' + racerCount + ' racers)');
+}
+
+// Helper: Generate slug from class name (e.g., "Ages 6-8" -> "ages_6_8")
+function slugify(text) {
+    if (!text) return '';
+    return text.toString()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')  // Replace non-alphanumeric with underscore
+        .replace(/^_+|_+$/g, '')      // Trim leading/trailing underscores
+        .replace(/_+/g, '_');         // Collapse multiple underscores
+}
+
+// Field help tooltip definitions
+var fieldHelp = {
+    'races-per-racer': 'Number of times each racer competes in this round. Use 3 for preliminary rounds (once per lane), 1 for elimination brackets.',
+    'advancement-rule': 'How racers qualify for next round:\n• Top Count: Specific number of racers advance\n• Percentage: % of field advances\n• Placement: Final round - determines 1st, 2nd, 3rd place',
+    'advance-count': 'Exact number of racers who advance to the next round. Example: Top 27 advance from 73 in preliminary.',
+    'scoring-method': 'How racer performance is evaluated:\n• Total Time: Sum of all race times\n• Best Time: Fastest single race\n• Average Time: Mean of all races\n• Placement: Position in heat determines rank',
+    'lanes': 'Number of racing lanes on your track. Determines how many racers compete in each heat.'
+};
+
+// Tooltip display handler
+function initHelpTooltips() {
+    $(document).on('mouseenter', '.help-icon', function(e) {
+        var helpKey = $(this).data('help');
+        var helpText = fieldHelp[helpKey];
+        if (!helpText) return;
+
+        // Remove any existing tooltip
+        $('.help-tooltip').remove();
+
+        var $tooltip = $('<div class="help-tooltip"></div>')
+            .text(helpText)
+            .css({
+                top: $(this).offset().top + 25,
+                left: $(this).offset().left - 10
+            });
+
+        $('body').append($tooltip);
+    });
+
+    $(document).on('mouseleave', '.help-icon', function() {
+        $('.help-tooltip').remove();
+    });
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     return text.toString()
@@ -715,4 +1025,5 @@ function escapeHtml(text) {
 // Initialize on document ready
 $(function() {
     EliminationConfigEditor.init();
+    initHelpTooltips();
 });

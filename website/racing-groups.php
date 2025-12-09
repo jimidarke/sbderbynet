@@ -1,7 +1,7 @@
-<?php @session_start();
-require_once('inc/data.inc');
+<?php @session_start(); 
+require_once('inc/data.inc');  
 require_once('inc/authorize.inc');
-session_write_close();
+session_write_close(); 
 require_once('inc/classes.inc');
 require_once('inc/banner.inc');
 require_once('inc/partitions.inc');
@@ -138,10 +138,45 @@ $(function() {
          value="Add Aggregate"/>
 </div>
 
-<div class="block_buttons add_button">
-  <input id="config-editor-button" class="modest-button" type="button"
-         value="Edit Elimination Configurations"
-         onclick="window.location.href='elimination-config-editor.php'"/>
+<!-- Elimination Tournament Setup -->
+<div id="tournament-setup-section">
+  <h3>Elimination Tournament</h3>
+
+  <div id="tournament-config-selector">
+    <label for="global-tournament-config">Format:</label>
+    <select id="global-tournament-config">
+      <option value="">-- Select Format --</option>
+    </select>
+    <input id="config-editor-button" class="modest-button" type="button"
+           value="Edit"
+           onclick="window.location.href='elimination-config-editor.php'"/>
+  </div>
+
+  <div id="tournament-config-details" class="hidden">
+    <small><span id="config-age-groups-count">0</span> age groups defined</small>
+  </div>
+
+  <div id="tournament-class-assignments" class="hidden">
+    <p class="warning-text">
+      <strong>Warning:</strong> Once initialized, tournament cannot be changed.
+    </p>
+    <table id="class-tournament-table">
+      <thead>
+        <tr>
+          <th>Class</th>
+          <th>Age Group</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="class-tournament-tbody">
+      </tbody>
+    </table>
+  </div>
+
+  <div id="no-config-message">
+    <small>Select a format to assign classes.</small>
+  </div>
 </div>
 
 </div><!-- race-structure -->
@@ -232,43 +267,6 @@ $(function() {
              value="Add <?php echo subgroup_label(); ?>"
              onclick="show_add_rank_modal();" />
       <br/>
-    </div>
-
-    <div id="elimination_tournament_extension" class="hidden">
-      <h4>Elimination Tournament</h4>
-      <div id="elimination_status">
-        <p id="elimination_status_text">No active tournament</p>
-      </div>
-      <div id="elimination_controls">
-        <div id="elimination_config_selector" class="hidden">
-          <label for="elimination_config_select">Tournament Format:</label>
-          <select id="elimination_config_select">
-            <option value="">Select configuration...</option>
-          </select>
-          <br/>
-          <div id="elimination_age_group_selector" class="hidden" style="margin-top: 10px;">
-            <label for="elimination_age_group_select">Age Group for this Class:</label>
-            <select id="elimination_age_group_select">
-              <option value="">Select age group...</option>
-            </select>
-            <div id="age_group_match_info" style="display:none; margin-top: 5px;"></div>
-          </div>
-          <br/>
-          <input id="initialize_tournament_button" type="button"
-                 value="Initialize Tournament"
-                 onclick="initialize_elimination_tournament();" />
-        </div>
-        <div id="elimination_tournament_info" class="hidden">
-          <p><strong>Format:</strong> <span id="tournament_format_name"></span></p>
-          <p><strong>Age Group:</strong> <span id="tournament_age_group"></span></p>
-          <p><strong>Round:</strong> <span id="tournament_current_round"></span> of <span id="tournament_total_rounds"></span></p>
-          <p><strong>Current Round:</strong> <span id="tournament_round_name"></span></p>
-          <p><strong>Advancement:</strong> <span id="tournament_advancement_info"></span></p>
-          <input id="advance_tournament_button" type="button" 
-                 value="Advance to Next Round" 
-                 onclick="advance_elimination_tournament();" />
-        </div>
-      </div>
     </div>
 
     <input type="submit"/>

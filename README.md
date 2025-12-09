@@ -74,6 +74,12 @@ This project represents substantial enhancements to the original DerbyNet system
 - Tournament state persistence surviving system restarts
 - API endpoints for tournament initialization and advancement
 
+**Tournament Setup UI (`website/racing-groups.php`, `website/elimination-config-editor.php`)**
+- Integrated Tournament Setup section on Racing Groups page for initializing tournaments
+- Dedicated Configuration Editor with collapsible sections, auto-generated keys, and help tooltips
+- Batch tournament status query (`query.elimination.tournament.all-status.inc`) for efficient page loads
+- Real-time status display showing round progress and locked state
+
 #### 4. **Enhanced Kiosk and Display System**
 
 **Professional Elimination Displays (`website/kiosks/`)**
@@ -314,6 +320,27 @@ mosquitto_sub -h 192.168.100.10 -t derbynet/test
 - **Dropout Handling**: Partial heats with fewer racers when participants withdraw
 - **Heat Optimization**: Prioritized spacing between races for adequate rest periods
 - **Professional Displays**: Real-time standings with advancement indicators
+
+### **Tournament Setup (Racing Groups Page)**
+The Racing Groups page (`racing-groups.php`) includes a Tournament Setup section for initializing elimination tournaments:
+
+- **Format Selection**: Choose from available tournament configurations via dropdown
+- **Class-to-Age-Group Assignment**: Table showing all classes with age group selectors
+- **Auto-Detection**: Classes are automatically matched to age groups based on name patterns (e.g., "Ages 6-8" matches the 6-8 age group)
+- **One-Click Initialization**: Initialize tournament for each class, creating rounds and schedule structure
+- **Status Persistence**: Tournament status (round progress, locked state) persists across page reloads
+- **Visual Indicators**: Active tournaments show current round (e.g., "Round 1/4") and are locked from re-initialization
+
+### **Configuration Editor (`elimination-config-editor.php`)**
+A dedicated editor for creating and modifying tournament configurations:
+
+- **Collapsible Sections**: Age groups and rounds collapse/expand for easy navigation (collapsed by default)
+- **Auto-Generated Keys**: Age group keys are automatically generated from class names
+- **Round Numbering**: Round numbers are automatically prepended to round names
+- **Field-Level Help**: Hover tooltips explain each configuration field
+- **Live Validation**: Real-time feedback on configuration errors
+- **Clone/Delete**: Easily duplicate or remove configurations
+- **Lock Protection**: Configurations in active use cannot be modified
 
 ### **Configuration Management**
 - **JSON-Based**: Hardcoded tournament formats for reliability and predictability

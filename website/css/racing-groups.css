@@ -291,74 +291,121 @@ div.add_button {
   margin-top: 20px;
 }
 
-/* Elimination Tournament Styling */
-#elimination_tournament_extension {
-  margin-top: 20px;
-  padding: 15px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  background-color: #f9f9f9;
+/* Tournament Setup Section */
+#tournament-setup-section {
+  margin-top: 25px;
+  padding-top: 15px;
+  border-top: 2px solid #8da5c6;
 }
 
-#elimination_tournament_extension h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
+#tournament-setup-section h3 {
+  margin: 0 0 10px 0;
   color: #333;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 5px;
 }
 
-#elimination_status {
-  margin-bottom: 15px;
+#tournament-config-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-#elimination_status_text {
-  font-weight: bold;
-  margin: 0;
-}
-
-#elimination_config_selector {
-  margin-bottom: 15px;
-}
-
-#elimination_config_selector label {
-  display: block;
-  margin-bottom: 5px;
+#tournament-config-selector label {
   font-weight: bold;
 }
 
-#elimination_config_select {
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 5px;
-}
-
-#elimination_tournament_info p {
-  margin: 5px 0;
-}
-
-#elimination_tournament_info strong {
-  display: inline-block;
-  width: 120px;
-}
-
-#initialize_tournament_button,
-#advance_tournament_button {
-  background-color: #4CAF50;
-  color: white;
-  padding: 8px 16px;
-  border: none;
+#global-tournament-config {
+  padding: 5px 8px;
+  font-size: 14px;
+  border: 1px solid #8da5c6;
   border-radius: 4px;
-  cursor: pointer;
+  min-width: 200px;
+}
+
+#tournament-config-details {
+  margin-top: 8px;
+  color: #666;
+}
+
+.warning-text {
+  background: #fff3cd;
+  border-left: 3px solid #ff9800;
+  padding: 8px 10px;
+  margin: 10px 0;
+  font-size: 13px;
+  color: #856404;
+}
+
+.warning-text strong {
+  color: #d63031;
+}
+
+#class-tournament-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
   font-size: 14px;
 }
 
-#initialize_tournament_button:hover,
-#advance_tournament_button:hover {
-  background-color: #45a049;
+#class-tournament-table th,
+#class-tournament-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
-#advance_tournament_button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
+#class-tournament-table th {
+  background: #8da5c6;
+  color: white;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+#class-tournament-table .status-active {
+  color: #28a745;
+  font-weight: bold;
+}
+
+#class-tournament-table .status-pending {
+  color: #999;
+}
+
+#class-tournament-table .age-group-select {
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 13px;
+  max-width: 140px;
+}
+
+#class-tournament-table .age-group-select:disabled {
+  background: #e9ecef;
+}
+
+#class-tournament-table .init-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+#class-tournament-table .init-btn:hover {
+  background: #45a049;
+}
+
+#class-tournament-table .init-btn:disabled {
+  background: #ccc;
+}
+
+#class-tournament-table .locked-label {
+  color: #28a745;
+  font-size: 12px;
+}
+
+#no-config-message {
+  color: #888;
+  margin-top: 8px;
 }

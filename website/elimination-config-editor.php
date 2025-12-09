@@ -1,6 +1,6 @@
 <?php
-session_start();
-require_once('inc/data.inc');
+session_start(); 
+require_once('inc/data.inc'); 
 require_once('inc/authorize.inc');
 session_write_close();
 require_once('inc/banner.inc');
@@ -57,17 +57,13 @@ require_permission(SET_UP_PERMISSION);
                 <textarea id="description" rows="2"
                           placeholder="Standard soapbox derby elimination format"></textarea>
             </div>
-            <div class="form-row">
-                <label for="version">Version</label>
-                <input type="text" id="version" value="1.0" />
-            </div>
         </form>
     </div>
 
-    <!-- Age Groups Section -->
+    <!-- Age Groups Section (label is dynamic based on settings) -->
     <div class="editor-section">
         <div class="section-header">
-            <h2>Age Groups</h2>
+            <h2 id="age-groups-section-header">Age Groups</h2>
             <button id="add-age-group-btn" class="action-btn">Add Age Group</button>
         </div>
         <div id="age-groups-container">

@@ -1,6 +1,6 @@
 /* Elimination Tournament Configuration Editor Styles */
 
-#config-editor-container {
+#config-editor-container {  
     max-width: 1200px;
     margin: 20px auto;
     padding: 20px;
@@ -161,6 +161,17 @@
 
 .age-group-body {
     padding: 20px;
+}
+
+.class-selector {
+    font-size: 15px;
+    padding: 10px;
+    background: #fff;
+    border: 2px solid #8da5c6;
+}
+
+.class-selector:focus {
+    border-color: #4CAF50;
 }
 
 .age-group-body h4 {
@@ -464,6 +475,154 @@ textarea:focus {
     from {
         opacity: 0;
         transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Collapsible Age Groups */
+.age-group-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.age-group-header h3 {
+    position: relative;
+    padding-left: 25px;
+}
+
+.age-group-header h3::before {
+    content: '\25BC'; /* Down arrow */
+    position: absolute;
+    left: 0;
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.age-group-panel.collapsed .age-group-header h3::before {
+    transform: rotate(-90deg);
+}
+
+.age-group-body {
+    max-height: 2000px;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out, opacity 0.2s ease-out;
+    overflow: hidden;
+}
+
+.age-group-panel.collapsed .age-group-body {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.age-group-summary {
+    display: none;
+    margin-left: 10px;
+    font-size: 14px;
+    font-weight: normal;
+    opacity: 0.9;
+}
+
+.age-group-panel.collapsed .age-group-summary {
+    display: inline;
+}
+
+/* Collapsible Rounds */
+.round-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.round-collapse-indicator {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    color: #666;
+}
+
+.round-panel.collapsed .round-collapse-indicator {
+    transform: rotate(-90deg);
+}
+
+.round-body {
+    max-height: 1000px;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out, opacity 0.2s ease-out;
+    overflow: hidden;
+}
+
+.round-panel.collapsed .round-body {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.round-summary {
+    display: none;
+    font-size: 13px;
+    font-weight: normal;
+    color: #666;
+    margin-left: auto;
+    margin-right: 15px;
+}
+
+.round-panel.collapsed .round-summary {
+    display: inline;
+}
+
+/* Help Tooltips */
+.help-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background: #2196F3;
+    color: white;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: help;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.help-icon:hover {
+    background: #1976D2;
+}
+
+.help-tooltip {
+    position: absolute;
+    background: #333;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 6px;
+    max-width: 280px;
+    font-size: 13px;
+    font-weight: normal;
+    line-height: 1.5;
+    white-space: pre-line;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    animation: tooltipFadeIn 0.15s ease-out;
+}
+
+.help-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 20px;
+    border-width: 0 6px 6px 6px;
+    border-style: solid;
+    border-color: transparent transparent #333 transparent;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
     }
     to {
         opacity: 1;

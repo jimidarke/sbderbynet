@@ -1,9 +1,7 @@
-// Elimination Tournament Management JavaScript
+// Elimination Tournament Management JavaScript  
+// Tournament initialization is handled via the Tournament Setup section on racing-groups.php
 
-var current_class_id = null;
 var elimination_configs = [];
-var current_age_groups = [];
-var suggested_age_group_key = null;
 
 // Initialize elimination tournament functionality
 function initialize_elimination_ui() {
@@ -21,7 +19,8 @@ function load_elimination_configs() {
         success: function(data) {
             if (data.outcome && data.outcome.summary === 'success') {
                 elimination_configs = data.configs;
-                populate_config_selector();
+                // Initialize tournament setup section if on racing-groups page
+                init_tournament_setup_section();
             } else {
                 console.error('Failed to load elimination configs:', data);
             }
@@ -32,306 +31,323 @@ function load_elimination_configs() {
     });
 }
 
-// Populate the configuration selector dropdown
-function populate_config_selector() {
-    var select = $('#elimination_config_select');
-    select.empty();
-    select.append('<option value="">Select configuration...</option>');
+// ============================================================================
+// Tournament Setup Section (racing-groups.php main page)
+// ============================================================================
+
+var tournament_setup_config = null;  // Currently selected config details
+var tournament_setup_classes = [];   // List of classes with tournament status
+
+// Initialize the tournament setup section
+function init_tournament_setup_section() {
+    var $configSelect = $('#global-tournament-config');
+    if (!$configSelect.length) return;  // Not on racing-groups page
+
+    // Populate config dropdown
+    $configSelect.empty();
+    $configSelect.append('<option value="">-- Select Format --</option>');
 
     elimination_configs.forEach(function(config) {
-        select.append($('<option>', {
+        $configSelect.append($('<option>', {
             value: config.file,
-            text: config.name + ' (v' + config.version + ')'
+            text: config.name
         }));
     });
 
-    // Setup change handler to load age groups when config selected
-    select.off('change').on('change', function() {
-        var config_file = $(this).val();
-        if (config_file && current_class_id) {
-            load_age_groups_for_config(config_file, current_class_id);
+    // Handle config selection change
+    $configSelect.off('change').on('change', function() {
+        var configFile = $(this).val();
+        if (configFile) {
+            load_tournament_setup_config(configFile);
         } else {
-            hide_age_group_selector();
+            hide_tournament_class_assignments();
         }
     });
 }
 
-// Show elimination tournament section for a class
-function show_elimination_tournament_for_class(classid) {
-    current_class_id = classid;
-    
-    // Load tournament status for this class
-    load_tournament_status(classid);
-    
-    // Show the elimination tournament section
-    $('#elimination_tournament_extension').removeClass('hidden');
-}
-
-// Load tournament status for a class
-function load_tournament_status(classid) {
+// Load config details and class assignments
+function load_tournament_setup_config(configFile) {
     $.ajax('action.php', {
         type: 'GET',
         data: {
-            query: 'elimination.tournament.status',
-            classid: classid
+            query: 'elimination.config.detail',
+            filename: configFile
         },
         success: function(data) {
             if (data.outcome && data.outcome.summary === 'success') {
-                if (data.active) {
-                    show_active_tournament(data.tournament);
-                } else {
-                    show_no_tournament();
+                tournament_setup_config = data.config;
+                show_tournament_config_details(data.config);
+                load_classes_tournament_status(configFile);
+            } else {
+                console.error('Failed to load config:', data);
+            }
+        }
+    });
+}
+
+// Show config details
+function show_tournament_config_details(config) {
+    var ageGroupCount = config.age_groups ? Object.keys(config.age_groups).length : 0;
+    $('#config-description').text(config.description || 'No description');
+    $('#config-age-groups-count').text(ageGroupCount);
+    $('#tournament-config-details').removeClass('hidden');
+}
+
+// Load classes and their tournament status
+function load_classes_tournament_status(configFile) {
+    // First get the class list, then get tournament status
+    $.ajax('action.php', {
+        type: 'GET',
+        data: { query: 'class.list' },
+        success: function(classData) {
+            if (!classData.classes) {
+                console.error('No classes found');
+                return;
+            }
+
+            // Now get tournament status for all classes
+            $.ajax('action.php', {
+                type: 'GET',
+                data: { query: 'elimination.tournament.all-status' },
+                success: function(statusData) {
+                    var tournaments = (statusData.outcome && statusData.outcome.summary === 'success')
+                        ? statusData.tournaments || {}
+                        : {};
+
+                    var classes = classData.classes.map(function(cls) {
+                        var tournamentInfo = tournaments[cls.classid];
+                        if (tournamentInfo) {
+                            return {
+                                classid: cls.classid,
+                                name: cls.name,
+                                count: cls.count,
+                                tournament_active: true,
+                                current_round: tournamentInfo.current_round,
+                                total_rounds: tournamentInfo.total_rounds,
+                                age_group_name: tournamentInfo.age_group_name
+                            };
+                        } else {
+                            return {
+                                classid: cls.classid,
+                                name: cls.name,
+                                count: cls.count,
+                                tournament_active: false,
+                                current_round: 0,
+                                total_rounds: 0,
+                                age_group_name: ''
+                            };
+                        }
+                    });
+
+                    tournament_setup_classes = classes;
+                    render_class_tournament_table(classes, configFile);
+                    show_tournament_class_assignments();
+                },
+                error: function() {
+                    // If tournament status query fails, render with no status
+                    var classes = classData.classes.map(function(cls) {
+                        return {
+                            classid: cls.classid,
+                            name: cls.name,
+                            count: cls.count,
+                            tournament_active: false,
+                            current_round: 0,
+                            total_rounds: 0,
+                            age_group_name: ''
+                        };
+                    });
+                    tournament_setup_classes = classes;
+                    render_class_tournament_table(classes, configFile);
+                    show_tournament_class_assignments();
                 }
-            } else {
-                console.error('Failed to load tournament status:', data);
-                $('#elimination_status_text').text('Error loading tournament status');
-            }
+            });
         },
         error: function(xhr, status, error) {
-            console.error('Error loading tournament status:', error);
-            $('#elimination_status_text').text('Error loading tournament status');
+            console.error('Error loading classes:', error);
         }
     });
 }
 
-// Show active tournament information
-function show_active_tournament(tournament) {
-    $('#elimination_status_text').text('Active tournament: ' + tournament.format_name);
-    
-    // Populate tournament info
-    $('#tournament_format_name').text(tournament.format_name);
-    $('#tournament_age_group').text(tournament.age_group_name);
-    $('#tournament_current_round').text(tournament.current_round);
-    $('#tournament_total_rounds').text(tournament.total_rounds);
-    $('#tournament_round_name').text(tournament.current_round_name);
-    $('#tournament_advancement_info').text(tournament.advancement_info);
-    
-    // Show tournament info, hide config selector
-    $('#elimination_config_selector').addClass('hidden');
-    $('#elimination_tournament_info').removeClass('hidden');
-    
-    // Enable/disable advance button based on round
-    if (tournament.current_round >= tournament.total_rounds) {
-        $('#advance_tournament_button').prop('disabled', true).val('Tournament Complete');
-    } else {
-        $('#advance_tournament_button').prop('disabled', false).val('Advance to Next Round');
+// Render the class-tournament assignment table
+function render_class_tournament_table(classes, configFile) {
+    var $tbody = $('#class-tournament-tbody');
+    $tbody.empty();
+
+    if (!classes || classes.length === 0) {
+        $tbody.append('<tr><td colspan="4">No classes found</td></tr>');
+        return;
     }
+
+    var ageGroups = tournament_setup_config ? tournament_setup_config.age_groups : {};
+
+    classes.forEach(function(cls) {
+        var $row = $('<tr>').attr('data-classid', cls.classid);
+
+        // Class name (with racer count)
+        $row.append($('<td>').text(cls.name + ' (' + (cls.count || 0) + ')'));
+
+        // Age group selector or locked display
+        var $ageGroupCell = $('<td>');
+        if (cls.tournament_active) {
+            $ageGroupCell.text(cls.age_group_name || '-');
+        } else {
+            var $select = $('<select>')
+                .addClass('age-group-select')
+                .attr('data-classid', cls.classid);
+            $select.append('<option value="">-- Select --</option>');
+
+            // Try to find matching age group
+            var suggestedKey = find_matching_age_group(cls.name, ageGroups);
+
+            Object.keys(ageGroups).forEach(function(key) {
+                var group = ageGroups[key];
+                var roundCount = group.rounds ? group.rounds.length : 0;
+                var label = group.name + ' (' + roundCount + 'r)';
+                var $option = $('<option>', { value: key, text: label });
+                if (key === suggestedKey) {
+                    $option.prop('selected', true);
+                }
+                $select.append($option);
+            });
+
+            $ageGroupCell.append($select);
+        }
+        $row.append($ageGroupCell);
+
+        // Status
+        var $statusCell = $('<td>');
+        if (cls.tournament_active) {
+            $statusCell.addClass('status-active').text('Round ' + cls.current_round + '/' + cls.total_rounds);
+        } else {
+            $statusCell.addClass('status-pending').text('--');
+        }
+        $row.append($statusCell);
+
+        // Action
+        var $actionCell = $('<td>');
+        if (cls.tournament_active) {
+            $actionCell.append($('<span>').addClass('locked-label').text('Locked'));
+        } else {
+            var $btn = $('<button>')
+                .addClass('init-btn')
+                .text('Init')
+                .attr('data-classid', cls.classid)
+                .attr('data-classname', cls.name)
+                .attr('data-config', configFile)
+                .on('click', function() {
+                    initialize_class_tournament($(this));
+                });
+            $actionCell.append($btn);
+        }
+        $row.append($actionCell);
+
+        $tbody.append($row);
+    });
 }
 
-// Show no tournament state
-function show_no_tournament() {
-    $('#elimination_status_text').text('No active tournament');
-    
-    // Show config selector, hide tournament info
-    $('#elimination_config_selector').removeClass('hidden');
-    $('#elimination_tournament_info').addClass('hidden');
-}
-
-// Load age groups for selected configuration
-function load_age_groups_for_config(config_file, classid) {
-    $.ajax('action.php', {
-        type: 'GET',
-        data: {
-            query: 'elimination.config.age-groups',
-            config_file: config_file,
-            classid: classid
-        },
-        success: function(data) {
-            if (data.outcome && data.outcome.summary === 'success') {
-                current_age_groups = data.age_groups;
-                suggested_age_group_key = data.suggested_key;
-                populate_age_group_selector(data);
-                show_age_group_selector();
-            } else {
-                console.error('Failed to load age groups:', data);
-                hide_age_group_selector();
+// Find matching age group based on class name pattern
+function find_matching_age_group(className, ageGroups) {
+    for (var key in ageGroups) {
+        var group = ageGroups[key];
+        if (group.class_name_pattern) {
+            try {
+                var pattern = new RegExp(group.class_name_pattern, 'i');
+                if (pattern.test(className)) {
+                    return key;
+                }
+            } catch (e) {
+                // Invalid pattern, skip
             }
-        },
-        error: function(xhr, status, error) {
-            console.error('Error loading age groups:', error);
-            hide_age_group_selector();
         }
-    });
-}
-
-// Populate the age group selector dropdown
-function populate_age_group_selector(data) {
-    var select = $('#elimination_age_group_select');
-    select.empty();
-    select.append('<option value="">Select age group for this class...</option>');
-
-    data.age_groups.forEach(function(group) {
-        var label = group.name + ' (' + group.rounds_count + ' rounds';
-        if (group.expected_racers > 0) {
-            label += ', ~' + group.expected_racers + ' racers';
+        // Also try exact name match
+        if (group.name && group.name.toLowerCase() === className.toLowerCase()) {
+            return key;
         }
-        label += ')';
-
-        var option = $('<option>', {
-            value: group.key,
-            text: label
-        });
-
-        // Mark suggested option
-        if (group.pattern_match && group.key === data.suggested_key) {
-            option.text(label + ' ⭐ Suggested');
-            option.attr('selected', 'selected');
-        }
-
-        select.append(option);
-    });
-
-    // Show info about pattern matching
-    if (data.suggested_key) {
-        $('#age_group_match_info').html(
-            '<small style="color: green;">✓ Auto-detected "' +
-            data.age_groups.find(g => g.key === data.suggested_key).name +
-            '" based on class name pattern</small>'
-        ).show();
-    } else {
-        $('#age_group_match_info').html(
-            '<small style="color: orange;">⚠ No pattern match found for class "' +
-            data.class_name + '". Please select manually.</small>'
-        ).show();
     }
+    return null;
 }
 
-// Show age group selector
-function show_age_group_selector() {
-    $('#elimination_age_group_selector').removeClass('hidden');
-}
+// Initialize tournament for a specific class
+function initialize_class_tournament($btn) {
+    var classid = $btn.attr('data-classid');
+    var className = $btn.attr('data-classname');
+    var configFile = $btn.attr('data-config');
+    var $row = $btn.closest('tr');
+    var ageGroupKey = $row.find('.age-group-select').val();
 
-// Hide age group selector
-function hide_age_group_selector() {
-    $('#elimination_age_group_selector').addClass('hidden');
-    $('#age_group_match_info').hide();
-}
-
-// Initialize elimination tournament
-function initialize_elimination_tournament() {
-    var config_file = $('#elimination_config_select').val();
-    var age_group_key = $('#elimination_age_group_select').val();
-
-    if (!config_file) {
-        alert('Please select a tournament configuration');
+    if (!ageGroupKey) {
+        alert('Please select an age group for "' + className + '"');
         return;
     }
 
-    if (!age_group_key) {
-        alert('Please select an age group for this class');
+    var ageGroupName = tournament_setup_config.age_groups[ageGroupKey].name;
+    var roundCount = tournament_setup_config.age_groups[ageGroupKey].rounds.length;
+
+    var confirmMsg = 'Initialize tournament for "' + className + '"?\n\n' +
+        'Age Group: ' + ageGroupName + '\n' +
+        'Rounds: ' + roundCount + '\n\n' +
+        'WARNING: This cannot be undone. Tournament rounds will be created immediately.';
+
+    if (!confirm(confirmMsg)) {
         return;
     }
 
-    if (!current_class_id) {
-        alert('No class selected');
-        return;
-    }
-
-    // Confirm initialization
-    var age_group_name = $('#elimination_age_group_select option:selected').text();
-    if (!confirm('Initialize elimination tournament for this class?\n\nAge Group: ' + age_group_name + '\n\nThis will create tournament rounds and cannot be easily undone.')) {
-        return;
-    }
+    $btn.prop('disabled', true).text('Initializing...');
 
     $.ajax('action.php', {
         type: 'POST',
         data: {
             action: 'elimination.tournament.initialize',
-            classid: current_class_id,
-            config_file: config_file,
-            age_group_key: age_group_key
+            classid: classid,
+            config_file: configFile,
+            age_group_key: ageGroupKey
         },
         success: function(data) {
             if (data.outcome && data.outcome.summary === 'success') {
-                alert('Tournament initialized successfully!');
-                load_tournament_status(current_class_id);
-                hide_age_group_selector();
-                // Refresh the racing groups display
-                if (typeof update_group_displays === 'function') {
-                    update_group_displays();
-                }
+                alert('Tournament initialized successfully for "' + className + '"!\n\nRounds and schedule structure created.');
+                // Update the row directly to show initialized state
+                update_row_after_init($row, ageGroupName, roundCount);
             } else {
                 alert('Failed to initialize tournament: ' + (data.outcome ? data.outcome.description : 'Unknown error'));
+                $btn.prop('disabled', false).text('Init');
             }
         },
         error: function(xhr, status, error) {
             alert('Error initializing tournament: ' + error);
+            $btn.prop('disabled', false).text('Init');
         }
     });
 }
 
-// Advance elimination tournament
-function advance_elimination_tournament() {
-    if (!current_class_id) {
-        alert('No class selected');
-        return;
-    }
-    
-    // Confirm advancement
-    if (!confirm('Advance tournament to the next round? This will process advancement based on current race results.')) {
-        return;
-    }
-    
-    $.ajax('action.php', {
-        type: 'POST',
-        data: {
-            action: 'elimination.tournament.advance',
-            classid: current_class_id
-        },
-        success: function(data) {
-            if (data.outcome && data.outcome.summary === 'success') {
-                alert('Tournament advanced to round ' + data.new_round + '!');
-                load_tournament_status(current_class_id);
-                // Refresh the racing groups display
-                if (typeof update_group_displays === 'function') {
-                    update_group_displays();
-                }
-            } else {
-                alert('Failed to advance tournament: ' + (data.outcome ? data.outcome.description : 'Unknown error'));
-            }
-        },
-        error: function(xhr, status, error) {
-            alert('Error advancing tournament: ' + error);
-        }
-    });
+// Update row after successful initialization
+function update_row_after_init($row, ageGroupName, roundCount) {
+    // Update age group cell - replace select with text
+    var $ageGroupCell = $row.find('td').eq(1);
+    $ageGroupCell.empty().text(ageGroupName);
+
+    // Update status cell
+    var $statusCell = $row.find('td').eq(2);
+    $statusCell.removeClass('status-pending').addClass('status-active')
+        .text('Round 1/' + roundCount);
+
+    // Update action cell - replace button with locked label
+    var $actionCell = $row.find('td').eq(3);
+    $actionCell.empty().append($('<span>').addClass('locked-label').text('Locked'));
 }
 
-// Hide elimination tournament section
-function hide_elimination_tournament() {
-    $('#elimination_tournament_extension').addClass('hidden');
-    current_class_id = null;
+// Show/hide tournament class assignments section
+function show_tournament_class_assignments() {
+    $('#tournament-class-assignments').removeClass('hidden');
+    $('#no-config-message').addClass('hidden');
 }
 
-// Hook into existing class editing functionality
-function original_on_edit_class(event) {
-    var list_item = $(event.target).closest("li");
-    var classid = list_item.attr('data-classid');
-    
-    // Show elimination tournament section if this is a regular class (not aggregate)
-    if (!list_item.hasClass('aggregate') && classid && classid !== '-1') {
-        show_elimination_tournament_for_class(classid);
-    } else {
-        hide_elimination_tournament();
-    }
+function hide_tournament_class_assignments() {
+    $('#tournament-class-assignments').addClass('hidden');
+    $('#tournament-config-details').addClass('hidden');
+    $('#no-config-message').removeClass('hidden');
 }
 
 // Initialize when document is ready
 $(document).ready(function() {
     initialize_elimination_ui();
-    
-    // Hook into the class editing functionality
-    // We need to override or extend the existing on_edit_class function
-    if (typeof window.on_edit_class === 'function') {
-        // Store the original function
-        window.original_on_edit_class_impl = window.on_edit_class;
-        
-        // Override with our enhanced version
-        window.on_edit_class = function(event) {
-            // Call the original function first
-            window.original_on_edit_class_impl(event);
-            
-            // Then add our elimination tournament functionality
-            original_on_edit_class(event);
-        };
-    }
 });
