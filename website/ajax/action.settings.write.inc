@@ -108,6 +108,9 @@ if (have_permission(SET_UP_PERMISSION)) {
     // Slideshow Duration
     'slideshow-duration' => array('setting' => 'slideshow-duration'),
 
+    // Lane Colors (upstream v11.0)
+    'lane-colors' => array('setting' => 'lane-colors'),
+
   );
 
   if ($ok) {
