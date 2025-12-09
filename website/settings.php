@@ -26,6 +26,7 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
     <link rel="stylesheet" type="text/css" href="css/mobile.css" />
     <link rel="stylesheet" type="text/css" href="css/chooser.css" />
     <link rel="stylesheet" type="text/css" href="css/settings.css" />
+    <link rel="stylesheet" type="text/css" href="css/lane-colors.css" />
     <?php if ($schedules_exist) { ?>
         <style type="text/css">
             .track-settings {
@@ -141,7 +142,11 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                         <input id="reverse-lanes" name="reverse-lanes" class="not-mobile"
                             type="checkbox" <?php if (read_raceinfo_boolean('reverse-lanes')) echo ' checked="checked"'; ?> />
                         <label for="reverse-lanes">Number lanes in reverse</label>
+                        <a href="#" class="small-button" style="margin-left: 20px;"
+                             onclick="on_set_lane_colors_click(); return false;">Set Lane Colors</a>
                     </p>
+                    <input type="hidden" id="lane-colors" name="lane-colors"
+                           value="<?php echo htmlspecialchars(read_raceinfo('lane-colors', ''), ENT_QUOTES); ?>"/>
                     <p>
                         <input id="track-length" name="track-length" type="number" min="0" max="999"
                             class="not-mobile"
@@ -458,6 +463,14 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
         </form>
     </div>
     <?php require('inc/chooser.inc'); ?>
+
+<!-- Lane Colors Modal (upstream v11.0) -->
+<div id="lane_colors_modal" class="modal_dialog hidden block_buttons">
+  <h2>Set Lane Colors</h2>
+  <form id="lane_colors_modal_form">
+  </form>
+</div>
+
 </body>
 </html>
 <!-- 

@@ -301,6 +301,11 @@ function repopulate_schedule(json) {
       if (prev_racerids.indexOf(cell['racerid']) >= 0) {
         td.addClass('in_prev');
       }
+      // Lane colors (upstream v11.0)
+      if (typeof g_lane_colors !== 'undefined' && g_lane_colors[cell['lane'] - 1] &&
+          g_lane_colors[cell['lane'] - 1] !== 'none') {
+        td.addClass(g_lane_colors[cell['lane'] - 1] + '_column_color');
+      }
       racerids[cell['lane']] = cell['racerid'];
       td.append($('<div/>').addClass('car').text(cell['carnumber']))
         .append($('<div/>').addClass('racer').text(cell['name']))

@@ -29,6 +29,10 @@ require_once('inc/schema_version.inc');
     var g_nlanes = <?php echo get_lane_count_from_results(); ?>;
     var g_show_car_photos = <?php echo read_raceinfo_boolean('show-cars-on-deck') ? "true" : "false"; ?>;
     var g_set_nextheat = true;
+    var g_lane_colors = <?php
+      $lane_colors_str = read_raceinfo('lane-colors', '');
+      echo $lane_colors_str ? json_encode(explode(',', $lane_colors_str)) : '[]';
+    ?>;
   </script>
   <script type="text/javascript" src="js/ondeck.js"></script>
   <?php if (isset($as_kiosk)) {
@@ -42,6 +46,7 @@ require_once('inc/schema_version.inc');
   <link rel="stylesheet" type="text/css" href="css/kiosks.css" />
   <link rel="stylesheet" type="text/css" href="css/main-table.css" />
   <link rel="stylesheet" type="text/css" href="css/ondeck.css" />
+  <link rel="stylesheet" type="text/css" href="css/lane-colors.css" />
 </head>
 
 <body>
