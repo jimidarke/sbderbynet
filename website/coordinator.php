@@ -74,7 +74,8 @@ $warn_no_timer = warn_no_timer();
 
   <div class="double_control_column">
     <div id="not-racing-warning" class="hidden">
-      Turn on racing mode or simulate racing if you wish to record results.
+      Turn on racing mode or <a target='_blank' href='timer-test.php'>simulate racing</a>
+            if you wish to record results.
     </div>
     <div id="now-racing-group" class="scheduling_control_group">
       <p>Waiting for poll.coordinator query...</p>

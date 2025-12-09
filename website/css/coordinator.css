@@ -727,3 +727,14 @@ div#broadcast-input-wrap-coordinator {
   background-color: #fff3cd;
   color: #856404;
 }
+
+/* Responsive styles for narrow screens (upstream c3a9df71) */
+@media(max-width: 900px) {
+    .double_control_column,
+    .control_column_container {
+      width: 490px;
+    }
+    #not-racing-warning {
+        width: 480px;
+    }
+}
