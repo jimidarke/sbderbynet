@@ -102,6 +102,10 @@ function add_speed_group($n, $bias, $classid, $rankid, $label, &$no_trophies_for
       continue;
     }
 
+    $awardname = nth_fastest(1 + $place, $label);
+    if (count($recipients) > 1) {
+      $awardname .= ' (Tie)';
+    }
     for ($i = 0; $i < count($recipients); ++$i) {
       $racerid = $recipients[$i];
       $sort = $bias + $place;
@@ -113,7 +117,7 @@ function add_speed_group($n, $bias, $classid, $rankid, $label, &$no_trophies_for
                             .(count($finishers[$p]) > 1 ? chr(ord('a') + $i) : '')
                             .(isset($classid) ? '-'.$classid : '')
                             .(isset($rankid) ? '-'.$rankid : ''),
-                        'awardname' => nth_fastest(1 + $place, $label),
+                        'awardname' => $awardname,
                         // TODO Hard-wired constants, ugh
                         'awardtype' => 'Speed Trophy',
                         'awardtypeid' => 5,
