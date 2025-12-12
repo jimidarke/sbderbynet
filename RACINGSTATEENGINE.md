@@ -22,7 +22,7 @@ The system must maintain **integral state** across:
 | Layer | States | Storage | Communication |
 |-------|--------|---------|---------------|
 | **PHP/Web** | `NowRacingState` (0/1) + Timer State (7 states) | RaceInfo table | AJAX polling (1 sec) |
-| **Python Server** | `STOPPED/STAGING/RACING` | Memory (derived from API) | MQTT + HTTP |
+| **Python Server** | `UNCONFIGURED/STOPPED/STAGING/RACING/FINISHED` | Memory (derived from API) | MQTT + HTTP |
 | **Hardware Timers** | Ready/Toggle | MQTT topics | MQTT telemetry (1 sec) |
 
 ### Timer State Constants (PHP)
@@ -37,9 +37,39 @@ TIMER_RUNNING (4)       - Race in progress
 TIMER_UNHEALTHY (5)     - Persistent malfunction detected
 ```
 
+### Python Race Server States
+
+```
+RACE_STATE_UNCONFIGURED - API unavailable / no database configured (LED: yellow)
+RACE_STATE_STOPPED      - Race not active (LED: red)
+RACE_STATE_STAGING      - Race active, waiting for start (LED: blue)
+RACE_STATE_RACING       - Race in progress (LED: green)
+RACE_STATE_FINISHED     - All lanes complete (transient, returns to STOPPED)
+```
+
+**Note:** "FINISHED" is a transient state - after processing results, state automatically transitions to STOPPED.
+
+### LED Color Reference
+
+| Color | RGB Pins (H/L) | State(s) | Description |
+|-------|----------------|----------|-------------|
+| Red | R:H G:L B:L | STOPPED, DNF, Lane Finished | Race not active, lane did not finish, or lane crossed finish line |
+| Blue | R:L G:L B:H | STAGING (ready) | Heat ready, toggle flipped, waiting for start signal |
+| Green | R:L G:H B:L | RACING | Race in progress |
+| Purple (flicker) | R:H G:L B:H | STAGING (not ready) | Heat staged but toggle not flipped (display shows "flip"); flickers to grab attention |
+| Yellow | R:H G:H B:L | UNCONFIGURED, Error | API unavailable or system error |
+| White | R:H G:H B:H | Boot/Diagnostic | Power-on sequence or test mode |
+
 ### State Flow Diagram
 
 ```
+          ┌─────────────────────┐
+          │    UNCONFIGURED     │
+          │  API unavailable    │
+          │  LED=YELLOW         │
+          └──────────┬──────────┘
+                     │ API becomes available
+                     ▼
                                 ┌─────────────────────┐
                                 │     NOT_RACING      │
                                 │  NowRacingState=0   │
@@ -252,6 +282,56 @@ When the physical start actuator releases the carts, it cannot be stopped. There
 - Manual starts are allowed with warning indication
 - Integrity issues are displayed but don't block operation
 
+### Lane Completion Guard
+
+Once a race is started (RACING state with valid start_time), the Python race server **will not transition away from RACING** until:
+1. All lanes have finished (either crossed finish line or marked DNF)
+2. Race timeout (70s) expires and remaining lanes are auto-marked DNF
+
+This prevents the bug where PHP reporting "Staging" (e.g., for next heat prep) would cause Python to prematurely end the current race.
+
+**Implementation in `setLEDFromRaceStat()`:**
+```python
+# GUARD: If we're racing and not all lanes finished, stay in RACING
+if (self.race_state == RACE_STATE_RACING and
+    self.start_time > 0 and
+    self.lanesFinished < self.lane_count):
+    return  # Don't change state
+```
+
+**Per-Lane DNF Support:**
+The coordinator can mark individual lanes as DNF (99.999s):
+- Clicking DNF button for an unfinished lane triggers lane completion
+- Clicking DNF for an already-finished lane updates that lane's time to DNF
+- If DNF is clicked on the last unfinished lane, the race completes
+
+**DNF Data Flow:**
+1. User clicks DNF button on coordinator page (`coordinator-poll.js:handleRacerDNF()`)
+2. AJAX request to `action.php` with `action: 'racer.dnf'`
+3. PHP backend (`action.racer.dnf.inc`) sets `finishtime = 99.999` in RaceChart table
+4. Python race server polls API every second via `updateFromDerbyAPI()`
+5. API (`derbyapi.py:get_race_status()`) includes `finishtime` in lanes data
+6. Detection code in `derbyRace.py` finds `finishtime >= 99.999` and calls `laneDNF()`
+7. Race server updates lane state, LED (red), and completes race if all lanes finished
+
+### State Transition Reset
+
+When transitioning between race states, the system performs cleanup to prevent stale data:
+
+**STAGING Transition** (from FINISHED/STOPPED/UNCONFIGURED):
+- Clears `lane_times`, `lanesFinished`, `start_time`
+- Forces LED update to all lanes (blue)
+- Logs warning if stale data was present
+
+**STOPPED Transition** (from any other state):
+- Clears `lane_times`, `lanesFinished`, `start_time`
+- Forces LED update to all lanes (red)
+- Logs warning if stale data was present
+
+This prevents issues where:
+1. Incomplete/aborted races leave stale timing data
+2. Individual lane LEDs (purple for finish) don't reset after race completion
+
 ### Sync Latency
 
 Near real-time synchronization (1-3 seconds) is acceptable:
@@ -292,7 +372,40 @@ This indicates `TIMER_RUNNING` state without a recorded start signal:
 
 ## Version History
 
-- **v0.6.3** (2025-12) - Initial race state engine integrity implementation
+- **v0.7.3** (2025-12) - DNF button integration fix
+  - **Fixed DNF button not being picked up by race server** - `derbyapi.py` now passes `finishtime` field from PHP API response
+  - Added `finishtime` to lanes data in `get_race_status()` enabling Python race server to detect coordinator DNF clicks
+  - DNF detection now works within 1 second polling cycle
+  - Race completes properly when DNF is clicked on the last unfinished lane
+  - Documented complete DNF data flow in "Per-Lane DNF Support" section
+
+- **v0.7.2** (2025-12) - LED color scheme update and state reset
+  - **Changed lane finish color from purple to red** - Red now indicates lane stopped/finished
+  - **Purple now indicates "flip" state** - Staging but toggle not ready (needs flip)
+  - Force LED update to all lanes when transitioning between states
+  - Fixed lane LEDs not resetting after race completion
+
+- **v0.7.1** (2025-12) - Stale race data cleanup
+  - **Fixed stale race data causing incorrect finish times** - Race tracking now resets on state transitions
+  - Added reset of `lane_times`, `lanesFinished`, and `start_time` when entering STAGING or STOPPED
+  - Prevents data from aborted/incomplete races from affecting subsequent races
+  - Added warning logs when clearing stale race data
+
+- **v0.7.0** (2025-12) - Lane completion guard and DNF support
+  - **Fixed premature race finish bug** - Race no longer transitions from RACING to STAGING until all lanes complete
+  - Added lane completion guard in `setLEDFromRaceStat()` to prevent state transitions while race in progress
+  - Dynamic lane count - Now updates from actual racers in each heat instead of hardcoded value
+  - Added `laneDNF()` method for per-lane DNF support
+  - DNF detection via polling - Detects coordinator DNF button clicks within 1 second
+  - See "Lane Completion Guard" section for implementation details
+
+- **v0.6.3** (2025-12) - Race state alignment and UNCONFIGURED state
+  - Added UNCONFIGURED state for pre-setup scenarios (yellow LED)
+  - Aligned state constants across Python race server and API client
+  - Added LED color reference documentation
+  - Fixed state persistence bug when API unavailable
+
+- **v0.6.2** (2025-12) - Initial race state engine integrity implementation
   - Centralized timeout configuration
   - Physical start tracking
   - State integrity validation

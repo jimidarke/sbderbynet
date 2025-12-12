@@ -335,3 +335,188 @@ Backup:   soapbox-derby-elimination.json.deleted-2025-12-08-143022
 - Unsaved changes warning
 
 **Result:** Configuration files created by the UI are fully compatible with all system components and safe for sharing across installations.
+
+---
+
+## Production Database Validation Report
+
+**Database:** test2 (Production)
+**Validation Date:** 2025-12-12
+**Configuration File:** `soapbox-derby-elimination.json`
+
+### Tournament Structure Compliance
+
+| Class | Config Age Group | Expected Rounds | Actual Rounds | Status |
+|-------|------------------|-----------------|---------------|--------|
+| Ages 6-8 (classid 1) | ages_6_8 | 4 | 4 | ✅ COMPLIANT |
+| Ages 9-11 (classid 2) | ages_9_11 | 4 | 4 | ✅ COMPLIANT |
+| Ages 12-14 (classid 3) | ages_12_14 | 3 | 3 | ✅ COMPLIANT |
+
+### Round Name Mapping Validation
+
+**Ages 6-8:**
+| Round | Config | Database | Match |
+|-------|--------|----------|-------|
+| 1 | 1 Preliminary | 1 Preliminary | ✅ |
+| 2 | 2 Quarter Finals | 2 Quarter Finals | ✅ |
+| 3 | 3 Semi-Finals | 3 Semi-Finals | ✅ |
+| 4 | 4 Finals | 4 Finals | ✅ |
+
+**Ages 9-11:**
+| Round | Config | Database | Match |
+|-------|--------|----------|-------|
+| 1 | 1 Preliminary | 1 Preliminary | ✅ |
+| 2 | 2 Quarter Finals | 2 Quarter Finals | ✅ |
+| 3 | 3 Semi-Finals | 3 Semi-Finals | ✅ |
+| 4 | 4 Finals | 4 Finals | ✅ |
+
+**Ages 12-14:**
+| Round | Config | Database | Match |
+|-------|--------|----------|-------|
+| 1 | 1 Preliminary | 1 Preliminary | ✅ |
+| 2 | 2 Semi-Finals | 2 Semi-Finals | ✅ |
+| 3 | 3 Finals | 3 Finals | ✅ |
+
+### Scoring Method Validation - Ages 6-8 (Complete Tournament)
+
+#### Round 1: Preliminary → Quarter Finals
+| Config Field | Expected | Actual | Status |
+|--------------|----------|--------|--------|
+| `scoring_method` | `total_time` | Sum of 3 race times used | ✅ |
+| `races_per_racer` | 3 | All 34 racers got exactly 3 races | ✅ |
+| `advance_count` | 27 | 27 racers in QF roster | ✅ |
+| Lane coverage | Once per lane | Every racer raced lanes 1, 2, 3 | ✅ |
+
+**Progression Verification:**
+Top 27 racers by total time correctly advanced to Quarter Finals.
+
+**Sample Data (Top 5 by Total Time):**
+| Rank | Racer | Total Time | Individual Times |
+|------|-------|------------|------------------|
+| 1 | Jeanie Jackson (#6) | 13.948s | 4.699, 4.997, 4.252 |
+| 2 | Candi Coil (#5) | 13.964s | 4.43, 4.954, 4.58 |
+| 3 | Meghann Martens (#32) | 14.460s | 4.447, 5.266, 4.747 |
+| 4 | Mason Melia (#3) | 15.046s | 4.965, 4.468, 5.613 |
+| 5 | Deshawn Farmer (#4) | 15.537s | 5.149, 5.059, 5.329 |
+
+#### Round 2: Quarter Finals → Semi-Finals
+| Config Field | Expected | Actual | Status |
+|--------------|----------|--------|--------|
+| `scoring_method` | `best_time` | Single race time used | ✅ |
+| `races_per_racer` | 1 | All 27 racers got 1 race | ✅ |
+| `advance_count` | 9 | 9 racers in SF roster | ✅ |
+
+**Progression Verification:**
+Top 9 racers by best time correctly advanced to Semi-Finals.
+
+**Top 9 Best Times in Quarter Finals:**
+| Rank | Racer | Best Time |
+|------|-------|-----------|
+| 1 | Dawn Levy (#25) | 4.135s |
+| 2 | Christian Sweeney (#8) | 4.212s |
+| 3 | Eloise Ellwood (#23) | 4.213s |
+| 4 | Octavio Hayden (#26) | 4.353s |
+| 5 | Lorinda Lansford (#17) | 5.019s |
+| 6 | Faustino Holmes (#20) | 5.253s |
+| 7 | Stephen Johnson (#9) | 5.300s |
+| 8 | Emilia Everett (#7) | 5.392s |
+| 9 | Jamison Morales (#22) | 5.484s |
+
+#### Round 3: Semi-Finals → Finals
+| Config Field | Expected | Actual | Status |
+|--------------|----------|--------|--------|
+| `scoring_method` | `best_time` | Single race time used | ✅ |
+| `races_per_racer` | 1 | All 9 racers got 1 race | ✅ |
+| `advance_count` | 3 | 3 racers in Finals roster | ✅ |
+
+**Progression Verification:**
+Top 3 racers by best time correctly advanced to Finals.
+
+**Semi-Finals Results:**
+| Rank | Racer | Best Time | Advanced |
+|------|-------|-----------|----------|
+| 1 | Emilia Everett (#7) | 4.445s | ✅ |
+| 2 | Octavio Hayden (#26) | 5.010s | ✅ |
+| 3 | Stephen Johnson (#9) | 5.368s | ✅ |
+| 4 | Jamison Morales (#22) | 5.441s | ❌ |
+| ... | ... | ... | ❌ |
+
+#### Round 4: Finals
+| Config Field | Expected | Actual | Status |
+|--------------|----------|--------|--------|
+| `scoring_method` | `placement` | Finish position determines standings | ✅ |
+| `races_per_racer` | 1 | 3 racers got 1 race | ✅ |
+| `advancement_rule` | `placement` | Final standings determined | ✅ |
+
+**Final Results:**
+| Place | Racer | Finish Time | Lane |
+|-------|-------|-------------|------|
+| 🥇 1st | Octavio Hayden (#26) | 4.769s | Lane 2 |
+| 🥈 2nd | Emilia Everett (#7) | 5.913s | Lane 3 |
+| 🥉 3rd | Stephen Johnson (#9) | 6.603s | Lane 1 |
+
+### Heat Structure Validation
+
+| Round | Heats | Racers | Race Entries | Expected | Status |
+|-------|-------|--------|--------------|----------|--------|
+| Preliminary | 34 | 34 | 102 | 34×3=102 | ✅ |
+| Quarter Finals | 9 | 27 | 27 | 27×1=27 | ✅ |
+| Semi-Finals | 3 | 9 | 9 | 9×1=9 | ✅ |
+| Finals | 1 | 3 | 3 | 3×1=3 | ✅ |
+
+### Advancement Count Behavior (Validated)
+
+The `advance_count` acts as a **maximum**, not a requirement:
+
+**Ages 6-8 Example:**
+- Config `advance_count: 27` for Preliminary → Quarter Finals
+- Actual racers in Preliminary: 34
+- Result: Top 27 advanced (exactly as configured)
+
+**Note:** If only 20 racers existed, all 20 would have advanced (configuration handles smaller tournaments gracefully).
+
+### Database Schema Compliance
+
+**EliminationTournaments Table:**
+```sql
+tournament_id | classid | config_file                        | age_group_key | current_round | total_rounds | active
+1             | 3       | soapbox-derby-elimination.json     | ages_12_14    | 1             | 3            | 1
+2             | 2       | soapbox-derby-elimination.json     | ages_9_11     | 1             | 4            | 1
+3             | 1       | soapbox-derby-elimination.json     | ages_6_8      | 1             | 4            | 1
+```
+
+**Rounds Table (Ages 6-8):**
+```sql
+roundid | classid | round | roundname        | is_triple_elim | elim_type
+1       | 1       | 1     | 1 Preliminary    | 1              | 1 Preliminary
+9       | 1       | 2     | 2 Quarter Finals | 1              | 2 Quarter Finals
+10      | 1       | 3     | 3 Semi-Finals    | 1              | 3 Semi-Finals
+11      | 1       | 4     | 4 Finals         | 1              | 4 Finals
+```
+
+### Roster Population Validation
+
+| Class | Round | Roster Count | Status |
+|-------|-------|--------------|--------|
+| Ages 6-8 | Preliminary | 34 | ✅ All racers |
+| Ages 6-8 | Quarter Finals | 27 | ✅ Top 27 advanced |
+| Ages 6-8 | Semi-Finals | 9 | ✅ Top 9 advanced |
+| Ages 6-8 | Finals | 3 | ✅ Top 3 advanced |
+| Ages 9-11 | Preliminary | 36 | ✅ All racers |
+| Ages 9-11 | Quarter Finals+ | 0 | ⏳ Not yet raced |
+| Ages 12-14 | Preliminary | 37 | ✅ All racers |
+| Ages 12-14 | Semi-Finals+ | 0 | ⏳ Not yet raced |
+
+### Conclusion
+
+**All validation checks PASSED.** The test2 production database accurately represents the elimination tournament structure defined in `soapbox-derby-elimination.json`:
+
+✅ Tournament structure matches JSON config (rounds, round names, sequences)
+✅ Race counts per racer match config (3 for preliminary, 1 for elimination)
+✅ Lane distribution correct in Preliminary (each racer races all 3 lanes)
+✅ Scoring methods applied correctly (total_time, best_time, placement)
+✅ Advancement counts accurate (27 → 9 → 3)
+✅ Progressions mathematically verified (top N by scoring method advance)
+✅ Final results correctly determine 1st/2nd/3rd place
+
+**The elimination tournament system is operating as designed.**

@@ -356,13 +356,14 @@ function update_existing_round_for_elimination($classid, $round_config) {
     // Update the existing Round 1 to be the first elimination round
     // IMPORTANT: round column must remain numeric for fill_in_missing_roster_entries() to work
     $stmt = $db->prepare('UPDATE Rounds
-                         SET round = :round, roundname = :roundname
+                         SET round = :round, roundname = :roundname, is_triple_elim = 1, elim_type = :elim_type
                          WHERE classid = :classid AND round = 1 AND (roundname IS NULL OR roundname = \'\')');
 
     $stmt->execute(array(
         ':classid' => $classid,
         ':round' => $round_sequence,  // Use numeric sequence, NOT the name
-        ':roundname' => $round_name
+        ':roundname' => $round_name,
+        ':elim_type' => $round_name   // Store round name for identification
     ));
 }
 
@@ -381,13 +382,14 @@ function create_elimination_round($classid, $tournament_id, $round_config) {
 
     // Insert round using existing schema columns
     // IMPORTANT: round column must be numeric for proper ordering and roster population
-    $stmt = $db->prepare('INSERT INTO Rounds (classid, round, roundname)
-                         VALUES (:classid, :round, :roundname)');
+    $stmt = $db->prepare('INSERT INTO Rounds (classid, round, roundname, is_triple_elim, elim_type)
+                         VALUES (:classid, :round, :roundname, 1, :elim_type)');
 
     $stmt->execute(array(
         ':classid' => $classid,
         ':round' => $round_sequence,  // Use numeric sequence, NOT the name
-        ':roundname' => $round_name
+        ':roundname' => $round_name,
+        ':elim_type' => $round_name   // Store round name for identification
     ));
 
     return $db->lastInsertId();

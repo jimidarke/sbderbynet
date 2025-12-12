@@ -160,22 +160,23 @@ function calculate_round_advancement($classid, $round_number, $round_config) {
         throw new Exception("Unsupported scoring method: " . $scoring_method);
     }
     
-    // The round column contains full names like "1 Preliminary", so we need to match on the round name from config
+    // Match on roundname (string like "1 Preliminary"), NOT round (integer sequence)
     $round_name = $round_config['round_name'];
-    
+
+    // Note: LIMIT must be interpolated directly - PDO/SQLite doesn't bind LIMIT params correctly
+    $limit = intval($advance_count);
     $stmt = $db->prepare("SELECT rc.racerid, {$select_clause}
                          FROM RaceChart rc
                          INNER JOIN Rounds r ON rc.roundid = r.roundid
-                         WHERE r.classid = :classid AND r.round = :round_name
+                         WHERE r.classid = :classid AND r.roundname = :round_name
                          AND rc.finishtime IS NOT NULL AND rc.finishtime > 0
                          GROUP BY rc.racerid
                          ORDER BY {$order_clause}
-                         LIMIT :limit");
-    
+                         LIMIT {$limit}");
+
     $stmt->execute(array(
         ':classid' => $classid,
-        ':round_name' => $round_name,
-        ':limit' => $advance_count
+        ':round_name' => $round_name
     ));
     
     $results = array();

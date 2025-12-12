@@ -162,10 +162,11 @@ function derby_errno_to_level($errno) {
         E_USER_ERROR => 'ERROR',
         E_USER_WARNING => 'WARNING',
         E_USER_NOTICE => 'INFO',
-        E_STRICT => 'DEBUG',
         E_RECOVERABLE_ERROR => 'ERROR',
         E_DEPRECATED => 'DEBUG',
         E_USER_DEPRECATED => 'DEBUG',
+        // E_STRICT (2048) was deprecated in PHP 8.4 - use numeric value for compatibility
+        2048 => 'DEBUG',
     ];
     return $map[$errno] ?? 'WARNING';
 }

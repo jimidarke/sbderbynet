@@ -250,7 +250,7 @@ function advance_round($roundid)
   global $db;
 
   $round_info = read_single_row(
-    'SELECT r.roundname, r.classid, c.class 
+    'SELECT r.roundid, r.roundname, r.classid, r.round as round_sequence, c.class
        FROM Rounds r
        JOIN Classes c ON c.classid = r.classid
        WHERE r.roundid = :roundid',
@@ -261,17 +261,84 @@ function advance_round($roundid)
     return false;
   }
 
+  // Check for elimination tournament - use JSON config if available
+  require_once('inc/elimination-config.inc');
+  $elimination_state = get_elimination_tournament_state($round_info['classid']);
+
+  if ($elimination_state) {
+    // Find current round config by matching round name
+    $round_config = null;
+    foreach ($elimination_state['age_group']['rounds'] as $config) {
+      if ($config['round_name'] == $round_info['roundname']) {
+        $round_config = $config;
+        break;
+      }
+    }
+
+    if ($round_config && $round_config['advancement_rule'] != 'placement') {
+      // Use JSON config values for advancement
+      $advance_count = $round_config['advance_count'];
+      $scoring_method = $round_config['scoring_method'];
+
+      error_log("Elimination advancement: round='{$round_info['roundname']}', advance_count={$advance_count}, scoring={$scoring_method}");
+
+      // Build scoring expression based on JSON config
+      if ($scoring_method === 'total_time') {
+        $score_expr = 'SUM(finishtime)';
+      } elseif ($scoring_method === 'best_time') {
+        $score_expr = 'MIN(finishtime)';
+      } elseif ($scoring_method === 'average_time') {
+        $score_expr = 'AVG(finishtime)';
+      } else {
+        $score_expr = 'SUM(finishtime)'; // Default to total
+      }
+
+      // Query top racers based on scoring method
+      // Note: LIMIT must be interpolated directly - PDO/SQLite doesn't bind LIMIT params correctly
+      $limit = intval($advance_count);
+      $stmt = $db->prepare(
+        "SELECT racerid, {$score_expr} as score
+         FROM RaceChart
+         WHERE roundid = :roundid AND finishtime IS NOT NULL AND finishtime > 0
+         GROUP BY racerid
+         ORDER BY score ASC
+         LIMIT {$limit}"
+      );
+      $stmt->execute([':roundid' => $roundid]);
+      $qualifiers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+      error_log("Elimination advancement: found " . count($qualifiers) . " qualifiers");
+
+      // Find next round by sequence number
+      $next_round_seq = $round_config['round_sequence'] + 1;
+      $next_roundid = read_single_value(
+        'SELECT roundid FROM Rounds WHERE classid = :classid AND round = :seq',
+        [':classid' => $round_info['classid'], ':seq' => $next_round_seq]
+      );
+
+      if ($next_roundid && !empty($qualifiers)) {
+        foreach ($qualifiers as $racerid) {
+          add_to_round($next_roundid, $racerid);
+        }
+        error_log("Elimination advancement: added " . count($qualifiers) . " racers to round {$next_roundid}");
+      }
+
+      return true;
+    }
+  }
+
+  // Fall back to legacy hardcoded logic for non-elimination tournaments
   // Get scoring method setting
   $scoring = read_raceinfo('scoring', 0);
   $use_points = read_raceinfo_boolean('use-points');
-  
+
   // Build scoring expression based on settings
   if ($use_points) {
     $finish_expr = 'finishplace*1.0';
   } else {
     $finish_expr = 'finishtime';
   }
-  
+
   if ($scoring == 0) {
     $scoring_expr = "SUM($finish_expr)/COUNT(*)";
   } else if ($scoring == 1) {
@@ -288,7 +355,7 @@ function advance_round($roundid)
       $stmt = $db->prepare(
         "SELECT racerid,
                 $scoring_expr as score
-               FROM RaceChart 
+               FROM RaceChart
                WHERE roundid = :roundid
                AND finishtime IS NOT NULL
                GROUP BY racerid
@@ -312,7 +379,7 @@ function advance_round($roundid)
       $stmt = $db->prepare(
         "SELECT racerid,
                 $scoring_expr as score
-               FROM RaceChart 
+               FROM RaceChart
                WHERE roundid = :roundid
                AND finishtime IS NOT NULL
                GROUP BY racerid

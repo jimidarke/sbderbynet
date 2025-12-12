@@ -3,15 +3,16 @@ Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library 
 Uses service discovery for improved resilience 
 
 Version History:
+- 0.6.4 - Dec 09, 2025 - Fixed toggle state debouncing
 - 0.6.3 - Dec 08, 2025 - Fixed rsyslog TAG/programname for unified logging
 - 0.6.2 - Dec 08, 2025 - Simplified boot sequence: show version then lane with LED cycle
-- 0.6.1 - Dec 08, 2025 - Unified logging system integration
+- 0.6.1 - Dec 08, 2025 - Unified logging system integration 
 - 0.6.0 - May 25, 2025 - Fixed the AI logging crap and added more robust error handling
 - 0.5.1 - May 22, 2025 - Enhanced logging system with improved source file/line tracking and rsyslog integration
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 '''
 
-VERSION = "0.6.3"
+VERSION = "0.7.1"
 
 import json
 import time

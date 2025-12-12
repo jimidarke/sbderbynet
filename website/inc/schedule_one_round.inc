@@ -223,7 +223,40 @@ function schedule_one_round(
       return false;
     }
 
-    // Check for custom elimination tournament single-race scheduling
+    // Check for elimination tournament configuration and override n_times_per_lane if needed
+    // This ensures proper scheduling whether called from action.schedule.generate.inc or playlist.inc
+    require_once('inc/elimination-config.inc');
+    $elimination_state = get_elimination_tournament_state($round_info['classid']);
+
+    if ($elimination_state) {
+      $rounds_config = $elimination_state['age_group']['rounds'];
+      $round_config = null;
+
+      // Find the round configuration for this specific round
+      foreach ($rounds_config as $config) {
+        if ($config['round_name'] == $round_info['roundname']) {
+          $round_config = $config;
+          break;
+        }
+      }
+
+      if ($round_config) {
+        $races_per_racer = $round_config['races_per_racer'];
+        error_log("schedule_one_round: Detected elimination round '{$round_info['roundname']}' with races_per_racer={$races_per_racer}");
+
+        if ($races_per_racer == 1) {
+          // For rounds with 1 race per racer: use custom elimination scheduling
+          error_log("schedule_one_round: Using single-race elimination scheduling for '{$round_info['roundname']}'");
+          return schedule_elimination_single_race($roundid, $nlanes);
+        } else if ($races_per_racer == 3) {
+          // For rounds with 3 races per racer: override to n_times_per_lane=1
+          $n_times_per_lane = 1;
+          error_log("schedule_one_round: Using n_times_per_lane=1 for '{$round_info['roundname']}' (3 races per racer)");
+        }
+      }
+    }
+
+    // Check for custom elimination tournament single-race scheduling (legacy path)
     if ($n_times_per_lane == 0) {
       return schedule_elimination_single_race($roundid, $nlanes);
     }

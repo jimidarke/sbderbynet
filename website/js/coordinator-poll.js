@@ -1,9 +1,9 @@
 // Requires dashboard-ajax.js
 
-// Data structure describing each round:
+// Data structure describing each round:  
 // 
 // round = { roundid: 
-//           class:
+//           class: 
 //           name:
 //           round: (number)
 //           roster_size, passed, unscheduled
@@ -940,6 +940,7 @@ function process_coordinator_poll_json(json) {
   let status = message.split(" ")[0];
   let timerStatus = "NOT READY";
   // Check for different states and log accordingly
+  // States aligned with derbyRace.py and RACINGSTATEENGINE.md
   if (status === "CONNECTED") {
     // console.log("Connected");
     timerStatus = "Ready";
@@ -949,6 +950,9 @@ function process_coordinator_poll_json(json) {
   } else if (status === "Race") {
     // console.log("Running");
     timerStatus = "Running";
+  } else if (status === "UNCONFIGURED") {
+    // console.log("Unconfigured");
+    timerStatus = "NOT CONFIGURED";
   } else {
     // console.log("Disconnected");
     timerStatus = "NOT READY";

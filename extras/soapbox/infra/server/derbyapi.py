@@ -38,7 +38,9 @@ logger = ServerLogger(
     level=logging.INFO,  # Default log level
 ).get_logger()
 
-# DerbyNet Timer State Constants
+# DerbyNet Timer State Constants - aligned with derbyRace.py and coordinator-poll.js
+# See RACINGSTATEENGINE.md for complete state documentation
+TIMER_STATE_UNCONFIGURED    = "UNCONFIGURED"    # API unavailable / no database configured
 TIMER_STATE_CONNECTED       = "CONNECTED"
 TIMER_STATE_STAGING         = "STAGING"
 TIMER_STATE_RUNNING         = "RUNNING"
@@ -416,7 +418,12 @@ class DerbyNetClient:
         if 'racers' in response_json:
             out['lanes'] = []
             for lane in response_json['racers']:
-                out['lanes'].append({'lane': lane['lane'], 'name': lane['name'], 'racerid': lane['carnumber']})
+                out['lanes'].append({
+                    'lane': lane['lane'],
+                    'name': lane['name'],
+                    'racerid': lane['carnumber'],
+                    'finishtime': lane.get('finishtime', '')  # Include finishtime for DNF detection
+                })
         else:
             out['lanes'] = []
         out['timer-state'] = response_json.get('timer-state', {}).get('state', '')

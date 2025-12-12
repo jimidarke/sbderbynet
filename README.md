@@ -4,7 +4,7 @@
 
 SBDerbyNet is a comprehensive race management system for children's soapbox derby racing events, built by extensively modifying and extending the original DerbyNet software. While DerbyNet was originally created for Pinewood Derby racing events (small wooden cars racing down a gravity track), SBDerbyNet transforms it into a complete solution for children's Soapbox Derby events (larger gravity-powered cars with children riding in them).
 
-**Current Version: 0.5.0** | **License: MIT** | **Original Project: [DerbyNet](https://derbynet.org)**
+**Current Version: 1.0.0** | **License: MIT** | **Original Project: [DerbyNet](https://derbynet.org)**
 
 ---
 
@@ -283,6 +283,7 @@ mosquitto_sub -h 192.168.100.10 -t derbynet/test
 - **Live Timing**: Automatic capture from hardware timers with manual override capability
 - **Result Tracking**: Instant standings calculation with multiple scoring methods
 - **Heat Management**: Automatic progression with coordinator control
+- **DNF Support**: Mark individual lanes as "Did Not Finish" (99.999s) from coordinator page, automatically detected by race server within 1 second
 - **Broadcast Messaging**: Instant announcements to all displays
 
 ### **Professional Display System**
@@ -347,6 +348,7 @@ A dedicated editor for creating and modifying tournament configurations:
 - **Pattern Matching**: Automatic detection based on class names (e.g., "Ages 6-8", "6-8", "6 to 8")
 - **Validation**: Comprehensive configuration validation preventing tournament errors
 - **Audit Trail**: Complete advancement history with scoring details
+- **Flexible Sizing**: `advance_count` acts as a maximum - smaller tournaments automatically advance all racers when below threshold (see [Configuration README](website/inc/elimination-configs/README.md) for details)
 
 ---
 

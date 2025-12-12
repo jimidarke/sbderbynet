@@ -178,7 +178,7 @@ function perform_playlist_after_round($roundid) {
         return;
     }
 
-    // Get current round info (legacy triple elimination columns removed)
+    // Get current round info
     $round_info = read_single_row(
         'SELECT r.roundid, r.classid, r.round, r.roundname,
                 c.class as den_name
@@ -198,15 +198,51 @@ function perform_playlist_after_round($roundid) {
 
     if (round_is_completed($roundid)) {
         error_log("Round {$round_info['roundname']} is complete, advancing...");
-        
-        // Set proper advancement limits based on round type
-        $bucket_limit = ($round_info['elim_type'] == 'preliminary') ? 27 : 3;
-        
+
+        // Get advancement limit from elimination tournament JSON configuration
+        require_once('inc/elimination-config.inc');
+        $bucket_limit = 3; // Default fallback
+        $n_times_per_lane = 1; // Default for elimination rounds
+
+        $elimination_state = get_elimination_tournament_state($round_info['classid']);
+        if ($elimination_state) {
+            // Find the current round's configuration by round name
+            $rounds_config = $elimination_state['age_group']['rounds'];
+            $current_round_config = null;
+
+            foreach ($rounds_config as $config) {
+                if ($config['round_name'] == $round_info['roundname']) {
+                    $current_round_config = $config;
+                    break;
+                }
+            }
+
+            if ($current_round_config) {
+                // Use advance_count from JSON configuration
+                $bucket_limit = $current_round_config['advance_count'];
+                error_log("Using elimination tournament config: advance_count={$bucket_limit} for round '{$round_info['roundname']}'");
+
+                // Get next round's races_per_racer for scheduling
+                $next_round_sequence = $current_round_config['round_sequence'] + 1;
+                foreach ($rounds_config as $config) {
+                    if ($config['round_sequence'] == $next_round_sequence) {
+                        $n_times_per_lane = ($config['races_per_racer'] == 3) ? 1 : 0;
+                        error_log("Next round races_per_racer={$config['races_per_racer']}, n_times_per_lane={$n_times_per_lane}");
+                        break;
+                    }
+                }
+            } else {
+                error_log("No elimination config found for round '{$round_info['roundname']}', using default bucket_limit=3");
+            }
+        } else {
+            error_log("No active elimination tournament for classid={$round_info['classid']}, using default bucket_limit=3");
+        }
+
         // Get the next round information
         $next_round = read_single_row(
-            'SELECT roundid 
-             FROM Rounds 
-             WHERE classid = :classid 
+            'SELECT roundid
+             FROM Rounds
+             WHERE classid = :classid
              AND round = :next_round',
             [
                 ':classid' => $round_info['classid'],
@@ -229,13 +265,13 @@ function perform_playlist_after_round($roundid) {
             // Create playlist entry for next round
             $stmt = $db->prepare(
                 'INSERT INTO Playlist (
-                    classid, round, n_times_per_lane, continue_racing, 
+                    classid, round, n_times_per_lane, continue_racing,
                     seq, bucketed, bucket_limit
                 ) VALUES (
                     :classid,
                     :round,
                     :n_times_per_lane,
-                    1, 
+                    1,
                     (SELECT COALESCE(MAX(seq), 0) + 1 FROM Playlist),
                     0,
                     :bucket_limit
@@ -245,34 +281,25 @@ function perform_playlist_after_round($roundid) {
             $stmt->execute([
                 ':classid' => $round_info['classid'],
                 ':round' => $round_info['round'] + 1,
-                ':n_times_per_lane' => 1,
+                ':n_times_per_lane' => $n_times_per_lane,
                 ':bucket_limit' => $bucket_limit
             ]);
 
-            error_log("Created playlist entry for next round with bucket limit: " . $bucket_limit);
+            error_log("Created playlist entry for next round with bucket_limit={$bucket_limit}");
 
             // Initialize standings
             $standings = new StandingsOracle();
             $bucket_keys = array(stkey_round($roundid));
 
-            // Calculate roster based on current standings
-            if ($round_info['elim_type'] == 'preliminary') {
-                // Get top 27 for semifinals
-                $finalists = calculate_roster_from_keys(
-                    $bucket_keys,
-                    0,  // No bucketing
-                    27,
-                    $standings
-                );
-            } else {
-                // Get top 3 for finals
-                $finalists = calculate_roster_from_keys(
-                    $bucket_keys,
-                    0,  // No bucketing
-                    3,
-                    $standings
-                );
-            }
+            // Calculate roster using advance_count from JSON configuration
+            $finalists = calculate_roster_from_keys(
+                $bucket_keys,
+                0,  // No bucketing
+                $bucket_limit,
+                $standings
+            );
+
+            error_log("Calculated " . count($finalists) . " finalists with bucket_limit={$bucket_limit}");
 
             // Add racers to next round's roster
             if (!empty($finalists)) {

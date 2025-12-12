@@ -20,6 +20,10 @@ GREENLED    7       26        OUTPUT
 BLUELED     1       28        OUTPUT
 
 Version History:
+- 0.7.1 - Dec 09, 2025 - Purple flickering LED for "flip" state (staging but toggle not ready)
+- 0.7.0 - Dec 09, 2025 - Version bump for lane completion guard release
+- 0.6.5 - Dec 09, 2025 - Added yellow LED support for UNCONFIGURED state
+- 0.6.4 - Dec 09, 2025 - Fixed toggle state debouncing
 - 0.6.3 - Dec 08, 2025 - Fixed rsyslog TAG/programname for unified logging
 - 0.6.2 - Dec 08, 2025 - Unified logging system integration
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
@@ -32,7 +36,7 @@ Version History:
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.6.3"  # Fixed rsyslog TAG/programname for unified logging
+PCB_VERSION     = "0.7.1" 
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24
@@ -122,7 +126,7 @@ class derbyPCBv1:
         logger.info("DerbyNet PCB Class Initialized")
 
     def begin_toggle_watch(self, callback):
-        self.toggle_callback = callback
+        self.toggle_callback = callback 
         self.toggle_thread = threading.Thread(target=self._toggle_watch)
         self.toggle_thread.start()
         logger.debug("Toggle Watch Started")
@@ -137,7 +141,7 @@ class derbyPCBv1:
                 logger.debug(f"Toggle Changed to: {tog}")
                 if self.toggle_callback:
                     self.toggle_callback()
-            if self.readyToRace != (tchk and self.led == "blue"):
+            if self.readyToRace != (self.led == "green" or (tchk and self.led == "blue")):
                 # change of state detected
                 self.readyToRace = self.led == "green" or (tchk and self.led == "blue")
                 #logger.info(f"Ready to race: {self.readyToRace}")
@@ -201,7 +205,11 @@ class derbyPCBv1:
         if self.led == "blue" and self.readyToRace == False:
             self.tm.brightness(4)
             self.tm.show("flip")
-            #logger.warning("Not ready to race, showing FLIP")
+            # Show purple LED when not ready (needs toggle flip)
+            # Note: Direct GPIO control causes intentional flicker effect to grab attention
+            GPIO.output(PIN_RED, GPIO.HIGH)
+            GPIO.output(PIN_GREEN, GPIO.LOW)
+            GPIO.output(PIN_BLUE, GPIO.HIGH)
         elif self.led == "red":
             if self.getBatteryPercent() < 20:
                 self.tm.show("BATT")

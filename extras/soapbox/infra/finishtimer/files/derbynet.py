@@ -439,31 +439,9 @@ def network_diagnostics():
     return results
 
 if __name__ == "__main__":
-    # Example usage
+    # Run network diagnostics when executed directly
     logging.basicConfig(level=logging.INFO)
-    
-    # Create a client
-    client = MQTTClient("test-client")
-    
-    # Define a callback
-    def on_message(topic, payload):
-        print(f"Received message on {topic}: {payload}")
-    
-    # Connect
-    client.connect()
-    
-    # Subscribe
-    client.subscribe("derbynet/test/#", on_message)
-    
-    # Publish
-    client.publish("derbynet/test/hello", "world")
-    
-    # Get telemetry
-    telemetry = DeviceTelemetry("test-client", "test").collect()
-    print(json.dumps(telemetry, indent=2))
-    
-    # Wait a bit
-    time.sleep(5)
-    
-    # Disconnect
-    client.disconnect()
+
+    print("Running network diagnostics...")
+    results = network_diagnostics()
+    print(json.dumps(results, indent=2))

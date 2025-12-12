@@ -5,6 +5,11 @@ File location: /var/lib/infra/app/derbyRace.py
 Service file: /etc/systemd/system/derbyrace.service
 
 Version History:
+- 0.7.3 - Dec 09, 2025 - DNF button integration fix: derbyapi.py now passes finishtime for detection
+- 0.7.2 - Dec 09, 2025 - Fixed lane LEDs not resetting after race; changed lane finish color to red
+- 0.7.1 - Dec 09, 2025 - Fixed stale race data bug: reset lane tracking on state transitions
+- 0.7.0 - Dec 09, 2025 - Fixed premature race finish bug, added lane completion guard
+- 0.6.3 - Dec 09, 2025 - Added UNCONFIGURED state for pre-setup, aligned state constants
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 - 0.4.0 - May 10, 2025 - Added service discovery via mDNS
 - 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling
@@ -31,7 +36,7 @@ import psutil # type: ignore
 import sys
 
 # Version information
-VERSION = "0.6.2"
+VERSION = "0.7.3"
 
 logger = ServerLogger(
     name='DERBYSERVER', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.
@@ -56,6 +61,14 @@ HEARTBEAT_TIMEOUT       = 3     # seconds to consider a timer offline (aligned w
 HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
 RACE_TIMEOUT            = 70    # seconds maximum race time before marking DNF
 DNF_TIME               = 99.999 # DNF (Did Not Finish) time value
+
+# Race state constants - aligned with derbyapi.py and coordinator-poll.js
+# See RACINGSTATEENGINE.md for complete state documentation
+RACE_STATE_UNCONFIGURED = "UNCONFIGURED"  # API unavailable / no database configured (LED: yellow)
+RACE_STATE_STOPPED      = "STOPPED"       # Race not active (LED: red)
+RACE_STATE_STAGING      = "STAGING"       # Race active, waiting for start (LED: blue)
+RACE_STATE_RACING       = "RACING"        # Race in progress (LED: green)
+RACE_STATE_FINISHED     = "FINISHED"      # All lanes complete (transient, returns to STOPPED)
 class derbyRace: 
     def __init__(self, lane_count = 3 ):
         logger.info(f"Initializing DerbyRace v{VERSION}")
@@ -76,7 +89,7 @@ class derbyRace:
         self.class_name = ""
         self.led = "red"
         self.lanePinny = {}
-        self.race_state = "" # STOPPED, RACING, STAGING
+        self.race_state = RACE_STATE_UNCONFIGURED  # Start unconfigured until API responds
         self.timer_heartbeats = {} # stores the last heartbeat and isready status for each lane
         self.firstupdated = False
         self.last_heartbeat = 0 # updates to unix time when the last heartbeat was sent
@@ -119,12 +132,12 @@ class derbyRace:
                 logger.info(f"Received state message on {topic}: toggle={payload_data.get('toggle')}, lane={lane}, race_state={self.race_state}")
 
                 val = payload_data.get("state", False)
-                if val == "GO" and self.race_state != "RACING":
+                if val == "GO" and self.race_state != RACE_STATE_RACING:
                     self.startRace()
                     self.api.send_start()
             
             ########### Trigger for LANE FINISH ###########
-                if self.race_state == "RACING" and lane > 0:
+                if self.race_state == RACE_STATE_RACING and lane > 0:
                     # Extract toggle state and validate
                     # Switch DOWN (car crosses finish) sends toggle=False
                     toggle = payload_data.get("toggle", None)
@@ -148,7 +161,7 @@ class derbyRace:
                     logger.debug(f"Updated heartbeat for lane {lane}, ready: {isReady}")
 
                 # Only forward full device telemetry when NOT racing (for timing accuracy)
-                if self.race_state != "RACING":
+                if self.race_state != RACE_STATE_RACING:
                     required_fields = ["hostname", "hwid", "uptime", "ip", "mac"]
                     if all(field in payload_data for field in required_fields):
                         success = self.api.send_device_status(payload_data)
@@ -167,12 +180,47 @@ class derbyRace:
         # called frequently once a second to update the finish timers and led colours
         racestats = self.api.get_race_status()
         if not racestats or not isinstance(racestats, dict):
-            logger.warning("Failed to get race status from DerbyNet API, skipping update")
+            logger.warning("Failed to get race status from DerbyNet API")
+            # Set UNCONFIGURED state when API unavailable (e.g., no database selected)
+            if self.race_state != RACE_STATE_UNCONFIGURED:
+                prev_state = self.race_state
+                self.race_state = RACE_STATE_UNCONFIGURED
+                self.led = "yellow"
+                self.updateLED("yellow")  # Yellow = needs configuration
+                self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+                logger.info(f"Race state changed: {prev_state} -> {self.race_state} (API unavailable)")
             return
         self.roundid = racestats.get("roundid",0)
         self.heatid = racestats.get("heat",0)
         self.class_name = racestats.get("class","")
         lanes = racestats.get("lanes",[])
+
+        # Update lane count from actual racers (only when not racing)
+        # This allows supporting heats with different numbers of racers
+        if self.race_state != RACE_STATE_RACING and len(lanes) > 0:
+            actual_lane_count = len(lanes)
+            if actual_lane_count != self.lane_count:
+                logger.info(f"Lane count updated: {self.lane_count} -> {actual_lane_count}")
+                self.lane_count = actual_lane_count
+
+        # During active racing, check for DNF from coordinator page
+        # This detects when coordinator marks a lane as DNF (finishtime = 99.999)
+        if self.race_state == RACE_STATE_RACING:
+            for lane_data in lanes:
+                lane_num = lane_data.get("lane")
+                finishtime_str = lane_data.get("finishtime", "")
+
+                # Detect DNF set from coordinator (99.999 seconds)
+                # Note: API returns formatted string like "99.999", not float
+                if finishtime_str and lane_num not in self.lane_times:
+                    try:
+                        finishtime = float(finishtime_str)
+                        if finishtime >= DNF_TIME:  # 99.999 or higher = DNF
+                            logger.info(f"Lane {lane_num} DNF detected from coordinator (time={finishtime})")
+                            self.laneDNF(lane_num)
+                    except (ValueError, TypeError):
+                        pass  # Not a valid time value
+
         self.setLEDFromRaceStat(racestats)
         logger.debug(f"Race Stats: {racestats}")
         for lane in lanes:
@@ -193,30 +241,68 @@ class derbyRace:
             logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
         logger.info(f"Set Lane {lane} to Pinny {pinny}")
 
-    def setLEDFromRaceStat(self,racestats): # checks the api for the led to use and sends thusly 
+    def setLEDFromRaceStat(self,racestats): # checks the api for the led to use and sends thusly
         #racestats = api.get_race_status()
         led = None
         raceActive = racestats.get("active", None)
         timer_state_string = racestats.get("timer-state-string", "")
         prev_race_state = self.race_state
-        
+
+        # GUARD: If we're racing and not all lanes finished, stay in RACING
+        # regardless of what PHP reports (physical race cannot be stopped)
+        # This prevents premature state transitions when PHP reports staging
+        # before all lanes have crossed the finish line
+        if (self.race_state == RACE_STATE_RACING and
+            self.start_time > 0 and
+            self.lanesFinished < self.lane_count):
+            # Race in progress - do NOT transition away from RACING
+            logger.debug(f"Race guard: staying RACING ({self.lanesFinished}/{self.lane_count} lanes finished)")
+            return  # Exit early, don't change state
+
         if raceActive == True:
             # Race is active - determine proper state
-            if timer_state_string == "Race running": 
-                self.race_state = "RACING"
+            if timer_state_string == "Race running":
+                self.race_state = RACE_STATE_RACING
                 led = "green"
             else:
                 # Race is active but not running - we're staging
-                self.race_state = "STAGING"
+                self.race_state = RACE_STATE_STAGING
                 led = "blue"
                 # Only call set_staging if we're transitioning from a different state
-                if prev_race_state in ["FINISHED", "STOPPED", ""]:
-                    logger.info(f"Transitioning from {prev_race_state} to STAGING")
+                if prev_race_state in [RACE_STATE_FINISHED, RACE_STATE_STOPPED, RACE_STATE_UNCONFIGURED, ""]:
+                    logger.info(f"Transitioning from {prev_race_state} to {RACE_STATE_STAGING}")
+                    # CRITICAL: Reset race tracking state when entering STAGING
+                    # This ensures stale data from a previous incomplete race doesn't affect new races
+                    if self.lanesFinished > 0 or len(self.lane_times) > 0 or self.start_time > 0:
+                        logger.warning(f"Clearing stale race data on STAGING transition: "
+                                      f"lanesFinished={self.lanesFinished}, lane_times={self.lane_times}, "
+                                      f"start_time={self.start_time}")
+                        self.lanesFinished = 0
+                        self.lane_times = {}
+                        self.start_time = 0
+                    # Force LED update to all lanes - reset from purple (finished) to blue (staging)
+                    self.led = led
+                    self.updateLED(led)
+                    logger.info(f"Reset all lane LEDs to {led} on STAGING transition")
                     self.api.set_staging()
         else:
-            # Race is not active 
+            # Race is not active
             led = "red"
-            self.race_state = "STOPPED"
+            # CRITICAL: Reset race tracking state when entering STOPPED
+            # This ensures stale data doesn't persist across race sessions
+            if prev_race_state not in [RACE_STATE_STOPPED, ""]:
+                if self.lanesFinished > 0 or len(self.lane_times) > 0 or self.start_time > 0:
+                    logger.warning(f"Clearing stale race data on STOPPED transition: "
+                                  f"lanesFinished={self.lanesFinished}, lane_times={self.lane_times}, "
+                                  f"start_time={self.start_time}")
+                    self.lanesFinished = 0
+                    self.lane_times = {}
+                    self.start_time = 0
+                # Force LED update to all lanes - reset from any color to red (stopped)
+                self.led = led
+                self.updateLED(led)
+                logger.info(f"Reset all lane LEDs to {led} on STOPPED transition")
+            self.race_state = RACE_STATE_STOPPED
             
         # Log state changes for debugging
         if prev_race_state != self.race_state:
@@ -258,40 +344,52 @@ class derbyRace:
         Includes integrity validation to detect state mismatches between
         Python server and PHP backend. Logs warnings but proceeds since
         physical start actuator cannot be blocked once triggered.
+
+        IMPORTANT: Always resets lane tracking state to prevent stale data
+        from a previous aborted/incomplete race from affecting the new race.
         """
         if timer is None:  # set to current timestamp
             timer = time.time()
 
-        if self.start_time == 0:  # not started yet
-            # Validate state with PHP backend before accepting start
-            # This helps detect edge cases but doesn't block (can't stop physical actuator)
-            try:
-                api_status = self.api.get_race_status()
-                if api_status and not api_status.get('active'):
-                    logger.warning("START detected but DerbyNet NowRacingState is OFF - recording anyway")
-                    logger.warning("This may indicate a state synchronization issue")
-            except Exception as e:
-                logger.error(f"Could not validate start with DerbyNet API: {e}")
+        # Check if we're already in an active race
+        if self.start_time > 0:
+            logger.warning(f"startRace() called but race already in progress (start_time={self.start_time})")
+            logger.warning(f"Current state: lanesFinished={self.lanesFinished}, lane_times={self.lane_times}")
+            return  # Don't reset an active race
 
-            # Reset race state
-            self.lanesFinished = 0
-            self.lane_times = {}
-            self.start_time = timer
-            logger.info(f"RACE STARTED {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} ({timer})")
-            self.race_state = "RACING"
-            self.updateLED("green")
+        # Validate state with PHP backend before accepting start
+        # This helps detect edge cases but doesn't block (can't stop physical actuator)
+        try:
+            api_status = self.api.get_race_status()
+            if api_status and not api_status.get('active'):
+                logger.warning("START detected but DerbyNet NowRacingState is OFF - recording anyway")
+                logger.warning("This may indicate a state synchronization issue")
+        except Exception as e:
+            logger.error(f"Could not validate start with DerbyNet API: {e}")
 
-            # Immediately publish race state change to MQTT for faster propagation
-            self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+        # ALWAYS reset race state for a new race
+        # This prevents stale lane data from a previous aborted race from affecting results
+        if self.lanesFinished > 0 or len(self.lane_times) > 0:
+            logger.warning(f"Clearing stale race data: lanesFinished={self.lanesFinished}, lane_times={self.lane_times}")
+        self.lanesFinished = 0
+        self.lane_times = {}
+        self.start_time = timer
 
-            # Notify PHP of physical start
-            self.api.send_start()
+        logger.info(f"RACE STARTED {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} ({timer})")
+        self.race_state = RACE_STATE_RACING
+        self.updateLED("green")
+
+        # Immediately publish race state change to MQTT for faster propagation
+        self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+
+        # Notify PHP of physical start
+        self.api.send_start()
         
     def stopRace(self,timer = None):
         if timer == None: # set to utc timestamp
             timer = time.time()
         logger.info(f"RACE FINISHED {datetime.fromtimestamp(timer).strftime('%H:%M:%S.%f')[:-3]} ({timer})")
-        self.race_state = "FINISHED"
+        self.race_state = RACE_STATE_FINISHED
         logger.info(self.lane_times)
 
         # Immediately publish race state change to MQTT for faster propagation
@@ -322,17 +420,56 @@ class derbyRace:
         logger.debug(f"LaneFinishTimes: {self.lane_times}")
         
         # Update LED to indicate finish
-        self.updateLED("purple", lane)  # purple for finished
+        self.updateLED("red", lane)  # red for finished (lane stopped)
         
         # Check if race is complete
         if self.lanesFinished == self.lane_count:
             self.stopRace(timer)
             return True
         return False
-    
+
+    def laneDNF(self, lane):
+        """Mark a specific lane as DNF (Did Not Finish).
+
+        Called when coordinator clicks DNF button for a lane, either:
+        - For an unfinished lane during active race
+        - For an already-finished lane (e.g., failed video review)
+
+        Args:
+            lane: Lane number (1-based)
+
+        Returns:
+            True if this DNF completed the race, False otherwise
+        """
+        if self.race_state != RACE_STATE_RACING:
+            logger.warning(f"Cannot DNF lane {lane} - race not in progress (state={self.race_state})")
+            return False
+
+        # Check if lane was already recorded (either finished or DNF'd)
+        already_recorded = lane in self.lane_times
+
+        if already_recorded:
+            logger.info(f"Lane {lane} already finished with time {self.lane_times[lane]}s, updating to DNF")
+        else:
+            # New DNF - increment finished count
+            self.lanesFinished += 1
+
+        # Set DNF time
+        self.lane_times[lane] = DNF_TIME
+
+        # Update LED to red for DNF
+        self.updateLED("red", lane)
+        logger.info(f"Lane {lane} marked as DNF ({self.lanesFinished}/{self.lane_count} lanes complete)")
+
+        # Check if race is now complete
+        if self.lanesFinished >= self.lane_count:
+            self.stopRace()
+            return True
+        return False
+
     def checkRaceTimeout(self):
         """Check if race has exceeded maximum time and mark unfinished lanes as DNF"""
-        if self.race_state != "RACING" or self.start_time == 0:
+        if self.race_state != RACE_STATE_RACING or self.start_time == 0:
             return False
             
         current_time = time.time()
@@ -378,22 +515,22 @@ class derbyRace:
                 return {'valid': True, 'issues': ['Could not fetch API status']}
 
             # Check 1: Python racing but PHP not active
-            if self.race_state == "RACING" and not api_status.get('active'):
+            if self.race_state == RACE_STATE_RACING and not api_status.get('active'):
                 issues.append("Python racing but PHP NowRacingState is OFF")
 
             # Check 2: PHP shows running but Python not racing
             timer_state_string = api_status.get('timer-state-string', '')
-            if 'running' in timer_state_string.lower() and self.race_state != "RACING":
+            if 'running' in timer_state_string.lower() and self.race_state != RACE_STATE_RACING:
                 issues.append("PHP timer shows running but Python not racing")
 
             # Check 3: Racing state without valid start time
-            if self.race_state == "RACING" and self.start_time == 0:
+            if self.race_state == RACE_STATE_RACING and self.start_time == 0:
                 issues.append("Racing state without valid start time")
 
             # Check 4: Round/heat mismatch
             if (self.roundid != api_status.get('roundid', 0) or
                 self.heatid != api_status.get('heat', 0)):
-                if self.race_state == "RACING":
+                if self.race_state == RACE_STATE_RACING:
                     issues.append(f"Heat mismatch during race: Python={self.roundid}/{self.heatid}, PHP={api_status.get('roundid')}/{api_status.get('heat')}")
 
         except Exception as e:
