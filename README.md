@@ -467,25 +467,37 @@ python3 testing/network_resilience_test.py
 
 ---
 
-## 📚 Comprehensive Documentation
+## 📚 Documentation Index
 
-### **User Guides**
-- **Race Director Guide**: Complete race day operations manual
-- **Setup Instructions**: Step-by-step installation and configuration
-- **Troubleshooting Guide**: Common issues and resolution procedures
-- **Feature Reference**: Detailed feature documentation with examples
+### **Root Level**
+- [README.md](README.md) - This file (master documentation)
+- [CLAUDE.md](CLAUDE.md) - AI assistant guidance
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
+- [DATABASE_SCHEMA_VALIDATION.md](DATABASE_SCHEMA_VALIDATION.md) - Elimination tournament schema reference
+- [ELIMINATION_CONFIG_VALIDATION.md](ELIMINATION_CONFIG_VALIDATION.md) - Config editor field mappings
+- [ROUNDSETUP.md](ROUNDSETUP.md) - Round system technical reference
+- [RACINGSTATEENGINE.md](RACINGSTATEENGINE.md) - Racing state machine documentation
 
-### **Technical Documentation**
-- **API Reference**: Complete MQTT API and HTTP endpoint documentation
-- **Database Schema**: Table structure and relationship documentation
-- **Hardware Specifications**: Detailed hardware requirements and pinout information
-- **Architecture Overview**: System design and component interaction diagrams
+### **API Documentation**
+- [docs/COORDINATOR_POLL_API.md](docs/COORDINATOR_POLL_API.md) - Coordinator polling endpoint
 
-### **Developer Resources**
-- **Contributing Guidelines**: Code standards and contribution procedures
-- **Testing Framework**: Test suite documentation and best practices
-- **Deployment Guide**: Production deployment recommendations
-- **Performance Optimization**: Tuning guidelines for large-scale events
+### **Infrastructure Documentation**
+- [extras/soapbox/doc/DERBYNET_REFERENCE.md](extras/soapbox/doc/DERBYNET_REFERENCE.md) - System technical reference
+- [extras/soapbox/doc/MQTT_API.md](extras/soapbox/doc/MQTT_API.md) - MQTT message protocol
+- [extras/soapbox/doc/HLS_REPLAY_DOCUMENTATION.md](extras/soapbox/doc/HLS_REPLAY_DOCUMENTATION.md) - Video replay system
+- [extras/soapbox/doc/SoapboxDerby_Test_Guide.md](extras/soapbox/doc/SoapboxDerby_Test_Guide.md) - Testing procedures
+
+### **Component READMEs**
+- [extras/soapbox/infra/server/README.md](extras/soapbox/infra/server/README.md) - Race Server
+- [extras/soapbox/infra/finishtimer/README.md](extras/soapbox/infra/finishtimer/README.md) - Finish Timer
+- [extras/soapbox/infra/starttimer/README.md](extras/soapbox/infra/starttimer/README.md) - Start Timer
+- [extras/soapbox/infra/derbydisplay/README.md](extras/soapbox/infra/derbydisplay/README.md) - Derby Display
+- [extras/soapbox/hlsfeed/README.md](extras/soapbox/hlsfeed/README.md) - HLS Video Feed
+
+### **Setup Guides**
+- [extras/soapbox/infra/server/RASPBERRY_PI_SETUP.md](extras/soapbox/infra/server/RASPBERRY_PI_SETUP.md) - Pi Server Setup
+- [extras/soapbox/hlsfeed/MULTICAM_SETUP.md](extras/soapbox/hlsfeed/MULTICAM_SETUP.md) - Multi-camera Setup
+- [extras/soapbox/audiopi/setup_instructions.md](extras/soapbox/audiopi/setup_instructions.md) - Audio System Setup
 
 ---
 
