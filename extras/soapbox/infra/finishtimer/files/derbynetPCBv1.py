@@ -20,6 +20,7 @@ GREENLED    7       26        OUTPUT
 BLUELED     1       28        OUTPUT
 
 Version History:
+- 0.8.0 - Dec 12, 2025 - Standardized version across all soapbox components
 - 0.7.1 - Dec 09, 2025 - Purple flickering LED for "flip" state (staging but toggle not ready)
 - 0.7.0 - Dec 09, 2025 - Version bump for lane completion guard release
 - 0.6.5 - Dec 09, 2025 - Added yellow LED support for UNCONFIGURED state
@@ -36,7 +37,7 @@ Version History:
 '''
 
 # Constants and pin definitions
-PCB_VERSION     = "0.7.1" 
+PCB_VERSION     = "0.8.0" 
 DEVICE_CLASS    = "Lane"
 
 PIN_TOGGLE      = 24

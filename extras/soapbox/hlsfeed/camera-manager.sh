@@ -1,6 +1,6 @@
 #!/bin/bash
 # DerbyNet Camera Manager
-# Version: 0.5.0
+# Version: 0.8.0
 # 
 # This script provides tools for managing multi-camera setup including:
 # - Camera discovery and testing
@@ -8,7 +8,7 @@
 # - Stream health monitoring
 # - Quality profile management
 
-VERSION="0.5.0"
+VERSION="0.8.0"
 
 # Default paths
 CONFIG_FILE="/opt/hlsfeed/multicam-config.env"

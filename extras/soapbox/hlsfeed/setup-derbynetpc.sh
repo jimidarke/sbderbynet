@@ -1,6 +1,6 @@
 #!/bin/bash
 # DerbyNet PC Setup Script for Beelink Mini S12
-# Version: 0.5.0
+# Version: 0.8.0
 # Purpose: Configure the Beelink Mini PC for optimal DerbyNet multicam operation
 
 # Exit on any error
@@ -228,7 +228,7 @@ cat > /opt/derbynet/scripts/monitor.py << 'EOF'
 """
 DerbyNet PC System Monitor
 Monitors system health and reports status via MQTT using standardized telemetry format
-Version: 0.5.0
+Version: 0.8.0
 """
 
 import json
@@ -242,8 +242,8 @@ import socket
 import os
 from datetime import datetime
 
-# Version information - standardized across all DerbyNet components  
-VERSION = "0.5.0"
+# Version information - standardized across all DerbyNet components
+VERSION = "0.8.0"
 DEVICE_CLASS = "PC"
 
 # Setup logging compatible with DerbyNet infrastructure

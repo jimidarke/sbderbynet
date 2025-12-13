@@ -3,6 +3,7 @@ Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library 
 Uses service discovery for improved resilience 
 
 Version History:
+- 0.8.0 - Dec 12, 2025 - Standardized version across all soapbox components
 - 0.6.4 - Dec 09, 2025 - Fixed toggle state debouncing
 - 0.6.3 - Dec 08, 2025 - Fixed rsyslog TAG/programname for unified logging
 - 0.6.2 - Dec 08, 2025 - Simplified boot sequence: show version then lane with LED cycle
@@ -12,7 +13,7 @@ Version History:
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 '''
 
-VERSION = "0.7.1"
+VERSION = "0.8.0"
 
 import json
 import time

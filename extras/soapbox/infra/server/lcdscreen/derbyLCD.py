@@ -11,10 +11,11 @@ import json
 import random
 
 # Version information
-VERSION = "0.5.0"  # Standardized version
+VERSION = "0.8.0"  # Standardized version
 
 '''
 Version History:
+- 0.8.0 - Dec 12, 2025 - Standardized version across all soapbox components
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 - 0.4.0 - May 10, 2025 - Added service discovery via mDNS
 - 0.3.0 - April 22, 2025 - Added remote syslogging and improved error handling

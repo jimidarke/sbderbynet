@@ -17,11 +17,12 @@ Features:
 - Resource usage monitoring and optimization
 
 Version History:
+- 0.8.0 - Dec 12, 2025 - Standardized version across all soapbox components
 - 0.5.0 - May 30, 2025 - Initial multi-camera implementation
 """
 
 # Version information
-VERSION = "0.5.0"
+VERSION = "0.8.0"
 
 import os
 import sys

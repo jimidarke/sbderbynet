@@ -1,5 +1,5 @@
 # Multi-Camera HLS Feed Configuration Template - Beelink Mini PC Optimized
-# Version: 0.5.0
+# Version: 0.8.0
 # Optimized for: Beelink Mini S12 Intel 12th Gen N95, 8GB RAM, Dual HDMI
 # Variables marked with [SECURE] will be populated from secure storage
 

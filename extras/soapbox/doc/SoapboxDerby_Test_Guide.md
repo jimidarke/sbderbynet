@@ -6,7 +6,7 @@ This document provides a comprehensive test guide for validating the Soapbox Der
 
 | ID | Segment | Title | Description | Expected Results |
 |----|---------|-------|-------------|------------------|
-| **CT-001** | Core System | System Boot Sequence | 1. Power up the main race server<br>2. Start components in order: derbyrace, derbyTime, finishtimer, derbydisplay, hlsfeed<br>3. Observe startup logs on each component | - All services start without errors<br>- Version 0.5.0 appears in logs<br>- Components establish MQTT connections<br>- Service discovery successful via mDNS |
+| **CT-001** | Core System | System Boot Sequence | 1. Power up the main race server<br>2. Start components in order: derbyrace, derbyTime, finishtimer, derbydisplay, hlsfeed<br>3. Observe startup logs on each component | - All services start without errors<br>- Version 0.8.0 appears in logs<br>- Components establish MQTT connections<br>- Service discovery successful via mDNS |
 | **CT-002** | Race Server | Race State Transitions | 1. Access coordinator interface<br>2. Verify STOPPED state<br>3. Click "Stage" button<br>4. Click "Start" button<br>5. Verify race completes | - Server transitions STOPPED→STAGING→RACING→STOPPED<br>- MQTT messages published to derbynet/race/state<br>- All displays update to show current state |
 | **CT-003** | Timer Integration | Timer Protocol Heartbeat | 1. Start finish timer service<br>2. Monitor logs for 60-second heartbeat<br>3. Wait for 3 minutes observing heartbeats | - Timer maintains CONNECTED state<br>- 60-second heartbeat messages sent<br>- DerbyNet shows timer as connected |
 | **CT-004** | MQTT Communication | Topic Structure Validation | 1. Use MQTT client tool to subscribe to derbynet/# topics<br>2. Trigger various system events<br>3. Analyze message format and content | - Messages follow schema in MQTT_API.md<br>- All required fields present in telemetry<br>- QoS levels correct per topic specifications |
@@ -180,10 +180,10 @@ curl -I http://derbynetpi:8037/hls/stream.m3u8
 
 ## Version Information
 
-This test guide covers version 0.5.0 of the Soapbox Derby system, which includes:
-- Race Server (derbyRace.py): 0.5.0
-- Finish Timer (derbynetPCBv1.py): 0.5.0
-- Start Timer (main.py): 0.5.0
-- Derby Display (derbydisplay.py): 0.5.0
-- HLS Feed (replay_handler.py): 0.5.0
-- LCD Display (derbyLCD.py): 0.5.0
+This test guide covers version 0.8.0 of the Soapbox Derby system, which includes:
+- Race Server (derbyRace.py): 0.8.0
+- Finish Timer (finishtimer.py, derbynetPCBv1.py): 0.8.0
+- Start Timer (main.py): 0.8.0
+- Derby Display (derbydisplay.py): 0.8.0
+- HLS Feed (replay_handler.py, multicam-service.py): 0.8.0
+- LCD Display (derbyLCD.py): 0.8.0

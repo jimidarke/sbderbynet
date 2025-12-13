@@ -23,6 +23,7 @@ File location: /var/lib/infra/app/simulate_racing.py
 Usage: python3 simulate_racing.py [options]
 
 Version History:
+- 0.8.0 - Dec 12, 2025 - Standardized version across all soapbox components
 - 0.2.0 - December 2025 - Complete rewrite with MQTT-based hardware simulation
 - 0.1.0 - January 2025 - Initial implementation (deprecated - bypassed MQTT layer)
 """
@@ -43,7 +44,7 @@ from derbyapi import DerbyNetClient
 from serverlogger import ServerLogger
 
 # Version information
-VERSION = "0.2.1"
+VERSION = "0.8.0"
 
 # Initialize logging
 logger = ServerLogger(

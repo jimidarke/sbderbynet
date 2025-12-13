@@ -17,8 +17,9 @@ import urequests
 import usocket
 
 
-VERSION = '0.5.0'  # Version of the firmware.
+VERSION = '0.8.0'  # Version of the firmware.
 # Version History:
+# V0.8.0 - Dec 12 2025      - Standardized version across all soapbox components
 # V0.5.0 - May 19 2025      - Standardized version schema across all components
 # V0.4.0 - May 10 2025      - Added service discovery via mDNS for dynamic MQTT broker configuration
 # V0.3.0 - April 22 2025    - Added remote syslogging and improved error handling

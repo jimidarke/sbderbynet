@@ -5,6 +5,7 @@ File location: /var/lib/infra/app/derbyRace.py
 Service file: /etc/systemd/system/derbyrace.service
 
 Version History:
+- 0.8.0 - Dec 12, 2025 - Standardized version across all soapbox components
 - 0.7.3 - Dec 09, 2025 - DNF button integration fix: derbyapi.py now passes finishtime for detection
 - 0.7.2 - Dec 09, 2025 - Fixed lane LEDs not resetting after race; changed lane finish color to red
 - 0.7.1 - Dec 09, 2025 - Fixed stale race data bug: reset lane tracking on state transitions
@@ -36,7 +37,7 @@ import psutil # type: ignore
 import sys
 
 # Version information
-VERSION = "0.7.3"
+VERSION = "0.8.0"
 
 logger = ServerLogger(
     name='DERBYSERVER', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.

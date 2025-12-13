@@ -1,7 +1,7 @@
 # DerbyNet Multi-Camera HLS Setup Guide
 
-**Version**: 0.5.0  
-**Date**: May 30, 2025
+**Version**: 0.8.0
+**Date**: December 12, 2025
 
 This guide provides comprehensive instructions for setting up multi-camera HLS streaming with the DerbyNet soapbox derby system. The framework supports both RTSP (POE cameras) and USB webcams with optimized FFmpeg transcoding profiles.
 
@@ -301,7 +301,7 @@ The service publishes status to MQTT:
 # Payload includes:
 {
   "timestamp": "2025-05-30T10:30:00",
-  "version": "0.5.0",
+  "version": "0.8.0",
   "cameras": {
     "finish": {
       "name": "Finish Line",
