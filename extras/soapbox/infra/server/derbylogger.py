@@ -56,12 +56,12 @@ except ImportError:
             return None
 
 # ============================================================================
-# CONFIGURATION - Change these values as needed
+# CONFIGURATION - Support Docker deployment via env vars, default to production values
 # ============================================================================
 DERBY_TIMEZONE = 'America/Edmonton'
 DEFAULT_LOG_FILE = '/var/log/derbynet.log'
-DEFAULT_RSYSLOG_IP = '192.168.100.10'
-DEFAULT_RSYSLOG_PORT = 514
+DEFAULT_RSYSLOG_IP = os.getenv('RSYSLOG_IP', '192.168.100.10')
+DEFAULT_RSYSLOG_PORT = int(os.getenv('RSYSLOG_PORT', '514'))
 
 # Log format template
 LOG_FORMAT = '[{timestamp}] [{device}] [{level}] [{location}] {message}'

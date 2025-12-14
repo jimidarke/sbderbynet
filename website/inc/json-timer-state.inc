@@ -82,6 +82,20 @@ function json_timer_state() {
       }
   }
 
+  // Virtual timer display for testing mode
+  $testing_mode = testing_mode_enabled();
+  $virtual_display = array();
+  if ($testing_mode) {
+      $lane_count = get_lane_count();
+      for ($lane = 1; $lane <= $lane_count; $lane++) {
+          $virtual_display[$lane] = array(
+              'led' => read_raceinfo("sim-led-lane-$lane", 'red'),
+              'pinny' => read_raceinfo("sim-pinny-lane-$lane", '----'),
+              'time' => read_raceinfo("sim-time-lane-$lane", ''),
+          );
+      }
+  }
+
   return array(
       'lanes' => get_lane_count(),
       'last-contact' => $timer_state->last_contact(),
@@ -97,6 +111,9 @@ function json_timer_state() {
       'timers_required' => $required_timers,
       'health_status' => $health_status,
       'health_message' => $health_message,
+      // Testing mode virtual display
+      'testing_mode' => $testing_mode,
+      'virtual_display' => $virtual_display,
   );
 }
 

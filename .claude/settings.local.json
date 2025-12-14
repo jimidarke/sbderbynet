@@ -21,7 +21,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git cherry-pick:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(wc -l:*)",
+      "Bash(git mv:*)",
+      "Bash(du:*)"
     ],
     "deny": []
   },

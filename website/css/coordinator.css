@@ -728,6 +728,109 @@ div#broadcast-input-wrap-coordinator {
   color: #856404;
 }
 
+/* =============================================================================
+   VIRTUAL TIMER DISPLAY - Testing Mode Panel
+   ============================================================================= */
+
+/* Virtual timer panel container */
+#virtual-timer-panel {
+  background: linear-gradient(135deg, #2c2c2c, #1a1a1a);
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  padding: 15px;
+  color: #fff;
+}
+
+#virtual-timer-panel h3 {
+  color: #fff;
+  margin-top: 0;
+}
+
+/* Testing mode warning banner */
+.testing-mode-banner {
+  background-color: #ff9800;
+  color: #000;
+  padding: 8px 15px;
+  border-radius: 4px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Individual virtual lane display */
+.virtual-lane {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 8px 0;
+  padding: 10px;
+  background: #333;
+  border-radius: 5px;
+}
+
+.virtual-lane .lane-label {
+  width: 60px;
+  font-weight: bold;
+  color: #ccc;
+}
+
+/* LED indicator */
+.lane-led {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+  flex-shrink: 0;
+}
+
+.led-red { background: #ff0000; color: #ff0000; }
+.led-green { background: #00ff00; color: #00ff00; }
+.led-blue { background: #0066ff; color: #0066ff; }
+.led-yellow { background: #ffff00; color: #ffff00; }
+.led-purple { background: #9900ff; color: #9900ff; }
+.led-white { background: #ffffff; color: #ffffff; }
+
+/* 7-segment style display */
+.seven-segment {
+  font-family: 'Courier New', monospace;
+  font-size: 20px;
+  font-weight: bold;
+  color: #00ff00;
+  background: #111;
+  padding: 4px 8px;
+  border-radius: 3px;
+  min-width: 60px;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+/* Simulate race button styling */
+#simulate-race-btn {
+  background-color: #ff9800;
+  color: #000;
+  font-weight: bold;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#simulate-race-btn:hover {
+  background-color: #ffb74d;
+}
+
+#simulate-race-btn:disabled {
+  background-color: #666;
+  color: #999;
+  cursor: not-allowed;
+}
+
+#simulation-status {
+  color: #ff9800;
+  font-weight: bold;
+}
+
 /* Responsive styles for narrow screens (upstream c3a9df71) */
 @media(max-width: 900px) {
     .double_control_column,

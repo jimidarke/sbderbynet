@@ -25,6 +25,7 @@ cpu_usage
  
 #import requests # type: ignore
 import time
+import os
 from pip._vendor import requests
 
 import xml.etree.ElementTree as ET
@@ -56,7 +57,8 @@ class DerbyNetClient:
 
     def __init__(self, server_ip = None):
         if not server_ip:
-            server_ip = "192.168.100.10"
+            # Support environment variable for Docker deployment
+            server_ip = os.getenv('DERBYNET_API_HOST', '192.168.100.10')
         self.url = f"http://{server_ip}/derbynet/action.php"
         self.rooturl = f"http://{server_ip}/derbynet/"
         self.server_ip = server_ip

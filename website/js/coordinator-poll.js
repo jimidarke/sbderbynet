@@ -1195,6 +1195,36 @@ function process_coordinator_poll_json(json) {
   if (json["device-status"]) {
     generate_device_status_table(json["device-status"]);
   }
+
+  // Handle testing mode virtual timer display
+  var timerState = json["timer-state"];
+  if (timerState && timerState.testing_mode) {
+    $("#virtual-timer-panel").removeClass("hidden");
+    render_virtual_timer_display(timerState.virtual_display);
+  } else {
+    $("#virtual-timer-panel").addClass("hidden");
+  }
+}
+
+// Render virtual timer display for testing mode
+function render_virtual_timer_display(virtual_display) {
+  var container = $("#virtual-lanes");
+  container.empty();
+
+  if (!virtual_display) return;
+
+  for (var lane in virtual_display) {
+    var data = virtual_display[lane];
+    var ledClass = 'led-' + (data.led || 'red');
+
+    var laneDiv = $('<div class="virtual-lane"></div>')
+      .append('<span class="lane-label">Lane ' + lane + '</span>')
+      .append('<div class="lane-led ' + ledClass + '"></div>')
+      .append('<div class="seven-segment">' + (data.pinny || '----') + '</div>')
+      .append('<div class="seven-segment">' + (data.time || '') + '</div>');
+
+    container.append(laneDiv);
+  }
 }
 
 var g_polling_interval;

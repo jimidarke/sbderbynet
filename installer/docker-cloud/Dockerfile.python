@@ -1,0 +1,65 @@
+# Python Race Server Dockerfile
+# Provides derbyRace.py and derbyTime.py services
+#
+# Build: docker build -t derbynet-race-server -f installer/docker-cloud/Dockerfile.python .
+
+FROM python:3.11-alpine
+
+LABEL maintainer="DerbyNet Team"
+LABEL description="Python race server for DerbyNet - provides race orchestration and timer management"
+
+# Set timezone
+ARG TZ=America/New_York
+ENV TZ=${TZ}
+
+# Install system dependencies
+RUN apk update && apk add --no-cache \
+    bash \
+    tzdata \
+    curl \
+    netcat-openbsd \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone
+
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    paho-mqtt==1.6.1 \
+    requests==2.31.0 \
+    psutil==5.9.8 \
+    pytz==2024.1
+
+# Create application directory structure
+RUN mkdir -p /var/lib/infra/app \
+    && mkdir -p /var/log \
+    && mkdir -p /var/lib/derbynet/queue
+
+# Set working directory
+WORKDIR /var/lib/infra/app
+
+# Copy Python server scripts
+COPY extras/soapbox/infra/server/derbyRace.py .
+COPY extras/soapbox/infra/server/derbyTime.py .
+COPY extras/soapbox/infra/server/derbyapi.py .
+COPY extras/soapbox/infra/server/derbynet.py .
+COPY extras/soapbox/infra/server/derbylogger.py .
+COPY extras/soapbox/infra/server/serverlogger.py .
+COPY extras/soapbox/infra/server/simulate_racing.py .
+
+# Copy the startup script
+COPY installer/docker-cloud/scripts/start-race-server.sh /start.sh
+RUN chmod +x /start.sh
+
+# Environment variables with defaults
+ENV MQTT_BROKER=mqtt
+ENV MQTT_PORT=1883
+ENV DERBYNET_API_HOST=derbynet-web
+ENV DERBYNET_API_URL=http://derbynet-web/derbynet/action.php
+ENV LANE_COUNT=3
+ENV DERBY_CONSOLE_LOG=true
+ENV DERBY_DEBUG=false
+
+# Health check - verify MQTT connectivity
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD nc -z ${MQTT_BROKER} ${MQTT_PORT} || exit 1
+
+CMD ["/start.sh"]

@@ -111,6 +111,9 @@ if (have_permission(SET_UP_PERMISSION)) {
     // Lane Colors (upstream v11.0)
     'lane-colors' => array('setting' => 'lane-colors'),
 
+    // Testing / Simulation Mode
+    'testing-mode' => array('setting' => 'testing-mode', 'type' => 'checkbox'),
+
   );
 
   if ($ok) {

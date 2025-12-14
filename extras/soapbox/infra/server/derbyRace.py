@@ -45,9 +45,9 @@ logger = ServerLogger(
     level=logging.INFO,  # Default log level
 ).get_logger()
 
-# MQTT setup - Default values that will be used if service discovery fails
-MQTT_BROKER             = "localhost"
-MQTT_PORT               = 1883
+# MQTT setup - Support environment variables for Docker deployment
+MQTT_BROKER             = os.getenv('MQTT_BROKER', 'localhost')
+MQTT_PORT               = int(os.getenv('MQTT_PORT', '1883'))
 MQTT_QOS_CRITICAL       = 2     # QoS level for critical race messages
 MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
 ##### Subscribe Topics #####
@@ -80,7 +80,9 @@ class derbyRace:
         self.client.on_connect = self.on_connect
         self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
         self.client.loop_start()
-        self.api = DerbyNetClient("localhost") 
+        # Support environment variable for Docker deployment
+        api_host = os.getenv('DERBYNET_API_HOST', 'localhost')
+        self.api = DerbyNetClient(api_host) 
         self.start_time = 0
         self.lane_times = {}
         self.lanesFinished = 0

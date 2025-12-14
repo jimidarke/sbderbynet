@@ -25,8 +25,12 @@ logger = ServerLogger(
     console=console_mode
 ).get_logger()
 
+# MQTT configuration - support environment variables for Docker deployment
+MQTT_BROKER = os.getenv('MQTT_BROKER', '127.0.0.1')
+MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
+
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "racetime")
-client.connect("127.0.0.1", 1883, 5)
+client.connect(MQTT_BROKER, MQTT_PORT, 5)
 time_start = time.time()
 
 def sendTime():
@@ -62,5 +66,5 @@ if __name__ == "__main__":
             print ("General exception: " + str(e))
             logger.error("General exception: " + str(e))
             client.disconnect()
-            client.connect("127.0.0.1", 1883, 5)
+            client.connect(MQTT_BROKER, MQTT_PORT, 5)
         time.sleep(0.95)

@@ -109,6 +109,11 @@ function read_raceinfo_boolean($key, $default = false) {
     return $value == '1' || strtolower($value) == 'true';
 }
 
+// Returns true if testing/simulation mode is enabled
+function testing_mode_enabled() {
+    return read_raceinfo_boolean('testing-mode', false);
+}
+
 function write_raceinfo($key, $val) {
   global $db;
   $stmt = $db->prepare('SELECT COUNT(*) FROM RaceInfo WHERE itemkey = :key');
