@@ -2,21 +2,39 @@
 
 Mobile application for soapbox derby race management built with Flutter.
 
-## Project Status
+## Current Version: 0.1.1
 
-**Phase 1 - In Development**: Offline race status dashboard with authentication
+**Status**: Active Development - Core features implemented and functional
 
-## Features (Phase 1)
+## Features
 
-- ✅ Clean architecture setup
-- ✅ Dependencies configured
-- 🚧 Offline authentication against DerbyNet server
-- 🚧 Real-time race status polling (1-second intervals)
-- 🚧 Dashboard displaying:
-  - Current heat information
-  - Racer lineup
-  - Timer status
-  - Race integrity warnings
+### Dashboard & Live Race Status
+- ✅ Real-time race status polling (1-second intervals)
+- ✅ Current heat information display
+- ✅ Racer lineup with lane assignments
+- ✅ Timer status and health monitoring
+- ✅ Connection status indicator
+- ✅ Quick action buttons for navigation
+
+### Racing Schedule
+- ✅ View upcoming heats that haven't been run yet
+- ✅ Heat lineup with racer names and car numbers
+- ✅ Color-coded lane badges
+- ✅ Round information (e.g., "Ages 6-8, 1 Preliminary")
+- ✅ Pull-to-refresh functionality
+
+### Heat History
+- ✅ View completed heats with race results
+- ✅ Expandable/collapsible heat cards
+- ✅ Medal emojis (🥇🥈🥉) for top 3 finishers
+- ✅ Race times displayed to nearest 10th of second
+- ✅ Pinny number chips for quick reference
+- ✅ Filtered to show only completed races
+
+### Server Configuration
+- ✅ Server URL configuration screen
+- ✅ Connection validation
+- ✅ Settings persistence
 
 ## Architecture
 
@@ -73,15 +91,35 @@ The app requires configuration of the DerbyNet server URL on first launch. The s
 
 ## Documentation
 
-- [Implementation Plan](IMPLEMENTATION_PLAN.md) - Complete development roadmap
-- [SBDerbyNet Main Project](../../website/) - PHP backend
+- [CHANGELOG](CHANGELOG.md) - Version history and release notes
+- [SBDerbyNet Main Project](../../../) - Main project repository
+- [API Test Script](test_endpoints.sh) - Endpoint validation script
 
-## Phase Roadmap
+## API Integration
 
-- **Phase 1** (Current): Offline race dashboard
-- **Phase 2** (Future): Cloud deployment with Firebase and SSO
-- **Phase 3** (Future): Race results and upcoming heats
-- **Phase 4** (Future): Individual racer tracking with push notifications
+The app connects to the DerbyNet server REST API:
+- **Coordinator Poll**: `/action.php?query=poll.coordinator` - Real-time race status
+- **OnDeck Chart**: `/action.php?query=poll&values=ondeck` - Heat history and schedule
+- **Heat Details**: `/action.php?query=poll.coordinator&roundid={id}&heat={num}` - Specific heat results
+
+See `test_endpoints.sh` for endpoint validation and testing.
+
+## Development Roadmap
+
+### Completed (v0.1.1)
+- ✅ Real-time race dashboard
+- ✅ Racing schedule viewer
+- ✅ Heat history with results
+- ✅ Server configuration
+- ✅ Connection monitoring
+
+### Planned Future Enhancements
+- Individual racer profiles and tracking
+- Push notifications for racer's upcoming heats
+- Offline mode with local caching
+- Photo display for racers and cars
+- Advanced filtering and search
+- Export results to PDF/CSV
 
 ## License
 

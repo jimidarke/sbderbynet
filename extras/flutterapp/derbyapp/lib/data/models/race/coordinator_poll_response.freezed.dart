@@ -39,7 +39,7 @@ mixin _$CoordinatorPollResponse {
   @JsonKey(name: 'refused-results')
   int get refusedResults => throw _privateConstructorUsedError;
   @JsonKey(name: 'current-scene')
-  String get currentScene => throw _privateConstructorUsedError;
+  int get currentScene => throw _privateConstructorUsedError;
 
   /// Serializes this CoordinatorPollResponse to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -67,7 +67,7 @@ abstract class $CoordinatorPollResponseCopyWith<$Res> {
     @JsonKey(name: 'heat-results') List<Map<String, dynamic>> heatResults,
     @JsonKey(name: 'last-heat') String lastHeat,
     @JsonKey(name: 'refused-results') int refusedResults,
-    @JsonKey(name: 'current-scene') String currentScene,
+    @JsonKey(name: 'current-scene') int currentScene,
   });
 
   $CurrentHeatModelCopyWith<$Res> get currentHeat;
@@ -140,7 +140,7 @@ class _$CoordinatorPollResponseCopyWithImpl<
             currentScene: null == currentScene
                 ? _value.currentScene
                 : currentScene // ignore: cast_nullable_to_non_nullable
-                      as String,
+                      as int,
           )
           as $Val,
     );
@@ -195,7 +195,7 @@ abstract class _$$CoordinatorPollResponseImplCopyWith<$Res>
     @JsonKey(name: 'heat-results') List<Map<String, dynamic>> heatResults,
     @JsonKey(name: 'last-heat') String lastHeat,
     @JsonKey(name: 'refused-results') int refusedResults,
-    @JsonKey(name: 'current-scene') String currentScene,
+    @JsonKey(name: 'current-scene') int currentScene,
   });
 
   @override
@@ -271,7 +271,7 @@ class __$$CoordinatorPollResponseImplCopyWithImpl<$Res>
         currentScene: null == currentScene
             ? _value.currentScene
             : currentScene // ignore: cast_nullable_to_non_nullable
-                  as String,
+                  as int,
       ),
     );
   }
@@ -290,7 +290,7 @@ class _$CoordinatorPollResponseImpl implements _CoordinatorPollResponse {
     final List<Map<String, dynamic>> heatResults = const [],
     @JsonKey(name: 'last-heat') this.lastHeat = 'none',
     @JsonKey(name: 'refused-results') this.refusedResults = 0,
-    @JsonKey(name: 'current-scene') this.currentScene = '',
+    @JsonKey(name: 'current-scene') this.currentScene = 0,
   }) : _racers = racers,
        _rounds = rounds,
        _heatResults = heatResults;
@@ -342,7 +342,7 @@ class _$CoordinatorPollResponseImpl implements _CoordinatorPollResponse {
   final int refusedResults;
   @override
   @JsonKey(name: 'current-scene')
-  final String currentScene;
+  final int currentScene;
 
   @override
   String toString() {
@@ -417,7 +417,7 @@ abstract class _CoordinatorPollResponse implements CoordinatorPollResponse {
     @JsonKey(name: 'heat-results') final List<Map<String, dynamic>> heatResults,
     @JsonKey(name: 'last-heat') final String lastHeat,
     @JsonKey(name: 'refused-results') final int refusedResults,
-    @JsonKey(name: 'current-scene') final String currentScene,
+    @JsonKey(name: 'current-scene') final int currentScene,
   }) = _$CoordinatorPollResponseImpl;
 
   factory _CoordinatorPollResponse.fromJson(Map<String, dynamic> json) =
@@ -447,7 +447,7 @@ abstract class _CoordinatorPollResponse implements CoordinatorPollResponse {
   int get refusedResults;
   @override
   @JsonKey(name: 'current-scene')
-  String get currentScene;
+  int get currentScene;
 
   /// Create a copy of CoordinatorPollResponse
   /// with the given fields replaced by the non-null parameter values.

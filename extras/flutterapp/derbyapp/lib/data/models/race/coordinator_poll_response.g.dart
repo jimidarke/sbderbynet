@@ -35,7 +35,7 @@ _$CoordinatorPollResponseImpl _$$CoordinatorPollResponseImplFromJson(
       const [],
   lastHeat: json['last-heat'] as String? ?? 'none',
   refusedResults: (json['refused-results'] as num?)?.toInt() ?? 0,
-  currentScene: json['current-scene'] as String? ?? '',
+  currentScene: (json['current-scene'] as num?)?.toInt() ?? 0,
 );
 
 Map<String, dynamic> _$$CoordinatorPollResponseImplToJson(

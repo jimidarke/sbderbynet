@@ -92,6 +92,45 @@ class DashboardScreen extends ConsumerWidget {
               const RacerLineupCard(),
               const SizedBox(height: 16),
 
+              // Quick Actions Card
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.menu, size: 24),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Quick Actions',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => context.push(AppRoutes.racingSchedule),
+                        icon: const Icon(Icons.schedule),
+                        label: const Text('View Racing Schedule'),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => context.push(AppRoutes.heatHistory),
+                        icon: const Icon(Icons.history),
+                        label: const Text('Heat History'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Last Updated Timestamp
               Consumer(
                 builder: (context, ref, child) {

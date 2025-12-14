@@ -19,7 +19,7 @@ class CoordinatorPollResponse with _$CoordinatorPollResponse {
     @JsonKey(name: 'heat-results') @Default([]) List<Map<String, dynamic>> heatResults,
     @JsonKey(name: 'last-heat') @Default('none') String lastHeat,
     @JsonKey(name: 'refused-results') @Default(0) int refusedResults,
-    @JsonKey(name: 'current-scene') @Default('') String currentScene,
+    @JsonKey(name: 'current-scene') @Default(0) int currentScene,
     // Note: classes, ready-aggregate, replay-state can be added later if needed
   }) = _CoordinatorPollResponse;
 

@@ -6,7 +6,7 @@ part of 'app_router.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$goRouterHash() => r'64e9f0ac8d401976f818fe40e57f786b97644531';
+String _$goRouterHash() => r'473d02a94bc07082686b867e02ef3e7c04e0e262';
 
 /// GoRouter provider - simplified for Phase 1
 /// Auth bypassed - coordinator endpoint is public
