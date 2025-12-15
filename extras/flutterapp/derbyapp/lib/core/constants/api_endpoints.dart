@@ -12,6 +12,7 @@ class ApiEndpoints {
   // Query endpoints
   static const String pollCoordinator = '$action?query=poll.coordinator';
   static const String pollKiosk = '$action?query=poll.kiosk';
+  static const String pollOnDeck = '$action?query=poll&values=ondeck';
   static const String racerList = '$action?query=racer.list';
   static const String classList = '$action?query=class.list';
   static const String roundList = '$action?query=round.list';
