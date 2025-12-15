@@ -2,6 +2,20 @@
 
 All notable changes to the SBDerbyNet Mobile App will be documented in this file.
 
+## [0.1.2] - 2025-12-14
+
+### Fixed
+- **Critical Android Network Issue**: Fixed app unable to connect to HTTP servers on Android 9+
+  - Added network security configuration allowing cleartext traffic for local network
+  - Configured domains: 192.168.100.10 (DerbyNet server), localhost, 10.0.2.2 (emulator)
+  - Added explicit INTERNET and ACCESS_NETWORK_STATE permissions
+  - Resolves `DioException [unknown]: null Error: AppNo internet connection` error
+
+### Technical Details
+- Created `network_security_config.xml` with domain-specific cleartext permissions
+- Updated `AndroidManifest.xml` to reference network security configuration
+- Modern Android versions block HTTP by default for security; this configuration allows it for trusted local servers only
+
 ## [0.1.1] - 2025-12-14
 
 ### Added

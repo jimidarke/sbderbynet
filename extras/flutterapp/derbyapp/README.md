@@ -2,7 +2,7 @@
 
 Mobile application for soapbox derby race management built with Flutter.
 
-## Current Version: 0.1.1
+## Current Version: 0.1.2
 
 **Status**: Active Development - Core features implemented and functional
 
@@ -89,6 +89,12 @@ cd /home/jimi/Documents/SBDerbyNet/extras/flutterapp/derbyapp
 
 The app requires configuration of the DerbyNet server URL on first launch. The server should be accessible on the local WiFi network (e.g., `http://192.168.100.10`).
 
+**Network Requirements:**
+- The app supports HTTP connections to local network servers
+- Android 9+ security policies require explicit cleartext traffic configuration
+- Configured domains: `192.168.100.10`, `localhost`, `10.0.2.2` (emulator)
+- For other local IP addresses, update `android/app/src/main/res/xml/network_security_config.xml`
+
 ## Documentation
 
 - [CHANGELOG](CHANGELOG.md) - Version history and release notes
@@ -106,12 +112,13 @@ See `test_endpoints.sh` for endpoint validation and testing.
 
 ## Development Roadmap
 
-### Completed (v0.1.1)
+### Completed (v0.1.2)
 - ✅ Real-time race dashboard
 - ✅ Racing schedule viewer
 - ✅ Heat history with results
 - ✅ Server configuration
 - ✅ Connection monitoring
+- ✅ Android HTTP network security configuration
 
 ### Planned Future Enhancements
 - Individual racer profiles and tracking
