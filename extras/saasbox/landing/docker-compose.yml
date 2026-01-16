@@ -1,0 +1,31 @@
+services:
+  landing:
+    image: nginx:alpine
+    container_name: soapboxderbynet-landing
+    restart: unless-stopped
+    volumes:
+      - ./html:/usr/share/nginx/html:ro
+    environment:
+      - VIRTUAL_HOST=soapboxderbynet.com,www.soapboxderbynet.com
+      - LETSENCRYPT_HOST=soapboxderbynet.com,www.soapboxderbynet.com
+      - LETSENCRYPT_EMAIL=jimi@darketech.ca
+    networks:
+      - nginx-proxy
+
+  sftp:
+    image: atmoz/sftp:alpine
+    container_name: soapboxderbynet-sftp
+    profiles:
+      - tools
+    restart: "no"
+    ports:
+      - "2222:22"
+    volumes:
+      - ./html:/home/deploy/html
+    # Format: user:password:uid:gid:directories
+    # UID 1000 = typical Linux user, GID 101 = nginx group in alpine
+    command: deploy:${SFTP_PASSWORD:-changeme}:1000:1000:html
+
+networks:
+  nginx-proxy:
+    external: true
