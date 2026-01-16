@@ -29,7 +29,6 @@ var g_cameraIndex = 0;
 
 function set_autocrop_state(repo) {
   $("#autocrop").prop('checked', repo == 'head' ? g_autocrop_head : g_autocrop_car);
-  // TODO $("#autocrop").flipswitch("refresh");
 }
 
 function preserve_autocrop_state() {
@@ -331,11 +330,9 @@ function send_canvas_photo(canvas, racerid, repo, photo_base_name) {
           }
          });
 
-  // TODO-Webcam.reset();
   close_modal("#photo_modal");
   }
-  
+
 function close_photo_modal() {
-  // TODO-Webcam.reset();
   close_modal("#photo_modal");
 }

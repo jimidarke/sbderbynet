@@ -51,7 +51,6 @@ function update_awards(data) {
         .append('<a onclick="handle_edit_award($(this).closest(\'li\'));"></a>')
         .appendTo('#all_awards');
     }
-    // $("#all_awards").listview("refresh");
   }
   
   $("#all_awards li").each(function(i) {
@@ -99,8 +98,6 @@ function update_awards(data) {
 function handle_new_award() {
   $('#award_editor_form').find('input[name="awardid"]').val('new');
   $('#award_editor_form').find('input[name="name"]').val('');
-  // TODO $('#award_editor_form').find('select[name="awardtypeid"]').val(awardtypeid).change();
-  // TODO $('#award_editor_form').find('select[name="class_and_rank"]').val('0,0').change();
   $('.delete_button').addClass('hidden');
 
   show_modal('#award_editor_modal', function() {

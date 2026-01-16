@@ -14,6 +14,8 @@ require_once('inc/permissions.inc');
 require_once('inc/authorize.inc');
 
 require_once('inc/action-helpers.inc');
+require_once('inc/error-logging.inc');
+require_once('inc/error-codes.inc');
 
 $json_out = array();
 
@@ -32,20 +34,54 @@ function json_success()
   ));
 }
 
-function json_failure($code, $description)
+function json_failure($code, $description, $context = null)
 {
-  json_out('outcome', array(
+  global $ERROR_CODES, $LEGACY_CODE_MAP;
+
+  // Map legacy code to standardized code if available
+  $std_code = null;
+  if (isset($LEGACY_CODE_MAP[$code])) {
+    $std_code = $LEGACY_CODE_MAP[$code];
+  } elseif (preg_match('/^ERR-[A-Z]+-[123]\d{2}$/', $code)) {
+    // Already a standardized code
+    $std_code = $code;
+  }
+
+  // Get error details for logging
+  $error_details = derby_get_error_details($std_code ?? 'ERR-SYS-201');
+  $log_level = $error_details['level'] ?? 'ERROR';
+
+  // Log the error with standardized code
+  if ($std_code) {
+    derby_log($log_level, $description, $std_code, $context);
+  } else {
+    derby_log($log_level, "[$code] $description", null, $context);
+  }
+
+  // Build outcome array
+  $outcome = array(
     'summary' => 'failure',
-    'code' => $code,
+    'code' => $code,  // Keep original code for backward compatibility
     'description' => $description
-  ));
+  );
+
+  // Add standardized code if different from original
+  if ($std_code && $std_code !== $code) {
+    $outcome['error_code'] = $std_code;
+  }
+
+  json_out('outcome', $outcome);
 }
 
 function json_sql_failure($sql)
 {
   global $db;
   $info = $db->errorInfo();
-  json_failure('sql' . $info[0] . '-' . $info[1], "$sql failed: $info[2] [EOM]");
+  json_failure('sql', "$sql failed: $info[2]", array(
+    'sqlstate' => $info[0],
+    'driver_code' => $info[1],
+    'query' => substr($sql, 0, 200)  // Truncate long queries
+  ));
 }
 
 function json_not_authorized()

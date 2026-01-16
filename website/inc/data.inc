@@ -13,11 +13,13 @@ if (!isset($db)) {
 
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-//echo '<pre>'; print_r(PDO::getAvailableDrivers()); echo '</pre>';
-// On Mac, produces array('sqlite')
-// On Windows, produces array('odbc', 'sqlite')
-
+// Enable WAL mode for SQLite to allow concurrent reads during writes
+// This is critical for Python race server writing results while PHP reads
 $dbtype = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+if ($dbtype == 'sqlite') {
+  $db->exec('PRAGMA journal_mode=WAL');
+  $db->exec('PRAGMA busy_timeout=5000');  // Wait up to 5s for locks
+}
 if ($dbtype == 'odbc') {
 	$dbtype = 'access';
 }

@@ -18,8 +18,6 @@ function notice_change_current_tbody(tbodyid, round, classname) {
     var curgroup = $(".curgroup .pre_group_title");
     if (curgroup.length > 0) {
 	  curgroup.html("Now<br/>Racing");
-    } else {
-      // TODO console.log("Can't find title for new tbody " + tbodyid);
     }
 
 	// Update text and target of "Now racing" link at top of page.

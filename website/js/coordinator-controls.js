@@ -555,7 +555,6 @@ function update_bucketed_checkbox(for_group) {
 
 // Create a follow-on round to an existing round.
 function handle_new_round_follow_on(roundid) {
-  console.log("follow-on for roundid=" + roundid); // TODO
   close_modal_leave_background("#choose_new_round_modal");
   $("#new-round-modal div").removeClass("hidden");
   $(".aggregate-only").addClass("hidden");

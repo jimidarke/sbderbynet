@@ -35,9 +35,9 @@ logger = setup_logger("DerbyDisplay", use_centralized_config=True)
 logger.info(f"####### Starting DerbyNet DerbyDisplay v{VERSION} #######")
 
 ###########################    MQTT    ###########################
-# Default values - will be overridden by service discovery
-DEFAULT_MQTT_BROKER = "192.168.100.10"
-DEFAULT_MQTT_PORT = 1883
+# Configuration priority: 1. mDNS service discovery  2. Environment variables  3. Defaults
+DEFAULT_MQTT_BROKER = os.getenv('MQTT_BROKER', '192.168.100.10')
+DEFAULT_MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
 TELEMETRY_INTERVAL = 5 # seconds
 
 # Topics to publish to

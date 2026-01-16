@@ -38,15 +38,15 @@ disp = LCD_2inch.LCD_2inch(spi=SPI.SpiDev(bus, device),spi_freq=10000000,rst=RST
 
 displayData = {}
 
-# DerbyNet API Setup
-SERVERIP = "127.0.0.1"
+# DerbyNet API Setup - uses localhost since LCD runs on same host as server
+SERVERIP = os.getenv('DERBYNET_API_HOST', '127.0.0.1')
 api = DerbyNetClient(SERVERIP)
 authcode = api.login()
 
-# MQTT Setup
+# MQTT Setup - environment variable support for multi-site deployment
 # Define the MQTT broker address and port
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
+MQTT_BROKER = os.getenv('MQTT_BROKER', 'localhost')
+MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
 MQTT_TOPIC_LANESTATE = "derbynet/lane/+/state"                   # Send to lane number for each finish timer 1..4
 MQTT_TOPIC_LANETELEM = "derbynet/lane/+/telemetry"                   # Send to lane number for each finish timer 1..4
 
