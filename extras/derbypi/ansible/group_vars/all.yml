@@ -1,0 +1,62 @@
+# DerbyPi Ansible Configuration Variables
+# =========================================
+
+# Git Repository
+derbypi_git_repo: "https://github.com/jimidarke/sbderbynet.git"
+derbypi_git_branch: "master"
+derbypi_repo_dir: "/opt/derbynet-repo"
+
+# System Configuration
+derbypi_hostname: "derbynetpi"
+derbypi_static_ip: "192.168.100.10"
+derbypi_gateway: "192.168.100.1"
+derbypi_netmask: "255.255.255.0"
+derbypi_network: "192.168.100.0/24"
+derbypi_timezone: "America/Edmonton"
+
+# User Configuration
+derbynet_user: "derbynet"
+derbynet_uid: 1000
+derbynet_group: "derbynet"
+derbynet_gid: 1000
+
+# Directory Paths
+derbynet_web_root: "/var/www/html/derbynet"
+derbynet_config_dir: "/var/www/html/derbynet/local"
+derbynet_data_dir: "/var/lib/derbynet"
+derbynet_infra_dir: "/var/lib/infra"
+derbynet_log_file: "/var/log/derbynet.log"
+derbynet_keys_dir: "/var/lib/derbynet/keys"
+derbynet_queue_dir: "/var/lib/derbynet/queue"
+
+# Source paths within repo
+derbynet_website_src: "{{ derbypi_repo_dir }}/website"
+derbynet_infra_src: "{{ derbypi_repo_dir }}/extras/soapbox/infra"
+
+# Service Ports
+mqtt_port: 1883
+rsyslog_udp_port: 514
+rsync_port: 873
+http_port: 80
+ntp_port: 123
+
+# PHP Configuration
+php_upload_max_filesize: "16M"
+php_post_max_size: "16M"
+php_memory_limit: "256M"
+php_session_gc_maxlifetime: 28800
+
+# Mosquitto Configuration
+mosquitto_allow_anonymous: true
+mosquitto_log_types:
+  - error
+  - warning
+  - notice
+
+# Chrony NTP Configuration
+ntp_allow_networks:
+  - "192.168.100.0/24"
+
+# ansible-pull Configuration
+ansible_pull_interval: 30  # minutes
+ansible_pull_random_delay: 5  # minutes

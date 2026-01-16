@@ -1,0 +1,33 @@
+# DerbyNet Chrony NTP Configuration
+# This Pi serves as NTP server for derby devices on the local network
+
+# Use public NTP servers as upstream time source
+pool 2.debian.pool.ntp.org iburst
+
+# Use RTC as local time source when network unavailable
+# stratum 10 means this is a low-priority fallback
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0 stratum 2
+
+# Fall back to local clock if no external sources available
+local stratum 10
+
+# Allow NTP clients on the derby network
+{% for network in ntp_allow_networks %}
+allow {{ network }}
+{% endfor %}
+
+# Record the rate at which the system clock gains/losses time
+driftfile /var/lib/chrony/drift
+
+# Allow the system clock to be stepped in the first three updates
+# if its offset is larger than 1 second
+makestep 1.0 3
+
+# Enable kernel synchronization of the real-time clock (RTC)
+rtcsync
+
+# Enable logging
+log tracking measurements statistics
+
+# Specify the location of the log files
+logdir /var/log/chrony

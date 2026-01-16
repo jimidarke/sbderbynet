@@ -1,0 +1,23 @@
+---
+# Mosquitto role - MQTT broker configuration
+# Installs and configures Mosquitto for derby device communication
+
+- name: Install mosquitto and clients
+  ansible.builtin.apt:
+    name:
+      - mosquitto
+      - mosquitto-clients
+    state: present
+
+- name: Deploy DerbyNet mosquitto configuration
+  ansible.builtin.template:
+    src: derbynet.conf.j2
+    dest: /etc/mosquitto/conf.d/derbynet.conf
+    mode: '0644'
+  notify: Restart mosquitto
+
+- name: Enable mosquitto service
+  ansible.builtin.systemd:
+    name: mosquitto
+    enabled: yes
+    state: started

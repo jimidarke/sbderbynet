@@ -1,0 +1,72 @@
+---
+# DerbyNet role - Website file synchronization
+# Syncs website files from repo to web root and infra files to /var/lib/infra
+
+- name: Ensure git repo directory exists
+  ansible.builtin.file:
+    path: "{{ derbypi_repo_dir }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0755'
+
+- name: Clone or update SBDerbyNet repository
+  ansible.builtin.git:
+    repo: "{{ derbypi_git_repo }}"
+    dest: "{{ derbypi_repo_dir }}"
+    version: "{{ derbypi_git_branch }}"
+    force: yes
+  become_user: "{{ derbynet_user }}"
+
+- name: Sync website files to web root
+  ansible.posix.synchronize:
+    src: "{{ derbynet_website_src }}/"
+    dest: "{{ derbynet_web_root }}/"
+    delete: no
+    recursive: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=*.md"
+  delegate_to: "{{ inventory_hostname }}"
+
+- name: Set ownership on web root
+  ansible.builtin.file:
+    path: "{{ derbynet_web_root }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: www-data
+    recurse: yes
+
+- name: Ensure local config directory is writable
+  ansible.builtin.file:
+    path: "{{ derbynet_config_dir }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: www-data
+    mode: '0777'
+
+- name: Sync infra files to /var/lib/infra
+  ansible.posix.synchronize:
+    src: "{{ derbynet_infra_src }}/"
+    dest: "{{ derbynet_infra_dir }}/"
+    delete: no
+    recursive: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=*.md"
+  delegate_to: "{{ inventory_hostname }}"
+
+- name: Set ownership on infra directory
+  ansible.builtin.file:
+    path: "{{ derbynet_infra_dir }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    recurse: yes
+
+- name: Create symlink for service compatibility (app -> server)
+  ansible.builtin.file:
+    src: "{{ derbynet_infra_dir }}/server"
+    dest: "{{ derbynet_infra_dir }}/app"
+    state: link
+    force: yes

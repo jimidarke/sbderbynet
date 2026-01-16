@@ -1,0 +1,6 @@
+---
+# RTC role handlers
+
+- name: Reboot required for RTC
+  ansible.builtin.debug:
+    msg: "A reboot is required to enable the RTC hardware. Reboot manually when ready."

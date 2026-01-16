@@ -1,0 +1,157 @@
+---
+# Common role - Base system configuration
+# Sets up hostname, timezone, disables WiFi/BT, creates directories and users
+
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ derbypi_hostname }}"
+
+- name: Update /etc/hosts with hostname
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1'
+    line: "127.0.1.1\t{{ derbypi_hostname }}"
+    state: present
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ derbypi_timezone }}"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    upgrade: dist
+  when: derbypi_upgrade_packages | default(false)
+
+- name: Install common system packages
+  ansible.builtin.apt:
+    name:
+      - git
+      - rsync
+      - i2c-tools
+      - jq
+      - curl
+      - wget
+      - htop
+      - vim
+      - util-linux
+    state: present
+
+- name: Disable WiFi overlay in config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtoverlay=disable-wifi'
+    line: "dtoverlay=disable-wifi"
+    state: present
+  notify: Reboot required
+
+- name: Disable Bluetooth overlay in config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtoverlay=disable-bt'
+    line: "dtoverlay=disable-bt"
+    state: present
+  notify: Reboot required
+
+- name: Reduce GPU memory for headless operation
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?gpu_mem='
+    line: "gpu_mem=16"
+    state: present
+  notify: Reboot required
+
+- name: Ensure derbynet group exists
+  ansible.builtin.group:
+    name: "{{ derbynet_group }}"
+    gid: "{{ derbynet_gid }}"
+    state: present
+
+- name: Ensure derbynet user exists
+  ansible.builtin.user:
+    name: "{{ derbynet_user }}"
+    uid: "{{ derbynet_uid }}"
+    group: "{{ derbynet_group }}"
+    groups: www-data,sudo
+    append: yes
+    shell: /bin/bash
+    state: present
+
+- name: Create DerbyNet data directory
+  ansible.builtin.file:
+    path: "{{ derbynet_data_dir }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0777'
+
+- name: Create DerbyNet data subdirectories
+  ansible.builtin.file:
+    path: "{{ derbynet_data_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0777'
+  loop:
+    - imagery
+    - slides
+    - queue
+
+- name: Create DerbyNet keys directory
+  ansible.builtin.file:
+    path: "{{ derbynet_keys_dir }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0700'
+
+- name: Create infra directory
+  ansible.builtin.file:
+    path: "{{ derbynet_infra_dir }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0775'
+
+- name: Create log file
+  ansible.builtin.file:
+    path: "{{ derbynet_log_file }}"
+    state: touch
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0666'
+    modification_time: preserve
+    access_time: preserve
+
+- name: Configure journald size limits
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/size.conf
+    content: |
+      [Journal]
+      SystemMaxUse=100M
+      RuntimeMaxUse=50M
+    mode: '0644'
+  notify: Restart journald
+
+- name: Ensure journald.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: '0755'
+
+- name: Disable unnecessary services for headless operation
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  loop:
+    - avahi-daemon
+    - triggerhappy
+    - hciuart
+    - bluetooth
+    - wpa_supplicant
+  ignore_errors: yes

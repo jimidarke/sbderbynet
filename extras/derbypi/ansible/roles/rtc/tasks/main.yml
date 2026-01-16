@@ -1,0 +1,57 @@
+---
+# RTC role - DS3231 Real Time Clock configuration
+# Enables I2C, configures DS3231 overlay, removes fake-hwclock
+
+- name: Enable I2C in config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtparam=i2c_arm='
+    line: "dtparam=i2c_arm=on"
+    state: present
+  notify: Reboot required for RTC
+
+- name: Enable DS3231 RTC overlay
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtoverlay=i2c-rtc'
+    line: "dtoverlay=i2c-rtc,ds3231"
+    state: present
+  notify: Reboot required for RTC
+
+- name: Remove fake-hwclock package
+  ansible.builtin.apt:
+    name: fake-hwclock
+    state: absent
+    purge: yes
+
+- name: Disable fake-hwclock service (if exists)
+  ansible.builtin.systemd:
+    name: fake-hwclock
+    enabled: no
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove fake-hwclock from update-rc.d
+  ansible.builtin.command:
+    cmd: update-rc.d -f fake-hwclock remove
+  changed_when: false
+  ignore_errors: yes
+
+- name: Configure hwclock-set to use RTC
+  ansible.builtin.template:
+    src: hwclock-set.j2
+    dest: /lib/udev/hwclock-set
+    mode: '0755'
+    backup: yes
+
+- name: Load i2c-dev module
+  community.general.modprobe:
+    name: i2c-dev
+    state: present
+
+- name: Ensure i2c-dev loads on boot
+  ansible.builtin.lineinfile:
+    path: /etc/modules-load.d/i2c.conf
+    line: "i2c-dev"
+    create: yes
+    mode: '0644'

@@ -1,0 +1,37 @@
+# DerbyNet Nginx Site Configuration
+# Managed by Ansible - do not edit manually
+
+server {
+    listen {{ http_port }} default_server;
+    listen [::]:{{ http_port }} default_server;
+
+    server_name {{ derbypi_hostname }} {{ derbypi_static_ip }};
+
+    root /var/www/html;
+    index index.php index.html;
+
+    # DerbyNet custom log format
+    access_log /var/log/nginx/derbynet_access.log derbynet_log;
+
+    # DerbyNet application
+    location /derbynet {
+        index index.php;
+    }
+
+    # PHP handler for DerbyNet
+    location ~ derbynet/.*\.php(/.*)?$ {
+        client_max_body_size {{ php_upload_max_filesize }};
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/var/run/php/php-fpm.sock;
+        # CONFIG_DIR = local config files (config-database.inc, config-roles.inc)
+        fastcgi_param DERBYNET_CONFIG_DIR {{ derbynet_config_dir }};
+        # DATA_DIR = race data (database, photos, slides)
+        fastcgi_param DERBYNET_DATA_DIR {{ derbynet_data_dir }};
+    }
+
+    # Static files
+    location ~ \.(css|js|png|jpg|gif|ico|svg|woff|woff2|ttf)$ {
+        expires 1h;
+        add_header Cache-Control "public, immutable";
+    }
+}

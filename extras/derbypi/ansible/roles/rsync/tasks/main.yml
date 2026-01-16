@@ -1,0 +1,28 @@
+---
+# Rsync role - rsync daemon for device updates
+# Configures rsync daemon so derby devices can pull updates on boot
+
+- name: Install rsync
+  ansible.builtin.apt:
+    name: rsync
+    state: present
+
+- name: Deploy rsyncd configuration
+  ansible.builtin.template:
+    src: rsyncd.conf.j2
+    dest: /etc/rsyncd.conf
+    mode: '0644'
+  notify: Restart rsync
+
+- name: Enable rsync daemon in defaults
+  ansible.builtin.lineinfile:
+    path: /etc/default/rsync
+    regexp: '^RSYNC_ENABLE='
+    line: 'RSYNC_ENABLE=true'
+  notify: Restart rsync
+
+- name: Enable rsync service
+  ansible.builtin.systemd:
+    name: rsync
+    enabled: yes
+    state: started

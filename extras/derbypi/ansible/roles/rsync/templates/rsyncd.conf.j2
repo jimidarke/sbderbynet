@@ -1,0 +1,23 @@
+# DerbyNet Rsync Daemon Configuration
+# Managed by Ansible - do not edit manually
+#
+# Provides read-only access to derby device files for remote updates.
+# Finish timers and display nodes pull scripts from this server on boot.
+
+uid = nobody
+gid = nogroup
+use chroot = yes
+max connections = 10
+timeout = 300
+read only = yes
+
+[derbynet]
+    path = {{ derbynet_infra_dir }}
+    comment = DerbyNet Device Files
+    read only = yes
+    list = yes
+
+# Module Structure:
+# rsync://{{ derbypi_static_ip }}/derbynet/finishtimer/  -> {{ derbynet_infra_dir }}/finishtimer/
+# rsync://{{ derbypi_static_ip }}/derbynet/derbydisplay/ -> {{ derbynet_infra_dir }}/derbydisplay/
+# rsync://{{ derbypi_static_ip }}/derbynet/starttimer/   -> {{ derbynet_infra_dir }}/starttimer/

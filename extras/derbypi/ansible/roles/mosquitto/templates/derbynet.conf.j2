@@ -1,0 +1,18 @@
+# DerbyNet MQTT Configuration
+# Managed by Ansible - do not edit manually
+#
+# Note: persistence_location is already set in main mosquitto.conf
+# Only add settings that aren't in the main config
+
+listener {{ mqtt_port }}
+{% if mosquitto_allow_anonymous %}
+allow_anonymous true
+{% else %}
+allow_anonymous false
+{% endif %}
+
+# Logging
+log_dest syslog
+{% for log_type in mosquitto_log_types %}
+log_type {{ log_type }}
+{% endfor %}

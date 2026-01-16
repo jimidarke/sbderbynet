@@ -1,0 +1,20 @@
+[Unit]
+Description=Derby Race Server
+After=network.target mosquitto.service nginx.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory={{ derbynet_infra_dir }}/app
+ExecStart=/usr/bin/python3 {{ derbynet_infra_dir }}/app/derbyRace.py
+Restart=always
+RestartSec=10
+Environment="DERBY_CONSOLE_LOG=false"
+Environment="DERBY_DEBUG=false"
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=derbyrace
+
+[Install]
+WantedBy=multi-user.target

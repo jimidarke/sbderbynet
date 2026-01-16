@@ -1,0 +1,37 @@
+---
+# Raceserver role - Derby race service configuration
+# Deploys and enables derbyrace and derbytime systemd services
+
+- name: Deploy derbyrace systemd service
+  ansible.builtin.template:
+    src: derbyrace.service.j2
+    dest: /etc/systemd/system/derbyrace.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart derbyrace
+
+- name: Deploy derbytime systemd service
+  ansible.builtin.template:
+    src: derbytime.service.j2
+    dest: /etc/systemd/system/derbytime.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart derbytime
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable derbyrace service
+  ansible.builtin.systemd:
+    name: derbyrace
+    enabled: yes
+    state: started
+
+- name: Enable derbytime service
+  ansible.builtin.systemd:
+    name: derbytime
+    enabled: yes
+    state: started

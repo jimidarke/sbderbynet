@@ -1,0 +1,18 @@
+[Unit]
+Description=Derby Time Service
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory={{ derbynet_infra_dir }}/app
+ExecStart=/usr/bin/python3 {{ derbynet_infra_dir }}/app/derbyTime.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=derbytime
+
+[Install]
+WantedBy=multi-user.target

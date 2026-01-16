@@ -1,0 +1,31 @@
+---
+# Logging role - Rsyslog UDP receiver configuration
+# Enables UDP syslog reception on port 514 for remote derby devices
+
+- name: Install rsyslog
+  ansible.builtin.apt:
+    name: rsyslog
+    state: present
+
+- name: Enable UDP syslog reception in rsyslog.conf
+  ansible.builtin.blockinfile:
+    path: /etc/rsyslog.conf
+    marker: "# {mark} ANSIBLE MANAGED - UDP RECEPTION"
+    insertafter: "^#module\\(load=\"imudp\"\\)"
+    block: |
+      module(load="imudp")
+      input(type="imudp" port="{{ rsyslog_udp_port }}")
+  notify: Restart rsyslog
+
+- name: Deploy DerbyNet rsyslog configuration
+  ansible.builtin.template:
+    src: 10-derbynet.conf.j2
+    dest: /etc/rsyslog.d/10-derbynet.conf
+    mode: '0644'
+  notify: Restart rsyslog
+
+- name: Enable rsyslog service
+  ansible.builtin.systemd:
+    name: rsyslog
+    enabled: yes
+    state: started

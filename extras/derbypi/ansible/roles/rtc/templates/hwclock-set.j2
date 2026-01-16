@@ -1,0 +1,30 @@
+#!/bin/sh
+# Reset the System Clock to UTC if the hardware clock from which it
+# was copied by the kernel was in localtime.
+
+dev=$1
+
+# The systemd exit 0 lines are commented out to allow hwclock to work
+# This modification is required for the DS3231 RTC
+# if [ -e /run/systemd/system ] ; then
+#     exit 0
+# fi
+
+if [ -e /run/udev/hwclock-set ]; then
+    exit 0
+fi
+
+if [ -f /etc/default/rcS ] ; then
+    . /etc/default/rcS
+fi
+
+# Do not call adjtime when the system is running on batteries
+#if [ -e /lib/udev/upower-settle ]; then
+#    /lib/udev/upower-settle
+#fi
+
+if [ "$UTC" = "yes" ]; then
+    /sbin/hwclock --hctosys --utc --noadjfile $dev
+else
+    /sbin/hwclock --hctosys --localtime --noadjfile $dev
+fi

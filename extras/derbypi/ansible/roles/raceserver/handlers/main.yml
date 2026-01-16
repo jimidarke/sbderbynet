@@ -1,0 +1,16 @@
+---
+# Raceserver role handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Restart derbyrace
+  ansible.builtin.systemd:
+    name: derbyrace
+    state: restarted
+
+- name: Restart derbytime
+  ansible.builtin.systemd:
+    name: derbytime
+    state: restarted

@@ -1,0 +1,47 @@
+---
+# SaaSbox role - RSA keypair generation for device authentication
+# Generates RSA-2048 keypair on first boot for SaaS API authentication
+
+- name: Check if device private key exists
+  ansible.builtin.stat:
+    path: "{{ derbynet_keys_dir }}/device.key"
+  register: device_key_stat
+
+- name: Generate RSA-2048 keypair
+  ansible.builtin.script:
+    cmd: generate_keypair.py
+    creates: "{{ derbynet_keys_dir }}/device.key"
+  when: not device_key_stat.stat.exists
+  register: keypair_result
+
+- name: Set permissions on private key
+  ansible.builtin.file:
+    path: "{{ derbynet_keys_dir }}/device.key"
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0600'
+  when: device_key_stat.stat.exists or keypair_result is changed
+
+- name: Set permissions on public key
+  ansible.builtin.file:
+    path: "{{ derbynet_keys_dir }}/device.pub"
+    owner: "{{ derbynet_user }}"
+    group: "{{ derbynet_group }}"
+    mode: '0644'
+  when: device_key_stat.stat.exists or keypair_result is changed
+
+- name: Read public key for display
+  ansible.builtin.slurp:
+    src: "{{ derbynet_keys_dir }}/device.pub"
+  register: public_key_content
+  when: keypair_result is changed
+
+- name: Display public key for SaaS registration
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      DERBYPI DEVICE PUBLIC KEY - Copy this for SaaS registration:
+      ============================================================
+      {{ public_key_content.content | b64decode }}
+      ============================================================
+  when: keypair_result is changed

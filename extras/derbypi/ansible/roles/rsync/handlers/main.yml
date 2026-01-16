@@ -1,0 +1,7 @@
+---
+# Rsync role handlers
+
+- name: Restart rsync
+  ansible.builtin.systemd:
+    name: rsync
+    state: restarted

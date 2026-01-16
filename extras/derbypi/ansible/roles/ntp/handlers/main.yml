@@ -1,0 +1,7 @@
+---
+# NTP role handlers
+
+- name: Restart chrony
+  ansible.builtin.systemd:
+    name: chrony
+    state: restarted

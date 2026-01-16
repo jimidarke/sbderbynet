@@ -1,0 +1,77 @@
+# DerbyNet Unified Logging - rsyslog Configuration
+# =================================================
+#
+# Receives logs from REMOTE Derby devices (finish timer, start timer)
+# and writes to the unified text log file.
+#
+# NOTE: Server components (derbyRace.py, PHP) write directly to the log file,
+# they do NOT use rsyslog.
+#
+# Managed by Ansible - do not edit manually
+
+# =============================================================================
+# TEMPLATE - Text output format
+# =============================================================================
+#
+# Remote devices send: DEVICE:LEVEL [file:line] message
+# rsyslog prepends:    timestamp
+# Result:              timestamp DEVICE:LEVEL [file:line] message
+
+template(name="DerbyNetText" type="list") {
+    property(name="timegenerated" dateFormat="year")
+    constant(value="-")
+    property(name="timegenerated" dateFormat="month")
+    constant(value="-")
+    property(name="timegenerated" dateFormat="day")
+    constant(value=" ")
+    property(name="timegenerated" dateFormat="hour")
+    constant(value=":")
+    property(name="timegenerated" dateFormat="minute")
+    constant(value=":")
+    property(name="timegenerated" dateFormat="second")
+    constant(value=".")
+    property(name="timegenerated" dateFormat="subseconds" position.from="1" position.to="3")
+    constant(value=" ")
+    property(name="msg" droplastlf="on")
+    constant(value="\n")
+}
+
+# =============================================================================
+# RULESET - Write to single text file
+# =============================================================================
+
+ruleset(name="derbynet-logs") {
+    action(type="omfile"
+           file="{{ derbynet_log_file }}"
+           template="DerbyNetText"
+           fileOwnerNum="{{ derbynet_uid }}"
+           fileGroupNum="{{ derbynet_gid }}"
+           fileCreateMode="0644"
+           dirOwnerNum="{{ derbynet_uid }}"
+           dirGroupNum="{{ derbynet_gid }}"
+           dirCreateMode="0755"
+           asyncWriting="on"
+           flushOnTXEnd="on")
+    stop
+}
+
+# =============================================================================
+# FILTER - Match Derby device logs
+# =============================================================================
+
+# Remote devices that send logs via rsyslog:
+# - Finish Timer Pi (nodelogger.py via SysLogHandler)
+# - ESP32 Start Timer (raw UDP)
+
+if ($programname startswith 'derby' or
+    $programname startswith 'finish' or
+    $msg startswith 'STARTER' or
+    $msg startswith 'FINISH' or
+    $msg contains ':INFO [' or
+    $msg contains ':ERROR [' or
+    $msg contains ':WARNING [' or
+    $msg contains ':DEBUG [' or
+    $msg contains ':CRITICAL [' or
+    $fromhost startswith '192.168.100.') then {
+    call derbynet-logs
+}

@@ -1,0 +1,56 @@
+---
+# PHP role - PHP-FPM configuration
+# Installs PHP and extensions required by DerbyNet
+
+- name: Install PHP-FPM and extensions
+  ansible.builtin.apt:
+    name:
+      - php-fpm
+      - php-curl
+      - php-gd
+      - php-sqlite3
+      - php-pdo
+    state: present
+
+- name: Get PHP version
+  ansible.builtin.shell: php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;"
+  register: php_version_result
+  changed_when: false
+
+- name: Set PHP version fact
+  ansible.builtin.set_fact:
+    php_version: "{{ php_version_result.stdout }}"
+
+- name: Configure PHP upload_max_filesize
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    regexp: '^upload_max_filesize\s*='
+    line: "upload_max_filesize = {{ php_upload_max_filesize }}"
+  notify: Restart php-fpm
+
+- name: Configure PHP post_max_size
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    regexp: '^post_max_size\s*='
+    line: "post_max_size = {{ php_post_max_size }}"
+  notify: Restart php-fpm
+
+- name: Configure PHP memory_limit
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    regexp: '^memory_limit\s*='
+    line: "memory_limit = {{ php_memory_limit }}"
+  notify: Restart php-fpm
+
+- name: Configure PHP session.gc_maxlifetime
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    regexp: '^session.gc_maxlifetime\s*='
+    line: "session.gc_maxlifetime = {{ php_session_gc_maxlifetime }}"
+  notify: Restart php-fpm
+
+- name: Enable PHP-FPM service
+  ansible.builtin.systemd:
+    name: "php{{ php_version }}-fpm"
+    enabled: yes
+    state: started

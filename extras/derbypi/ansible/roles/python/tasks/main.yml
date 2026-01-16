@@ -1,0 +1,22 @@
+---
+# Python role - Python packages installation
+# Installs Python 3 and required packages for derby services
+
+- name: Install Python 3 and pip
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+
+- name: Install Python packages system-wide
+  ansible.builtin.pip:
+    name:
+      - paho-mqtt>=1.6.1
+      - requests>=2.31.0
+      - psutil>=5.9.0
+      - pytz>=2024.1
+      - cryptography>=41.0.0
+    state: present
+    extra_args: --break-system-packages

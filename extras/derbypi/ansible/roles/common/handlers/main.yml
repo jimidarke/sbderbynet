@@ -1,0 +1,11 @@
+---
+# Common role handlers
+
+- name: Reboot required
+  ansible.builtin.debug:
+    msg: "A reboot is required to apply kernel/boot changes. Reboot manually when ready."
+
+- name: Restart journald
+  ansible.builtin.systemd:
+    name: systemd-journald
+    state: restarted

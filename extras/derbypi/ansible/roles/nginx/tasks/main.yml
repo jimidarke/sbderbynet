@@ -1,0 +1,61 @@
+---
+# Nginx role - Web server configuration
+# Configures Nginx for DerbyNet web application
+
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+
+- name: Create DerbyNet web root directory
+  ansible.builtin.file:
+    path: "{{ derbynet_web_root }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: www-data
+    mode: '0775'
+
+- name: Create DerbyNet local config directory
+  ansible.builtin.file:
+    path: "{{ derbynet_config_dir }}"
+    state: directory
+    owner: "{{ derbynet_user }}"
+    group: www-data
+    mode: '0777'
+
+- name: Deploy nginx log format configuration
+  ansible.builtin.template:
+    src: derbynet_log_format.conf.j2
+    dest: /etc/nginx/conf.d/derbynet_log_format.conf
+    mode: '0644'
+  notify: Reload nginx
+
+- name: Deploy DerbyNet nginx site configuration
+  ansible.builtin.template:
+    src: derbynet.conf.j2
+    dest: /etc/nginx/sites-available/derbynet
+    mode: '0644'
+  notify: Reload nginx
+
+- name: Enable DerbyNet site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/derbynet
+    dest: /etc/nginx/sites-enabled/derbynet
+    state: link
+  notify: Reload nginx
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Test nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Enable nginx service
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: yes
+    state: started

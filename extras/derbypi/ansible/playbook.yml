@@ -1,0 +1,123 @@
+---
+# DerbyPi Main Playbook
+# =====================
+#
+# Configures a Raspberry Pi as the central DerbyNet server with:
+# - MQTT broker for device communication
+# - Web server (nginx + PHP) for DerbyNet interface
+# - Race server services (derbyRace.py, derbyTime.py)
+# - NTP server for network time synchronization
+# - Rsyslog for centralized logging
+# - Rsync daemon for device updates
+# - RSA keypair for SaaS authentication
+#
+# Usage:
+#   Bootstrap (first time):
+#     curl -sSL https://raw.githubusercontent.com/.../bootstrap.sh | sudo bash
+#
+#   Manual run:
+#     ansible-playbook playbook.yml
+#
+#   ansible-pull (after bootstrap):
+#     ansible-pull -U <repo-url> -d /opt/derbynet-repo extras/derbypi/ansible/playbook.yml
+
+- name: Configure DerbyPi Server
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Verify running on Raspberry Pi
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture in ['aarch64', 'armv7l', 'armv6l']
+        fail_msg: "This playbook is designed for Raspberry Pi (ARM architecture)"
+        success_msg: "Running on {{ ansible_architecture }} - OK"
+      when: verify_architecture | default(true)
+
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          DerbyPi Deployment
+          ==================
+          Hostname: {{ derbypi_hostname }}
+          IP: {{ derbypi_static_ip }}
+          Timezone: {{ derbypi_timezone }}
+          Git Branch: {{ derbypi_git_branch }}
+
+  roles:
+    # Phase 1: Base system configuration
+    - role: common
+      tags: [common, base]
+
+    # Phase 2: Hardware (RTC)
+    - role: rtc
+      tags: [rtc, hardware]
+
+    # Phase 3: Network services
+    - role: ntp
+      tags: [ntp, network]
+
+    - role: logging
+      tags: [logging, network]
+
+    - role: mosquitto
+      tags: [mosquitto, mqtt, network]
+
+    # Phase 4: Web stack
+    - role: php
+      tags: [php, web]
+
+    - role: nginx
+      tags: [nginx, web]
+
+    # Phase 5: Python environment
+    - role: python
+      tags: [python]
+
+    # Phase 6: Application deployment
+    - role: derbynet
+      tags: [derbynet, app]
+
+    - role: raceserver
+      tags: [raceserver, app, services]
+
+    # Phase 7: Device support services
+    - role: rsync
+      tags: [rsync, devices]
+
+    # Phase 8: SaaS integration
+    - role: saasbox
+      tags: [saasbox, keys]
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          DerbyPi Deployment Complete!
+          ============================================================
+
+          Services:
+            - Mosquitto MQTT: localhost:{{ mqtt_port }}
+            - Nginx HTTP: http://{{ derbypi_static_ip }}/derbynet/
+            - Rsync: rsync://{{ derbypi_static_ip }}/derbynet/
+            - NTP: {{ derbypi_static_ip }}:{{ ntp_port }}
+            - Syslog UDP: {{ derbypi_static_ip }}:{{ rsyslog_udp_port }}
+
+          Verification Commands:
+            systemctl status mosquitto nginx php*-fpm derbyrace derbytime rsync rsyslog chrony
+            curl http://localhost/derbynet/
+            mosquitto_pub -h localhost -t "derbynet/test" -m "hello"
+
+          Logs:
+            - DerbyNet: {{ derbynet_log_file }}
+            - Race Server: journalctl -u derbyrace -f
+            - Time Service: journalctl -u derbytime -f
+
+          SaaS Public Key: {{ derbynet_keys_dir }}/device.pub
+          ============================================================
+
+  handlers:
+    - name: Final handler flush
+      ansible.builtin.meta: flush_handlers
