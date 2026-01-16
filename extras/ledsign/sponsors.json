@@ -1,0 +1,58 @@
+{
+  "_comment": "LED Sign Sponsor Configuration for SBDerbyNet",
+  "_version": "1.0.0",
+  "_instructions": "All fields (name, tagline, url) are optional. At least one should be provided for each sponsor.",
+  "_future": "This JSON config will eventually move to the web interface (Settings UI, near folder selection). For now, edit this file directly.",
+
+  "settings": {
+    "default_duration": 15,
+    "default_mode": "scroll",
+    "default_color": "rainbow1",
+    "loop": true,
+    "shuffle": false
+  },
+
+  "sponsors": [
+    {
+      "id": "sponsor-001",
+      "name": "ACME Racing Supplies",
+      "tagline": "Everything you need to win!",
+      "url": "acme-racing.com",
+      "duration": 15,
+      "enabled": true
+    },
+    {
+      "id": "sponsor-002",
+      "name": "Local Pizza Co",
+      "tagline": "Best pizza in town",
+      "url": null,
+      "duration": 12,
+      "enabled": true
+    },
+    {
+      "id": "sponsor-003",
+      "name": "City Auto Body",
+      "tagline": null,
+      "url": "cityautobody.com",
+      "duration": 15,
+      "enabled": true
+    },
+    {
+      "id": "sponsor-004",
+      "name": "Community Bank",
+      "tagline": "Proud to support local youth",
+      "url": "communitybank.com",
+      "duration": 18,
+      "enabled": false,
+      "_note": "Set enabled:false to temporarily hide without deleting"
+    }
+  ],
+
+  "display_overrides": {
+    "_comment": "Optional per-sponsor display configuration overrides",
+    "sponsor-001": {
+      "mode": "scroll",
+      "color": "green"
+    }
+  }
+}
