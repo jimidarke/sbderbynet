@@ -132,6 +132,7 @@ This document provides a comprehensive enterprise readiness assessment and comme
 | Start Timer | MicroPython | `/extras/soapbox/infra/starttimer/` | ~300 | Production |
 | Display Client | Python | `/extras/soapbox/infra/derbydisplay/` | ~500 | Production |
 | Video Streaming | FFmpeg/Nginx | `/extras/soapbox/hlsfeed/` | ~800 | Production |
+| LED Sign Controller | MicroPython/ESP32 | `/extras/ledsign/` | ~2,500 | Development |
 
 ### Communication Protocols
 
@@ -354,6 +355,9 @@ Remaining TODO comments are documentation notes, not dead code. Retained as tech
 | HW-04 | Pinny Display | MQTT `derbynet/lane/*/pinny` | Manual | Validated |
 | HW-05 | Device Telemetry | MQTT `derbynet/device/*/telemetry` | Manual | Validated |
 | HW-06 | OTA Updates | MQTT `derbynet/device/*/update` | Manual | Partial |
+| HW-07 | LED Sign Display | MQTT `derbynet/ledsign/*/message` | Unit Tests (176) | Development |
+| HW-08 | LED Sign Broadcast | MQTT `derbynet/ledsign/broadcast` | Unit Tests | Development |
+| HW-09 | LED Sign Discovery | MQTT `derbynet/ledsign/device/*/identity` | Unit Tests | Development |
 
 ### User Authentication & Authorization
 
@@ -778,6 +782,71 @@ pytest -v
 - [ ] Tenant configuration management
 - [ ] Usage metrics collection
 
+### Phase 4: LED Sign Integration (Priority: MEDIUM)
+
+**Goal:** Production-ready LED signage system for race-day communication
+
+**Status:** Core firmware complete, 176 tests passing
+
+#### 4.1 LED Sign Hardware Deployment
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        LED SIGN NETWORK                                  │
+│                                                                         │
+│   Race Server ──MQTT──► ESP32 Controllers ──Serial──► BetaBrite Signs   │
+│                              │                                          │
+│                         WiFi + mDNS                                     │
+│                              │                                          │
+│   ┌──────────┬──────────┬──────────┬──────────┬──────────┐             │
+│   │ Starter  │ Usher×3  │ Finish×3 │ Registr. │ Audience │             │
+│   │ (Ready/  │ (Pinny+  │ (Race    │ (Sponsor │ (General │             │
+│   │  Go/Stop)│  Name)   │  Times)  │  Ads)    │  Msgs)   │             │
+│   └──────────┴──────────┴──────────┴──────────┴──────────┘             │
+│                                                                         │
+│   Priority System: 0=Emergency > 1=Critical > 2=Race > 3=Idle/Sponsor  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Completed:**
+- [x] BetaBrite Alpha Protocol library (`betabrite.py`) - all display modes, colors, effects
+- [x] ESP32 MicroPython firmware (`main.py`) - WiFi, MQTT, zone configuration
+- [x] Single agnostic firmware pattern - MAC-based identity, MQTT configuration
+- [x] Device discovery - unconfigured devices broadcast MAC for web UI mapping
+- [x] Priority message system - emergency broadcasts override all content
+- [x] Sponsor rotation support - JSON-configured sponsor messages
+- [x] Comprehensive test suite - 176 tests covering protocol, messages, firmware logic
+
+**Remaining:**
+- [ ] Race server integration - publish to LED sign topics from derbyRace.py
+- [ ] Web UI device mapping - assign MAC addresses to zones in Settings
+- [ ] Sponsor management UI - configure sponsor messages in web interface
+- [ ] Emergency broadcast UI - coordinator page integration for alerts
+- [ ] Hardware procurement and assembly (ESP32 + MAX3232 + BetaBrite)
+- [ ] Field testing at race event
+
+**Zone Definitions:**
+| Zone | Content | Format | Priority |
+|------|---------|--------|----------|
+| `starter` | READY / GO / STOP | Large, centered | 2 |
+| `usher-lane{1-3}` | #42 JohnS | Pinny + FirstnameL | 2 |
+| `finish-lane{1-3}` | 00:30.134 | mm:ss.nnn time | 2 |
+| `registration` | Sponsor rotation | Scrolling | 3 |
+| `audience` | Announcements | Various | 2-3 |
+| `broadcast` | EMERGENCY | Flash red, all signs | 0 |
+
+**MQTT Topics:**
+| Topic | Direction | Purpose |
+|-------|-----------|---------|
+| `derbynet/ledsign/device/{mac}/config` | Server→Device | Zone assignment |
+| `derbynet/ledsign/device/{mac}/identity` | Device→Server | Discovery broadcast |
+| `derbynet/ledsign/{zone}/message` | Server→Device | Zone content |
+| `derbynet/ledsign/broadcast` | Server→All | Emergency override |
+| `derbynet/ledsign/sponsors/rotation` | Server→Device | Sponsor content |
+
+**Documentation:** See `extras/ledsign/LED_SIGN_INTEGRATION_PLAN.md` for complete specification.
+
 ---
 
 ## 10. White-Label Architecture
@@ -1133,3 +1202,4 @@ extras/soapbox/infra/starttimer/src/main.py
 | 1.12 | 2026-01-15 | Claude Code | **Finishtimer Resilience Tests**: Created test_finishtimer_resilience.py (27 tests) covering production failure scenarios from race day. Tests validate: MessageQueue disk persistence, MQTTClient offline operation with exponential backoff, toggle event survival across timer/server restarts, concurrent queue access, recovery scenarios (timer battery disconnect, server power loss, intermittent network). All 327 tests passing. |
 | 1.13 | 2026-01-15 | Claude Code | **Phase 1.3 Complete - Error Handling Standardization**: Added correlation IDs for request tracing across PHP→Python→MQTT→Timer. Created logsync.py service for cloud log transmission (background sync regardless of premium status). Updated derbylogger.py v3.1.0 with thread-local correlation context, sequence numbers for ordering, sync metadata. Updated error-logging.inc v3.1.0 with PHP correlation functions. Created systemd service for log sync. Added test_correlation_ids.py (27 tests), test_logsync.py (22 tests). All 376 tests passing. |
 | 1.14 | 2026-01-15 | Claude Code | **Phase 2.4 Started - Performance Testing**: Created performance.py production instrumentation module with thread-safe metrics collection, SLA checking, and slow operation logging. Created test_performance_timing.py with 10 benchmark tests covering MQTT latency, DB writes, single/multi-lane finishes, sustained racing, and timing precision. All SLA targets exceeded with significant headroom (single lane: 1.3ms vs 50ms target, all lanes: 2.9ms vs 100ms target). No degradation over 100 heats. All 386 tests passing. |
+| 1.15 | 2026-01-15 | Claude Code | **Phase 4 Added - LED Sign Integration**: Added LED Sign Controller to system components table. Added HW-07/08/09 to Hardware Integration validation matrix. Created Phase 4 roadmap section with architecture diagram, zone definitions, MQTT topics, completion status (firmware + 176 tests complete), and remaining integration work. |

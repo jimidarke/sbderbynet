@@ -449,6 +449,14 @@ A dedicated editor for creating and modifying tournament configurations:
 - **Status Monitoring**: Health reporting and diagnostic information
 - **Content Synchronization**: Real-time updates across all display nodes
 
+### **LED Sign System** *(New)*
+- **BetaBrite Integration**: ESP32-controlled Alpha Protocol LED signs via serial
+- **Zone-Based Architecture**: Starter, usher (per-lane), finish (per-lane), registration, audience zones
+- **Single Agnostic Firmware**: All devices run identical code, configured via MQTT using MAC address
+- **Priority Messaging**: Emergency broadcasts override all signs instantly (missing child alerts, etc.)
+- **Sponsor Rotation**: Registration/audience signs display sponsor messages during idle periods
+- **Documentation**: See [`extras/ledsign/`](extras/ledsign/) for firmware, protocol docs, and 176 unit tests
+
 ---
 
 ## 🔧 Testing & Quality Assurance
