@@ -1,0 +1,38 @@
+{
+  "_comment": "LED Sign Device Registry - Maps MAC addresses to zone assignments",
+  "_version": "1.0.0",
+  "_instructions": "Add devices as they are discovered. MAC addresses are published to derbynet/ledsign/device/{MAC}/identity",
+  "_future": "This will be managed via web Settings UI. For now, edit manually and use MQTT to push config.",
+
+  "available_zones": [
+    {"id": "starter", "display_name": "Start Line", "description": "Race official at start"},
+    {"id": "usher-lane1", "display_name": "Usher Lane 1", "description": "Lane 1 staging area"},
+    {"id": "usher-lane2", "display_name": "Usher Lane 2", "description": "Lane 2 staging area"},
+    {"id": "usher-lane3", "display_name": "Usher Lane 3", "description": "Lane 3 staging area"},
+    {"id": "finish-lane1", "display_name": "Finish Lane 1", "description": "Lane 1 finish time"},
+    {"id": "finish-lane2", "display_name": "Finish Lane 2", "description": "Lane 2 finish time"},
+    {"id": "finish-lane3", "display_name": "Finish Lane 3", "description": "Lane 3 finish time"},
+    {"id": "registration", "display_name": "Registration", "description": "Registration booth"},
+    {"id": "audience", "display_name": "Audience", "description": "General viewing area"}
+  ],
+
+  "devices": {
+    "_example_AA:BB:CC:DD:EE:FF": {
+      "_comment": "Example entry - replace with actual MAC addresses discovered from devices",
+      "zone": "starter",
+      "display_name": "Start Line Sign",
+      "last_seen": null,
+      "ip": null,
+      "version": null,
+      "enabled": true
+    }
+  },
+
+  "mqtt_commands": {
+    "_comment": "Manual MQTT commands for device configuration (until web UI is built)",
+    "discover_devices": "mosquitto_sub -h 192.168.100.10 -t 'derbynet/ledsign/device/+/identity' -v",
+    "assign_zone": "mosquitto_pub -h 192.168.100.10 -t 'derbynet/ledsign/device/{MAC}/config' -r -m '{\"zone\": \"starter\", \"display_name\": \"Start Line\"}'",
+    "test_message": "mosquitto_pub -h 192.168.100.10 -t 'derbynet/ledsign/{zone}/message' -m '{\"message\": \"Test message\", \"display_config\": {\"mode_code\": \"b\", \"color_code\": \"2\"}}'",
+    "broadcast_all": "mosquitto_pub -h 192.168.100.10 -t 'derbynet/ledsign/broadcast' -m '{\"priority\": 0, \"message\": \"EMERGENCY TEST\", \"display_config\": {\"mode_code\": \"c\", \"color_code\": \"1\"}}'"
+  }
+}
