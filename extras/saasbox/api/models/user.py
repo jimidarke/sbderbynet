@@ -90,6 +90,15 @@ class User(Base, TimestampMixin):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    push_tokens: Mapped[list["PushToken"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notification_preferences: Mapped["NotificationPreference | None"] = relationship(
+        back_populates="user",
+        uselist=False,  # One-to-one relationship
+        cascade="all, delete-orphan",
+    )
 
     # Indexes
     __table_args__ = (
@@ -146,3 +155,4 @@ class UserConsent(Base, TimestampMixin):
 # Forward references for relationships
 from models.organization import OrganizationMember
 from models.engagement import UserFavorite, Prediction
+from models.notification import PushToken, NotificationPreference

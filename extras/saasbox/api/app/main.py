@@ -179,6 +179,8 @@ from modules.events.routes import router as events_router
 from modules.races.routes import router as races_router
 from modules.favorites.routes import router as favorites_router
 from modules.audience.routes import router as audience_router
+from modules.notifications.routes import router as notifications_router
+from modules.notifications.routes import emergency_router
 
 # Auth routes
 app.include_router(
@@ -213,6 +215,20 @@ app.include_router(
     audience_router,
     prefix=f"{settings.api_v1_prefix}/orgs/{{org_id}}/events/{{event_id}}/audience",
     tags=["Audience"],
+)
+
+# Notification routes (push tokens, preferences, history)
+app.include_router(
+    notifications_router,
+    prefix=f"{settings.api_v1_prefix}/me/notifications",
+    tags=["Notifications"],
+)
+
+# Emergency broadcast routes (coordinator-only)
+app.include_router(
+    emergency_router,
+    prefix=f"{settings.api_v1_prefix}/orgs/{{org_id}}/events/{{event_id}}/emergency",
+    tags=["Emergency"],
 )
 
 # TODO: Uncomment as modules are implemented

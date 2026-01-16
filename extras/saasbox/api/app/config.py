@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     firebase_project_id: str = ""
     firebase_credentials_path: str = ""
 
+    # FCM Push Notifications (per FCM_NOTIFICATION_PLAN.md)
+    fcm_enabled: bool = True
+    fcm_staging_lookahead_heats: int = 5  # Notify when favorite within N heats
+    fcm_dedup_window_seconds: int = 300   # 5 minute deduplication window
+    fcm_batch_size: int = 500             # FCM multicast limit
+    fcm_notification_log_retention_days: int = 30
+
     # Alert Manager (logging)
     alert_manager_url: str = "https://alert.d-t.pw/alert"
     alert_manager_username: str = "soapboxderbynet"

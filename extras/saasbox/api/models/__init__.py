@@ -9,6 +9,13 @@ from models.event import Event, EventStatus
 from models.racer import Racer, RacerClass, RacerStatus
 from models.race import Round, Heat, RaceResult, RoundStatus, HeatStatus
 from models.engagement import UserFavorite, Prediction, Cheer, Poll, PollVote, PollStatus
+from models.notification import (
+    PushToken,
+    NotificationPreference,
+    NotificationLog,
+    DeviceType,
+    NotificationStatus,
+)
 
 
 __all__ = [
@@ -48,4 +55,10 @@ __all__ = [
     "Poll",
     "PollVote",
     "PollStatus",
+    # Notifications (FCM)
+    "PushToken",
+    "NotificationPreference",
+    "NotificationLog",
+    "DeviceType",
+    "NotificationStatus",
 ]

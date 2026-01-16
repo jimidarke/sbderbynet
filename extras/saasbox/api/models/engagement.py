@@ -36,6 +36,17 @@ class UserFavorite(Base, TimestampMixin):
     notify_upcoming: Mapped[bool] = mapped_column(default=True)
     notify_results: Mapped[bool] = mapped_column(default=True)
 
+    # Deduplication timestamps for notifications
+    # Per FCM_NOTIFICATION_PLAN.md Section 3.2
+    last_staging_notified_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        comment="Last staging notification sent for this favorite",
+    )
+    last_result_notified_at: Mapped[datetime | None] = mapped_column(
+        nullable=True,
+        comment="Last result notification sent for this favorite",
+    )
+
     # Relationships
     user: Mapped["User"] = relationship(back_populates="favorites")
     racer: Mapped["Racer"] = relationship(back_populates="favorites")

@@ -847,6 +847,88 @@ pytest -v
 
 **Documentation:** See `extras/ledsign/LED_SIGN_INTEGRATION_PLAN.md` for complete specification.
 
+### Phase 5: FCM Push Notifications (Priority: MEDIUM)
+
+**Goal:** Real-time mobile push notifications for premium SaaS users
+
+**Status:** Phase 5.1 & 5.3 Complete (FCMService + API Endpoints)
+
+**Documentation:** See `extras/saasbox/FCM_NOTIFICATION_PLAN.md` for complete specification.
+
+#### 5.1 Notification Categories
+
+| Category | Trigger | Priority | Opt-out |
+|----------|---------|----------|---------|
+| Favorite Staging | Racer within 5 heats | HIGH | Yes |
+| Favorite Result | Heat completes | NORMAL | Yes |
+| Poll Announcements | Poll activated/closed | NORMAL | Yes |
+| Prediction Results | Heat resolves | NORMAL | Yes |
+| Emergency Broadcast | Coordinator action | HIGH | No |
+| Purchase Confirmation | Payment succeeds | HIGH | No |
+
+#### 5.2 Implementation Tasks
+
+**Phase 5.1: Foundation - COMPLETE**
+- [x] Create database models (PushToken, NotificationPreference, NotificationLog) - `models/notification.py`
+- [x] Create SQL migration (push_tokens, notification_preferences, notification_log) - `migrations/002_fcm_notifications.sql`
+- [x] Update UserFavorite with last_staging_notified_at, last_result_notified_at
+- [x] Add FCM config settings to app/config.py (fcm_enabled, staging_lookahead, dedup_window, batch_size)
+- [x] Implement FCMService class with firebase-admin SDK - `services/notifications/fcm_service.py`
+- [ ] Write unit tests for FCM service
+
+**Phase 5.2: Triggers & Templates**
+- [ ] Implement NotificationTriggers class
+- [ ] Create message templates (PII-safe, character limits)
+- [ ] Integrate with sync handler for staging/result notifications
+- [ ] Write integration tests
+
+**Phase 5.3: API & Preferences - COMPLETE**
+- [x] Push token registration endpoint (POST /v1/me/notifications/push-token)
+- [x] Push token listing endpoint (GET /v1/me/notifications/push-tokens)
+- [x] Push token deletion endpoint (DELETE /v1/me/notifications/push-token/{deviceId})
+- [x] Preferences management endpoints (GET/PATCH /v1/me/notifications/preferences)
+- [x] Notification history endpoint (GET /v1/me/notifications/history)
+- [x] Emergency broadcast endpoint (POST /v1/orgs/{orgId}/events/{eventId}/emergency/broadcast)
+- [x] Emergency clear endpoint (DELETE /v1/orgs/{orgId}/events/{eventId}/emergency/broadcast)
+- [x] Alert Manager integration (errors only)
+
+**Files Created:**
+```
+extras/saasbox/api/
+├── services/notifications/
+│   ├── __init__.py
+│   └── fcm_service.py          # Full FCMService implementation
+├── modules/notifications/
+│   ├── __init__.py
+│   ├── schemas.py              # Request/response Pydantic models
+│   └── routes.py               # All notification endpoints
+└── app/main.py                 # Updated: registered notification routes
+```
+
+**Phase 5.4: Flutter Client**
+- [ ] Configure firebase_messaging package
+- [ ] Create Android notification channels (5 channels)
+- [ ] Implement deep link routing for all notification types
+- [ ] Handle foreground/background/terminated states
+
+#### 5.3 Key Design Decisions
+
+| Decision | Choice |
+|----------|--------|
+| Staging timing | Notify when racer within 5 heats |
+| Emergency authority | Race Coordinator only |
+| Notification scope | Favorites only (reduces noise) |
+| Alert Manager | Errors only (not every send) |
+| Platform | Android Phase 1, iOS Phase 2 (next year) |
+
+#### 5.4 Emergency Broadcast Alignment
+
+Emergency broadcasts are synchronized with LED sign system:
+- Same message content to both channels
+- Coordinator-only authorization
+- Cannot be opted out of
+- High priority / wake device from Doze
+
 ---
 
 ## 10. White-Label Architecture
@@ -1203,3 +1285,6 @@ extras/soapbox/infra/starttimer/src/main.py
 | 1.13 | 2026-01-15 | Claude Code | **Phase 1.3 Complete - Error Handling Standardization**: Added correlation IDs for request tracing across PHP→Python→MQTT→Timer. Created logsync.py service for cloud log transmission (background sync regardless of premium status). Updated derbylogger.py v3.1.0 with thread-local correlation context, sequence numbers for ordering, sync metadata. Updated error-logging.inc v3.1.0 with PHP correlation functions. Created systemd service for log sync. Added test_correlation_ids.py (27 tests), test_logsync.py (22 tests). All 376 tests passing. |
 | 1.14 | 2026-01-15 | Claude Code | **Phase 2.4 Started - Performance Testing**: Created performance.py production instrumentation module with thread-safe metrics collection, SLA checking, and slow operation logging. Created test_performance_timing.py with 10 benchmark tests covering MQTT latency, DB writes, single/multi-lane finishes, sustained racing, and timing precision. All SLA targets exceeded with significant headroom (single lane: 1.3ms vs 50ms target, all lanes: 2.9ms vs 100ms target). No degradation over 100 heats. All 386 tests passing. |
 | 1.15 | 2026-01-15 | Claude Code | **Phase 4 Added - LED Sign Integration**: Added LED Sign Controller to system components table. Added HW-07/08/09 to Hardware Integration validation matrix. Created Phase 4 roadmap section with architecture diagram, zone definitions, MQTT topics, completion status (firmware + 176 tests complete), and remaining integration work. |
+| 1.16 | 2026-01-16 | Claude Code | **Phase 5 Added - FCM Push Notifications**: Created comprehensive FCM notification plan (`extras/saasbox/FCM_NOTIFICATION_PLAN.md`). Covers: 7 notification types (staging, results, polls, predictions, emergency, purchases), FCMService with firebase-admin SDK, NotificationTriggers for event-based dispatch, user preferences, Flutter client integration, emergency broadcast alignment with LED signs. Key decisions: notify within 5 heats, Coordinator-only emergencies, favorites-only scope, Alert Manager for errors only. Android Phase 1, iOS Phase 2 (next year). |
+| 1.17 | 2026-01-16 | Claude Code | **Phase 5.1 Database Models**: Created `models/notification.py` with PushToken, NotificationPreference, NotificationLog SQLAlchemy models. Created `migrations/002_fcm_notifications.sql` with full schema including indexes, constraints, and cleanup function. Updated UserFavorite with last_staging_notified_at, last_result_notified_at. Updated User model with push_tokens and notification_preferences relationships. Added FCM config settings (fcm_enabled, staging_lookahead, dedup_window, batch_size) to app/config.py. |
+| 1.18 | 2026-01-16 | Claude Code | **Phase 5.1 & 5.3 Complete - FCM Service + API Endpoints**: Created `services/notifications/fcm_service.py` with full FCMService implementation (token management, multicast batching up to 500, deduplication, preference filtering, emergency broadcasts, invalid token cleanup). Created `modules/notifications/` with schemas.py (Pydantic request/response models) and routes.py (8 endpoints: push token CRUD, preferences GET/PATCH, notification history, emergency broadcast/clear). Registered routes in main.py at `/v1/me/notifications` and `/v1/orgs/{orgId}/events/{eventId}/emergency`. |
