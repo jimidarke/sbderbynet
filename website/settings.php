@@ -450,14 +450,35 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                     <h3>Video Replay Settings</h3>
                     <div class="form-group">
                         <label for="hls-stream-url">HLS Stream URL:</label>
-                        <input type="text" 
-                            id="hls-stream-url" 
-                            name="hls-stream-url" 
+                        <input type="text"
+                            id="hls-stream-url"
+                            name="hls-stream-url"
                             class="form-control"
                             value="<?php echo htmlspecialchars(read_raceinfo('hls-stream-url', '')); ?>"
                             placeholder="http://derbynetpi:8081/stream/stream.m3u8">
                         <small class="form-text text-muted">Enter the HLS video feed URL (e.g., http://derbynetpi:8081/stream/stream.m3u8)</small>
                     </div>
+                </div>
+            </div>
+            <!-- Testing Mode Settings -->
+            <div class="settings_group">
+                <div class="settings_group_image">
+                    <img src="img/miscellaneous.png" />
+                </div>
+                <div class="settings_group_settings">
+                    <h3>Testing / Simulation Mode</h3>
+                    <p style="color: #ff9800; font-weight: bold;">
+                        &#9888; Testing mode enables simulated races without physical hardware.
+                        Do not enable during actual racing events.
+                    </p>
+                    <p>
+                        <input id="testing-mode" name="testing-mode" class="not-mobile"
+                            type="checkbox" <?php if (read_raceinfo_boolean('testing-mode')) echo ' checked="checked"'; ?> />
+                        <label for="testing-mode">Enable Testing/Simulation Mode</label>
+                    </p>
+                    <p class="help-text" style="color: #888; font-size: 0.9em;">
+                        When enabled, shows virtual timer display on coordinator page and allows simulated race results.
+                    </p>
                 </div>
             </div>
         </form>

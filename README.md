@@ -207,9 +207,38 @@ docker run --detach -p 80:80 -p 443:443 \
 #### **Option 2: Manual Installation**
 Refer to installation guides in `docs/` directory:
 - **Linux**: Debian/Ubuntu installation guide
-- **Windows**: Windows-specific setup instructions  
+- **Windows**: Windows-specific setup instructions
 - **macOS**: Mac installation procedures
 - **Docker**: Container deployment guide
+
+#### **Option 3: Cloud Deployment with Docker Compose**
+
+Deploy DerbyNet to a cloud server with automatic SSL via nginx-proxy and Let's Encrypt:
+
+```bash
+cd installer/docker-cloud
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your domain and email:
+#   DOMAIN=derbynet.yourdomain.com
+#   LETSENCRYPT_EMAIL=admin@yourdomain.com
+
+# Deploy (requires existing nginx-proxy network)
+docker-compose up -d --build
+```
+
+**Services deployed:**
+- `derbynet-web` - PHP/Nginx web application with Python simulation support
+- `mqtt` - Mosquitto MQTT broker for hardware coordination
+- `race-server` - Python race orchestration (derbyRace.py + derbyTime.py)
+
+**Requirements:**
+- Docker and Docker Compose
+- Running [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy) with [acme-companion](https://github.com/nginx-proxy/acme-companion)
+- Domain DNS pointing to your server
+
+See [installer/docker-cloud/README.md](installer/docker-cloud/README.md) for detailed configuration.
 
 ### SBDerbyNet Hardware Setup
 

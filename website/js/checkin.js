@@ -657,7 +657,6 @@ function cancel_find_racer() {
   $("#find-racer-index").data("index", 1).text(1);
   $("#find-racer-count").text(0);
   $("#find-racer-message").css({ visibility: 'hidden' });
-  // TODO $("#find-racer").addClass("hidden");
   remove_search_highlighting();
 }
 

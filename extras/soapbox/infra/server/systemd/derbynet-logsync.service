@@ -1,0 +1,33 @@
+[Unit]
+Description=DerbyNet Log Sync Service
+Documentation=https://github.com/jeffsnff/SBDerbyNet
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/derbynet/server/logsync.py --daemon
+WorkingDirectory=/opt/derbynet/server
+User=derbynet
+Group=derbynet
+
+# Low priority - don't interfere with race operations
+Nice=19
+IOSchedulingClass=idle
+
+# Environment
+Environment=LOGSYNC_ENABLED=true
+Environment=LOGSYNC_LOG_FILE=/var/log/derbynet.jsonl
+Environment=LOGSYNC_STATE_FILE=/var/lib/derbynet/logsync_state.json
+
+# Restart on failure
+Restart=on-failure
+RestartSec=60
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=derbynet-logsync
+
+[Install]
+WantedBy=multi-user.target

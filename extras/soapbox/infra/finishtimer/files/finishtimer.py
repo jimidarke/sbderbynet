@@ -48,9 +48,9 @@ except Exception as e:
     exit(1)
 
 ###########################    MQTT    ###########################
-
-DEFAULT_MQTT_BROKER = "192.168.100.10"
-DEFAULT_MQTT_PORT = 1883
+# Support environment variable configuration for multi-site deployment
+DEFAULT_MQTT_BROKER = os.getenv('MQTT_BROKER', '192.168.100.10')
+DEFAULT_MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
 TELEMETRY_INTERVAL = 1 # seconds - tightened for faster is-ready detection
 
 # Topics to publish to

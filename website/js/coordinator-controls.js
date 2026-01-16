@@ -555,7 +555,6 @@ function update_bucketed_checkbox(for_group) {
 
 // Create a follow-on round to an existing round.
 function handle_new_round_follow_on(roundid) {
-  console.log("follow-on for roundid=" + roundid); // TODO
   close_modal_leave_background("#choose_new_round_modal");
   $("#new-round-modal div").removeClass("hidden");
   $(".aggregate-only").addClass("hidden");
@@ -1027,3 +1026,36 @@ $(function() {
     }
   });
 });
+
+// Handle simulate race button click (testing mode only)
+function handle_simulate_race() {
+  var btn = $("#simulate-race-btn");
+  var status = $("#simulation-status");
+
+  // Disable button during simulation
+  btn.prop('disabled', true).val('Simulating...');
+  status.text('Starting simulation...');
+
+  $.ajax(g_action_url, {
+    type: "POST",
+    data: { action: "simulate-race" },
+    success: function(data) {
+      if (data.outcome && data.outcome.summary === 'success') {
+        status.text('Running - results in ~5s');
+        // Re-enable button after estimated simulation time
+        setTimeout(function() {
+          btn.prop('disabled', false).val('Simulate Race');
+          status.text('');
+        }, 8000);
+      } else {
+        var msg = data.outcome ? data.outcome.description : 'Unknown error';
+        status.text('Error: ' + msg);
+        btn.prop('disabled', false).val('Simulate Race');
+      }
+    },
+    error: function(xhr, status_text, error) {
+      status.text('Request failed: ' + error);
+      btn.prop('disabled', false).val('Simulate Race');
+    }
+  });
+}

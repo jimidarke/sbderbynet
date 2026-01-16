@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Optional
 import paho.mqtt.client as mqtt
+import requests
 from derbyapi import DerbyNetClient
 from serverlogger import ServerLogger
 
@@ -70,9 +71,9 @@ def console_print(msg: str, color: str = "", bold: bool = False):
     prefix = Colors.BOLD if bold else ""
     print(f"{prefix}{color}{msg}{Colors.RESET}", flush=True)
 
-# MQTT Configuration - matches derbyRace.py
-MQTT_BROKER = "localhost"
-MQTT_PORT = 1883
+# MQTT Configuration - support environment variables for Docker deployment
+MQTT_BROKER = os.getenv('MQTT_BROKER', 'localhost')
+MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
 MQTT_QOS_CRITICAL = 2
 MQTT_QOS_NORMAL = 1
 
@@ -303,8 +304,9 @@ class RaceSimulator:
         self.mqtt_client.on_connect = self._on_connect
         self.mqtt_connected = False
 
-        # Initialize API client
-        self.api_client = DerbyNetClient("localhost")
+        # Initialize API client - support Docker deployment via env var, default to localhost
+        api_host = os.getenv('DERBYNET_API_HOST', 'localhost')
+        self.api_client = DerbyNetClient(api_host)
 
         # Initialize simulated devices
         self.finish_timers: Dict[int, SimulatedFinishTimer] = {}
@@ -328,6 +330,38 @@ class RaceSimulator:
             logger.info("MQTT connected successfully")
         else:
             logger.error(f"MQTT connection failed with code {rc}")
+
+    def _update_virtual_display(self, led_states=None, pinny_states=None, time_displays=None):
+        """
+        Send virtual display state to DerbyNet PHP for coordinator display.
+        This updates the virtual timer panel shown when testing mode is enabled.
+        """
+        if self.config.dry_run:
+            logger.debug(f"[DRY RUN] Virtual display update: led={led_states}, pinny={pinny_states}, time={time_displays}")
+            return
+
+        try:
+            payload = {'action': 'simulation-state'}
+            if led_states:
+                payload['led'] = json.dumps(led_states)
+            if pinny_states:
+                payload['pinny'] = json.dumps(pinny_states)
+            if time_displays:
+                payload['time'] = json.dumps(time_displays)
+
+            # Support Docker deployment via env var, default to localhost for production
+            api_url = os.getenv('DERBYNET_API_URL', 'http://localhost/derbynet/action.php')
+            response = requests.post(
+                api_url,
+                data=payload,
+                timeout=2
+            )
+            if response.status_code == 200:
+                logger.debug(f"Virtual display updated: {payload}")
+            else:
+                logger.warning(f"Virtual display update returned status {response.status_code}")
+        except Exception as e:
+            logger.debug(f"Virtual display update failed (non-critical): {e}")
 
     def setup(self) -> bool:
         """Initialize connections and devices"""
@@ -562,17 +596,27 @@ class RaceSimulator:
         """
         Fast mode: Send start signal then inject finish times via API.
         Includes 5s delay after start to allow kiosk displays to update.
+        Also updates the virtual display for testing mode coordinator panel.
         """
         console_print("  [FAST MODE] Staging timers...", Colors.CYAN)
         logger.info("[FAST MODE] Injecting race times directly")
 
         # Stage timers briefly (needed for DerbyNet state machine)
         self.stage_all_timers()
+
+        # Update virtual display: Blue LEDs (staging), show pinny numbers
+        blue_leds = {lane: 'blue' for lane in range(1, self.config.lane_count + 1)}
+        pinny_states = {lane: '----' for lane in range(1, self.config.lane_count + 1)}
+        self._update_virtual_display(led_states=blue_leds, pinny_states=pinny_states)
         time.sleep(0.5)
 
         # Send START signal
         console_print("  [FAST MODE] GO! Race started", Colors.GREEN, bold=True)
         self.start_timer.send_go()
+
+        # Update virtual display: Green LEDs (racing)
+        green_leds = {lane: 'green' for lane in range(1, self.config.lane_count + 1)}
+        self._update_virtual_display(led_states=green_leds)
 
         # Wait 5 seconds to allow displays to update and show race in progress
         console_print("  [FAST MODE] Waiting 5s for displays...", Colors.DIM)
@@ -587,6 +631,11 @@ class RaceSimulator:
             console_print("  [ERROR] Failed to send results via API", Colors.RED)
             logger.error("Failed to send finish results via API")
             return False
+
+        # Update virtual display: Red LEDs (finished), show times
+        red_leds = {lane: 'red' for lane in range(1, self.config.lane_count + 1)}
+        time_displays = {lane: f"{t:.3f}" for lane, t in lane_times.items()}
+        self._update_virtual_display(led_states=red_leds, time_displays=time_displays)
 
         # Show results
         console_print("  [RESULTS]", Colors.GREEN, bold=True)

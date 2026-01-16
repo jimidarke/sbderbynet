@@ -37,9 +37,9 @@ import paho.mqtt.client as mqtt
 import psutil
 from datetime import datetime
 
-# Default configuration
-DEFAULT_MQTT_BROKER = "192.168.100.10"
-DEFAULT_MQTT_PORT = 1883
+# Default configuration - support Docker deployment via env vars, default to production IP
+DEFAULT_MQTT_BROKER = os.getenv('MQTT_BROKER', '192.168.100.10')
+DEFAULT_MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
 DEFAULT_QOS = 1
 DEFAULT_RETAIN = False
 

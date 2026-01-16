@@ -29,14 +29,43 @@ VERSION = '0.8.0'  # Version of the firmware.
 # V0.0.1 - March 31 2025    - Initial version with basic functionality including sending state and telemetry to mqtt
 HWID = "START"
 
+# ============================================================================
+# CONFIGURATION - Values can be overridden via /config.json file
+# Config priority: 1. mDNS service discovery  2. config.json file  3. Defaults
+# ============================================================================
+# Default values
+_DEFAULT_CONFIG = {
+    'wifi_ssid': 'DerbyNet',
+    'wifi_password': 'all4theKids',
+    'mqtt_broker': '192.168.100.10',
+    'mqtt_port': 1883,
+    'ota_url': 'http://192.168.100.10/starttimer/main.py'
+}
+
+# Load config from file if available
+def load_config():
+    """Load configuration from /config.json, falling back to defaults."""
+    config = dict(_DEFAULT_CONFIG)
+    try:
+        import ujson
+        with open('/config.json', 'r') as f:
+            file_config = ujson.load(f)
+            config.update(file_config)
+            print("Loaded config from /config.json")
+    except (OSError, ValueError) as e:
+        print(f"Using default config (no config.json or invalid): {e}")
+    return config
+
+_config = load_config()
+
 # Wi-Fi Configuration
-SSID = 'DerbyNet'
-PASSWORD = 'all4theKids'
+SSID = _config['wifi_ssid']
+PASSWORD = _config['wifi_password']
 
 # MQTT Configuration
-DEFAULT_MQTT_BROKER = '192.168.100.10'  # Default MQTT broker IP if service discovery fails
+DEFAULT_MQTT_BROKER = _config['mqtt_broker']  # From config file or default
 MQTT_BROKER = DEFAULT_MQTT_BROKER  # Will be updated via mDNS if available
-MQTT_PORT = 1883  # Default MQTT port
+MQTT_PORT = _config['mqtt_port']  # Default MQTT port
 MQTT_TOPIC = 'derbynet/device/starttimer' #/status /telemetry /state
 CLIENT_ID = HWID # + str(random.randint(1000, 9999))  # Unique client ID
 
@@ -105,8 +134,8 @@ boot_time = time.ticks_ms()
 # Initialize the hardware watchdog timer
 wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT)
 
-# OTA Configuration
-OTA_URL = 'http://192.168.100.10/starttimer/main.py'  # Replace with your local HTTP server IP
+# OTA Configuration - from config file
+OTA_URL = _config['ota_url']
 
 def sendLog(message, level="INFO"):
     try:
