@@ -247,6 +247,35 @@ sys.modules['umqtt.simple'] = mock_umqtt.simple
 sys.modules['ubinascii'] = MagicMock()
 sys.modules['ubinascii'].hexlify = lambda x, sep=None: x.hex().encode() if sep is None else sep.join(f'{b:02x}' for b in x).encode()
 
+# Mock gc module for memory stats
+mock_gc = MagicMock()
+mock_gc.mem_free.return_value = 50000
+mock_gc.mem_alloc.return_value = 100000
+mock_gc.collect = MagicMock()
+sys.modules['gc'] = mock_gc
+
+# Mock time module with MicroPython-specific functions
+import time as _real_time
+class MockTime:
+    """Mock time module with MicroPython compatibility"""
+    def __init__(self):
+        self._ticks = 0
+
+    def time(self):
+        return _real_time.time()
+
+    def sleep(self, seconds):
+        pass  # Don't actually sleep in tests
+
+    def ticks_ms(self):
+        return self._ticks
+
+    def ticks_diff(self, a, b):
+        return a - b
+
+mock_time = MockTime()
+sys.modules['time'] = mock_time
+
 
 # =============================================================================
 # Pytest Fixtures
@@ -280,7 +309,10 @@ def mock_wdt():
 def betabrite(mock_uart):
     """Provide a BetaBrite instance with mock UART"""
     # Import after mocks are installed
-    sys.path.insert(0, str(__file__).replace('/tests/conftest.py', '/src'))
+    import os
+    src_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src')
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
     from betabrite import BetaBrite
     return BetaBrite(mock_uart)
 

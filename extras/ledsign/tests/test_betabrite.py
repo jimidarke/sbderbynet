@@ -7,9 +7,12 @@ character sets, and command generation.
 
 import pytest
 import sys
+import os
 
 # Add src to path for imports
-sys.path.insert(0, str(__file__).replace('/tests/test_betabrite.py', '/src'))
+src_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'src')
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
 
 from betabrite import (
     BetaBrite, Mode, Color, CharSet, Position, Speed, Effect,
