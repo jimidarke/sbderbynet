@@ -1,0 +1,86 @@
+# SoapboxDerbyNet SaaS API - Docker Compose
+# Development and production deployment
+
+services:
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: soapboxderbynet-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://postgres:${DB_PASSWORD}@db:5432/soapboxderbynet
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_CREDENTIALS_PATH=/app/credentials/firebase-adminsdk.json
+      - ALERT_MANAGER_URL=https://alert.d-t.pw/alert
+      - ALERT_MANAGER_USERNAME=soapboxderbynet
+      - ALERT_MANAGER_PASSWORD=${ALERT_MANAGER_PASSWORD}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+    volumes:
+      - ./credentials:/app/credentials:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - soapboxderbynet
+      - nginx-proxy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: soapboxderbynet-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=soapboxderbynet
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d soapboxderbynet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - soapboxderbynet
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: soapboxderbynet-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - soapboxderbynet
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  soapboxderbynet:
+    driver: bridge
+  nginx-proxy:
+    external: true

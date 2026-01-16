@@ -1,0 +1,31 @@
+# SoapboxDerbyNet SaaS API - Development Override
+# Use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:devpassword@db:5432/soapboxderbynet
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - ALERT_MANAGER_ENABLED=false
+    ports:
+      - "8000:8000"
+
+  db:
+    environment:
+      - POSTGRES_PASSWORD=devpassword
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
