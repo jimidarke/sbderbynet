@@ -796,6 +796,12 @@ function process_coordinator_poll_json(json) {
     }
   }
 
+  // Handle emergency broadcast state from polling
+  // This ensures coordinator page reflects emergency status even if set elsewhere
+  if (typeof check_emergency_state === 'function') {
+    check_emergency_state(json);
+  }
+
   $("#start_race_button_div").toggleClass(
     "hidden",
     !json["timer-state"]["remote-start"]

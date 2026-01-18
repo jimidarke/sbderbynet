@@ -16,6 +16,10 @@ var KioskPoller = (function(KioskPoller) {
   var current_broadcast_id = null;
   var broadcast_timeout = null;
 
+  // Variables for emergency broadcast handling
+  var current_emergency_id = null;
+  var emergency_active = false;
+
   // Function to get persisted broadcast state from localStorage
   function get_persisted_broadcast_state() {
     try {
@@ -47,38 +51,104 @@ var KioskPoller = (function(KioskPoller) {
     }
   }
 
-  // Function to display broadcast message
+  // Function to display emergency broadcast message (persistent until cleared)
+  function show_emergency_message(emergency_data) {
+    // Create unique ID for this emergency
+    var emergency_id = emergency_data.timestamp + '_emergency';
+
+    // If this emergency is already showing, don't recreate it
+    if (current_emergency_id === emergency_id && emergency_active) {
+      return;
+    }
+
+    // Remove any existing emergency or regular broadcast
+    hide_emergency_message();
+    hide_broadcast_message();
+
+    current_emergency_id = emergency_id;
+    emergency_active = true;
+
+    // Create emergency broadcast overlay with red flashing styling
+    var emergency_div = $('<div id="emergency-message" style="' +
+      'position: fixed; ' +
+      'top: 0; ' +
+      'left: 0; ' +
+      'width: 100%; ' +
+      'height: 20%; ' +
+      'background-color: #d32f2f; ' +
+      'color: white; ' +
+      'display: flex; ' +
+      'align-items: center; ' +
+      'justify-content: center; ' +
+      'font-size: 2.5em; ' +
+      'font-weight: bold; ' +
+      'text-align: center; ' +
+      'z-index: 10000; ' +
+      'padding: 20px; ' +
+      'box-sizing: border-box; ' +
+      'animation: emergency-flash 1s infinite; ' +
+      '">' +
+      '<style>' +
+      '@keyframes emergency-flash {' +
+      '  0%, 100% { background-color: #d32f2f; }' +
+      '  50% { background-color: #b71c1c; }' +
+      '}' +
+      '</style>' +
+      '<div>' +
+      '<span style="font-size: 1.2em;">⚠️ EMERGENCY ⚠️</span><br/>' +
+      '<span>' + $('<div>').text(emergency_data.message).html() + '</span>' +
+      '</div>' +
+      '</div>');
+
+    $('body').append(emergency_div);
+
+    // No auto-hide - emergency persists until cleared by coordinator
+  }
+
+  // Function to hide emergency message
+  function hide_emergency_message() {
+    $('#emergency-message').remove();
+    current_emergency_id = null;
+    emergency_active = false;
+  }
+
+  // Function to display broadcast message (timed, non-emergency)
   function show_broadcast_message(message_data) {
+    // Don't show regular broadcast if emergency is active
+    if (emergency_active) {
+      return;
+    }
+
     // Remove any existing broadcast message
     hide_broadcast_message();
 
     // Create unique ID for this message
     var message_id = message_data.timestamp + '_' + message_data.message.length;
     var current_time = Math.floor(Date.now() / 1000);
-    
+
     // Check if this message has already been shown and not expired
     var persisted_state = get_persisted_broadcast_state();
-    if (persisted_state.message_id === message_id && 
-        persisted_state.expires && 
+    if (persisted_state.message_id === message_id &&
+        persisted_state.expires &&
         current_time < persisted_state.expires) {
       // Message already shown and hasn't expired on this client
       return;
     }
-    
+
     // Don't show the same message twice in current session
     if (current_broadcast_id === message_id) {
       return;
     }
-    
+
     current_broadcast_id = message_id;
-    
+
     // Calculate remaining time for display
     var remaining_time = message_data.expires - current_time;
     if (remaining_time <= 0) {
       // Message has already expired
       return;
     }
-    
+
     // Persist this message state
     persist_broadcast_state(message_id, message_data.expires);
 
@@ -100,7 +170,7 @@ var KioskPoller = (function(KioskPoller) {
       'z-index: 9999; ' +
       'padding: 20px; ' +
       'box-sizing: border-box;' +
-      '">' + 
+      '">' +
       '<div>' + $('<div>').text(message_data.message).html() + '</div>' +
       '</div>');
 
@@ -163,10 +233,20 @@ var KioskPoller = (function(KioskPoller) {
                   params_string = setting.params;
                 }
                 KioskPoller.param_callback(JSON.parse(params_string));
-                
-                // Handle broadcast message if present
-                if (setting['broadcast-message']) {
-                  show_broadcast_message(setting['broadcast-message']);
+
+                // Handle emergency broadcast first (takes priority)
+                if (setting['emergency-broadcast'] && setting['emergency-broadcast'].active) {
+                  show_emergency_message(setting['emergency-broadcast']);
+                } else {
+                  // No active emergency - clear any existing emergency display
+                  if (emergency_active) {
+                    hide_emergency_message();
+                  }
+
+                  // Handle regular broadcast message if present
+                  if (setting['broadcast-message']) {
+                    show_broadcast_message(setting['broadcast-message']);
+                  }
                 }
               }
              });

@@ -974,57 +974,178 @@ $(function() {
 });
 
 //////////////////////////////////////////////////////////////////////////
-// Broadcast message functionality for coordinator page
+// Emergency Broadcast functionality for coordinator page
 //////////////////////////////////////////////////////////////////////////
 
-function handle_broadcast_message() {
-  var message = $("#broadcast-message-coordinator").val().trim();
-  
+// Track current emergency state
+var g_emergency_active = false;
+var g_emergency_message = '';
+
+// Update character counter
+function update_emergency_char_count() {
+  var message = $("#emergency-message-coordinator").val() || '';
+  var count = message.length;
+  $("#emergency-char-count").text(count);
+
+  // Change color if approaching limit
+  if (count > 240) {
+    $("#emergency-char-count").css('color', '#d32f2f');
+  } else if (count > 200) {
+    $("#emergency-char-count").css('color', '#ff9800');
+  } else {
+    $("#emergency-char-count").css('color', '#666');
+  }
+}
+
+// Handle emergency broadcast button click - show confirmation
+function handle_emergency_broadcast() {
+  var message = $("#emergency-message-coordinator").val().trim();
+
   if (message === '') {
-    alert('Please enter a message to broadcast.');
+    alert('Please enter an emergency message.');
     return;
   }
-  
+
   if (message.length > 255) {
     alert('Message is too long. Maximum 255 characters allowed.');
     return;
   }
-  
+
+  // Show the message in the preview box
+  $("#emergency-preview-message").text(message);
+
+  // Show confirmation modal
+  show_modal("#emergency_confirm_modal");
+}
+
+// Confirm and send the emergency broadcast
+function confirm_emergency_broadcast() {
+  var message = $("#emergency-message-coordinator").val().trim();
+
+  // Close the confirmation modal
+  close_modal("#emergency_confirm_modal");
+
   // Disable the button to prevent multiple submissions
-  $("#broadcast-submit-coordinator").prop('disabled', true).val('Sending...');
-  
+  $("#emergency-broadcast-btn").prop('disabled', true).val('Broadcasting...');
+
   $.ajax(g_action_url, {
     type: 'POST',
     data: {
-      action: 'broadcast.message',
-      message: message,
-      duration: 30  // Default 30 seconds duration
+      action: 'emergency.broadcast',
+      message: message
     },
     success: function(data) {
       if (data.outcome && data.outcome.summary === 'success') {
-        alert('Broadcast message sent successfully: "' + message + '"');
-        $("#broadcast-message-coordinator").val(''); // Clear the input field
+        // Update UI to show emergency is active
+        set_emergency_ui_active(message);
+        $("#emergency-message-coordinator").val('');
+        update_emergency_char_count();
       } else {
-        alert('Failed to send broadcast message: ' + (data.outcome ? data.outcome.description : 'Unknown error'));
+        alert('Failed to send emergency broadcast: ' + (data.outcome ? data.outcome.description : 'Unknown error'));
       }
     },
     error: function(xhr, status, error) {
-      alert('Error sending broadcast message: ' + error);
+      alert('Error sending emergency broadcast: ' + error);
     },
     complete: function() {
       // Re-enable the button
-      $("#broadcast-submit-coordinator").prop('disabled', false).val('Send');
+      $("#emergency-broadcast-btn").prop('disabled', false).val('🚨 BROADCAST EMERGENCY');
     }
   });
 }
 
-// Allow Enter key to submit the broadcast message
-$(function() {
-  $("#broadcast-message-coordinator").on('keypress', function(e) {
-    if (e.which === 13) { // Enter key
-      handle_broadcast_message();
+// Handle clear emergency button click - show confirmation
+function handle_emergency_clear() {
+  show_modal("#emergency_clear_confirm_modal");
+}
+
+// Confirm and clear the emergency
+function confirm_emergency_clear() {
+  close_modal("#emergency_clear_confirm_modal");
+
+  $("#emergency-clear-btn").prop('disabled', true).val('Clearing...');
+
+  $.ajax(g_action_url, {
+    type: 'POST',
+    data: {
+      action: 'emergency.clear'
+    },
+    success: function(data) {
+      if (data.outcome && data.outcome.summary === 'success') {
+        set_emergency_ui_inactive();
+      } else {
+        alert('Failed to clear emergency: ' + (data.outcome ? data.outcome.description : 'Unknown error'));
+      }
+    },
+    error: function(xhr, status, error) {
+      alert('Error clearing emergency: ' + error);
+    },
+    complete: function() {
+      $("#emergency-clear-btn").prop('disabled', false).val('✓ Clear Emergency');
     }
   });
+}
+
+// Update UI when emergency is active
+function set_emergency_ui_active(message) {
+  g_emergency_active = true;
+  g_emergency_message = message;
+
+  // Update status banner
+  $("#emergency-status-banner")
+    .removeClass('emergency-status-inactive')
+    .addClass('emergency-status-active');
+  $("#emergency-status-text").text('EMERGENCY ACTIVE: ' + message);
+
+  // Show clear button, hide input and broadcast button
+  $("#emergency-clear-btn").removeClass('hidden');
+  $("#emergency-input-wrap-coordinator").addClass('hidden');
+  $("#emergency-broadcast-btn").addClass('hidden');
+  $(".emergency-char-counter").addClass('hidden');
+}
+
+// Update UI when emergency is cleared
+function set_emergency_ui_inactive() {
+  g_emergency_active = false;
+  g_emergency_message = '';
+
+  // Update status banner
+  $("#emergency-status-banner")
+    .removeClass('emergency-status-active')
+    .addClass('emergency-status-inactive');
+  $("#emergency-status-text").text('No Active Emergency');
+
+  // Hide clear button, show input and broadcast button
+  $("#emergency-clear-btn").addClass('hidden');
+  $("#emergency-input-wrap-coordinator").removeClass('hidden');
+  $("#emergency-broadcast-btn").removeClass('hidden');
+  $(".emergency-char-counter").removeClass('hidden');
+}
+
+// Check for active emergency on page load and during polling
+function check_emergency_state(data) {
+  if (data && data['emergency-broadcast']) {
+    var emergency = data['emergency-broadcast'];
+    if (emergency.active && !g_emergency_active) {
+      set_emergency_ui_active(emergency.message);
+    }
+  } else if (g_emergency_active) {
+    // Emergency was cleared elsewhere
+    set_emergency_ui_inactive();
+  }
+}
+
+// Initialize emergency controls
+$(function() {
+  // Allow Enter key to trigger confirmation
+  $("#emergency-message-coordinator").on('keypress', function(e) {
+    if (e.which === 13) { // Enter key
+      handle_emergency_broadcast();
+    }
+  });
+
+  // Initialize character counter
+  update_emergency_char_count();
 });
 
 // Handle simulate race button click (testing mode only)

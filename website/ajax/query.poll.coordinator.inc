@@ -84,4 +84,13 @@ json_out('ready-aggregate', $aggregates_ready_to_populate);
 // Race state integrity check - detects edge cases where state is inconsistent
 json_out('race-integrity', check_race_integrity());
 
+// Emergency broadcast state - for coordinator page to show current emergency status
+$emergency_json = read_raceinfo('emergency-broadcast', '');
+if (!empty($emergency_json)) {
+    $emergency_data = json_decode($emergency_json, true);
+    if ($emergency_data && isset($emergency_data['active']) && $emergency_data['active']) {
+        json_out('emergency-broadcast', $emergency_data);
+    }
+}
+
 ?>

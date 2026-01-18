@@ -250,11 +250,28 @@ $warn_no_timer = warn_no_timer();
 
         <hr class="coordinator-control-divider" />
 
-        <div id="broadcast-control-coordinator">
-          <label for="broadcast-message-coordinator">Broadcast message:</label>
-          <div id="broadcast-input-wrap-coordinator">
-            <input type="text" id="broadcast-message-coordinator" placeholder="Enter message to broadcast to all kiosks..." />
-            <input type="button" id="broadcast-submit-coordinator" value="Send" onclick="handle_broadcast_message()" />
+        <div id="emergency-control-coordinator">
+          <div id="emergency-status-banner" class="emergency-status-inactive">
+            <span class="emergency-icon">⚠️</span>
+            <span id="emergency-status-text">No Active Emergency</span>
+          </div>
+          <label for="emergency-message-coordinator">
+            <span class="emergency-label-icon">🚨</span> Emergency Broadcast:
+          </label>
+          <div class="emergency-char-counter">
+            <span id="emergency-char-count">0</span>/255 characters
+          </div>
+          <div id="emergency-input-wrap-coordinator">
+            <input type="text" id="emergency-message-coordinator"
+                   maxlength="255"
+                   placeholder="Enter EMERGENCY message for all kiosks and LED signs..."
+                   oninput="update_emergency_char_count()" />
+          </div>
+          <div id="emergency-button-wrap">
+            <input type="button" id="emergency-broadcast-btn" value="🚨 BROADCAST EMERGENCY"
+                   onclick="handle_emergency_broadcast()" />
+            <input type="button" id="emergency-clear-btn" value="✓ Clear Emergency"
+                   onclick="handle_emergency_clear()" class="hidden" />
           </div>
         </div>
       </div>
@@ -437,6 +454,47 @@ $warn_no_timer = warn_no_timer();
       <input type="submit" value="Delete Round" />
       <input type="button" value="Cancel" onclick='close_modal("#delete_round_modal");' />
     </form>
+  </div>
+
+  <div id='emergency_confirm_modal' class="modal_dialog emergency-modal hidden block_buttons">
+    <div class="emergency-modal-header">
+      <span class="emergency-modal-icon">🚨</span>
+      <h3>Confirm Emergency Broadcast</h3>
+    </div>
+    <div class="emergency-modal-body">
+      <p class="emergency-warning-text">
+        <strong>This will immediately display an emergency message on:</strong>
+      </p>
+      <ul class="emergency-targets">
+        <li>All kiosk displays</li>
+        <li>All LED signs</li>
+      </ul>
+      <p class="emergency-preview-label">Message to broadcast:</p>
+      <div class="emergency-preview-box">
+        <span id="emergency-preview-message"></span>
+      </div>
+      <p class="emergency-persist-warning">
+        ⚠️ This message will persist until you explicitly clear it.
+      </p>
+    </div>
+    <div class="emergency-modal-buttons">
+      <input type="button" id="emergency-confirm-yes" value="🚨 YES, BROADCAST NOW"
+             onclick="confirm_emergency_broadcast()" />
+      <input type="button" id="emergency-confirm-no" value="Cancel"
+             onclick='close_modal("#emergency_confirm_modal");' />
+    </div>
+  </div>
+
+  <div id='emergency_clear_confirm_modal' class="modal_dialog hidden block_buttons">
+    <h3>Clear Emergency Broadcast?</h3>
+    <p>This will remove the emergency message from all kiosks and LED signs.</p>
+    <p>Are you sure the emergency situation has been resolved?</p>
+    <div class="block_buttons">
+      <input type="button" value="Yes, Clear Emergency"
+             onclick="confirm_emergency_clear()" />
+      <input type="button" value="Cancel"
+             onclick='close_modal("#emergency_clear_confirm_modal");' />
+    </div>
   </div>
 </body>
 </html>
