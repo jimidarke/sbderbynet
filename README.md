@@ -100,6 +100,7 @@ This project represents substantial enhancements to the original DerbyNet system
 - Real-time text announcements to all active kiosk displays
 - Overlay messaging with configurable duration (1-300 seconds)
 - API endpoints for sending and clearing broadcast messages
+- **Emergency Broadcasts**: Persistent red flashing banner on all kiosks/LED signs until explicitly cleared (for missing child alerts, evacuations, etc.)
 
 **Smart Coordinator Interface**
 - Schedule modal that automatically detects elimination tournaments

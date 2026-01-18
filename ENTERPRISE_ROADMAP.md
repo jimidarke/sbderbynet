@@ -746,13 +746,26 @@ pytest -v
 - [ ] Code coverage reporting
 - [ ] Static analysis integration
 
-### Phase 3: Scalability (Priority: MEDIUM)
+### Phase 3: Scalability (Priority: LOW)
 
-**Goal:** API abstraction and multi-tenant foundation
+**Goal:** API abstraction and multi-tenant foundation for DerbyNet PHP core
 
 **Duration:** 6-8 weeks
 
-#### 3.1 API Gateway
+**Scope Clarification:** This phase applies to the **DerbyNet PHP core** (`/website/`), NOT the SaaS API. The SaaS API (`/extras/saasbox/api/`) already has these capabilities built-in:
+
+| Capability | SaaS API Status | DerbyNet PHP Status |
+|------------|-----------------|---------------------|
+| Multi-tenant middleware | ✅ `middleware/tenant.py` | 🔲 Not started |
+| PostgreSQL + Row-Level Security | ✅ Complete | N/A (uses SQLite) |
+| Rate limiting | ✅ `app/redis_client.py` | 🔲 Not started |
+| Repository pattern | ✅ SQLAlchemy ORM | 🔲 Not started |
+| API versioning | ✅ `/v1/` prefix | 🔲 Not started |
+| Request validation | ✅ Pydantic schemas | 🔲 Not started |
+
+**Priority Note:** Since the SaaS API handles all premium/cloud features, this phase is lower priority. Only needed if DerbyNet PHP core requires similar scalability for on-premise multi-org deployments.
+
+#### 3.1 API Gateway (DerbyNet PHP)
 
 - [ ] Create `/api/v1/` unified gateway
 - [ ] OpenAPI 3.0 specification
@@ -760,7 +773,7 @@ pytest -v
 - [ ] Rate limiting implementation
 - [ ] API versioning strategy
 
-#### 3.2 Database Abstraction
+#### 3.2 Database Abstraction (DerbyNet PHP)
 
 - [ ] Create `Repository` pattern interfaces
 - [ ] Implement for SQLite (current)
@@ -775,7 +788,7 @@ pytest -v
 - [ ] Health check endpoints
 - [ ] Service registry
 
-#### 3.4 Multi-Tenancy Foundation
+#### 3.4 Multi-Tenancy Foundation (DerbyNet PHP)
 
 - [ ] Tenant isolation middleware
 - [ ] Database-per-tenant schema
@@ -786,45 +799,96 @@ pytest -v
 
 **Goal:** Production-ready LED signage system for race-day communication
 
-**Status:** Core firmware complete, 176 tests passing
+**Status:** Firmware v1.1.0 + Admin Dashboard complete, 176 tests passing
 
-#### 4.1 LED Sign Hardware Deployment
+#### 4.1 LED Sign Discovery & Assignment Architecture
 
-**Architecture:**
+**Key Design Decision:** HTTP for discovery/config (mirrors kiosk pattern), MQTT only for content delivery.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        LED SIGN NETWORK                                  │
+│                        LED SIGN LIFECYCLE                                │
 │                                                                         │
-│   Race Server ──MQTT──► ESP32 Controllers ──Serial──► BetaBrite Signs   │
-│                              │                                          │
-│                         WiFi + mDNS                                     │
-│                              │                                          │
-│   ┌──────────┬──────────┬──────────┬──────────┬──────────┐             │
-│   │ Starter  │ Usher×3  │ Finish×3 │ Registr. │ Audience │             │
-│   │ (Ready/  │ (Pinny+  │ (Race    │ (Sponsor │ (General │             │
-│   │  Go/Stop)│  Name)   │  Times)  │  Ads)    │  Msgs)   │             │
-│   └──────────┴──────────┴──────────┴──────────┴──────────┘             │
-│                                                                         │
-│   Priority System: 0=Emergency > 1=Critical > 2=Race > 3=Idle/Sponsor  │
+│  1. DISCOVERY (HTTP)           2. CONFIGURATION (HTTP)                  │
+│  ┌─────────┐                   ┌─────────┐                              │
+│  │  ESP32  │ ──GET /ledsign.php?mac=AA:BB:CC:DD:EE:FF──► │  DerbyNet │  │
+│  │         │ ◄──── JSON: {zone: null, status: "identify"} │  Server  │  │
+│  └─────────┘                   └─────────┘                              │
+│       │                             │                                   │
+│       │ Poll every 5s               │ Admin assigns zone via dashboard  │
+│       ▼                             ▼                                   │
+│  ┌─────────┐                   ┌─────────┐                              │
+│  │  ESP32  │ ──GET poll.ledsign&mac=...──────────────────► │  DerbyNet │ │
+│  │         │ ◄──── JSON: {zone: "starter", mqtt_topics: {...}} │ Server│ │
+│  └─────────┘                   └─────────┘                              │
+│       │                                                                 │
+│       │ 3. CONTENT DELIVERY (MQTT) - only after zone assigned           │
+│       ▼                                                                 │
+│  ┌─────────┐    subscribe: derbynet/ledsign/starter/message            │
+│  │  ESP32  │ ◄─────────────────────────────────────────── MQTT Broker  │
+│  │         │    subscribe: derbynet/ledsign/broadcast                   │
+│  └─────────┘                                                            │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
+**Zone Assignment Flow:**
+1. ESP32 boots → connects to WiFi → polls `GET /ledsign.php?mac=...` every 5s
+2. Sign appears in Admin Dashboard (`ledsign-dashboard.php`) as "unassigned"
+3. Admin selects zone from dropdown → PHP writes to `LedSigns` table
+4. Next poll returns zone + MQTT topics → ESP32 connects to MQTT for content
+5. Race server publishes messages to zone topics during race
+
 **Completed:**
 - [x] BetaBrite Alpha Protocol library (`betabrite.py`) - all display modes, colors, effects
-- [x] ESP32 MicroPython firmware (`main.py`) - WiFi, MQTT, zone configuration
-- [x] Single agnostic firmware pattern - MAC-based identity, MQTT configuration
-- [x] Device discovery - unconfigured devices broadcast MAC for web UI mapping
+- [x] ESP32 MicroPython firmware v1.1.0 (`main.py`) - HTTP discovery, MQTT content
+- [x] Single agnostic firmware pattern - MAC-based identity, HTTP configuration
+- [x] HTTP-based device discovery - polls `/ledsign.php`, appears in admin dashboard
+- [x] Admin dashboard (`ledsign-dashboard.php`) - zone assignment UI
+- [x] PHP backend - `ledsigns.inc`, `ledsign-zones.inc`, action/query handlers
+- [x] Database schema - `LedSigns` table (SQLite + MySQL)
 - [x] Priority message system - emergency broadcasts override all content
 - [x] Sponsor rotation support - JSON-configured sponsor messages
 - [x] Comprehensive test suite - 176 tests covering protocol, messages, firmware logic
 
 **Remaining:**
 - [ ] Race server integration - publish to LED sign topics from derbyRace.py
-- [ ] Web UI device mapping - assign MAC addresses to zones in Settings
 - [ ] Sponsor management UI - configure sponsor messages in web interface
-- [ ] Emergency broadcast UI - coordinator page integration for alerts
+- [x] Emergency broadcast UI - coordinator page integration for alerts (**COMPLETE** - see 4.2)
 - [ ] Hardware procurement and assembly (ESP32 + MAX3232 + BetaBrite)
 - [ ] Field testing at race event
+
+#### 4.2 Emergency Broadcast System (COMPLETE)
+
+**Purpose:** Event-wide emergency notifications that persist until explicitly cleared.
+
+**Coordinator Page UI:**
+- Red-themed emergency input replacing the old broadcast message field
+- 255 character limit with live counter
+- Confirmation dialog before broadcasting
+- Status banner showing active/inactive state
+- "Clear Emergency" button (visible only during active emergency)
+
+**Kiosk Display:**
+- Red flashing banner covering top 20% of screen
+- Shows "⚠️ EMERGENCY ⚠️" header with message text
+- Persists until coordinator explicitly clears the emergency
+- Takes priority over any regular broadcasts
+
+**API Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `action.php?action=emergency.broadcast` | POST | Activate emergency (requires CONTROL_RACE_PERMISSION) |
+| `action.php?action=emergency.clear` | POST | Clear emergency (requires CONTROL_RACE_PERMISSION) |
+
+**Storage:** Emergency state stored in `RaceInfo` table as `emergency-broadcast` JSON with no auto-expiry.
+
+**Files Created/Modified:**
+- `website/ajax/action.emergency.broadcast.inc` - Set emergency
+- `website/ajax/action.emergency.clear.inc` - Clear emergency
+- `website/coordinator.php` - Emergency UI HTML
+- `website/css/coordinator.css` - Emergency styling
+- `website/js/coordinator-controls.js` - Emergency handlers
+- `website/js/kiosk-poller.js` - Persistent emergency banner
 
 **Zone Definitions:**
 | Zone | Content | Format | Priority |
@@ -836,14 +900,34 @@ pytest -v
 | `audience` | Announcements | Various | 2-3 |
 | `broadcast` | EMERGENCY | Flash red, all signs | 0 |
 
-**MQTT Topics:**
+**HTTP Endpoints (Discovery/Configuration):**
+| Endpoint | Direction | Purpose |
+|----------|-----------|---------|
+| `GET /ledsign.php?mac={MAC}` | Device→Server | Registration, receive zone |
+| `GET /action.php?query=poll.ledsign&mac={MAC}` | Device→Server | Poll for config changes |
+| `GET /action.php?query=poll.ledsign.all` | Dashboard→Server | Get all signs + zones |
+| `POST /action.php action=ledsign.assign` | Dashboard→Server | Assign zone to sign |
+
+**MQTT Topics (Content Delivery Only):**
 | Topic | Direction | Purpose |
 |-------|-----------|---------|
-| `derbynet/ledsign/device/{mac}/config` | Server→Device | Zone assignment |
-| `derbynet/ledsign/device/{mac}/identity` | Device→Server | Discovery broadcast |
 | `derbynet/ledsign/{zone}/message` | Server→Device | Zone content |
 | `derbynet/ledsign/broadcast` | Server→All | Emergency override |
 | `derbynet/ledsign/sponsors/rotation` | Server→Device | Sponsor content |
+
+**PHP Files Created:**
+| File | Purpose |
+|------|---------|
+| `website/ledsign.php` | ESP32 entry point (registration) |
+| `website/ledsign-dashboard.php` | Admin UI for zone assignment |
+| `website/inc/ledsigns.inc` | Core functions |
+| `website/inc/ledsign-zones.inc` | Zone definitions |
+| `website/ajax/query.poll.ledsign.inc` | Individual sign polling |
+| `website/ajax/query.poll.ledsign.all.inc` | Dashboard polling |
+| `website/ajax/action.ledsign.assign.inc` | Zone assignment |
+| `website/js/ledsign-dashboard.js` | Dashboard JavaScript |
+| `website/sql/sqlite/ledsign-table.inc` | SQLite schema |
+| `website/sql/mysql/ledsign-table.inc` | MySQL schema |
 
 **Documentation:** See `extras/ledsign/LED_SIGN_INTEGRATION_PLAN.md` for complete specification.
 
@@ -851,7 +935,7 @@ pytest -v
 
 **Goal:** Real-time mobile push notifications for premium SaaS users
 
-**Status:** Phase 5.1 & 5.3 Complete (FCMService + API Endpoints)
+**Status:** Phase 5.1, 5.2, 5.3 Complete - Ready for Flutter Integration (Phase 5.4)
 
 **Documentation:** See `extras/saasbox/FCM_NOTIFICATION_PLAN.md` for complete specification.
 
@@ -876,11 +960,11 @@ pytest -v
 - [x] Implement FCMService class with firebase-admin SDK - `services/notifications/fcm_service.py`
 - [ ] Write unit tests for FCM service
 
-**Phase 5.2: Triggers & Templates**
-- [ ] Implement NotificationTriggers class
-- [ ] Create message templates (PII-safe, character limits)
-- [ ] Integrate with sync handler for staging/result notifications
-- [ ] Write integration tests
+**Phase 5.2: Triggers & Templates - COMPLETE**
+- [x] Implement NotificationTriggers class - `services/notifications/triggers.py`
+- [x] Create message templates (PII-safe, character limits) - embedded in triggers.py
+- [x] Integrate with sync handler for staging/result notifications - `modules/events/routes.py`
+- [x] Write integration tests - `tests/test_notifications.py`
 
 **Phase 5.3: API & Preferences - COMPLETE**
 - [x] Push token registration endpoint (POST /v1/me/notifications/push-token)
@@ -896,12 +980,15 @@ pytest -v
 ```
 extras/saasbox/api/
 ├── services/notifications/
-│   ├── __init__.py
-│   └── fcm_service.py          # Full FCMService implementation
+│   ├── __init__.py             # Exports FCMService, NotificationTriggers
+│   ├── fcm_service.py          # Full FCMService implementation
+│   └── triggers.py             # NotificationTriggers + message templates
 ├── modules/notifications/
 │   ├── __init__.py
 │   ├── schemas.py              # Request/response Pydantic models
 │   └── routes.py               # All notification endpoints
+├── modules/events/
+│   └── routes.py               # Updated: _trigger_sync_notifications()
 └── app/main.py                 # Updated: registered notification routes
 ```
 
@@ -1288,3 +1375,5 @@ extras/soapbox/infra/starttimer/src/main.py
 | 1.16 | 2026-01-16 | Claude Code | **Phase 5 Added - FCM Push Notifications**: Created comprehensive FCM notification plan (`extras/saasbox/FCM_NOTIFICATION_PLAN.md`). Covers: 7 notification types (staging, results, polls, predictions, emergency, purchases), FCMService with firebase-admin SDK, NotificationTriggers for event-based dispatch, user preferences, Flutter client integration, emergency broadcast alignment with LED signs. Key decisions: notify within 5 heats, Coordinator-only emergencies, favorites-only scope, Alert Manager for errors only. Android Phase 1, iOS Phase 2 (next year). |
 | 1.17 | 2026-01-16 | Claude Code | **Phase 5.1 Database Models**: Created `models/notification.py` with PushToken, NotificationPreference, NotificationLog SQLAlchemy models. Created `migrations/002_fcm_notifications.sql` with full schema including indexes, constraints, and cleanup function. Updated UserFavorite with last_staging_notified_at, last_result_notified_at. Updated User model with push_tokens and notification_preferences relationships. Added FCM config settings (fcm_enabled, staging_lookahead, dedup_window, batch_size) to app/config.py. |
 | 1.18 | 2026-01-16 | Claude Code | **Phase 5.1 & 5.3 Complete - FCM Service + API Endpoints**: Created `services/notifications/fcm_service.py` with full FCMService implementation (token management, multicast batching up to 500, deduplication, preference filtering, emergency broadcasts, invalid token cleanup). Created `modules/notifications/` with schemas.py (Pydantic request/response models) and routes.py (8 endpoints: push token CRUD, preferences GET/PATCH, notification history, emergency broadcast/clear). Registered routes in main.py at `/v1/me/notifications` and `/v1/orgs/{orgId}/events/{eventId}/emergency`. |
+| 1.19 | 2026-01-16 | Claude Code | **Phase 4 HTTP Discovery Architecture**: Implemented HTTP-based LED sign discovery mirroring kiosk pattern. ESP32 firmware v1.1.0 uses HTTP polling for registration/config (`/ledsign.php`), MQTT only for content delivery after zone assignment. Created admin dashboard (`ledsign-dashboard.php`), PHP backend (ledsigns.inc, ledsign-zones.inc, action/query handlers), database schema (LedSigns table for SQLite/MySQL). Updated LED_SIGN_INTEGRATION_PLAN.md to v1.3.0 and ESP32 README with new architecture. |
+| 1.20 | 2026-01-16 | Claude Code | **Phase 4.2 Emergency Broadcast System**: Implemented event-wide emergency notifications. Repurposed coordinator broadcast input for emergencies with red-themed UI, 255 char limit, confirmation dialog. Emergency broadcasts persist until explicitly cleared (no auto-expiry). Kiosks display red flashing banner that persists until cleared. Created `action.emergency.broadcast.inc` and `action.emergency.clear.inc`. Updated coordinator.php, coordinator.css (200+ lines), coordinator-controls.js, coordinator-poll.js, kiosk-poller.js, query.poll.kiosk.inc, query.poll.coordinator.inc. Added emergency tests to test-ledsign-backend.sh. |
