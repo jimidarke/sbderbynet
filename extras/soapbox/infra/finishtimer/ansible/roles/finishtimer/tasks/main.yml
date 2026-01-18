@@ -1,0 +1,20 @@
+---
+# Finishtimer role - Raspberry Pi Zero finish timer deployment
+# Enables I2C/GPIO hardware, applies power optimizations,
+# installs packages, and deploys the finishtimer service
+
+- name: Include hardware tasks
+  ansible.builtin.include_tasks: hardware.yml
+  tags: [hardware, finishtimer]
+
+- name: Include power optimization tasks
+  ansible.builtin.include_tasks: power.yml
+  tags: [power, finishtimer]
+
+- name: Include package installation tasks
+  ansible.builtin.include_tasks: packages.yml
+  tags: [packages, finishtimer]
+
+- name: Include application deployment tasks
+  ansible.builtin.include_tasks: application.yml
+  tags: [application, finishtimer]

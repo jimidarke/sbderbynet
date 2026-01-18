@@ -1,0 +1,20 @@
+---
+# Finishtimer role handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Restart finishtimer
+  ansible.builtin.systemd:
+    name: finishtimer
+    state: restarted
+
+- name: Restart timesyncd
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    state: restarted
+
+- name: Reboot required
+  ansible.builtin.debug:
+    msg: "A reboot is required to apply boot configuration changes."

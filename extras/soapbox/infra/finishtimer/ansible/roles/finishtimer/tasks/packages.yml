@@ -1,0 +1,24 @@
+---
+# Package installation for finish timer
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install system packages
+  ansible.builtin.apt:
+    name: "{{ finishtimer_system_packages }}"
+    state: present
+
+- name: Install Python packages via pip
+  ansible.builtin.pip:
+    name: "{{ finishtimer_pip_packages }}"
+    state: present
+    extra_args: --break-system-packages
+  become: yes
+
+- name: Clean apt cache
+  ansible.builtin.apt:
+    autoclean: yes
+    autoremove: yes

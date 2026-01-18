@@ -1,0 +1,46 @@
+---
+# Hardware configuration for finish timer
+# Enables I2C for MCP3421 ADC and GPIO for sensors/display
+
+- name: Enable I2C in config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtparam=i2c_arm='
+    line: "dtparam=i2c_arm=on"
+    state: present
+  notify: Reboot required
+
+- name: Load i2c-dev module
+  community.general.modprobe:
+    name: i2c-dev
+    state: present
+
+- name: Ensure i2c-dev loads on boot
+  ansible.builtin.lineinfile:
+    path: /etc/modules-load.d/i2c.conf
+    line: "i2c-dev"
+    create: yes
+    mode: '0644'
+
+- name: Ensure finishtimer group exists
+  ansible.builtin.group:
+    name: "{{ finishtimer_group }}"
+    gid: "{{ finishtimer_gid }}"
+    state: present
+
+- name: Ensure finishtimer user exists
+  ansible.builtin.user:
+    name: "{{ finishtimer_user }}"
+    uid: "{{ finishtimer_uid }}"
+    group: "{{ finishtimer_group }}"
+    groups: gpio,i2c
+    append: yes
+    shell: /bin/bash
+    create_home: yes
+    state: present
+
+- name: Add pi user to gpio and i2c groups
+  ansible.builtin.user:
+    name: pi
+    groups: gpio,i2c
+    append: yes

@@ -1,0 +1,24 @@
+---
+# Finish timer deployment playbook
+# Idempotent - safe to run repeatedly for updates
+#
+# Usage:
+#   ansible-playbook deploy.yml                    # All timers
+#   ansible-playbook deploy.yml -l lane1-timer     # Single timer
+#   ansible-playbook deploy.yml --tags application # App only
+#
+# Available tags:
+#   - hardware    : I2C, GPIO configuration
+#   - power       : Power optimization settings
+#   - packages    : System and Python packages
+#   - application : Service deployment and file sync
+#   - finishtimer : All finish timer tasks
+
+- name: Deploy finish timer software
+  hosts: finishtimers
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: finishtimer
+      tags: [finishtimer]

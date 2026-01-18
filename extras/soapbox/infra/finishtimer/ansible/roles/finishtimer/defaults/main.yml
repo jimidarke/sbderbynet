@@ -1,0 +1,48 @@
+---
+# Finishtimer role defaults
+# These can be overridden in group_vars or host_vars
+
+# User/group for running the service
+finishtimer_user: derby
+finishtimer_group: derby
+finishtimer_uid: 1001
+finishtimer_gid: 1001
+
+# Installation directories
+finishtimer_install_dir: /opt/derbynet
+finishtimer_files_dir: "{{ finishtimer_install_dir }}/files"
+
+# Server configuration
+race_server_ip: 192.168.100.10
+finishtimer_ntp_server: "{{ race_server_ip }}"
+finishtimer_mqtt_broker: "{{ race_server_ip }}"
+finishtimer_mqtt_port: 1883
+
+# Power optimization settings
+finishtimer_gpu_mem: 16
+
+# Log file path
+finishtimer_log_file: /var/log/derbynet.log
+
+# Python packages to install
+finishtimer_pip_packages:
+  - paho-mqtt
+  - psutil
+  - raspberrypi-tm1637
+  - smbus2
+  - zeroconf
+
+# System packages to install
+finishtimer_system_packages:
+  - rsync
+  - python3-pip
+  - mosquitto-clients
+  - i2c-tools
+
+# Services to disable for power optimization
+finishtimer_disabled_services:
+  - avahi-daemon
+  - triggerhappy
+  - hciuart
+  - bluetooth
+  - wpa_supplicant

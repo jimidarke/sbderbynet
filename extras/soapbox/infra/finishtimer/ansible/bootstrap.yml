@@ -1,0 +1,76 @@
+---
+# Bootstrap playbook for finish timer devices
+# Run once per new device to configure identity, hostname, and hardware
+#
+# Usage:
+#   ansible-playbook bootstrap.yml -l lane1-timer
+#   ansible-playbook bootstrap.yml  # All devices
+#
+# Prerequisites:
+#   - Pi OS pre-imaged with SSH enabled and WiFi configured
+#   - SSH key-based authentication configured for pi user
+#   - Device reachable at its IP address
+
+- name: Bootstrap finish timer devices
+  hosts: finishtimers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Create /boot/firmware directory if needed
+      ansible.builtin.file:
+        path: /boot/firmware
+        state: directory
+        mode: '0755'
+
+    - name: Create derbyid.txt with device ID
+      ansible.builtin.copy:
+        content: "{{ finishtimer_derbyid }}"
+        dest: /boot/firmware/derbyid.txt
+        mode: '0644'
+      when: finishtimer_derbyid is defined
+
+    - name: Set hostname from derby ID
+      ansible.builtin.hostname:
+        name: "{{ finishtimer_derbyid }}"
+      when: finishtimer_derbyid is defined
+      register: hostname_changed
+
+    - name: Update /etc/hosts with hostname
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1\t{{ finishtimer_derbyid }}"
+        state: present
+      when: finishtimer_derbyid is defined
+
+    - name: Set timezone
+      community.general.timezone:
+        name: "{{ finishtimer_timezone | default('America/Edmonton') }}"
+
+    - name: Include hardware configuration
+      ansible.builtin.include_role:
+        name: finishtimer
+        tasks_from: hardware.yml
+
+    - name: Include power optimization
+      ansible.builtin.include_role:
+        name: finishtimer
+        tasks_from: power.yml
+
+    - name: Include package installation
+      ansible.builtin.include_role:
+        name: finishtimer
+        tasks_from: packages.yml
+
+    - name: Mark device as updated
+      ansible.builtin.file:
+        path: /boot/firmware/updated
+        state: touch
+        mode: '0644'
+
+    - name: Reboot to apply changes
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+        msg: "Rebooting to apply bootstrap configuration"
+      when: hostname_changed.changed or ansible_facts['hostname'] != finishtimer_derbyid

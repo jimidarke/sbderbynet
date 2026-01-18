@@ -1,0 +1,72 @@
+---
+# Application deployment for finish timer
+# Copies files from local source, configures NTP, deploys systemd service
+
+- name: Create installation directory
+  ansible.builtin.file:
+    path: "{{ finishtimer_install_dir }}"
+    state: directory
+    owner: "{{ finishtimer_user }}"
+    group: "{{ finishtimer_group }}"
+    mode: '0775'
+
+- name: Create files subdirectory
+  ansible.builtin.file:
+    path: "{{ finishtimer_files_dir }}"
+    state: directory
+    owner: "{{ finishtimer_user }}"
+    group: "{{ finishtimer_group }}"
+    mode: '0775'
+
+- name: Copy finishtimer application files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ finishtimer_files_dir }}/"
+    owner: "{{ finishtimer_user }}"
+    group: "{{ finishtimer_group }}"
+    mode: '0644'
+  with_fileglob:
+    - "../../../files/*.py"
+  notify: Restart finishtimer
+
+- name: Create log file with proper permissions
+  ansible.builtin.file:
+    path: "{{ finishtimer_log_file }}"
+    state: touch
+    owner: root
+    group: root
+    mode: '0666'
+    modification_time: preserve
+    access_time: preserve
+
+- name: Configure systemd-timesyncd for NTP
+  ansible.builtin.template:
+    src: timesyncd.conf.j2
+    dest: /etc/systemd/timesyncd.conf
+    mode: '0644'
+  notify: Restart timesyncd
+
+- name: Enable systemd-timesyncd service
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    enabled: yes
+    state: started
+
+- name: Deploy finishtimer systemd service
+  ansible.builtin.template:
+    src: finishtimer.service.j2
+    dest: /etc/systemd/system/finishtimer.service
+    mode: '0644'
+  notify:
+    - Reload systemd
+    - Restart finishtimer
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable finishtimer service
+  ansible.builtin.systemd:
+    name: finishtimer
+    enabled: yes
+    state: started

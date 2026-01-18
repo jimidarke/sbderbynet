@@ -1,0 +1,13 @@
+[Unit]
+Description=Manages the Finish Timer for DerbyNet
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 {{ finishtimer_files_dir }}/finishtimer.py
+Restart=always
+User=root
+Environment=MQTT_BROKER={{ finishtimer_mqtt_broker }}
+Environment=MQTT_PORT={{ finishtimer_mqtt_port }}
+
+[Install]
+WantedBy=multi-user.target

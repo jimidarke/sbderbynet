@@ -1,0 +1,92 @@
+---
+# Power optimization for finish timer
+# Reduces power consumption for battery-powered Pi Zero devices
+
+- name: Add DerbyNet marker to config.txt
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    line: "#DERBYNET"
+    state: present
+
+- name: Disable splash screen
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?disable_splash='
+    line: "disable_splash=1"
+    state: present
+  notify: Reboot required
+
+- name: Enable HDMI blanking
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?hdmi_blanking='
+    line: "hdmi_blanking=1"
+    state: present
+  notify: Reboot required
+
+- name: Set GPU memory to minimum
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?gpu_mem='
+    line: "gpu_mem={{ finishtimer_gpu_mem }}"
+    state: present
+  notify: Reboot required
+
+- name: Disable audio
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtparam=audio='
+    line: "dtparam=audio=off"
+    state: present
+  notify: Reboot required
+
+- name: Disable UART
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtparam=uart='
+    line: "dtparam=uart=off"
+    state: present
+  notify: Reboot required
+
+- name: Disable Bluetooth overlay
+  ansible.builtin.lineinfile:
+    path: /boot/firmware/config.txt
+    regexp: '^#?dtoverlay=disable-bt'
+    line: "dtoverlay=disable-bt"
+    state: present
+  notify: Reboot required
+
+- name: Disable unnecessary services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: no
+    state: stopped
+  loop: "{{ finishtimer_disabled_services }}"
+  ignore_errors: yes
+
+- name: Disable journald for power savings
+  ansible.builtin.systemd:
+    name: systemd-journald
+    enabled: no
+    state: stopped
+  ignore_errors: yes
+
+- name: Disable logrotate
+  ansible.builtin.systemd:
+    name: logrotate
+    enabled: no
+    state: stopped
+  ignore_errors: yes
+
+- name: Disable cron
+  ansible.builtin.systemd:
+    name: cron
+    enabled: no
+    state: stopped
+  ignore_errors: yes
+
+- name: Mask tmp.mount service
+  ansible.builtin.systemd:
+    name: tmp.mount
+    masked: yes
+  ignore_errors: yes
