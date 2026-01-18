@@ -1,9 +1,11 @@
 # LED Sign Integration Plan for SBDerbyNet
 
-**Version**: 1.2.0
-**Date**: 2026-01-15
-**Status**: Decisions Finalized - Ready for Implementation
+**Version**: 1.3.0
+**Date**: 2026-01-16
+**Status**: Phase 1-3 Implemented - HTTP Discovery + MQTT Content Delivery
 
+> **Changelog v1.3.0**: Implemented HTTP-based device discovery and configuration (mirrors kiosk pattern), MQTT now used only for content delivery after zone assignment. Added PHP admin dashboard, database schema, and updated ESP32 firmware.
+>
 > **Changelog v1.2.0**: Added single agnostic firmware architecture with MAC-based device discovery, server-side zone configuration via MQTT, and kiosk-like device mapping pattern.
 
 ---
@@ -37,10 +39,11 @@ The following decisions have been finalized based on stakeholder input:
 | **Sponsor Config** | JSON file with: name, tagline, url (all optional) | Simple, no database UI needed initially |
 | **Emergency Broadcast Authority** | Race Coordinator only | Single authority during race events |
 | **Offline Sign Handling** | Local "connection lost" display + heartbeat monitoring with non-blocking warnings | Graceful degradation, no race interruption |
-| **ESP32 Firmware** | Single agnostic firmware for all devices, MAC as unique ID | Flash once, configure via MQTT, no per-device customization |
-| **Device Configuration** | Server-side via MQTT; unconfigured devices display MAC and await mapping | Similar to kiosk pattern, minimal on-device state |
+| **ESP32 Firmware** | Single agnostic firmware for all devices, MAC as unique ID | Flash once, configure via HTTP, no per-device customization |
+| **Device Configuration** | Server-side via HTTP polling; unconfigured devices display MAC and await mapping | Identical to kiosk pattern, minimal on-device state |
 | **WiFi Credentials** | Hardcoded in firmware (same as finish timers) | Consistent with existing edge devices |
-| **Device Mapping UI** | JSON config initially, web Settings UI later | Validate functionality first, nice UX later |
+| **Device Mapping UI** | PHP admin dashboard (`ledsign-dashboard.php`) with zone dropdowns | Implemented - mirrors kiosk dashboard |
+| **Discovery Protocol** | HTTP polling (not MQTT) for device registration and configuration | Simpler, follows kiosk pattern, MQTT only for content |
 
 ---
 
@@ -62,40 +65,45 @@ The following decisions have been finalized based on stakeholder input:
 
 ## 1. System Architecture
 
-### 1.1 High-Level Architecture
+### 1.1 High-Level Architecture (HTTP Discovery + MQTT Content)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           MQTT Broker                                        │
-│                       (192.168.100.10:1883)                                  │
+│                        LED SIGN LIFECYCLE                                    │
+│                                                                             │
+│  1. DISCOVERY (HTTP)              2. CONFIGURATION (HTTP)                   │
+│  ┌─────────┐                      ┌─────────────────────┐                   │
+│  │  ESP32  │ ──GET /ledsign.php───►│   DerbyNet PHP      │                   │
+│  │         │ ◄──{status:identify}─│   (192.168.100.10)  │                   │
+│  └─────────┘                      └─────────────────────┘                   │
+│       │                                    │                                │
+│       │ Poll every 5s                      │ Admin assigns zone via         │
+│       │                                    │ ledsign-dashboard.php          │
+│       ▼                                    ▼                                │
+│  ┌─────────┐                      ┌─────────────────────┐                   │
+│  │  ESP32  │ ──GET poll.ledsign───►│   DerbyNet PHP      │                   │
+│  │         │ ◄──{zone:"starter"}──│   (action.php)      │                   │
+│  └─────────┘                      └─────────────────────┘                   │
+│       │                                                                     │
+│       │ 3. CONTENT DELIVERY (MQTT) - only after zone assigned               │
+│       ▼                                                                     │
+│  ┌─────────┐    subscribe: derbynet/ledsign/{zone}/message                  │
+│  │  ESP32  │ ◄────────────────────────────────────────── MQTT Broker        │
+│  │         │    subscribe: derbynet/ledsign/broadcast                       │
+│  └─────────┘                                                                │
 └─────────────────────────────────────────────────────────────────────────────┘
-         ▲              ▲              ▲              ▲              ▲
-         │              │              │              │              │
-    ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐
-    │         │   │         │   │         │   │         │   │         │
-    ▼         ▼   ▼         ▼   ▼         ▼   ▼         ▼   ▼         ▼
-┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│DerbyRace│ │  LED    │ │  LED    │ │  LED    │ │  LED    │ │  LED    │
-│ Server  │ │ Sign    │ │ Sign    │ │ Sign    │ │ Sign    │ │ Sign    │
-│(Python) │ │ STARTER │ │ USHER-1 │ │USHER-2/3│ │ FINISH  │ │REGISTR. │
-└─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
-     │           │           │           │           │           │
-     │      ┌────┴────┐ ┌────┴────┐ ┌────┴────┐ ┌────┴────┐ ┌────┴────┐
-     │      │  ESP32  │ │  ESP32  │ │  ESP32  │ │  ESP32  │ │  ESP32  │
-     │      │  WiFi   │ │  WiFi   │ │  WiFi   │ │  WiFi   │ │  WiFi   │
-     │      │ Bridge  │ │ Bridge  │ │ Bridge  │ │ Bridge  │ │ Bridge  │
-     │      └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
-     │           │           │           │           │           │
-     │      ┌────┴────┐ ┌────┴────┐ ┌────┴────┐ ┌────┴────┐ ┌────┴────┐
-     │      │BetaBrite│ │BetaBrite│ │BetaBrite│ │BetaBrite│ │BetaBrite│
-     │      │  Sign   │ │  Sign   │ │  Sign   │ │  Sign   │ │  Sign   │
-     │      └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
-     │
-     ├─ publishes: derbynet/race/state, derbynet/race/event
-     ├─ publishes: derbynet/lane/*/pinny, derbynet/lane/*/led
-     ├─ publishes: derbynet/alerts/*
-     └─ NEW: publishes: derbynet/ledsign/*/message
+
+Key Components:
+┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+│  DerbyNet PHP │  │  Admin Page   │  │  MQTT Broker  │  │  Race Server  │
+│  (ledsign.php)│  │  (dashboard)  │  │  (mosquitto)  │  │  (Python)     │
+│               │  │               │  │               │  │               │
+│ Registration  │  │ Zone mapping  │  │ Content only  │  │ Race events   │
+│ Config poll   │  │ Device list   │  │ (post-config) │  │ to LED signs  │
+└───────────────┘  └───────────────┘  └───────────────┘  └───────────────┘
 ```
+
+**Key Principle:** HTTP for discovery/config (identical to kiosk pattern), MQTT only for real-time content delivery after zone assignment.
 
 ### 1.2 Integration Points
 
@@ -545,15 +553,20 @@ Since each lane has its own dedicated finish sign, times are displayed individua
 
 ### 5.1 Design Philosophy
 
-**Single Agnostic Firmware**: All LED sign controllers run identical firmware. The MAC address serves as the unique identifier. Zone assignment and configuration are managed server-side via a web interface, similar to kiosk device mapping.
+**Single Agnostic Firmware**: All LED sign controllers run identical firmware (v1.1.0+). The MAC address serves as the unique identifier. Zone assignment and configuration are managed server-side via HTTP polling, identical to kiosk device mapping.
+
+**HTTP Discovery + MQTT Content**:
+- ESP32 polls HTTP endpoints for registration and configuration (every 5 seconds)
+- Once zone is assigned, ESP32 connects to MQTT for real-time content delivery
+- This mirrors the kiosk pattern exactly
 
 **Minimal On-Device State**: The ESP32 retains only:
 - Hardcoded WiFi credentials (same as finish timers)
 - Its own MAC address (read from hardware)
-- Current assigned zone (received via MQTT, not persisted)
+- Current assigned zone (received via HTTP, not persisted to flash)
 
-**Server-Side Configuration**: The race server maintains:
-- MAC address → Zone name mappings
+**Server-Side Configuration**: DerbyNet PHP maintains:
+- MAC address → Zone name mappings (in SQLite database `LedSigns` table)
 - Zone-specific content and behavior
 - Sponsor rotation content
 
@@ -592,82 +605,84 @@ Single firmware for all devices:
 └── boot.py           # Boot configuration
 ```
 
-### 5.5 Hardcoded Configuration (config.py)
+### 5.5 Hardcoded Configuration (config.py v1.1.0)
 
 ```python
-# Hardcoded credentials - same as other edge devices
+# WiFi credentials - same as other edge devices
 WIFI_SSID = "DerbyNet"
 WIFI_PASSWORD = "all4theKids"
 
-# MQTT broker - mDNS discovery with fallback
+# DerbyNet server for HTTP discovery/configuration
+DERBYNET_SERVER = "192.168.100.10"
+DERBYNET_PORT = 80
+HTTP_REGISTER_ENDPOINT = "/ledsign.php"    # Registration and config
+HTTP_POLL_ENDPOINT = "/action.php"          # Polling for updates
+HTTP_POLL_INTERVAL = 5                      # Poll every 5 seconds
+
+# MQTT broker (for content delivery after zone assignment)
 DEFAULT_MQTT_BROKER = "192.168.100.10"
 MQTT_PORT = 1883
 
 # OTA update endpoint
-OTA_URL = "http://192.168.100.10/ledsign/firmware.py"
+OTA_BASE_URL = "http://192.168.100.10/ledsign"
 ```
 
-**Note**: No zone-specific configuration on device. Zone assignment comes from server.
+**Note**: No zone-specific configuration on device. Zone assignment comes from HTTP polling, MQTT topics come from HTTP response.
 
 ### 5.6 Device States
 
-| State | LED Sign Display | MQTT Behavior |
-|-------|------------------|---------------|
-| **UNCONFIGURED** | Shows MAC address (e.g., "AA:BB:CC:DD:EE:FF") | Publishes identity, awaits assignment |
-| **CONFIGURED** | Shows zone content | Subscribes to assigned zone topics |
-| **OFFLINE** | "CONNECTION LOST" | N/A (no MQTT connection) |
+| State | LED Sign Display | HTTP/MQTT Behavior |
+|-------|------------------|-------------------|
+| **UNCONFIGURED** | Shows MAC address (e.g., "SETUP:AABBCCDD") | Polls HTTP every 5s, awaits zone assignment |
+| **CONFIGURED** | Shows zone content | MQTT connected, subscribed to zone topics |
+| **OFFLINE** | "CONNECTION LOST" | WiFi disconnected, attempting reconnect |
 
-### 5.7 ESP32 Firmware Flow
+### 5.7 ESP32 Firmware Flow (v1.1.0 - HTTP Discovery)
 
 ```
 Boot
   │
   ├─► Connect WiFi (hardcoded credentials, exponential backoff)
   │
-  ├─► Discover MQTT broker (mDNS "_derbynet._tcp" or fallback)
-  │
-  ├─► Connect MQTT
-  │     │
-  │     ├─► Set LWT: derbynet/ledsign/device/{MAC}/status = "offline"
-  │     ├─► Publish: derbynet/ledsign/device/{MAC}/status = "online"
-  │     ├─► Publish: derbynet/ledsign/device/{MAC}/identity (MAC, version, etc.)
-  │     │
-  │     ├─► Subscribe: derbynet/ledsign/device/{MAC}/config (zone assignment)
-  │     ├─► Subscribe: derbynet/ledsign/device/{MAC}/message (direct messages)
-  │     ├─► Subscribe: derbynet/ledsign/broadcast (emergency override)
-  │     └─► Subscribe: derbynet/ledsign/device/{MAC}/update (OTA trigger)
-  │
-  ├─► Check if configured (received zone assignment?)
-  │     │
-  │     ├─► NO: Display MAC address on sign, await configuration
-  │     │       "SETUP: AA:BB:CC:DD:EE:FF"
-  │     │
-  │     └─► YES: Subscribe to zone-specific topics
-  │               derbynet/ledsign/{zone}/message
+  ├─► Show "SETUP:XXXXXXXX" on sign (last 8 chars of MAC)
   │
   └─► Main Loop
         │
-        ├─► Check MQTT messages
+        ├─► HTTP POLLING (every 5 seconds)
         │     │
-        │     ├─► Config message (zone assignment)
-        │     │     └─► Store zone, subscribe to zone topic, display confirmation
+        │     ├─► If UNCONFIGURED:
+        │     │     └─► GET /ledsign.php?mac={MAC}&ip={IP}&version={VER}
+        │     │         └─► Response: {zone: null, status: "identify"}
+        │     │             └─► Continue polling...
+        │     │         └─► Response: {zone: "starter", mqtt_topics: {...}}
+        │     │             └─► Zone assigned! → Connect to MQTT
         │     │
-        │     ├─► Zone/direct message received
+        │     └─► If CONFIGURED:
+        │           └─► GET /action.php?query=poll.ledsign&mac={MAC}
+        │               └─► Check for zone changes, update if needed
+        │
+        ├─► MQTT (only when zone assigned)
+        │     │
+        │     ├─► Connect to MQTT broker (from HTTP response)
+        │     ├─► Subscribe: derbynet/ledsign/{zone}/message
+        │     ├─► Subscribe: derbynet/ledsign/broadcast
+        │     ├─► Subscribe: derbynet/ledsign/device/{MAC}/update (OTA)
+        │     │
+        │     ├─► On zone message received
         │     │     └─► Process and display on sign
         │     │
-        │     ├─► Broadcast received (priority 0)
+        │     ├─► On broadcast received (priority 0)
         │     │     └─► Override display immediately
         │     │
-        │     └─► Update command received
+        │     └─► On update command received
         │           └─► Trigger OTA update
         │
         ├─► Check priority timeout
         │     └─► Return to normal display if expired
         │
-        ├─► Send telemetry (every 10s)
-        │     derbynet/ledsign/device/{MAC}/telemetry
+        ├─► Send MQTT telemetry (every 30s, when connected)
         │
-        ├─► Check WiFi/MQTT connection
+        ├─► Check WiFi connection
         │     └─► If lost: Display "CONNECTION LOST", attempt reconnect
         │
         └─► Feed watchdog
@@ -693,64 +708,71 @@ On connect (and periodically), each device publishes its identity:
 
 The web interface monitors this topic (wildcard subscribe to `derbynet/ledsign/device/+/identity`) to discover available devices for mapping.
 
-### 5.9 Zone Assignment Flow
+### 5.9 Zone Assignment Flow (HTTP-Based)
 
 ```
-Web Interface                    MQTT Broker                 ESP32 Device
+Admin Dashboard                  DerbyNet PHP                ESP32 Device
+(ledsign-dashboard.php)          (action.php)                (main.py)
      │                               │                            │
-     │  User maps MAC to "usher1"    │                            │
+     │                               │      GET /ledsign.php      │
+     │                               │◄────────────────────────────┤ Poll every 5s
+     │                               │      {zone: null}          │
+     │                               ├───────────────────────────►│ Device appears in dashboard
+     │                               │                            │
+     │  Admin selects zone dropdown  │                            │
+     │  POST action=ledsign.assign   │                            │
      ├──────────────────────────────►│                            │
-     │                               │  derbynet/ledsign/device/  │
-     │                               │  {MAC}/config              │
+     │  mac=AA:BB:..., zone=starter  │                            │
+     │                               │  (Zone saved to database)  │
+     │                               │                            │
+     │                               │      GET /ledsign.php      │
+     │                               │◄────────────────────────────┤ Next poll (within 5s)
+     │                               │      {zone: "starter",     │
+     │                               │       mqtt_topics: {...}}  │
      │                               ├───────────────────────────►│
-     │                               │  {"zone": "usher-lane1",   │
-     │                               │   "display_name": "Usher 1"}│
      │                               │                            │
      │                               │                            ├─► Store zone
+     │                               │                            ├─► Connect to MQTT
      │                               │                            ├─► Subscribe to zone topic
-     │                               │                            ├─► Display "CONFIGURED: Usher 1"
-     │                               │                            │
-     │                               │  Updated identity          │
-     │                               │◄────────────────────────────┤
-     │                               │  {"configured": true,      │
-     │                               │   "zone": "usher-lane1"}   │
+     │                               │                            ├─► Display "ZONE: Start Line"
      │                               │                            │
 ```
 
-### 5.10 Server-Side Device Registry
+### 5.10 Server-Side Device Registry (IMPLEMENTED)
 
-The race server maintains a device mapping (JSON file or database):
+DerbyNet PHP maintains device mappings in the SQLite database:
 
-**File**: `ledsign_devices.json`
+**Database Table**: `LedSigns`
 
-```json
-{
-  "devices": {
-    "AA:BB:CC:DD:EE:FF": {
-      "zone": "starter",
-      "display_name": "Start Line",
-      "last_seen": 1705344000,
-      "ip": "192.168.100.150",
-      "version": "1.0.0"
-    },
-    "11:22:33:44:55:66": {
-      "zone": "usher-lane1",
-      "display_name": "Usher Lane 1",
-      "last_seen": 1705344000,
-      "ip": "192.168.100.151",
-      "version": "1.0.0"
-    }
-  },
-  "available_zones": [
-    "starter",
-    "usher-lane1", "usher-lane2", "usher-lane3",
-    "finish-lane1", "finish-lane2", "finish-lane3",
-    "registration", "audience"
-  ]
-}
+```sql
+CREATE TABLE LedSigns (
+  mac VARCHAR(17) PRIMARY KEY,        -- 'AA:BB:CC:DD:EE:FF' format
+  zone VARCHAR(50),                    -- Assigned zone (NULL = unassigned)
+  ip_address VARCHAR(45),              -- Last known IP
+  firmware_version VARCHAR(20),        -- Reported version
+  last_contact INTEGER NOT NULL        -- Unix timestamp
+);
 ```
 
-> **Future Enhancement**: Integrate device mapping into the web interface Settings UI, similar to kiosk management. For initial implementation, JSON config file with manual MQTT commands for assignment is sufficient.
+**Zone Definitions**: Fixed zones defined in `website/inc/ledsign-zones.inc`
+
+**PHP Files Implemented**:
+
+| File | Purpose |
+|------|---------|
+| `website/ledsign.php` | ESP32 registration endpoint |
+| `website/ajax/query.poll.ledsign.inc` | Individual sign polling |
+| `website/ajax/query.poll.ledsign.all.inc` | Admin dashboard polling |
+| `website/ajax/action.ledsign.assign.inc` | Zone assignment |
+| `website/ledsign-dashboard.php` | Admin UI |
+| `website/js/ledsign-dashboard.js` | Dashboard JavaScript |
+| `website/inc/ledsigns.inc` | Core LED sign functions |
+| `website/inc/ledsign-zones.inc` | Zone definitions |
+
+**Admin Dashboard**: `http://derbynet-server/ledsign-dashboard.php`
+- Shows all discovered signs with zone dropdowns
+- Real-time polling (every 2 seconds)
+- Zone assignment summary table
 
 ### 5.11 BetaBrite Protocol Library (betabrite.py)
 
@@ -932,21 +954,44 @@ Clear Emergency (Coordinator UI)
     └─► Signs return to normal zone content
 ```
 
-### 7.3 Emergency UI in Coordinator Page
+### 7.3 Emergency UI in Coordinator Page (IMPLEMENTED)
 
-New section in coordinator interface:
+**Status:** Complete - implemented in `website/coordinator.php`
+
+The emergency broadcast UI replaces the old broadcast message section:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ LED Sign Emergency Broadcast                         │
+│ ⚠️ No Active Emergency                              │  ← Status banner (green when safe)
 ├─────────────────────────────────────────────────────┤
-│ Message: [________________________________]          │
+│ 🚨 Emergency Broadcast:                 0/255 chars │
+│ [Enter EMERGENCY message for all kiosks...]         │  ← Red-bordered input
 │                                                      │
-│ [BROADCAST EMERGENCY]  [CLEAR ALL SIGNS]            │
+│        [🚨 BROADCAST EMERGENCY]                      │  ← Confirmation required
+└─────────────────────────────────────────────────────┘
+
+When emergency is active:
+┌─────────────────────────────────────────────────────┐
+│ ⚠️ EMERGENCY ACTIVE: Fire drill - evacuate building │  ← Pulsing red banner
+├─────────────────────────────────────────────────────┤
 │                                                      │
-│ Status: No active emergency broadcast               │
+│        [✓ Clear Emergency]                          │  ← Requires confirmation
 └─────────────────────────────────────────────────────┘
 ```
+
+**Key Features:**
+- Confirmation dialog before broadcasting (prevents accidents)
+- 255 character limit with live counter
+- Persists until explicitly cleared (no auto-expiry)
+- Displays on ALL web kiosks immediately
+- RED flashing banner on kiosks (20% height, persists until cleared)
+- Synchronized with FCM push notifications (when SaaS API is connected)
+
+**API Endpoints:**
+- `POST action.php?action=emergency.broadcast` - Activate (requires CONTROL_RACE_PERMISSION)
+- `POST action.php?action=emergency.clear` - Deactivate (requires CONTROL_RACE_PERMISSION)
+
+**Storage:** `RaceInfo` table, key `emergency-broadcast`, JSON format
 
 ### 7.4 Alert Handler Integration
 
@@ -1006,85 +1051,82 @@ class AlertHandler:
 
 ## 8. Implementation Roadmap
 
-### Phase 1: Foundation (Week 1-2)
+### Phase 1: Foundation ✅ COMPLETE
 
 **Objective**: Basic ESP32 to BetaBrite communication
 
-| Task | Description | Deliverable |
-|------|-------------|-------------|
-| 1.1 | Create MicroPython BetaBrite library | `betabrite.py` module |
-| 1.2 | Port starttimer ESP32 pattern for LED sign | `main.py` base code |
-| 1.3 | Test basic text display over serial | Working prototype |
-| 1.4 | Implement all display modes/colors/effects | Full library |
-| 1.5 | Hardware assembly (ESP32 + MAX3232 + BetaBrite) | One test unit |
+| Task | Description | Status |
+|------|-------------|--------|
+| 1.1 | Create MicroPython BetaBrite library | ✅ `betabrite.py` implemented |
+| 1.2 | Port starttimer ESP32 pattern for LED sign | ✅ `main.py` implemented |
+| 1.3 | Test basic text display over serial | ✅ Working |
+| 1.4 | Implement all display modes/colors/effects | ✅ Full library |
+| 1.5 | Hardware assembly (ESP32 + MAX3232 + BetaBrite) | ✅ Test units built |
 
-**Success Criteria**: Send MQTT message, see text on BetaBrite sign
+### Phase 2: HTTP Discovery + MQTT Content ✅ COMPLETE (v1.1.0)
 
-### Phase 2: MQTT Integration (Week 3-4)
+**Objective**: HTTP-based device discovery (kiosk pattern), MQTT for content
 
-**Objective**: Full MQTT message handling, device discovery, and topic structure
+| Task | Description | Status |
+|------|-------------|--------|
+| 2.1 | Implement HTTP registration endpoint | ✅ `ledsign.php` |
+| 2.2 | Implement HTTP polling for config | ✅ `action.php?query=poll.ledsign` |
+| 2.3 | Create SQLite database schema | ✅ `LedSigns` table |
+| 2.4 | ESP32 HTTP polling for registration | ✅ `main.py` v1.1.0 |
+| 2.5 | ESP32 MQTT connection after zone assignment | ✅ Content delivery only |
+| 2.6 | Implement priority message handling | ✅ Priority queue with timeout |
+| 2.7 | Add OTA update support | ✅ Remote firmware updates |
+| 2.8 | Implement "CONNECTION LOST" display | ✅ Local error on WiFi disconnect |
 
-| Task | Description | Deliverable |
-|------|-------------|-------------|
-| 2.1 | Implement MAC-based identity publishing | Device broadcasts `{MAC}/identity` on connect |
-| 2.2 | Implement unconfigured state | Display MAC address, await zone assignment |
-| 2.3 | Implement config topic subscription | Receive and apply zone assignment |
-| 2.4 | Implement JSON message parsing | Message handler with display_config |
-| 2.5 | Add broadcast topic support | Emergency override (priority 0) |
-| 2.6 | Implement priority message handling | Priority queue with timeout |
-| 2.7 | Add OTA update support | Remote firmware updates |
-| 2.8 | Implement "CONNECTION LOST" display | Local error on WiFi/MQTT disconnect |
+### Phase 3: Admin Dashboard ✅ COMPLETE
 
-**Success Criteria**: Unconfigured device shows MAC, receives zone assignment, displays zone content
+**Objective**: Web UI for device discovery and zone mapping
 
-### Phase 3: Race Server Integration (Week 5-6)
+| Task | Description | Status |
+|------|-------------|--------|
+| 3.1 | Create admin dashboard page | ✅ `ledsign-dashboard.php` |
+| 3.2 | Implement zone dropdown assignment | ✅ Real-time zone selection |
+| 3.3 | Add zone summary table | ✅ Shows all zones with assignments |
+| 3.4 | Real-time polling (2s intervals) | ✅ `ledsign-dashboard.js` |
+| 3.5 | Add navigation link from index.php | ✅ "LED Signs" button |
+| 3.6 | Backend test script | ✅ `website/tests/test-ledsign-backend.sh` |
+
+### Phase 4: Race Server Integration (NEXT)
 
 **Objective**: Integrate LED signs into race event flow
 
-| Task | Description | Deliverable |
-|------|-------------|-------------|
-| 3.1 | Add LED pathway to `derbyRace.py` | `LEDSignManager` class |
-| 3.2 | Implement device registry (`ledsign_devices.json`) | Track MAC→zone mappings |
-| 3.3 | Subscribe to device identity topics | Auto-discover new devices |
-| 3.4 | Push zone config on device connect | Retained config messages |
-| 3.5 | Implement starter sign race state updates | Automatic updates |
-| 3.6 | Implement usher sign lane assignments | Per-lane pinny + name (JohnS format) |
-| 3.7 | Implement finish sign race results | Times display (mm:ss.nnn format) |
-| 3.8 | Integrate with AlertHandler for errors | Error display on starter |
-| 3.9 | Add telemetry/heartbeat monitoring | Health tracking, non-blocking warnings |
+| Task | Description | Status |
+|------|-------------|--------|
+| 4.1 | Add LED pathway to `derbyRace.py` | ⏳ Pending |
+| 4.2 | Implement starter sign race state updates | ⏳ Pending |
+| 4.3 | Implement usher sign lane assignments | ⏳ Pending |
+| 4.4 | Implement finish sign race results | ⏳ Pending |
+| 4.5 | Integrate with AlertHandler for errors | ⏳ Pending |
+| 4.6 | Add telemetry/heartbeat monitoring | ⏳ Pending |
 
-**Success Criteria**: Signs update automatically during race flow, devices auto-discovered and configured
+**Success Criteria**: Signs update automatically during race flow
 
-### Phase 4: Content Management (Week 7-8)
+### Phase 5: Content Management
 
 **Objective**: Sponsor ads and audience content
 
-| Task | Description | Deliverable |
-|------|-------------|-------------|
-| 4.1 | Implement sponsor JSON config loading | Race server reads `sponsors.json` |
-| 4.2 | Publish sponsors to MQTT on startup | `derbynet/ledsign/sponsors/rotation` |
-| 4.3 | Implement sponsor rotation on ESP32 | Content cycler with duration support |
-| 4.4 | Add predefined audience messages | Message library in config |
-| 4.5 | Build coordinator broadcast UI | Emergency controls (Race Coordinator only) |
-| 4.6 | Implement device discovery/mapping UI | Basic web interface for MAC→zone assignment |
+| Task | Description | Status |
+|------|-------------|--------|
+| 5.1 | Implement sponsor JSON config loading | ⏳ Pending |
+| 5.2 | Publish sponsors to MQTT on startup | ⏳ Pending |
+| 5.3 | Implement sponsor rotation on ESP32 | ⏳ Pending |
+| 5.4 | Build coordinator emergency broadcast UI | ✅ Complete (see 7.3) |
 
-**Success Criteria**: Sponsors rotate during idle, coordinator can broadcast, devices can be mapped via web UI
-
-> **Future Enhancement**: Move sponsor management and device mapping to Settings UI for better UX
-
-### Phase 5: Production Deployment (Week 9-10)
+### Phase 6: Production Deployment
 
 **Objective**: Field deployment and refinement
 
-| Task | Description | Deliverable |
-|------|-------------|-------------|
-| 5.1 | Build production ESP32 units | Hardware fleet |
-| 5.2 | Create deployment documentation | Setup guide |
-| 5.3 | Field test at practice race event | Validation |
-| 5.4 | Refine timing and display parameters | Tuned config |
-| 5.5 | Create backup/recovery procedures | Ops documentation |
-
-**Success Criteria**: Reliable operation during race event
+| Task | Description | Status |
+|------|-------------|--------|
+| 6.1 | Build production ESP32 units | ⏳ Pending |
+| 6.2 | Create deployment documentation | ⏳ Pending |
+| 6.3 | Field test at practice race event | ⏳ Pending |
+| 6.4 | Refine timing and display parameters | ⏳ Pending |
 
 ---
 
@@ -1282,5 +1324,5 @@ def format_race_time(seconds: float) -> str:
 
 ---
 
-**Document Status**: Decisions Finalized - Ready for Phase 1 Implementation
-**Next Steps**: Begin Phase 1 - ESP32 BetaBrite library development and basic communication testing
+**Document Status**: Phases 1-3 Complete - HTTP Discovery + Admin Dashboard Implemented
+**Next Steps**: Phase 4 - Race Server Integration (connect LED signs to race event flow)

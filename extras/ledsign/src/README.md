@@ -2,6 +2,36 @@
 
 MicroPython firmware for ESP32-based BetaBrite LED sign controllers.
 
+## Architecture (v1.1.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        LED SIGN LIFECYCLE                                │
+│                                                                         │
+│  1. DISCOVERY (HTTP)           2. CONFIGURATION (HTTP)                  │
+│  ┌─────────┐                   ┌─────────┐                              │
+│  │  ESP32  │ ──GET /ledsign.php?mac=AA:BB:CC:DD:EE:FF──► │  DerbyNet │  │
+│  │         │ ◄──── JSON: {zone: null, status: "identify"} │  Server  │  │
+│  └─────────┘                   └─────────┘                              │
+│       │                             │                                   │
+│       │ Poll every 5s               │ Admin assigns zone via dashboard  │
+│       ▼                             ▼                                   │
+│  ┌─────────┐                   ┌─────────┐                              │
+│  │  ESP32  │ ──GET poll.ledsign&mac=...──────────────────► │  DerbyNet │ │
+│  │         │ ◄──── JSON: {zone: "starter", mqtt_topics: {...}} │ Server│ │
+│  └─────────┘                   └─────────┘                              │
+│       │                                                                 │
+│       │ 3. CONTENT DELIVERY (MQTT) - only after zone assigned           │
+│       ▼                                                                 │
+│  ┌─────────┐    subscribe: derbynet/ledsign/starter/message            │
+│  │  ESP32  │ ◄─────────────────────────────────────────── MQTT Broker  │
+│  │         │    subscribe: derbynet/ledsign/broadcast                   │
+│  └─────────┘                                                            │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key Principle:** HTTP for discovery/config (self-identify like kiosks), MQTT only for real-time content delivery after zone assignment.
+
 ## Files
 
 | File | Purpose |
@@ -108,19 +138,54 @@ Booting...
 
 | State | LED Sign Display | Description |
 |-------|------------------|-------------|
-| UNCONFIGURED | `SETUP:AABBCCDD` | Awaiting zone assignment |
-| CONFIGURED | Zone content | Normal operation |
-| OFFLINE | `CONNECTION LOST` | WiFi/MQTT disconnected |
+| UNCONFIGURED | `SETUP:AABBCCDD` | Polling HTTP, awaiting zone assignment |
+| CONFIGURED | Zone content | Zone assigned, MQTT connected for content |
+| OFFLINE | `CONNECTION LOST` | WiFi disconnected |
 
-### Configuration via MQTT
+### HTTP-Based Discovery
 
-Assign a zone to a device:
+When the device boots, it:
+1. Connects to WiFi
+2. Polls `GET /ledsign.php?mac=AA:BB:CC:DD:EE:FF&ip=192.168.x.x&version=1.1.0`
+3. Receives JSON response with zone assignment (if any)
+4. Once zone is assigned, connects to MQTT for content delivery
 
-```bash
-# Publish zone assignment (retained)
-mosquitto_pub -h 192.168.100.10 \
-  -t "derbynet/ledsign/device/AABBCCDDEEFF/config" \
-  -r -m '{"zone": "starter", "display_name": "Start Line"}'
+### Configuration via Admin Dashboard
+
+Zone assignment is managed through the DerbyNet admin interface:
+1. Open `http://derbynet-server/ledsign-dashboard.php`
+2. Discovered signs appear automatically (via HTTP polling)
+3. Select a zone from the dropdown for each sign
+4. Device receives zone on next HTTP poll (within 5 seconds)
+
+### HTTP Endpoints Used
+
+```
+# Registration (device → server)
+GET /ledsign.php?mac=AA:BB:CC:DD:EE:FF&ip=192.168.100.150&version=1.1.0
+
+# Response (unconfigured):
+{
+  "mac": "AA:BB:CC:DD:EE:FF",
+  "zone": null,
+  "status": "identify",
+  "poll_interval": 5,
+  "mqtt_broker": "192.168.100.10",
+  "mqtt_port": 1883
+}
+
+# Response (configured):
+{
+  "mac": "AA:BB:CC:DD:EE:FF",
+  "zone": "starter",
+  "zone_display_name": "Start Line",
+  "status": "configured",
+  "mqtt_broker": "192.168.100.10",
+  "mqtt_topics": {
+    "content": "derbynet/ledsign/starter/message",
+    "broadcast": "derbynet/ledsign/broadcast"
+  }
+}
 ```
 
 ### Send Test Message
@@ -189,10 +254,27 @@ mosquitto_pub -h 192.168.100.10 \
 - Ensure ESP32 is within WiFi range
 - Verify WiFi network is 2.4GHz (ESP32 doesn't support 5GHz)
 
-### MQTT Connection Issues
+### HTTP Registration Issues
 
+- Verify DerbyNet server is running and accessible
+- Check `DERBYNET_SERVER` and `DERBYNET_PORT` in `config.py`
+- Test registration endpoint manually:
+  ```bash
+  curl "http://192.168.100.10/ledsign.php?mac=AA:BB:CC:DD:EE:FF&ip=192.168.1.100&version=1.1.0"
+  ```
+- Check DerbyNet PHP error logs if registration fails
+- Device should show `SETUP:XXXXXXXX` when waiting for zone assignment
+
+### Zone Not Appearing in Dashboard
+
+- Ensure device is polling (check serial console for HTTP registration logs)
+- Verify device is on same network as DerbyNet server
+- Signs disappear from dashboard after 60 seconds without polling
+
+### MQTT Connection Issues (Content Delivery)
+
+- MQTT is only used after zone assignment - check HTTP registration first
 - Verify MQTT broker is running: `systemctl status mosquitto`
-- Check broker IP in `config.py`
 - Test connectivity: `mosquitto_sub -h 192.168.100.10 -t '#' -v`
 
 ### BetaBrite Not Displaying
@@ -217,4 +299,9 @@ Consider removing `test_betabrite.py` from production devices.
 
 ## Version History
 
+- **1.1.0** - HTTP-based discovery and configuration (mirrors kiosk pattern)
+  - Device registration via HTTP polling (`/ledsign.php`)
+  - Zone assignment via DerbyNet admin dashboard
+  - MQTT now only used for content delivery after zone assignment
+  - Simplified architecture: HTTP for config, MQTT for content
 - **1.0.0** - Initial release with full MQTT integration and zone support

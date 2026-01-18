@@ -2,13 +2,18 @@
 DerbyNet LED Sign Controller - Main Firmware
 
 Single agnostic firmware for all LED sign controllers. Uses MAC address
-as unique identifier. Zone assignment and configuration managed via MQTT.
+as unique identifier. Zone assignment and configuration managed via HTTP polling.
+MQTT used only for real-time content delivery after zone assignment.
 
-Version: 1.0.0
+Version: 1.1.0
+
+Architecture:
+- HTTP polling (every 5s) for device discovery and zone configuration
+- MQTT for real-time message delivery (after zone is assigned)
 
 Device States:
-- UNCONFIGURED: Display MAC address, await zone assignment
-- CONFIGURED: Display zone content, subscribed to zone topics
+- UNCONFIGURED: Poll HTTP for zone assignment, display MAC address
+- CONFIGURED: Connected to MQTT, subscribed to zone topics
 - OFFLINE: Display "CONNECTION LOST", attempt reconnection
 
 Hardware:
@@ -28,6 +33,8 @@ from umqtt.simple import MQTTClient
 # Local imports
 from config import (
     WIFI_SSID, WIFI_PASSWORD,
+    DERBYNET_SERVER, DERBYNET_PORT,
+    HTTP_REGISTER_ENDPOINT, HTTP_POLL_ENDPOINT, HTTP_POLL_INTERVAL,
     DEFAULT_MQTT_BROKER, MQTT_PORT,
     TOPIC_PREFIX, DEVICE_TOPIC_PREFIX,
     SERIAL_BAUDRATE, SERIAL_TX_PIN, SERIAL_RX_PIN,
@@ -62,7 +69,11 @@ sign = None  # BetaBrite instance
 # Network
 wlan = None
 mqtt_client = None
+mqtt_connected = False
+
+# Server configuration (from HTTP response)
 mqtt_broker = DEFAULT_MQTT_BROKER
+mqtt_topics = {}  # MQTT topics from HTTP config response
 
 # Device identity
 mac_address = None
@@ -75,6 +86,7 @@ zone_display_name = None
 
 # Timing
 boot_time = 0
+last_http_poll = 0
 last_telemetry = 0
 last_identity = 0
 
@@ -216,50 +228,158 @@ def check_wifi():
 
 
 # =============================================================================
-# mDNS Service Discovery
+# HTTP Polling for Registration and Configuration
 # =============================================================================
 
-def discover_mqtt_broker():
-    """Attempt to discover MQTT broker via mDNS"""
-    global mqtt_broker
+def http_register():
+    """Register device with DerbyNet server via HTTP"""
+    global mqtt_broker, assigned_zone, zone_display_name, mqtt_topics
+    global device_state, last_http_poll
+
+    import urequests
+
+    ip = wlan.ifconfig()[0] if wlan else "0.0.0.0"
+
+    # Build registration URL
+    url = f"http://{DERBYNET_SERVER}:{DERBYNET_PORT}{HTTP_REGISTER_ENDPOINT}"
+    url += f"?mac={mac_address}&ip={ip}&version={VERSION}"
+
+    log(f"HTTP registration: {url}")
 
     try:
-        import mdns
-        log("Attempting mDNS service discovery...")
+        response = urequests.get(url, timeout=10)
 
-        server = mdns.Server()
-        services = server.query("_derbynet._tcp.local.")
+        if response.status_code == 200:
+            data = response.json()
+            response.close()
 
-        if services:
-            service = services[0]
-            mqtt_broker = service.ip()
-            log(f"Discovered MQTT broker via mDNS: {mqtt_broker}")
+            log(f"HTTP registration response: {data}")
+            last_http_poll = get_timestamp()
+
+            # Extract MQTT broker configuration
+            if 'mqtt_broker' in data:
+                mqtt_broker = data['mqtt_broker']
+                log(f"MQTT broker from server: {mqtt_broker}")
+
+            # Check for zone assignment
+            zone = data.get('zone')
+            status = data.get('status', 'identify')
+
+            if zone:
+                # Zone assigned!
+                old_zone = assigned_zone
+                assigned_zone = zone
+                zone_display_name = data.get('zone_display_name', zone)
+
+                # Get MQTT topics
+                if 'mqtt_topics' in data:
+                    mqtt_topics = data['mqtt_topics']
+                    log(f"MQTT topics: {mqtt_topics}")
+
+                if old_zone != zone:
+                    log(f"Zone assigned: {assigned_zone} ({zone_display_name})")
+                    device_state = STATE_CONFIGURED
+                    sign.write_text(f"ZONE: {zone_display_name}", mode='hold', color='green', charset='7high')
+                    time.sleep(2)
+                    return True
+
+            elif status == 'identify':
+                # Still unconfigured - show MAC for identification
+                if device_state != STATE_UNCONFIGURED:
+                    device_state = STATE_UNCONFIGURED
+                    show_unconfigured()
+
             return True
+
         else:
-            log("No mDNS services found, using default broker")
+            log(f"HTTP registration failed: {response.status_code}", "ERROR")
+            response.close()
             return False
 
-    except ImportError:
-        log("mDNS library not available, using default broker")
-        return False
     except Exception as e:
-        log(f"mDNS discovery error: {e}", "ERROR")
+        log(f"HTTP registration error: {e}", "ERROR")
+        return False
+
+
+def http_poll_config():
+    """Poll for configuration changes via HTTP"""
+    global assigned_zone, zone_display_name, mqtt_topics, device_state
+    global last_http_poll
+
+    import urequests
+
+    # Build poll URL
+    url = f"http://{DERBYNET_SERVER}:{DERBYNET_PORT}{HTTP_POLL_ENDPOINT}"
+    url += f"?query=poll.ledsign&mac={mac_address}"
+
+    try:
+        response = urequests.get(url, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            response.close()
+
+            last_http_poll = get_timestamp()
+
+            # Check ledsign data
+            ledsign_data = data.get('ledsign', {})
+            new_zone = ledsign_data.get('zone')
+            status = ledsign_data.get('status', 'identify')
+
+            # Handle zone change
+            if new_zone != assigned_zone:
+                if new_zone:
+                    # Zone assigned or changed
+                    assigned_zone = new_zone
+                    zone_display_name = ledsign_data.get('zone_display_name', new_zone)
+                    mqtt_topics = ledsign_data.get('mqtt_topics', {})
+
+                    log(f"Zone changed to: {assigned_zone}")
+                    device_state = STATE_CONFIGURED
+                    sign.write_text(f"ZONE: {zone_display_name}", mode='hold', color='green', charset='7high')
+                    time.sleep(2)
+
+                    # Need to reconnect MQTT with new zone topics
+                    return 'zone_changed'
+
+                else:
+                    # Zone removed
+                    assigned_zone = None
+                    zone_display_name = None
+                    mqtt_topics = {}
+                    device_state = STATE_UNCONFIGURED
+                    log("Zone unassigned")
+                    show_unconfigured()
+                    return 'zone_removed'
+
+            return True
+
+        else:
+            log(f"HTTP poll failed: {response.status_code}", "WARN")
+            response.close()
+            return False
+
+    except Exception as e:
+        log(f"HTTP poll error: {e}", "WARN")
         return False
 
 
 # =============================================================================
-# MQTT Connection and Handlers
+# MQTT Connection (for content delivery only)
 # =============================================================================
 
 def connect_mqtt():
-    """Connect to MQTT broker"""
-    global mqtt_client
+    """Connect to MQTT broker for content delivery"""
+    global mqtt_client, mqtt_connected
+
+    if not assigned_zone:
+        log("Skipping MQTT - no zone assigned")
+        return False
 
     # Generate client ID
     client_id = f"ledsign-{device_id}"
 
     log(f"Connecting to MQTT broker: {mqtt_broker}:{MQTT_PORT}")
-    sign.write_text("MQTT...", mode='hold', color='amber', charset='7high')
 
     attempt = 0
     while True:
@@ -280,16 +400,14 @@ def connect_mqtt():
 
             # Connect
             mqtt_client.connect()
+            mqtt_connected = True
             log("MQTT connected")
 
-            # Subscribe to device-specific topics
-            subscribe_device_topics()
+            # Subscribe to zone-specific topics
+            subscribe_zone_topics()
 
             # Publish online status
             publish_status("online")
-
-            # Publish identity for discovery
-            publish_identity()
 
             wdt.feed()
             return True
@@ -299,48 +417,57 @@ def connect_mqtt():
             attempt += 1
             delay = exponential_backoff(attempt)
 
-            if attempt > 10:
-                log("MQTT connection failed after 10 attempts", "ERROR")
-                sign.write_text("MQTT FAILED", mode='flash', color='red', charset='7high')
-                time.sleep(5)
-                machine.reset()
-
-            # Try mDNS rediscovery every 3 attempts
-            if attempt % 3 == 0:
-                discover_mqtt_broker()
+            if attempt > 5:
+                log("MQTT connection failed after 5 attempts", "ERROR")
+                mqtt_connected = False
+                return False
 
             time.sleep(delay)
             wdt.feed()
 
 
-def subscribe_device_topics():
-    """Subscribe to device-specific MQTT topics"""
-    global mqtt_client
+def disconnect_mqtt():
+    """Disconnect from MQTT broker"""
+    global mqtt_client, mqtt_connected
 
-    # Topics all devices subscribe to (before zone assignment)
-    topics = [
-        f"{DEVICE_TOPIC_PREFIX}/{device_id}/config",    # Zone assignment
-        f"{DEVICE_TOPIC_PREFIX}/{device_id}/message",   # Direct messages
-        f"{DEVICE_TOPIC_PREFIX}/{device_id}/update",    # OTA updates
-        f"{TOPIC_PREFIX}/broadcast",                     # Emergency broadcast
-    ]
+    if mqtt_client and mqtt_connected:
+        try:
+            publish_status("offline")
+            mqtt_client.disconnect()
+        except Exception:
+            pass
 
-    for topic in topics:
-        mqtt_client.subscribe(topic)
-        log(f"Subscribed: {topic}")
+    mqtt_connected = False
+    mqtt_client = None
+    log("MQTT disconnected")
 
 
 def subscribe_zone_topics():
-    """Subscribe to zone-specific topics after configuration"""
-    global mqtt_client, assigned_zone
+    """Subscribe to zone-specific MQTT topics"""
+    global mqtt_client, mqtt_topics
 
-    if not assigned_zone:
+    if not mqtt_client or not assigned_zone:
         return
 
-    # Zone message topic
-    zone_topic = f"{TOPIC_PREFIX}/{assigned_zone}/message"
-    mqtt_client.subscribe(zone_topic)
-    log(f"Subscribed to zone: {zone_topic}")
+    # Subscribe to content topic from HTTP config
+    content_topic = mqtt_topics.get('content', f"{TOPIC_PREFIX}/{assigned_zone}/message")
+    mqtt_client.subscribe(content_topic)
+    log(f"Subscribed: {content_topic}")
+
+    # Subscribe to broadcast topic
+    broadcast_topic = mqtt_topics.get('broadcast', f"{TOPIC_PREFIX}/broadcast")
+    mqtt_client.subscribe(broadcast_topic)
+    log(f"Subscribed: {broadcast_topic}")
+
+    # Device-specific direct message topic
+    direct_topic = f"{DEVICE_TOPIC_PREFIX}/{device_id}/message"
+    mqtt_client.subscribe(direct_topic)
+    log(f"Subscribed: {direct_topic}")
+
+    # Device-specific update topic (OTA)
+    update_topic = f"{DEVICE_TOPIC_PREFIX}/{device_id}/update"
+    mqtt_client.subscribe(update_topic)
+    log(f"Subscribed: {update_topic}")
 
     # Special subscriptions based on zone type
     if assigned_zone.startswith('usher-lane'):
@@ -359,7 +486,6 @@ def subscribe_zone_topics():
 
 def on_mqtt_message(topic, msg):
     """Handle incoming MQTT messages"""
-    global device_state, assigned_zone, zone_display_name
     global priority_active, priority_expires
     global current_message, current_config
 
@@ -375,13 +501,10 @@ def on_mqtt_message(topic, msg):
             payload = msg.decode('utf-8')
 
         # Route message based on topic
-        if topic_str.endswith('/config'):
-            handle_config_message(payload)
-
-        elif topic_str.endswith('/message') or topic_str == f"{TOPIC_PREFIX}/{assigned_zone}/message":
+        if topic_str.endswith('/message') or topic_str == f"{TOPIC_PREFIX}/{assigned_zone}/message":
             handle_display_message(payload)
 
-        elif topic_str == f"{TOPIC_PREFIX}/broadcast":
+        elif topic_str == f"{TOPIC_PREFIX}/broadcast" or topic_str.endswith('/broadcast'):
             handle_broadcast_message(payload)
 
         elif topic_str.endswith('/update'):
@@ -398,36 +521,6 @@ def on_mqtt_message(topic, msg):
 
     except Exception as e:
         log(f"Error handling message: {e}", "ERROR")
-
-
-def handle_config_message(payload):
-    """Handle zone configuration message"""
-    global device_state, assigned_zone, zone_display_name
-
-    log(f"Config received: {payload}")
-
-    if isinstance(payload, dict):
-        new_zone = payload.get('zone')
-        display_name = payload.get('display_name', new_zone)
-
-        if new_zone:
-            assigned_zone = new_zone
-            zone_display_name = display_name
-            device_state = STATE_CONFIGURED
-
-            # Subscribe to zone-specific topics
-            subscribe_zone_topics()
-
-            # Show confirmation
-            sign.write_text(f"CONFIGURED: {display_name}", mode='hold', color='green', charset='7high')
-            log(f"Zone assigned: {assigned_zone} ({display_name})")
-            time.sleep(2)
-
-            # Publish updated identity
-            publish_identity()
-
-            # Show ready state for zone
-            show_zone_ready()
 
 
 def handle_display_message(payload):
@@ -578,42 +671,25 @@ def handle_sponsor_rotation(payload):
 
 
 # =============================================================================
-# MQTT Publishing
+# MQTT Publishing (telemetry only when connected)
 # =============================================================================
 
 def publish_status(status):
     """Publish device status"""
+    if not mqtt_client or not mqtt_connected:
+        return
+
     topic = f"{DEVICE_TOPIC_PREFIX}/{device_id}/status"
     mqtt_client.publish(topic, status, retain=True, qos=1)
     log(f"Status published: {status}")
 
 
-def publish_identity():
-    """Publish device identity for discovery"""
-    global last_identity
-
-    topic = f"{DEVICE_TOPIC_PREFIX}/{device_id}/identity"
-
-    identity = {
-        "mac": mac_address,
-        "ip": wlan.ifconfig()[0] if wlan else "0.0.0.0",
-        "version": VERSION,
-        "uptime": uptime_seconds(),
-        "configured": device_state == STATE_CONFIGURED,
-        "zone": assigned_zone,
-        "display_name": zone_display_name,
-        "timestamp": get_timestamp()
-    }
-
-    payload = json.dumps(identity)
-    mqtt_client.publish(topic, payload, retain=True, qos=1)
-    last_identity = get_timestamp()
-    log("Identity published")
-
-
 def publish_telemetry():
     """Publish device telemetry"""
     global last_telemetry
+
+    if not mqtt_client or not mqtt_connected:
+        return
 
     topic = f"{DEVICE_TOPIC_PREFIX}/{device_id}/telemetry"
 
@@ -707,7 +783,8 @@ def perform_ota_update():
     """Perform OTA firmware update"""
     import urequests
 
-    publish_status("updating")
+    if mqtt_connected:
+        publish_status("updating")
 
     files_to_update = [
         (OTA_FIRMWARE_FILE, '/main.py'),
@@ -742,13 +819,12 @@ def perform_ota_update():
 
 def main_loop():
     """Main application loop"""
-    global last_telemetry, last_identity
+    global last_http_poll, last_telemetry, mqtt_connected
 
     log("Entering main loop")
 
     # Show initial state
-    if device_state == STATE_UNCONFIGURED:
-        show_unconfigured()
+    show_unconfigured()
 
     while True:
         try:
@@ -758,32 +834,53 @@ def main_loop():
             if not check_wifi():
                 continue
 
-            # Check MQTT connection
-            try:
-                mqtt_client.check_msg()
-            except Exception as e:
-                log(f"MQTT error: {e}", "ERROR")
-                update_display_offline()
+            now = get_timestamp()
+
+            # HTTP polling for registration and configuration (every 5 seconds)
+            if now - last_http_poll >= HTTP_POLL_INTERVAL:
+                if device_state == STATE_UNCONFIGURED:
+                    # Initial registration
+                    result = http_register()
+
+                    # If zone was assigned, connect to MQTT
+                    if assigned_zone and not mqtt_connected:
+                        connect_mqtt()
+                        show_zone_ready()
+                else:
+                    # Poll for configuration changes
+                    result = http_poll_config()
+
+                    if result == 'zone_changed':
+                        # Zone changed - reconnect MQTT with new subscriptions
+                        disconnect_mqtt()
+                        connect_mqtt()
+                        show_zone_ready()
+                    elif result == 'zone_removed':
+                        # Zone removed - disconnect MQTT
+                        disconnect_mqtt()
+
+            # If configured, handle MQTT messages
+            if mqtt_connected and mqtt_client:
+                try:
+                    mqtt_client.check_msg()
+                except Exception as e:
+                    log(f"MQTT error: {e}", "ERROR")
+                    mqtt_connected = False
+                    # Will reconnect on next iteration if still configured
+
+            # Reconnect MQTT if configured but disconnected
+            if device_state == STATE_CONFIGURED and assigned_zone and not mqtt_connected:
                 connect_mqtt()
-                continue
 
             # Check priority message timeout
             check_priority_timeout()
 
-            # Periodic telemetry
-            now = get_timestamp()
-            if now - last_telemetry >= TELEMETRY_INTERVAL:
+            # Periodic telemetry (MQTT only when connected)
+            if mqtt_connected and now - last_telemetry >= TELEMETRY_INTERVAL:
                 try:
                     publish_telemetry()
                 except Exception as e:
                     log(f"Telemetry error: {e}", "ERROR")
-
-            # Periodic identity broadcast (for discovery)
-            if now - last_identity >= IDENTITY_INTERVAL:
-                try:
-                    publish_identity()
-                except Exception as e:
-                    log(f"Identity error: {e}", "ERROR")
 
             # Small delay to prevent busy loop
             time.sleep(0.1)
@@ -804,6 +901,7 @@ def main():
     """Application entry point"""
     log(f"DerbyNet LED Sign Controller v{VERSION}")
     log("=" * 40)
+    log("Architecture: HTTP discovery + MQTT content")
 
     try:
         # Initialize hardware
@@ -812,13 +910,7 @@ def main():
         # Connect to WiFi
         connect_wifi()
 
-        # Discover MQTT broker (mDNS)
-        discover_mqtt_broker()
-
-        # Connect to MQTT
-        connect_mqtt()
-
-        # Run main loop
+        # Run main loop (HTTP polling handles registration and configuration)
         main_loop()
 
     except Exception as e:
