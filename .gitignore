@@ -55,4 +55,4 @@ UniServerZ/*
 settings.jsonsw
 *.pyc
 *.log
-derbynet.sqlite3
+derbynet.sqlite3.claude/settings.local.json
