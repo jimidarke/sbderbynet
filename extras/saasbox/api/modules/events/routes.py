@@ -528,6 +528,15 @@ async def sync_event_data(
 
         await db.commit()
 
+        # Trigger FCM notifications (non-blocking, errors don't fail sync)
+        await _trigger_sync_notifications(
+            db=db,
+            event_id=event_id,
+            body=body,
+            heat_id_map=heat_id_map,
+            racer_id_map=racer_id_map,
+        )
+
         # Get counts for response
         racer_count = (await db.execute(
             select(func.count()).where(Racer.event_id == event_id)
@@ -630,3 +639,130 @@ async def get_sync_status(
         heat_count=heat_count,
         result_count=result_count,
     ))
+
+
+# -----------------------------------------------------------------------------
+# Notification Trigger Helpers
+# -----------------------------------------------------------------------------
+
+
+async def _trigger_sync_notifications(
+    db: AsyncSession,
+    event_id: str,
+    body: "EventSyncData",
+    heat_id_map: dict[tuple[int, int], str],
+    racer_id_map: dict[int, str],
+) -> None:
+    """
+    Trigger FCM notifications based on sync data.
+
+    This is called after a successful sync to:
+    1. Send staging notifications for upcoming heats
+    2. Send result notifications for completed heats
+
+    Errors are logged but don't fail the sync operation.
+    """
+    import logging
+    from app.redis_client import get_redis
+    from services.notifications import NotificationTriggers
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        redis = await get_redis()
+        triggers = NotificationTriggers(db=db, redis=redis)
+
+        # Find current heat number
+        current_heat_number = 0
+        for heat in body.heats:
+            if heat.is_current:
+                current_heat_number = heat.heat_number
+                break
+
+        # Build scheduled heats for staging notifications
+        # Only if we have a current heat (race is in progress)
+        if current_heat_number > 0:
+            # Group results by heat to know which heats are scheduled vs completed
+            heats_with_results: set[tuple[int, int]] = set()
+            for result in body.results:
+                if result.finish_time is not None:
+                    heats_with_results.add((result.derbynet_round_id, result.heat_number))
+
+            # Build scheduled heats with racer assignments
+            scheduled_heats = []
+            for heat in body.heats:
+                heat_key = (heat.derbynet_round_id, heat.heat_number)
+                # Include heats that are not yet completed
+                if heat_key not in heats_with_results:
+                    # Get racers assigned to this heat from results (which have lane info)
+                    heat_racers = []
+                    for result in body.results:
+                        if (result.derbynet_round_id == heat.derbynet_round_id
+                                and result.heat_number == heat.heat_number):
+                            racer_id = racer_id_map.get(result.derbynet_racer_id)
+                            if racer_id:
+                                heat_racers.append({
+                                    "id": racer_id,
+                                    "lane": result.lane,
+                                })
+
+                    if heat_racers:
+                        scheduled_heats.append({
+                            "heat_number": heat.heat_number,
+                            "racers": heat_racers,
+                        })
+
+            # Trigger staging notifications
+            if scheduled_heats:
+                staging_result = await triggers.on_heat_schedule_updated(
+                    event_id=event_id,
+                    current_heat_number=current_heat_number,
+                    scheduled_heats=scheduled_heats,
+                )
+                logger.info(
+                    f"Staging notifications triggered: event={event_id} "
+                    f"sent={staging_result.sent} skipped={staging_result.skipped}"
+                )
+
+        # Trigger result notifications for completed heats with new results
+        # Group results by heat and send notifications for heats with finish times
+        completed_heats: dict[str, list[dict]] = {}
+        for result in body.results:
+            # Only notify for results that have finish times (completed races)
+            if result.finish_time is not None:
+                heat_key = (result.derbynet_round_id, result.heat_number)
+                heat_id = heat_id_map.get(heat_key)
+                racer_id = racer_id_map.get(result.derbynet_racer_id)
+
+                if heat_id and racer_id:
+                    if heat_id not in completed_heats:
+                        completed_heats[heat_id] = []
+                    completed_heats[heat_id].append({
+                        "racer_id": racer_id,
+                        "place": result.finish_place,
+                        "time": result.finish_time,
+                    })
+
+        # Send result notifications for each completed heat
+        for heat_id, results in completed_heats.items():
+            try:
+                result_result = await triggers.on_heat_completed(
+                    event_id=event_id,
+                    heat_id=heat_id,
+                    results=results,
+                )
+                logger.info(
+                    f"Result notifications triggered: event={event_id} heat={heat_id} "
+                    f"sent={result_result.sent} skipped={result_result.skipped}"
+                )
+            except Exception as e:
+                logger.error(f"Result notification failed for heat {heat_id}: {e}")
+
+    except Exception as e:
+        # Log but don't fail the sync
+        logger.error(f"Notification triggers failed: {e}")
+        await alert_manager.system_error(
+            error=f"Notification triggers failed: {e}",
+            request_id=None,
+            traceback=str(e),
+        )

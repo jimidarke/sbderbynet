@@ -1044,3 +1044,569 @@ class TestUserIsolation:
         data2 = response2.json()["data"]["notifications"]
         assert len(data2) == 1
         assert data2[0]["notification_type"] == "poll_new"
+
+
+# =============================================================================
+# NotificationTriggers Tests (Phase 5.2)
+# =============================================================================
+
+
+class TestMessageTemplates:
+    """Tests for message template functions."""
+
+    def test_format_racer_name_with_last_name(self):
+        """Test racer name formatting for PII protection."""
+        from services.notifications.triggers import format_racer_name
+
+        result = format_racer_name("John", "Smith")
+        assert result == "John S."
+
+    def test_format_racer_name_without_last_name(self):
+        """Test racer name formatting when no last name."""
+        from services.notifications.triggers import format_racer_name
+
+        result = format_racer_name("John", "")
+        assert result == "John"
+
+    def test_format_time_normal(self):
+        """Test time formatting for normal race times."""
+        from services.notifications.triggers import format_time
+
+        result = format_time(32.456)
+        assert result == "00:32.456"
+
+    def test_format_time_dnf(self):
+        """Test time formatting for DNF."""
+        from services.notifications.triggers import format_time
+
+        assert format_time(None) == "DNF"
+        assert format_time(99.999) == "DNF"
+
+    def test_truncate_within_limit(self):
+        """Test truncate with text within limit."""
+        from services.notifications.triggers import truncate
+
+        result = truncate("Short text", 50)
+        assert result == "Short text"
+
+    def test_truncate_exceeds_limit(self):
+        """Test truncate with text exceeding limit."""
+        from services.notifications.triggers import truncate
+
+        long_text = "A" * 60
+        result = truncate(long_text, 50)
+        assert len(result) == 50
+        assert result.endswith("...")
+
+    def test_build_staging_message_now(self):
+        """Test staging message when racer is racing now."""
+        from services.notifications.triggers import build_staging_message
+
+        title, body = build_staging_message("Jane S.", 0, 2)
+        assert title == "Jane S. is racing NOW!"
+        assert body == "Lane 2"
+
+    def test_build_staging_message_next(self):
+        """Test staging message when racer is up next."""
+        from services.notifications.triggers import build_staging_message
+
+        title, body = build_staging_message("Jane S.", 1, 3)
+        assert "racing soon" in title
+        assert "Up next" in body
+
+    def test_build_staging_message_multiple_heats(self):
+        """Test staging message when racer is multiple heats away."""
+        from services.notifications.triggers import build_staging_message
+
+        title, body = build_staging_message("Jane S.", 5, 1)
+        assert "racing soon" in title
+        assert "~5 heats away" in body
+
+    def test_build_result_message_winner(self):
+        """Test result message for first place."""
+        from services.notifications.triggers import build_result_message
+
+        title, body = build_result_message("Jane S.", 1, 30.456)
+        assert "won" in title
+        assert "1st place" in body
+
+    def test_build_result_message_second(self):
+        """Test result message for second place."""
+        from services.notifications.triggers import build_result_message
+
+        title, body = build_result_message("Jane S.", 2, 31.234)
+        assert "2nd" in title
+        assert "2nd place" in body
+
+    def test_build_result_message_third(self):
+        """Test result message for third place."""
+        from services.notifications.triggers import build_result_message
+
+        title, body = build_result_message("Jane S.", 3, 32.567)
+        assert "3rd" in title
+        assert "3rd place" in body
+
+    def test_build_result_message_other(self):
+        """Test result message for other places."""
+        from services.notifications.triggers import build_result_message
+
+        title, body = build_result_message("Jane S.", 4, 33.123)
+        assert "finished" in title
+        assert "Time:" in body
+
+    def test_build_poll_new_message(self):
+        """Test new poll notification message."""
+        from services.notifications.triggers import build_poll_new_message
+
+        title, body = build_poll_new_message("Which car is the best looking?")
+        assert title == "New Poll Available!"
+        assert "best looking" in body
+
+    def test_build_poll_result_message(self):
+        """Test poll result notification message."""
+        from services.notifications.triggers import build_poll_result_message
+
+        title, body = build_poll_result_message("Car #42 - The Flash")
+        assert title == "Poll Results Are In!"
+        assert "Car #42" in body
+
+    def test_build_prediction_result_correct(self):
+        """Test prediction result message when correct."""
+        from services.notifications.triggers import build_prediction_result_message
+
+        title, body = build_prediction_result_message(True, 100)
+        assert "Correct" in title
+        assert "100 points" in body
+
+    def test_build_prediction_result_incorrect(self):
+        """Test prediction result message when incorrect."""
+        from services.notifications.triggers import build_prediction_result_message
+
+        title, body = build_prediction_result_message(False, 0)
+        assert "Better luck" in title
+        assert "leaderboard" in body
+
+    def test_build_purchase_message(self):
+        """Test purchase confirmation message."""
+        from services.notifications.triggers import build_purchase_message
+
+        title, body = build_purchase_message("Digital Photo Package", "$9.99")
+        assert title == "Purchase Confirmed"
+        assert "Digital Photo Package" in body
+        assert "$9.99" in body
+
+
+class TestNotificationTriggersUnit:
+    """Unit tests for NotificationTriggers class."""
+
+    @pytest.mark.asyncio
+    async def test_triggers_disabled_when_fcm_disabled(
+        self,
+        db_session: AsyncSession,
+    ):
+        """Test that triggers return early when FCM is disabled."""
+        from services.notifications.triggers import NotificationTriggers
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = False
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(db=db_session, redis=None, fcm=None)
+
+            result = await triggers.on_heat_schedule_updated(
+                event_id="evt_123",
+                current_heat_number=5,
+                scheduled_heats=[
+                    {"heat_number": 6, "racers": [{"id": "rcr_1", "lane": 1}]}
+                ],
+            )
+
+            assert result.sent == 0
+            assert result.skipped == 0
+
+    @pytest.mark.asyncio
+    async def test_staging_trigger_empty_heats(
+        self,
+        db_session: AsyncSession,
+    ):
+        """Test staging trigger with no upcoming heats."""
+        from services.notifications.triggers import NotificationTriggers
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(db=db_session, redis=None)
+
+            result = await triggers.on_heat_schedule_updated(
+                event_id="evt_123",
+                current_heat_number=5,
+                scheduled_heats=[],  # No heats
+            )
+
+            assert result.sent == 0
+            assert result.skipped == 0
+
+    @pytest.mark.asyncio
+    async def test_result_trigger_empty_results(
+        self,
+        db_session: AsyncSession,
+    ):
+        """Test result trigger with no results."""
+        from services.notifications.triggers import NotificationTriggers
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(db=db_session, redis=None)
+
+            result = await triggers.on_heat_completed(
+                event_id="evt_123",
+                heat_id="ht_123",
+                results=[],
+            )
+
+            assert result.sent == 0
+            assert result.skipped == 0
+
+
+class TestNotificationTriggersIntegration:
+    """Integration tests for notification triggers with database."""
+
+    @pytest.mark.asyncio
+    async def test_staging_trigger_sends_to_favorites(
+        self,
+        db_session: AsyncSession,
+        test_user,
+        test_event,
+        test_racers,
+    ):
+        """Test staging notifications are sent to users with favorites."""
+        from models.engagement import UserFavorite
+        from services.notifications.triggers import NotificationTriggers
+        from services.notifications.fcm_service import SendResult
+
+        # Create favorite for test_user
+        favorite = UserFavorite(
+            user_id=test_user.id,
+            racer_id=test_racers[0].id,
+            notify_upcoming=True,
+            notify_results=True,
+        )
+        db_session.add(favorite)
+        await db_session.commit()
+
+        # Mock FCMService
+        mock_fcm = MagicMock()
+        mock_fcm.send_to_users = AsyncMock(
+            return_value=SendResult(1, 0, [], [])
+        )
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(
+                db=db_session,
+                redis=None,
+                fcm=mock_fcm,
+            )
+
+            result = await triggers.on_heat_schedule_updated(
+                event_id=test_event.id,
+                current_heat_number=5,
+                scheduled_heats=[
+                    {
+                        "heat_number": 6,
+                        "racers": [{"id": test_racers[0].id, "lane": 1}]
+                    }
+                ],
+            )
+
+            assert result.sent == 1
+            mock_fcm.send_to_users.assert_called_once()
+
+            # Verify call arguments
+            call_args = mock_fcm.send_to_users.call_args
+            assert test_user.id in call_args.kwargs["user_ids"]
+            assert "racing soon" in call_args.kwargs["title"]
+
+    @pytest.mark.asyncio
+    async def test_result_trigger_sends_to_favorites(
+        self,
+        db_session: AsyncSession,
+        test_user,
+        test_event,
+        test_heat,
+        test_racers,
+    ):
+        """Test result notifications are sent to users with favorites."""
+        from models.engagement import UserFavorite
+        from services.notifications.triggers import NotificationTriggers
+        from services.notifications.fcm_service import SendResult
+
+        # Create favorite for test_user
+        favorite = UserFavorite(
+            user_id=test_user.id,
+            racer_id=test_racers[0].id,
+            notify_upcoming=True,
+            notify_results=True,
+        )
+        db_session.add(favorite)
+        await db_session.commit()
+
+        # Mock FCMService
+        mock_fcm = MagicMock()
+        mock_fcm.send_to_users = AsyncMock(
+            return_value=SendResult(1, 0, [], [])
+        )
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(
+                db=db_session,
+                redis=None,
+                fcm=mock_fcm,
+            )
+
+            result = await triggers.on_heat_completed(
+                event_id=test_event.id,
+                heat_id=test_heat.id,
+                results=[
+                    {"racer_id": test_racers[0].id, "place": 1, "time": 30.456}
+                ],
+            )
+
+            assert result.sent == 1
+            mock_fcm.send_to_users.assert_called_once()
+
+            # Verify call has winning message
+            call_args = mock_fcm.send_to_users.call_args
+            assert "won" in call_args.kwargs["title"]
+
+    @pytest.mark.asyncio
+    async def test_staging_respects_notify_upcoming_setting(
+        self,
+        db_session: AsyncSession,
+        test_user,
+        test_event,
+        test_racers,
+    ):
+        """Test staging notifications respect notify_upcoming=False."""
+        from models.engagement import UserFavorite
+        from services.notifications.triggers import NotificationTriggers
+
+        # Create favorite with notifications disabled
+        favorite = UserFavorite(
+            user_id=test_user.id,
+            racer_id=test_racers[0].id,
+            notify_upcoming=False,  # Disabled
+            notify_results=True,
+        )
+        db_session.add(favorite)
+        await db_session.commit()
+
+        mock_fcm = MagicMock()
+        mock_fcm.send_to_users = AsyncMock()
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(
+                db=db_session,
+                redis=None,
+                fcm=mock_fcm,
+            )
+
+            result = await triggers.on_heat_schedule_updated(
+                event_id=test_event.id,
+                current_heat_number=5,
+                scheduled_heats=[
+                    {
+                        "heat_number": 6,
+                        "racers": [{"id": test_racers[0].id, "lane": 1}]
+                    }
+                ],
+            )
+
+            # No notifications should be sent
+            assert result.sent == 0
+            mock_fcm.send_to_users.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_result_respects_notify_results_setting(
+        self,
+        db_session: AsyncSession,
+        test_user,
+        test_event,
+        test_heat,
+        test_racers,
+    ):
+        """Test result notifications respect notify_results=False."""
+        from models.engagement import UserFavorite
+        from services.notifications.triggers import NotificationTriggers
+
+        # Create favorite with result notifications disabled
+        favorite = UserFavorite(
+            user_id=test_user.id,
+            racer_id=test_racers[0].id,
+            notify_upcoming=True,
+            notify_results=False,  # Disabled
+        )
+        db_session.add(favorite)
+        await db_session.commit()
+
+        mock_fcm = MagicMock()
+        mock_fcm.send_to_users = AsyncMock()
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(
+                db=db_session,
+                redis=None,
+                fcm=mock_fcm,
+            )
+
+            result = await triggers.on_heat_completed(
+                event_id=test_event.id,
+                heat_id=test_heat.id,
+                results=[
+                    {"racer_id": test_racers[0].id, "place": 1, "time": 30.456}
+                ],
+            )
+
+            # No notifications should be sent
+            assert result.sent == 0
+            mock_fcm.send_to_users.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_poll_activated_sends_to_event_users(
+        self,
+        db_session: AsyncSession,
+        test_user,
+        test_event,
+        test_racers,
+    ):
+        """Test poll activation notifications go to users with favorites at event."""
+        from models.engagement import UserFavorite
+        from services.notifications.triggers import NotificationTriggers
+        from services.notifications.fcm_service import SendResult
+
+        # Create favorite for test_user at this event
+        favorite = UserFavorite(
+            user_id=test_user.id,
+            racer_id=test_racers[0].id,
+            notify_upcoming=True,
+            notify_results=True,
+        )
+        db_session.add(favorite)
+        await db_session.commit()
+
+        mock_fcm = MagicMock()
+        mock_fcm.send_to_users = AsyncMock(
+            return_value=SendResult(1, 0, [], [])
+        )
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(
+                db=db_session,
+                redis=None,
+                fcm=mock_fcm,
+            )
+
+            result = await triggers.on_poll_activated(
+                event_id=test_event.id,
+                poll_id="pol_123",
+                question="Which car looks the best?",
+            )
+
+            assert result.sent == 1
+            mock_fcm.send_to_users.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_prediction_resolved_sends_correct_message(
+        self,
+        db_session: AsyncSession,
+        test_user,
+        test_event,
+        test_heat,
+    ):
+        """Test prediction resolved notifications have correct messaging."""
+        from services.notifications.triggers import NotificationTriggers
+        from services.notifications.fcm_service import SendResult, NotificationType
+
+        mock_fcm = MagicMock()
+        mock_fcm.send_to_users = AsyncMock(
+            return_value=SendResult(1, 0, [], [])
+        )
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(
+                db=db_session,
+                redis=None,
+                fcm=mock_fcm,
+            )
+
+            # Test correct prediction
+            result = await triggers.on_prediction_resolved(
+                user_id=test_user.id,
+                event_id=test_event.id,
+                heat_id=test_heat.id,
+                was_correct=True,
+                points_earned=50,
+            )
+
+            assert result.sent == 1
+            call_args = mock_fcm.send_to_users.call_args
+            assert "Correct" in call_args.kwargs["title"]
+            assert "50 points" in call_args.kwargs["body"]
+            assert call_args.kwargs["notification_type"] == NotificationType.PREDICTION_RESULT
+
+    @pytest.mark.asyncio
+    async def test_purchase_completed_always_sends(
+        self,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        """Test purchase notifications cannot be opted out."""
+        from services.notifications.triggers import NotificationTriggers
+        from services.notifications.fcm_service import SendResult, NotificationType
+
+        mock_fcm = MagicMock()
+        mock_fcm.send_to_users = AsyncMock(
+            return_value=SendResult(1, 0, [], [])
+        )
+
+        with patch("services.notifications.triggers.get_settings") as mock_settings:
+            mock_settings.return_value.fcm_enabled = True
+            mock_settings.return_value.fcm_staging_lookahead_heats = 5
+
+            triggers = NotificationTriggers(
+                db=db_session,
+                redis=None,
+                fcm=mock_fcm,
+            )
+
+            result = await triggers.on_purchase_completed(
+                user_id=test_user.id,
+                purchase_type="Digital Photo Package",
+                amount="$9.99",
+                receipt_id="rcpt_123",
+            )
+
+            assert result.sent == 1
+            call_args = mock_fcm.send_to_users.call_args
+            assert "Purchase Confirmed" in call_args.kwargs["title"]
+            assert call_args.kwargs["notification_type"] == NotificationType.PURCHASE_CONFIRM

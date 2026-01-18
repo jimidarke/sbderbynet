@@ -1,8 +1,8 @@
 # FCM Push Notification Architecture Plan
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Date:** 2026-01-16
-**Status:** Phase 1 In Progress (Database Models Complete)
+**Status:** Phases 1, 2, 3 Complete - Ready for Flutter Integration (Phase 4)
 **Parent Document:** [ENTERPRISE_ROADMAP.md](/ENTERPRISE_ROADMAP.md)
 
 ---
@@ -1774,14 +1774,39 @@ extras/saasbox/api/
 - `models/engagement.py` - Added `last_staging_notified_at`, `last_result_notified_at` to UserFavorite
 - `models/user.py` - Added `push_tokens`, `notification_preferences` relationships
 
-### Phase 2: Triggers & Templates
+### Phase 2: Triggers & Templates ✅ COMPLETE
 
 | Task | Description | Files | Status |
 |------|-------------|-------|--------|
-| 2.1 | Implement NotificationTriggers | `services/notifications/triggers.py` | 🔲 Pending |
-| 2.2 | Create message templates | `services/notifications/templates.py` | 🔲 Pending |
-| 2.3 | Integrate with sync handler | `modules/events/routes.py` | 🔲 Pending |
-| 2.4 | Write integration tests | `tests/test_triggers.py` | 🔲 Pending |
+| 2.1 | Implement NotificationTriggers | `services/notifications/triggers.py` | ✅ Done |
+| 2.2 | Create message templates | `services/notifications/triggers.py` (embedded) | ✅ Done |
+| 2.3 | Integrate with sync handler | `modules/events/routes.py` | ✅ Done |
+| 2.4 | Write integration tests | `tests/test_notifications.py` | ✅ Done |
+
+**Files Created (Phase 2):**
+```
+extras/saasbox/api/
+├── services/notifications/
+│   ├── __init__.py                 # Updated: exports NotificationTriggers
+│   └── triggers.py                 # NotificationTriggers class + message templates
+└── modules/events/
+    └── routes.py                   # Updated: _trigger_sync_notifications()
+```
+
+**Trigger Methods Implemented:**
+| Method | Trigger Event | Notification Type |
+|--------|---------------|-------------------|
+| `on_heat_schedule_updated()` | Race sync with current heat | FAVORITE_STAGING |
+| `on_heat_completed()` | Race results synced | FAVORITE_RESULT |
+| `on_poll_activated()` | Poll status changes to active | POLL_NEW |
+| `on_poll_closed()` | Poll status changes to closed | POLL_RESULT |
+| `on_prediction_resolved()` | Heat finishes with predictions | PREDICTION_RESULT |
+| `on_purchase_completed()` | Payment confirmed | PURCHASE_CONFIRM |
+
+**Message Templates:**
+- PII-safe racer names (first name + last initial only)
+- Character limits: 50 chars title, 100 chars body
+- Dynamic content based on race position, heats remaining
 
 ### Phase 3: API & Preferences ✅ COMPLETE
 
