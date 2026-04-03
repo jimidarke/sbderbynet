@@ -1,8 +1,8 @@
 version: '3.8'
 
-# DerbyNet Cloud Deployment
+# DerbyNet Cloud Development Stack
 # Caddy handles reverse proxy + automatic HTTPS (when domain configured)
-# MQTT exposed on 1883 for local gateway bridge connections
+# MQTT is internal only — no external device connections (Pi is race-day master)
 
 services:
   # Caddy - Reverse proxy with automatic HTTPS
@@ -23,12 +23,12 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  # MQTT Broker - Message coordination for race events
+  # MQTT Broker - Internal message coordination (dev/test only)
   mqtt:
     image: eclipse-mosquitto:2
     container_name: derbynet-mqtt
-    ports:
-      - "1883:1883"
+    expose:
+      - "1883"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/passwd:/mosquitto/config/passwd:ro

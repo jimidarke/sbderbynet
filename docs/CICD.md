@@ -1,61 +1,61 @@
 # CI/CD Strategy
 
-A three-tier deployment strategy: **Local → Staging → Production** with automated GitHub Actions pipelines.
+Development and testing infrastructure on a cloud VPS, separate from the race-day Raspberry Pi.
+
+**Architecture principle:** The Pi is the race-day master. The cloud VPS is for development, testing, and CI/CD only. It has no race-day role.
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     LOCAL DEVELOPMENT                            │
-│  Docker Compose with build context for hot-reload               │
-│  cd installer/docker-cloud && docker compose up -d --build      │
-│  Access at http://localhost/derbynet/                            │
-└─────────────────────────────────────────────────────────────────┘
+═══════════════════════════════════════════════════════════════
+  RACE DAY (Raspberry Pi - 192.168.100.x)    AUTHORITATIVE
+═══════════════════════════════════════════════════════════════
+  DerbyNet PHP + SQLite, Race Server, Mosquitto MQTT
+  All hardware (timers, displays, LED signs)
+  Deployed via Ansible auto-pull from GitHub (extras/derbypi/)
+  
+═══════════════════════════════════════════════════════════════
+  DEVELOPMENT (Cloud VPS)                    DEV / TEST ONLY
+═══════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│                     LOCAL DEVELOPMENT                        │
+│  Docker Compose with build context                          │
+│  cd installer/docker-cloud && docker compose up -d --build  │
+│  Access at http://localhost/derbynet/                        │
+└─────────────────────────────────────────────────────────────┘
                              │
                       git push develop / master
                              │
                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     GITHUB ACTIONS                               │
-│                                                                  │
-│  .github/workflows/test.yml (all PRs + pushes):                 │
-│    → Build Docker images                                        │
-│    → Start full stack in CI                                     │
-│    → Run test suite + race simulation                           │
-│                                                                  │
-│  .github/workflows/deploy.yml (develop + master):               │
-│    → Build Docker images                                        │
-│    → Push to ghcr.io                                            │
-│    → SSH deploy to VPS                                          │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     GITHUB ACTIONS                           │
+│                                                              │
+│  .github/workflows/test.yml (all PRs + pushes):             │
+│    → Build Docker images                                    │
+│    → Start full stack in CI                                 │
+│    → Run test suite + race simulation                       │
+│                                                              │
+│  .github/workflows/deploy.yml (develop + master):           │
+│    → Build Docker images                                    │
+│    → Push to ghcr.io                                        │
+│    → SSH deploy to VPS                                      │
+└─────────────────────────────────────────────────────────────┘
                              │
                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    VULTR VPS                                     │
-│                                                                  │
-│  ┌─────────────────────┐    ┌─────────────────────┐            │
-│  │  STAGING            │    │  PRODUCTION         │            │
-│  │  :8080 or subdomain │    │  :80 / :443         │            │
-│  │                     │    │                     │            │
-│  │  Image tag: develop │    │  Image tag: latest  │            │
-│  └─────────────────────┘    └─────────────────────┘            │
-│                                                                  │
-│  Caddy reverse proxy (automatic HTTPS when domain configured)   │
-│  Mosquitto MQTT (authenticated, port 1883)                      │
-└─────────────────────────────────────────────────────────────────┘
-                             │
-                      MQTT Bridge
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                  LOCAL GATEWAY (Race Day)                         │
-│                                                                  │
-│  Mosquitto bridge on 192.168.100.10:1883                        │
-│  Relays derbynet/# topics bidirectionally to cloud              │
-│  Zero firmware changes on devices                                │
-│                                                                  │
-│  Fallback: switch-to-local.sh for cloud-independent operation   │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    VULTR VPS                                 │
+│                                                              │
+│  ┌─────────────────────┐    ┌─────────────────────┐        │
+│  │  STAGING            │    │  PRODUCTION         │        │
+│  │  :8080 or subdomain │    │  :80 / :443         │        │
+│  │  Image tag: develop │    │  Image tag: latest  │        │
+│  └─────────────────────┘    └─────────────────────┘        │
+│                                                              │
+│  Caddy reverse proxy (automatic HTTPS when domain added)    │
+│  Mosquitto MQTT (internal only, not exposed)                │
+│  Docker volumes persist test data across deploys            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Workflow Summary
@@ -64,9 +64,10 @@ A three-tier deployment strategy: **Local → Staging → Production** with auto
 |----------|--------|--------|
 | Quick testing | `docker compose up -d --build` locally | Instant local stack |
 | Ready for review | `git push origin develop` | Auto-deploys to staging |
-| Ready for production | Merge develop → master | Auto-deploys to production |
+| Ready for production | Merge develop → master | Auto-deploys to VPS production |
 | Emergency hotfix | Push directly to master | Auto-deploys (use sparingly) |
 | Run tests | Open a PR | Tests run automatically in CI |
+| Race day Pi update | Ansible auto-pull (every 30 min) | Pi pulls from master |
 
 ## Local Development
 
@@ -107,6 +108,8 @@ Runs on all PRs and pushes to develop/master:
 2. Push to ghcr.io
 3. SSH to VPS → deploy to production
 
+**Note:** Docker volumes persist across deploys — test data and database survive redeploys. The workflow uses `docker compose up -d` (not `down -v`) to preserve volumes.
+
 ## VPS Directory Structure
 
 ```
@@ -133,9 +136,9 @@ Runs on all PRs and pushes to develop/master:
 | Service | Image | Purpose |
 |---------|-------|---------|
 | `caddy` | `caddy:2-alpine` | Reverse proxy, automatic HTTPS |
-| `mqtt` | `eclipse-mosquitto:2` | MQTT broker (authenticated) |
+| `mqtt` | `eclipse-mosquitto:2` | MQTT broker (internal only) |
 | `derbynet-web` | `ghcr.io/.../sbderbynet-web` | PHP/Nginx web application |
-| `race-server` | `ghcr.io/.../sbderbynet-server` | Python race server |
+| `race-server` | `ghcr.io/.../sbderbynet-server` | Python race server + simulator |
 
 ## GitHub Secrets Required
 
@@ -144,28 +147,6 @@ Runs on all PRs and pushes to develop/master:
 | `SERVER_HOST` | VPS IP address |
 | `SERVER_USER` | SSH username (e.g., `deploy`) |
 | `SERVER_SSH_KEY` | Private SSH key for deployment |
-
-## Local Gateway
-
-For connecting race-day hardware to the cloud:
-
-```bash
-cd installer/gateway
-
-# Configure bridge credentials
-# Edit mosquitto-bridge.conf with cloud host and MQTT credentials
-
-# Start bridge
-docker compose up -d
-
-# Emergency failover to local-only
-./switch-to-local.sh
-
-# Resume cloud operation
-./switch-to-cloud.sh
-```
-
-See [installer/gateway/README.md](../installer/gateway/README.md) for details.
 
 ## Key Files
 
@@ -177,13 +158,20 @@ See [installer/gateway/README.md](../installer/gateway/README.md) for details.
 | `installer/docker-cloud/docker-compose.production.yml` | Production image overrides |
 | `.github/workflows/deploy.yml` | CI/CD deploy pipeline |
 | `.github/workflows/test.yml` | CI/CD test pipeline |
-| `installer/gateway/mosquitto-bridge.conf` | Local-to-cloud MQTT bridge |
-| `installer/gateway/docker-compose.fallback.yml` | Local fallback stack |
+
+## Two Deployment Paths
+
+| Target | Method | Trigger |
+|--------|--------|---------|
+| Cloud VPS | GitHub Actions → Docker | Push to develop/master |
+| Race-day Pi | Ansible auto-pull | Every 30 min from master (`extras/derbypi/`) |
+
+Both pull from the same GitHub repo but use different deployment mechanisms. Code merged to master reaches both targets.
 
 ## Rollback
 
 ```bash
-# On VPS: rollback to previous image by SHA
+# Cloud VPS: rollback to previous image by SHA
 cd /opt/derbynet/production
 # Edit docker-compose.production.yml to pin a specific SHA tag
 docker compose -f docker-compose.yml -f docker-compose.production.yml pull
@@ -194,11 +182,19 @@ git revert HEAD
 git push origin master  # Triggers new deploy with reverted code
 ```
 
+## Future: Mobile App Backend
+
+When the Flutter app is ready for cloud integration:
+- SaaSBox API (`extras/saasbox/`) runs on the VPS alongside the dev stack
+- Pi pushes race data to SaaSBox via `POST /v1/orgs/{org_id}/events/{event_id}/sync`
+- Mobile app connects to SaaSBox for live results, predictions, push notifications
+- This is a separate concern from the dev/CI pipeline
+
 ## Future Enhancements
 
 - [ ] Database migration automation
 - [ ] Blue-green deployments for zero-downtime
 - [ ] Slack/Discord deploy notifications
 - [ ] Automated version bumping on release
-- [ ] Device-side timestamps for cloud race timing accuracy
-- [ ] TLS on MQTT broker (port 8883) for encrypted bridge traffic
+- [ ] Race-day database backup (rsync SQLite to VPS)
+- [ ] SaaSBox API deployment alongside dev stack
