@@ -1,0 +1,28 @@
+# DerbyNet Cloud Reverse Proxy Configuration
+#
+# IP-only mode (current): Caddy serves HTTP on port 80
+# Domain mode (future):   Change ":80" to "derbynet.d-t.pw" for auto-HTTPS
+#
+# Usage:
+#   IP-only:  :80 { ... }
+#   Domain:   derbynet.d-t.pw { ... }
+
+:80 {
+	reverse_proxy derbynet-web:80
+	encode gzip
+
+	# Longer timeouts for file uploads (racer photos)
+	request_body {
+		max_size 16MB
+	}
+
+	# Health check endpoint
+	handle /health {
+		respond "OK" 200
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

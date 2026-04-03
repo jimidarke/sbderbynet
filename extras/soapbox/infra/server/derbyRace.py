@@ -61,6 +61,13 @@ try:
 except ImportError:
     ALERT_HANDLER_AVAILABLE = False
 
+# LED sign content generator for BetaBrite displays
+try:
+    import ledsign_content
+    LEDSIGN_AVAILABLE = True
+except ImportError:
+    LEDSIGN_AVAILABLE = False
+
 # Version information
 VERSION = "0.8.3"  # Added unified logging and alerting framework
 
@@ -79,6 +86,8 @@ MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
 MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
 MQTT_TOPIC_TELEMETRY    = "derbynet/device/+/telemetry"
 MQTT_TOPIC_STATE        = "derbynet/device/+/state"
+##### LED Sign Topics #####
+MQTT_TOPIC_LEDSIGN_PREFIX = "derbynet/ledsign"
 
 # Race timing and reliability settings
 # IMPORTANT: These values should align with PHP heartbeat-config.inc for state consistency
@@ -324,6 +333,7 @@ class derbyRace:
         if result.rc != 0:
             logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
         logger.info(f"Set Lane {lane} to Pinny {pinny}")
+        self.updateLedSigns()
 
     def setLEDFromRaceStat(self, racestats):
         """Update LED and race state based on API response (thread-safe).
@@ -409,6 +419,7 @@ class derbyRace:
         if state_changed:
             logger.info(f"Race state changed: {prev_race_state} -> {self.race_state}")
             self.force_heartbeat_update()
+            self.updateLedSigns()
 
         if should_update_led and not should_reset_leds:
             self.updateLED(led)
@@ -427,6 +438,25 @@ class derbyRace:
             if result.rc != 0:
                 logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
     
+    def updateLedSigns(self):
+        """Publish LED sign content for all zones based on current race state."""
+        if not LEDSIGN_AVAILABLE:
+            return
+        try:
+            # Lane signs (usher-lane1, usher-lane2, usher-lane3)
+            for lane_num in range(1, self.lane_count + 1):
+                pinny = self.lanePinny.get(str(lane_num), "----")
+                msg = ledsign_content.lane_sign_message(pinny, self.race_state)
+                topic = f"{MQTT_TOPIC_LEDSIGN_PREFIX}/usher-lane{lane_num}/message"
+                self.client.publish(topic, json.dumps(msg), qos=1, retain=True)
+
+            # Starter sign
+            msg = ledsign_content.starter_sign_message(self.race_state)
+            topic = f"{MQTT_TOPIC_LEDSIGN_PREFIX}/starter/message"
+            self.client.publish(topic, json.dumps(msg), qos=1, retain=True)
+        except Exception as e:
+            logger.error(f"Error updating LED signs: {e}")
+
     def getRaceStatus(self):
         payload = {
             "state":self.race_state,
@@ -484,6 +514,9 @@ class derbyRace:
         # Immediately publish race state change to MQTT for faster propagation
         self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
 
+        # Update LED signs with GO!
+        self.updateLedSigns()
+
         # Notify PHP of physical start
         self.api.send_start()
         
@@ -512,6 +545,9 @@ class derbyRace:
 
         # Immediately publish race state change to MQTT for faster propagation
         self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+
+        # Update LED signs with FINISHED
+        self.updateLedSigns()
 
         # Write race results - prefer direct DB for minimal latency
         if self.db:

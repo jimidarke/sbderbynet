@@ -1,0 +1,12 @@
+# Staging override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+#
+# On the VPS, images are pulled from ghcr.io (no local build).
+# The `image:` key overrides local build — `docker compose pull` fetches it.
+
+services:
+  derbynet-web:
+    image: ghcr.io/${GITHUB_OWNER:-sbderbynet}/sbderbynet-web:develop
+
+  race-server:
+    image: ghcr.io/${GITHUB_OWNER:-sbderbynet}/sbderbynet-server:develop

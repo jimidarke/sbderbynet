@@ -97,6 +97,9 @@ g_completed_rounds = [];
 // Roundids of an aggregate rounds
 g_aggregate_rounds = [];
 
+// Pull-forward undo state (set from poll data)
+var g_pull_forward_undo = null;
+
 function find_by_classid(classes, classid) {
   for (var i = 0; i < classes.length; ++i) {
     if (classes[i].classid == classid) {
@@ -473,6 +476,15 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
         .addClass("adjustment-needed");
     }
 
+    // Pull-forward undo button
+    if (g_pull_forward_undo && g_pull_forward_undo.roundid == round.roundid) {
+      buttons.append(
+        '<input type="button" class="pull-forward-undo-button"' +
+        ' onclick="undoPullForward(' + round.roundid + ')"' +
+        ' value="Undo Pull Forward"/>'
+      );
+    }
+
     if (
       round.heats_scheduled == 0 &&
       round.heats_run == 0 &&
@@ -801,6 +813,9 @@ function process_coordinator_poll_json(json) {
   if (typeof check_emergency_state === 'function') {
     check_emergency_state(json);
   }
+
+  // Pull-forward undo state
+  g_pull_forward_undo = json['pull-forward-undo'] || null;
 
   $("#start_race_button_div").toggleClass(
     "hidden",

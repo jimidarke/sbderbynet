@@ -57,6 +57,9 @@ define('EVENT_GROUP_FORMATION_RULE_APPLIED', 401);
 define('EVENT_PARTITION_MOVED', 402);
 define('EVENT_PARTITION_RENAMED', 403);
 
+define('EVENT_PULL_FORWARD', 501);
+define('EVENT_PULL_FORWARD_UNDO', 502);
+
 
 function create_events_table() {
   run_sql_script('events-table');

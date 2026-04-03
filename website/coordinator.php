@@ -496,5 +496,41 @@ $warn_no_timer = warn_no_timer();
              onclick='close_modal("#emergency_clear_confirm_modal");' />
     </div>
   </div>
+
+  <div id='pull_forward_modal' class="modal_dialog wide_modal hidden block_buttons">
+    <h3>Pull Forward — Fill Schedule Gaps</h3>
+    <div id="pf-dropout-info" class="pf-section">
+      <p><strong>Dropout:</strong> <span id="pf-dropout-name"></span>
+        (<span id="pf-dropout-carnumber"></span>)
+        — <span id="pf-gaps-count"></span> gap(s) to fill</p>
+    </div>
+    <div id="pf-cascade-preview" class="pf-section">
+      <h4>Schedule Changes</h4>
+      <table id="pf-moves-table" class="pf-table">
+        <thead>
+          <tr>
+            <th>Fill Heat</th>
+            <th>Lane</th>
+            <th>Racer Moved</th>
+            <th>From Heat</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="pf-trailing-byes" class="pf-section hidden">
+      <h4>Remaining Empty Lanes</h4>
+      <p id="pf-byes-list"></p>
+    </div>
+    <div id="pf-warnings" class="pf-section hidden">
+      <h4>Fairness Warnings</h4>
+      <ul id="pf-warnings-list"></ul>
+    </div>
+    <div class="block_buttons">
+      <input type="button" value="Accept" onclick="executePullForward(false);" />
+      <input type="button" value="Accept + Announce" onclick="executePullForward(true);" />
+      <input type="button" value="Cancel" onclick='close_modal("#pull_forward_modal");' />
+    </div>
+  </div>
 </body>
 </html>

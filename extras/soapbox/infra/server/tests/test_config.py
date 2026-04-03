@@ -238,7 +238,7 @@ class TestConfigurationDocumentation:
 
     def test_all_env_vars_documented(self):
         """All environment variables should be listed in ENTERPRISE_ROADMAP.md."""
-        roadmap_path = Path(__file__).parent.parent.parent.parent.parent.parent / 'ENTERPRISE_ROADMAP.md'
+        roadmap_path = Path(__file__).parent.parent.parent.parent.parent.parent / 'docs' / 'business' / 'ENTERPRISE_ROADMAP.md'
 
         if roadmap_path.exists():
             content = roadmap_path.read_text()

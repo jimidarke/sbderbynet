@@ -1,9 +1,28 @@
 version: '3.8'
 
-# DerbyNet Cloud Deployment with nginx-proxy integration
-# Domain: derbynet.d-t.pw
+# DerbyNet Cloud Deployment
+# Caddy handles reverse proxy + automatic HTTPS (when domain configured)
+# MQTT exposed on 1883 for local gateway bridge connections
 
 services:
+  # Caddy - Reverse proxy with automatic HTTPS
+  caddy:
+    image: caddy:2-alpine
+    container_name: derbynet-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - derbynet_net
+    depends_on:
+      derbynet-web:
+        condition: service_started
+    restart: unless-stopped
+
   # MQTT Broker - Message coordination for race events
   mqtt:
     image: eclipse-mosquitto:2
@@ -12,6 +31,7 @@ services:
       - "1883:1883"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/passwd:/mosquitto/config/passwd:ro
       - mqtt_data:/mosquitto/data
       - mqtt_log:/mosquitto/log
     networks:
@@ -29,25 +49,21 @@ services:
       context: ../..
       dockerfile: installer/docker-cloud/Dockerfile.web
     container_name: derbynet-web
-    # NO ports exposed - nginx-proxy handles external access via VIRTUAL_HOST
     expose:
       - "80"
     environment:
       - TZ=${TZ:-America/New_York}
       - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-16M}
       - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - MQTT_USER=${MQTT_USER:-}
+      - MQTT_PASS=${MQTT_PASS:-}
       - DERBYNET_CONFIG_DIR=/var/lib/derbynet
       - DERBYNET_DATA_DIR=/var/lib/derbynet
-      # nginx-proxy integration
-      - VIRTUAL_HOST=${DOMAIN}
-      - VIRTUAL_PORT=80
-      - LETSENCRYPT_HOST=${DOMAIN}
-      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
     volumes:
       - derbynet_data:/var/lib/derbynet
     networks:
-      - nginx-proxy    # Join existing nginx-proxy network for reverse proxy
-      - derbynet_net   # Internal network for inter-container communication
+      - derbynet_net
     depends_on:
       mqtt:
         condition: service_healthy
@@ -62,13 +78,17 @@ services:
     environment:
       - MQTT_BROKER=mqtt
       - MQTT_PORT=1883
+      - MQTT_USER=${MQTT_USER:-}
+      - MQTT_PASS=${MQTT_PASS:-}
       - DERBYNET_API_HOST=derbynet-web
       - DERBYNET_API_URL=http://derbynet-web/derbynet/action.php
+      - DERBYNET_DB_PATH=/var/lib/derbynet
       - LANE_COUNT=${LANE_COUNT:-3}
       - DERBY_CONSOLE_LOG=true
       - DERBY_DEBUG=${DERBY_DEBUG:-false}
       - TZ=${TZ:-America/New_York}
     volumes:
+      - derbynet_data:/var/lib/derbynet
       - derbynet_logs:/var/log
     networks:
       - derbynet_net
@@ -80,14 +100,16 @@ services:
     restart: unless-stopped
 
 networks:
-  nginx-proxy:
-    external: true    # Use existing nginx-proxy network
   derbynet_net:
-    driver: bridge    # Internal network for container communication
+    driver: bridge
 
 volumes:
   derbynet_data:
     name: derbynet_data
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
   mqtt_data:
     name: mqtt_data
   mqtt_log:

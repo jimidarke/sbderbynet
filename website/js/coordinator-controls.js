@@ -866,7 +866,24 @@ function handle_racing_mode_activation(json) {
 }
 
 function handleRacerDropout(racerid, roundid) {
-  if (confirm('Are you sure you want to remove this racer? This action cannot be undone.')) {
+  var choice = confirm(
+    'Remove this racer from the schedule?\n\n' +
+    'Click OK to remove and optionally pull forward a replacement.\n' +
+    'Click Cancel to keep the racer in the schedule.'
+  );
+  if (!choice) return;
+
+  var pullForward = confirm(
+    'Would you like to pull forward a replacement from upcoming heats?\n\n' +
+    'OK = Show pull-forward preview (recommended)\n' +
+    'Cancel = Just remove the racer (leave empty lanes)'
+  );
+
+  if (pullForward) {
+    // Go directly to pull-forward (it handles the removal internally)
+    showPullForwardModal(racerid, roundid);
+  } else {
+    // Standard dropout without pull-forward
     $.ajax('action.php', {
       type: 'POST',
       data: {
@@ -876,7 +893,6 @@ function handleRacerDropout(racerid, roundid) {
       },
       success: function (data) {
         if (data.outcome.code == 'success') {
-          // Reload current round display
           location.reload();
         } else {
           alert('Failed to remove racer: ' + data.outcome.description);
@@ -887,6 +903,155 @@ function handleRacerDropout(racerid, roundid) {
       }
     });
   }
+}
+
+// =========================================================
+// Pull-Forward: Fill gaps by pulling racers from later heats
+// =========================================================
+
+var g_pull_forward_roundid = null;
+var g_pull_forward_dropout_racerid = null;
+
+function showPullForwardModal(dropout_racerid, roundid) {
+  g_pull_forward_roundid = roundid;
+  g_pull_forward_dropout_racerid = dropout_racerid;
+
+  // Dry-run to get preview
+  $.ajax('action.php', {
+    type: 'POST',
+    data: {
+      action: 'schedule.pullforward',
+      roundid: roundid,
+      dropout_racerid: dropout_racerid,
+      'dry-run': true
+    },
+    success: function (data) {
+      if (data.outcome && data.outcome.code == 'success' && data.proposal) {
+        populatePullForwardModal(data.proposal);
+        show_modal('#pull_forward_modal');
+      } else {
+        var msg = data.outcome ? data.outcome.description : 'Unknown error';
+        alert('Cannot generate pull-forward preview: ' + msg);
+        location.reload();
+      }
+    },
+    error: function () {
+      alert('Server error while generating pull-forward preview');
+      location.reload();
+    }
+  });
+}
+
+function populatePullForwardModal(proposal) {
+  // Dropout info
+  $('#pf-dropout-name').text(proposal.dropout.name);
+  $('#pf-dropout-carnumber').text('#' + proposal.dropout.carnumber);
+  $('#pf-gaps-count').text(proposal.dropout.gaps_created);
+
+  // Moves table
+  var tbody = $('#pf-moves-table tbody');
+  tbody.empty();
+  if (proposal.moves.length === 0) {
+    tbody.append('<tr><td colspan="4">No racers available to pull forward</td></tr>');
+  } else {
+    for (var i = 0; i < proposal.moves.length; i++) {
+      var move = proposal.moves[i];
+      var row = $('<tr>');
+      row.append($('<td>').text('Heat ' + move.gap_heat));
+      row.append($('<td>').text('Lane ' + move.gap_lane));
+      row.append($('<td>').text(move.racer_name + ' (#' + move.carnumber + ')'));
+      row.append($('<td>').text('Heat ' + move.source_heat));
+      tbody.append(row);
+    }
+  }
+
+  // Trailing byes
+  if (proposal.trailing_byes.length > 0) {
+    var byeTexts = [];
+    for (var i = 0; i < proposal.trailing_byes.length; i++) {
+      var bye = proposal.trailing_byes[i];
+      byeTexts.push('Heat ' + bye.heat + ' Lane ' + bye.lane);
+    }
+    $('#pf-byes-list').text(byeTexts.join(', '));
+    $('#pf-trailing-byes').removeClass('hidden');
+  } else {
+    $('#pf-trailing-byes').addClass('hidden');
+  }
+
+  // Warnings
+  if (proposal.warnings.length > 0) {
+    var warnList = $('#pf-warnings-list');
+    warnList.empty();
+    for (var i = 0; i < proposal.warnings.length; i++) {
+      var warn = proposal.warnings[i];
+      var text = '';
+      if (warn.type === 'consecutive') {
+        text = warn.racer_name + ' (#' + warn.carnumber + ') will race in consecutive heats '
+             + warn.heats[0] + ' and ' + warn.heats[1];
+      }
+      warnList.append($('<li>').text(text));
+    }
+    $('#pf-warnings').removeClass('hidden');
+  } else {
+    $('#pf-warnings').addClass('hidden');
+  }
+}
+
+function executePullForward(sendBroadcast) {
+  close_modal('#pull_forward_modal');
+
+  $.ajax('action.php', {
+    type: 'POST',
+    data: {
+      action: 'schedule.pullforward',
+      roundid: g_pull_forward_roundid,
+      dropout_racerid: g_pull_forward_dropout_racerid,
+      'dry-run': false,
+      send_broadcast: sendBroadcast ? 1 : 0
+    },
+    success: function (data) {
+      if (data.outcome && data.outcome.code == 'success') {
+        // Refresh the coordinator display
+        if (typeof process_coordinator_poll_json === 'function' && data) {
+          process_coordinator_poll_json(data);
+        }
+        location.reload();
+      } else {
+        var msg = data.outcome ? data.outcome.description : 'Unknown error';
+        alert('Pull-forward failed: ' + msg);
+        location.reload();
+      }
+    },
+    error: function () {
+      alert('Server error during pull-forward');
+      location.reload();
+    }
+  });
+}
+
+function undoPullForward(roundid) {
+  if (!confirm('Undo the last pull-forward? This will restore the original schedule.')) {
+    return;
+  }
+
+  $.ajax('action.php', {
+    type: 'POST',
+    data: {
+      action: 'schedule.pullforward.undo',
+      roundid: roundid
+    },
+    success: function (data) {
+      if (data.outcome && data.outcome.code == 'success') {
+        location.reload();
+      } else {
+        var msg = data.outcome ? data.outcome.description : 'Unknown error';
+        alert('Undo failed: ' + msg);
+      }
+    },
+    error: function () {
+      alert('Server error during pull-forward undo');
+    }
+  });
 }
 
 
