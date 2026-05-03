@@ -52,7 +52,7 @@ Development and testing infrastructure on a cloud VPS, separate from the race-da
 │  │  Image tag: develop │    │  Image tag: latest  │        │
 │  └─────────────────────┘    └─────────────────────┘        │
 │                                                              │
-│  Caddy reverse proxy (automatic HTTPS when domain added)    │
+│  Caddy reverse proxy (automatic HTTPS via Let's Encrypt)    │
 │  Mosquitto MQTT (internal only, not exposed)                │
 │  Docker volumes persist test data across deploys            │
 └─────────────────────────────────────────────────────────────┘
@@ -109,6 +109,27 @@ Runs on all PRs and pushes to develop/master:
 3. SSH to VPS → deploy to production
 
 **Note:** Docker volumes persist across deploys — test data and database survive redeploys. The workflow uses `docker compose up -d` (not `down -v`) to preserve volumes.
+
+### Manual deploy (when CI is unavailable)
+
+For situations where the GitHub Actions path is blocked (PAT scopes,
+network outage, deploying a feature branch that hasn't merged), the
+`scripts/derbyvps.sh` wrapper provides the same end-to-end flow:
+
+```sh
+./scripts/derbyvps.sh deploy --dry-run      # preview the rsync diff
+./scripts/derbyvps.sh deploy                # backup → rsync → up → validate
+```
+
+It rsyncs the local working tree to the VPS, builds images locally on the
+host, and runs the same pre/postflight gates (port collisions, /health,
+ERROR scan). On postflight failure it auto-rolls back to the just-made
+backup. Full reference: `docs/VPS_OPERATIONS.md`.
+
+The wrapper and the GitHub Actions deploy are interchangeable on the
+target side — both bring up the same compose stack at
+`/opt/sbderbynet/installer/docker-cloud/` with the production override
+that bind-mounts data at `/opt/derbynet/production/data`.
 
 ## VPS Directory Structure
 

@@ -15,22 +15,23 @@ cheaply; the Pi rehearsal catches anything truly hardware-bound.
 
 ### Prereqs
 
-- VPS reachable. `wget https://<host>/derbynet/health` returns OK.
-- `installer/docker-cloud/.env` populated:
-  - `DERBYNET_CLOUD_MODE=public`
-  - `MQTT_USER`, `MQTT_PASS`
-  - `VIRTUAL_MQTT_USER=virtual-device`
-  - `VIRTUAL_MQTT_PASS=<value>` (or let `setup-mqtt-auth.sh` generate one)
-- Cloud DB is current. Confirm with:
-  ```sh
-  ssh deploy@<vps> 'cat /opt/derbynet/production/data/.cloud_readonly'
-  ```
-  and check `last_sync_utc` is within a few minutes.
+Use the wrapper for everything operational; it bakes in the right paths,
+gates, and backup behavior.
+
+- Cloud twin reachable: `./scripts/derbyvps.sh audit` exits 0 and shows
+  4 healthy SBDerbyNet containers, UISP siloed, all expected ports free.
+- Cloud DB is current. Inside the audit output check the "LAST CLOUD-SYNC"
+  block — `last_sync_utc` should be within a few minutes if the Pi is
+  syncing.
+- `.env` provisioning is done. (If this is a fresh VPS, run
+  `./scripts/derbyvps.sh bootstrap` first; it generates broker passwords
+  and writes the `.env` for you.)
 
 ### Step-by-step
 
-1. **Sign in as RaceCoordinator** on the cloud twin (`/derbynet/login.php`).
-2. **Open virtual control panel**: `/derbynet/virtual/index.php`.
+1. **Sign in as RaceCoordinator** at `https://uisp.darketech.ca/derbynet/login.php`
+   (replace with your `CADDY_HOST` if you've overridden it).
+2. **Open virtual control panel**: `https://uisp.darketech.ca/derbynet/virtual/index.php`.
    - Confirm a card per finish timer (one per lane), the start timer card,
      LED sign cards (starter + one usher per lane), and display cards.
 3. **Open all virtual devices** in popup tabs from the control panel.
@@ -48,9 +49,11 @@ cheaply; the Pi rehearsal catches anything truly hardware-bound.
    - Verify the staging announcement appears on `/derbynet/kiosk.php?name=now-racing`.
 7. **Run the full suite for the round** (auto-mode on all finish timers).
 8. **Inspect**:
-   - `/derbynet/device-status.php` — virtual devices appear with `B_` hwids.
-   - `/derbynet/results.php` — finish times look plausible.
-   - Race server logs (`docker logs derbynet-race-server`) — no errors.
+   - `https://<host>/derbynet/device-status.php` — virtual devices appear with `B_` hwids.
+   - `https://<host>/derbynet/results.php` — finish times look plausible.
+   - `./scripts/derbyvps.sh logs race-server` — no errors. (For the full
+     log map run `./scripts/derbyvps.sh logs --where`; troubleshooting
+     index in `docs/LOGGING.md`.)
 
 ### Cloud-twin pass criteria
 
@@ -80,9 +83,11 @@ Run on the actual race-day Pi with all hardware connected on the
 3. **Pull-forward live**: mid-event, simulate a dropout. Confirm the
    physical staging-area kiosk shows the broadcast and the moved racer
    appears on the lane LED in the next heat.
-4. **Cloud-sync verification**: after the round completes, on the cloud
-   twin verify `/derbynet/device-status.php` shows current Pi data and the
-   sentinel `last_sync_utc` is within a minute.
+4. **Cloud-sync verification**: after the round completes, run
+   `./scripts/derbyvps.sh audit` from your dev box and confirm the
+   "LAST CLOUD-SYNC" sentinel `last_sync_utc` is within a minute.
+   `https://<host>/derbynet/device-status.php` should also show the
+   current Pi-synced state.
 
 ### Pi-rehearsal pass criteria
 

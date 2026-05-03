@@ -27,6 +27,12 @@ Every routine VPS interaction goes through `scripts/derbyvps.sh`:
 
 Full command reference and walkthroughs: `docs/VPS_OPERATIONS.md`.
 
+For "where do logs live?" run `./scripts/derbyvps.sh logs --where`.
+The full log map (container stdouts, persistent volumes, the wrapper deploy
+trail, host journal) is in `docs/LOGGING.md`. Container logs are size-capped
+(json-file `max-size: 10m, max-file: 3` per service) so disk-fill won't
+sneak up on race day.
+
 The script handles preflight gates (SSH, disk, ports, UISP siloed),
 backup-first rotation (last 10 snapshots), postflight checks (`/health`,
 ERROR log scan), and automatic rollback on postflight failure. Every SSH

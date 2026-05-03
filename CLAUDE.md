@@ -57,3 +57,5 @@ SBDerbyNet is a soapbox derby race management system built by extensively modify
 - [docs/PULL_FORWARD_OPERATOR.md](docs/PULL_FORWARD_OPERATOR.md) — Race-day operator card for pull-forward
 - [docs/DRESS_REHEARSAL.md](docs/DRESS_REHEARSAL.md) — Cloud + Pi rehearsal runbook and race-day go/no-go
 - [docs/PHONE_USAGE.md](docs/PHONE_USAGE.md) — Phone scope: standard pages only, never a control surface
+- [docs/VPS_OPERATIONS.md](docs/VPS_OPERATIONS.md) — Cloud VPS interaction protocol via `scripts/derbyvps.sh`
+- [docs/LOGGING.md](docs/LOGGING.md) — Where every server-side log lands; `derbyvps.sh logs --where` prints the live map
