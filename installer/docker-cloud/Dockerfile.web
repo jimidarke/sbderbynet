@@ -65,7 +65,13 @@ RUN mkdir -m 777 /var/lib/derbynet && \
     mkdir -m 777 /var/lib/derbynet/slides && \
     mkdir -p /var/run/php && \
     mkdir -p /var/lib/infra/app && \
-    mkdir -p /var/log
+    mkdir -p /var/log && \
+    # setup.nodata creates per-event "test" dirs under $docroot/Data — legacy
+    # DerbyNet behavior. PHP-FPM (nobody) needs to be able to mkdir there.
+    # Note: contents written here live in the container's writable layer, NOT
+    # a persistent volume. Acceptable for a test twin since the actual SQLite
+    # DB lives in /var/lib/derbynet (bind-mounted).
+    mkdir -p -m 777 ${WWW_ROOT:-/var/www/html}/Data
 
 # Copy website files
 COPY website/ $WWW_ROOT
