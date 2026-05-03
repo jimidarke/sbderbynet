@@ -79,10 +79,25 @@ div.index_background {
   width: 100%;
 }
 
-div.index_column {
+div.index_background.cols-2 div.index_column {
   width: 50%;
   display: inline-block;
   float: left;
+}
+
+div.index_background.cols-3 div.index_column {
+  width: 33.333%;
+  display: inline-block;
+  float: left;
+}
+
+@media (max-width: 1080px) {
+  div.index_background.cols-3 div.index_column {
+    width: 50%;
+  }
+  div.index_background.cols-3 div.index_column:nth-child(3) {
+    width: 100%;
+  }
 }
 </style>
 </head>
@@ -92,12 +107,14 @@ div.index_column {
 
  $need_spacer = false;
 
- // This is a heuristic more than a hard rule -- when are there so many buttons that we need a second column?
- $two_columns = have_permission(SET_UP_PERMISSION);
+ // Multi-column layout: Race Coordinator (SET_UP_PERMISSION) gets a 3-column
+ // layout (Before / During / After+Other). Anyone else stays single-column.
+ $num_columns = have_permission(SET_UP_PERMISSION) ? 3 : 1;
+ $multi_column = $num_columns > 1;
 
-echo "<div class='index_background'>\n";
+echo "<div class='index_background cols-".$num_columns."'>\n";
 
-if ($two_columns) {
+if ($multi_column) {
   echo "<div class='index_column'>\n";
 }
 
@@ -121,7 +138,15 @@ if (have_permission(ASSIGN_RACER_IMAGE_PERMISSION)) {
   }
 }
 
-make_spacer_if($need_spacer);
+make_spacer_if($need_spacer && $num_columns < 3);
+
+// Column break before "During" when using 3-column layout
+if ($num_columns >= 3) {
+  echo "</div>\n";  // block_buttons
+  echo "</div>\n";  // index_column
+  echo "<div class='index_column'>\n";
+  echo "<div class='block_buttons'>\n";
+}
 
 // *********** During ***************
 set_section_heading('During the Race');
@@ -141,9 +166,8 @@ $need_spacer = make_link_button('Racers On Deck', 'ondeck.php', -1, 'during_butt
 $need_spacer = make_link_button('Results By Racer', 'racer-results.php', VIEW_RACE_RESULTS_PERMISSION, 'during_button')
     || $need_spacer;
 
-// end first column default set-up
-
-if ($two_columns) {
+// Column break before "After"
+if ($multi_column) {
   echo "</div>\n";  // block_buttons
   echo "</div>\n";  // index_column
 
@@ -176,7 +200,7 @@ if (@$_SESSION['role']) {
 }
 
 echo "</div>\n";  // block_buttons
-if ($two_columns) {
+if ($multi_column) {
   echo "</div>\n";  // index_column
 }
 

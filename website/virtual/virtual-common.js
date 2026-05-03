@@ -2,7 +2,7 @@
 //
 // Shared helpers for browser virtual hardware pages.
 // All pages use MQTT.js (loaded via CDN) and the cred endpoint at
-// /derbynet/action.php?action=virtual-mqtt-creds.
+// POST /derbynet/action.php with action=virtual-mqtt-creds.
 //
 // Cloud-only: pages are guarded server-side by website/virtual/_guard.inc.
 
@@ -58,8 +58,16 @@
   }
 
   async function fetchCreds() {
-    const url = '/derbynet/action.php?action=virtual-mqtt-creds';
-    const res = await fetch(url, { credentials: 'same-origin' });
+    // action.php dispatches POST as actions and GET as queries — sending
+    // GET ?action=... falls through to the empty-query branch and fails as
+    // "Unrecognized query". Use POST with form-encoded body.
+    const url = '/derbynet/action.php';
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'action=virtual-mqtt-creds',
+    });
     if (!res.ok) {
       throw new Error('Cred endpoint HTTP ' + res.status);
     }

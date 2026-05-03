@@ -18,9 +18,19 @@ require_once('inc/locked.inc');
 <style type="text/css">
 #pw_for_password {
     display: block;
-    width: 270px; /* Allow for 15px horizontal padding from global.css */
-    margin-left: auto;
-    margin-right: auto;
+    box-sizing: border-box;
+    width: 240px;
+    margin: var(--space-2) auto;
+    padding: 10px 12px;
+    font-family: var(--font-stack);
+    font-size: 1.1rem;
+    border: 1px solid #c7ccd6;
+    border-radius: var(--radius-sm);
+}
+#pw_for_password:focus {
+    outline: none;
+    border-color: var(--color-brand);
+    box-shadow: var(--focus-ring);
 }
 
 #banner_link {
@@ -30,22 +40,9 @@ require_once('inc/locked.inc');
 #login-kiosk {
   position: fixed;
   bottom: 20px;
-/*  left: 1em;
-  padding: 1em; */
-  width: 25em;
   left: 50%;
-  margin-left: -12.5em;
-}
-
-#camera_button {
-  padding-bottom: 15px;
-  padding-top: 5px;
-  font-size: 22px;
-  height: 20px;
-  width: 150px;
-}
-#kiosk_button {
-  margin-bottom: 6px;
+  transform: translateX(-50%);
+  text-align: center;
 }
 </style>
 <script type="text/javascript" src="js/jquery.js"></script>

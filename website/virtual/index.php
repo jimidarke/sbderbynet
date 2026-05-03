@@ -12,6 +12,7 @@ $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : nu
 <meta charset="utf-8">
 <title>Virtual Hardware Control Panel</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../css/global.css">
 <link rel="stylesheet" href="/derbynet/virtual/virtual.css">
 </head>
 <body class="virtual-device">
