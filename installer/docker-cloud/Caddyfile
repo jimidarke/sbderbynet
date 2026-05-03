@@ -1,13 +1,14 @@
 # DerbyNet Cloud Reverse Proxy Configuration
 #
-# IP-only mode (current): Caddy serves HTTP on port 80
-# Domain mode (future):   Change ":80" to "derbynet.d-t.pw" for auto-HTTPS
+# Domain mode: Caddy auto-acquires a Let's Encrypt cert for the host below
+# and serves HTTPS on 443 (with HTTP→HTTPS redirect on 80). Requires both
+# 80 and 443 to be reachable from the public internet.
 #
-# Usage:
-#   IP-only:  :80 { ... }
-#   Domain:   derbynet.d-t.pw { ... }
+# Override the hostname via the CADDY_HOST env var if you ever move this
+# stack to a different domain (e.g. when the feature branch lands on master
+# and CI takes over).
 
-:80 {
+{$CADDY_HOST:uisp.darketech.ca} {
 	encode gzip
 
 	# Longer timeouts for file uploads (racer photos)

@@ -268,7 +268,7 @@ do_rsync() {
   # write-new-then-rename gives the file a new inode and the container keeps
   # serving the old content until the service is recreated.
   local rsync_opts=(-az --delete --inplace
-    --exclude='.git/objects/pack/*.pack'
+    --exclude='.git'
     --exclude='timer/build' --exclude='timer/out' --exclude='timer/dist'
     --exclude='replay/build' --exclude='node_modules' --exclude='.DS_Store'
     --exclude='scripts/.derbyvps-deploy.log' --exclude='scripts/derbyvps.config'

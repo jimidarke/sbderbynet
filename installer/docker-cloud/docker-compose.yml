@@ -12,6 +12,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # Caddyfile uses {$CADDY_HOST}. Defaults to uisp.darketech.ca; override
+      # in installer/docker-cloud/.env when deploying to a different host.
+      - CADDY_HOST=${CADDY_HOST:-uisp.darketech.ca}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
