@@ -321,7 +321,7 @@ class derbyRace:
         # publish racestate
         result = self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1)
         if result.rc != 0:
-            logger.error(f"Error publishing to {MQTT_TOPIC_RACESTATE} with rc {result.rc} and error {result.error_string}")
+            logger.error(f"Error publishing to {MQTT_TOPIC_RACESTATE} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
 
     def setLanePinny(self, lane, pinny):
         pinny = str(pinny).zfill(4)
@@ -331,7 +331,7 @@ class derbyRace:
         topic = f"derbynet/lane/{lane}/pinny"
         result = self.client.publish(topic, pinny, qos=2, retain=True)
         if result.rc != 0:
-            logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+            logger.error(f"Error publishing to {topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
         logger.info(f"Set Lane {lane} to Pinny {pinny}")
         self.updateLedSigns()
 
@@ -431,12 +431,12 @@ class derbyRace:
                 topic = f"derbynet/lane/{i}/led"
                 result = self.client.publish(topic, led, qos=2, retain=True)
                 if result.rc != 0:
-                    logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+                    logger.error(f"Error publishing to {topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
         else:
             topic = f"derbynet/lane/{lane}/led"
             result = self.client.publish(topic, led, qos=2, retain=True)
             if result.rc != 0:
-                logger.error(f"Error publishing to {topic} with rc {result.rc} and error {result.error_string}")
+                logger.error(f"Error publishing to {topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
     
     def updateLedSigns(self):
         """Publish LED sign content for all zones based on current race state."""
@@ -885,11 +885,26 @@ class derbyRace:
         '''
         #self.boottime
         uptime = int((time.time() - self.boottime.timestamp()) ) # uptime in seconds
-        cmd = "hostname -I | cut -d' ' -f1"
-        ipaddr = subprocess.check_output(cmd, shell=True).decode("utf-8").strip()
+        # `hostname -I` is GNU coreutils (works on the Pi). Alpine ships
+        # BusyBox hostname which doesn't have -I. Fall back to socket
+        # introspection so the cloud twin doesn't crash on telemetry.
+        try:
+            cmd = "hostname -I | cut -d' ' -f1"
+            ipaddr = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+            if not ipaddr: raise RuntimeError("empty")
+        except Exception:
+            try:
+                import socket
+                ipaddr = socket.gethostbyname(socket.gethostname())
+            except Exception:
+                ipaddr = "0.0.0.0"
         macaddr = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,2*6,2)])
-        tempraw = subprocess.check_output("vcgencmd measure_temp", shell=True).decode("utf-8")
-        temp =  float(tempraw.replace("temp=", "").replace("'C\n", ""))
+        # vcgencmd is Raspberry-Pi-only. Default to 0 on cloud / non-Pi.
+        try:
+            tempraw = subprocess.check_output("vcgencmd measure_temp", shell=True, stderr=subprocess.DEVNULL).decode("utf-8")
+            temp = float(tempraw.replace("temp=", "").replace("'C\n", ""))
+        except Exception:
+            temp = 0.0
         memusage = psutil.virtual_memory().percent
         cpuusage = psutil.cpu_percent()
         diskusage = psutil.disk_usage('/').percent

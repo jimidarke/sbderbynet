@@ -12,6 +12,11 @@
 //
 // Pages start with: require_once(__DIR__ . '/_guard.inc'); virtual_page_guard();
 
+// PHP-FPM's CWD for /var/www/html/virtual/*.php is the virtual/ subdir,
+// but inc/authorize.inc uses a CWD-relative `require_once('inc/...')`.
+// chdir to the docroot first so those nested requires resolve.
+chdir(__DIR__ . '/..');
+
 require_once(__DIR__ . '/../inc/data.inc');
 require_once(__DIR__ . '/../inc/authorize.inc');
 require_once(__DIR__ . '/../inc/permissions.inc');

@@ -26,7 +26,7 @@ RUN apk update && apk add --no-cache \
 # ephemeral — installed as a virtual package and removed after.
 RUN apk add --no-cache --virtual .build-deps gcc musl-dev linux-headers python3-dev && \
     pip install --no-cache-dir \
-        paho-mqtt==1.6.1 \
+        paho-mqtt==2.1.0 \
         requests==2.31.0 \
         psutil==5.9.8 \
         pytz==2024.1 && \

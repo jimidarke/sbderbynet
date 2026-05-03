@@ -30,7 +30,7 @@ echo "  MQTT broker is available"
 # Wait for DerbyNet web application to be available
 echo "[2/3] Waiting for DerbyNet web application..."
 RETRY_COUNT=0
-until curl -sf "http://${DERBYNET_API_HOST}/derbynet/" > /dev/null 2>&1; do
+until curl -sf "http://${DERBYNET_API_HOST}/" > /dev/null 2>&1; do
     RETRY_COUNT=$((RETRY_COUNT + 1))
     if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
         echo "ERROR: DerbyNet web not available after ${MAX_RETRIES} attempts"

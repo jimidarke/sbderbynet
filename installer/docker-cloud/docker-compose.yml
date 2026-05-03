@@ -118,7 +118,12 @@ services:
       - MQTT_USER=${MQTT_USER:-}
       - MQTT_PASS=${MQTT_PASS:-}
       - DERBYNET_API_HOST=derbynet-web
-      - DERBYNET_API_URL=http://derbynet-web/derbynet/action.php
+      # nginx serves the PHP app at /, NOT /derbynet/ (Caddy strips that
+      # prefix for external traffic only). Internal API calls need the
+      # bare path here. derbyapi.py also reads DERBYNET_API_PATH for its
+      # own URL construction.
+      - DERBYNET_API_URL=http://derbynet-web/action.php
+      - DERBYNET_API_PATH=/
       - DERBYNET_DB_PATH=/var/lib/derbynet
       - LANE_COUNT=${LANE_COUNT:-3}
       - DERBY_CONSOLE_LOG=true

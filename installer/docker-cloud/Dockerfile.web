@@ -46,13 +46,34 @@ RUN mkdir -p /var/log/php83 && \
     printf '\n; sbderbynet: explicit error_log path so volume mount catches it\nerror_log = /var/log/php83/error.log\nlog_errors = On\ndisplay_errors = Off\n' \
       > /etc/php83/conf.d/99-sbderbynet-logging.ini
 
+# Alpine PHP-FPM defaults to clear_env = yes, which strips ALL container env
+# vars before invoking the worker pool. is_cloud_mode() and the broker
+# helpers in inc/data.inc rely on $_SERVER['DERBYNET_CLOUD_MODE'] etc., so
+# we explicitly forward the vars we need. Anything not listed here is still
+# blocked from PHP — keeps the env surface tight.
+RUN cat >> /etc/php83/php-fpm.d/www.conf <<'PHPFPM'
+
+; sbderbynet: forward selected container env vars to PHP-FPM workers.
+; Alpine default is clear_env=yes so we list each needed var explicitly.
+clear_env = no
+env[DERBYNET_CONFIG_DIR]   = $DERBYNET_CONFIG_DIR
+env[DERBYNET_DATA_DIR]     = $DERBYNET_DATA_DIR
+env[DERBYNET_CLOUD_MODE]   = $DERBYNET_CLOUD_MODE
+env[MQTT_BROKER]           = $MQTT_BROKER
+env[MQTT_PORT]             = $MQTT_PORT
+env[MQTT_USER]             = $MQTT_USER
+env[MQTT_PASS]             = $MQTT_PASS
+env[VIRTUAL_MQTT_USER]     = $VIRTUAL_MQTT_USER
+env[VIRTUAL_MQTT_PASS]     = $VIRTUAL_MQTT_PASS
+PHPFPM
+
 # Install Python dependencies for simulation.
 # psutil needs gcc + headers to compile on Alpine because pip can't always
 # match the musllinux wheel for the bundled pip/Python combination.
 # Build deps are ephemeral — installed as a virtual package and removed after.
 RUN apk add --no-cache --virtual .build-deps gcc python3-dev musl-dev linux-headers && \
     pip3 install --no-cache-dir --break-system-packages \
-        paho-mqtt==1.6.1 \
+        paho-mqtt==2.1.0 \
         requests==2.31.0 \
         psutil==5.9.8 && \
     apk del .build-deps

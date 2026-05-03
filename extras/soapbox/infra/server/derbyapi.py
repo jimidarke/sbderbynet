@@ -59,8 +59,14 @@ class DerbyNetClient:
         if not server_ip:
             # Support environment variable for Docker deployment
             server_ip = os.getenv('DERBYNET_API_HOST', '192.168.100.10')
-        self.url = f"http://{server_ip}/derbynet/action.php"
-        self.rooturl = f"http://{server_ip}/derbynet/"
+        # Path defaults to /derbynet/ (matches the Pi's nginx config) but the
+        # cloud-twin nginx serves at /, so DERBYNET_API_PATH lets the cloud
+        # override without touching this file.
+        path = os.getenv('DERBYNET_API_PATH', '/derbynet/')
+        if not path.startswith('/'): path = '/' + path
+        if not path.endswith('/'):   path = path + '/'
+        self.url = f"http://{server_ip}{path}action.php"
+        self.rooturl = f"http://{server_ip}{path}"
         self.server_ip = server_ip
         self.authcode = None
         self.timer_state = TIMER_STATE_NOT_CONNECTED
