@@ -40,7 +40,7 @@ $hwid = 'B_LEDSIGN_' . $zone;
   </section>
 </main>
 
-<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<!-- mqtt.min.js loaded dynamically by virtual-common.js (vendored first). -->
 <script src="/derbynet/virtual/virtual-common.js"></script>
 <script>
 (function () {

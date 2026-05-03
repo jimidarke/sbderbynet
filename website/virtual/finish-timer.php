@@ -72,7 +72,8 @@ if (!$dip) {
   </section>
 </main>
 
-<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<!-- mqtt.min.js is loaded dynamically by virtual-common.js (vendored first,
+     unpkg fallback). See website/js/vendor/README.md. -->
 <script src="/derbynet/virtual/virtual-common.js"></script>
 <script src="/derbynet/virtual/virtual-finish-timer.js"></script>
 </body>

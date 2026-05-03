@@ -17,18 +17,58 @@ topic readwrite #
 # Browser pages under website/virtual/* fetch this credential from PHP and
 # connect to wss://<host>/mqtt. The ACL prevents a leaked browser cred from
 # impersonating real hardware: virtual devices may only publish under the
-# B_* hwid namespace.
+# enumerated B_* hwid namespace below.
+#
+# Note on syntax: MQTT '+' must be a complete topic segment, not combined
+# with literal characters (MQTT spec § 4.7.1.2). Patterns like 'B_+' are
+# illegal and would not authorize 'B_FINISH_1'. We enumerate each hwid
+# explicitly. Add new lines here when a new virtual device hwid is defined.
 # ----------------------------------------------------------------------------
 user virtual-device
 
-# Publish: only B_* device topics (browser virtual hardware)
-topic write derbynet/device/B_+/state
-topic write derbynet/device/B_+/telemetry
-topic write derbynet/device/B_+/status
+# Publish: virtual finish timers (B_FINISH_1..4 — max-4-lane derby setup)
+topic write derbynet/device/B_FINISH_1/state
+topic write derbynet/device/B_FINISH_1/telemetry
+topic write derbynet/device/B_FINISH_1/status
+topic write derbynet/device/B_FINISH_2/state
+topic write derbynet/device/B_FINISH_2/telemetry
+topic write derbynet/device/B_FINISH_2/status
+topic write derbynet/device/B_FINISH_3/state
+topic write derbynet/device/B_FINISH_3/telemetry
+topic write derbynet/device/B_FINISH_3/status
+topic write derbynet/device/B_FINISH_4/state
+topic write derbynet/device/B_FINISH_4/telemetry
+topic write derbynet/device/B_FINISH_4/status
 
-# Publish: virtual start timer is the single non-B_-prefixed exception so the
-# race server's existing START hwid path works unchanged. Comment this out if
-# you want to force a B_START rename instead.
+# Publish: virtual LED signs (no state topic — signs are display-only)
+topic write derbynet/device/B_LEDSIGN_starter/telemetry
+topic write derbynet/device/B_LEDSIGN_starter/status
+topic write derbynet/device/B_LEDSIGN_usher-lane1/telemetry
+topic write derbynet/device/B_LEDSIGN_usher-lane1/status
+topic write derbynet/device/B_LEDSIGN_usher-lane2/telemetry
+topic write derbynet/device/B_LEDSIGN_usher-lane2/status
+topic write derbynet/device/B_LEDSIGN_usher-lane3/telemetry
+topic write derbynet/device/B_LEDSIGN_usher-lane3/status
+topic write derbynet/device/B_LEDSIGN_usher-lane4/telemetry
+topic write derbynet/device/B_LEDSIGN_usher-lane4/status
+
+# Publish: virtual displays (B_DISPLAY_1, B_DISPLAY_2)
+topic write derbynet/device/B_DISPLAY_1/telemetry
+topic write derbynet/device/B_DISPLAY_1/status
+topic write derbynet/device/B_DISPLAY_2/telemetry
+topic write derbynet/device/B_DISPLAY_2/status
+
+# Publish: also allow the B_FINISH_*/state lane-1 DIP topic that the virtual
+# start timer uses to mimic the real start timer's GO signal. derbyRace.py's
+# startRace() reads this topic via the lane-1 DIP code embedded in the
+# payload, not via hwid; the topic itself is the lane-1 finish-timer DIP
+# (1000) — already covered by B_FINISH_1/state above? No: simulate_racing.py
+# publishes to derbynet/device/{dip}/state where dip is "1000". That topic
+# segment is "1000", not "B_FINISH_1". Allow it explicitly:
+topic write derbynet/device/1000/state
+
+# Publish: virtual start timer's own status/telemetry. The race server reads
+# the GO signal from the lane-1 DIP topic above; these two are observability.
 topic write derbynet/device/START/state
 topic write derbynet/device/START/telemetry
 topic write derbynet/device/START/status

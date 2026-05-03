@@ -9,6 +9,33 @@
 (function (global) {
   const log_max = 50;
 
+  // Load MQTT.js. Prefer the vendored copy at /derbynet/js/vendor/mqtt.min.js
+  // so the page keeps working when unpkg.com is unreachable (race-day venue
+  // WiFi, CDN outage, blocked DNS). Fall back to unpkg only if the local
+  // file is missing — pinned to the same version as the README.
+  let _mqttPromise = null;
+  function ensureMqtt() {
+    if (typeof global.mqtt !== 'undefined') return Promise.resolve();
+    if (_mqttPromise) return _mqttPromise;
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('failed: ' + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    _mqttPromise = loadScript('/derbynet/js/vendor/mqtt.min.js')
+      .catch((e) => {
+        logEvent('sys', '', 'vendored mqtt.min.js missing — falling back to unpkg');
+        return loadScript('https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js');
+      });
+    return _mqttPromise;
+  }
+
   function logEvent(direction, topic, payload) {
     const ol = document.getElementById('mqtt-log');
     if (!ol) return;
@@ -45,6 +72,7 @@
   }
 
   async function connectBroker(opts) {
+    await ensureMqtt();
     const creds = await fetchCreds();
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = proto + '//' + location.host + creds.broker_path;

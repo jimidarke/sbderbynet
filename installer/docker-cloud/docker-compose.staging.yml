@@ -3,10 +3,21 @@
 #
 # On the VPS, images are pulled from ghcr.io (no local build).
 # The `image:` key overrides local build — `docker compose pull` fetches it.
+#
+# Volume override: same bind-mount pattern as production, but pointed at
+# /opt/derbynet/staging/data so the two environments cannot collide. Create
+# it before first run:
+#
+#     sudo mkdir -p /opt/derbynet/staging/data
+#     sudo chown -R 33:33 /opt/derbynet/staging/data
 
 services:
   derbynet-web:
     image: ghcr.io/${GITHUB_OWNER:-sbderbynet}/sbderbynet-web:develop
+    volumes:
+      - /opt/derbynet/staging/data:/var/lib/derbynet
 
   race-server:
     image: ghcr.io/${GITHUB_OWNER:-sbderbynet}/sbderbynet-server:develop
+    volumes:
+      - /opt/derbynet/staging/data:/var/lib/derbynet

@@ -31,7 +31,7 @@ $hwid = 'B_DISPLAY_' . $id;
 <iframe class="vd-display-frame"
         src="/derbynet/kiosk.php?name=<?= htmlspecialchars($kiosk) ?>"></iframe>
 
-<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<!-- mqtt.min.js loaded dynamically by virtual-common.js (vendored first). -->
 <script src="/derbynet/virtual/virtual-common.js"></script>
 <script>
 // Display devices are passive: they only report telemetry/status so the
