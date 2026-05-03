@@ -118,6 +118,97 @@ Default systemd retention applies (`/var/log/journal/` is currently around
 - **HTTP access log shipping.** Nginx access log stays on the VPS. If you
   ever want analytics, point a tool at `derbynet_web_nginx_logs` volume.
 
+## Findings & lessons (real bugs caught by this map)
+
+### The `json_failure()` self-crash (caught 2026-05-03, fixed in v0.9.6)
+
+**Symptom**: every action that called `json_failure()` returned a stack
+trace fragment like `Call to undefined function derby_get_error_details()`.
+In the UI this looked like generic "save failed" or worse — completely
+silent failures, since some AJAX call sites swallowed non-JSON responses.
+
+**Root cause**: `website/action.php:51` called `derby_get_error_details()`
+with a `derby_` prefix that doesn't exist. The actual helper in
+`website/inc/error-codes.inc:476` is named `get_error_details()`. A
+one-character typo masked **every error message in the entire app**.
+
+**How we found it**: posted the failing request from inside the web
+container (`docker exec derbynet-web curl ... action.php`) and read the
+raw PHP exception from the response body. Without the volume-mounted
+`/var/log/php83/error.log` (added in v0.9.4), this would have been
+visible only as a ~200-byte JSON `outcome.summary: failure` with no
+context — exactly what a frustrated operator would see.
+
+**Lesson**: if a `json_failure()` call site reports a strange error,
+*reproduce the request from inside the container with curl* and look at
+the raw response. The AJAX layer in the browser swallows much of what
+the server actually sent.
+
+### Setup creates dirs under the document root
+
+**Symptom**: clean DB initialization through `setup.php` failed with
+`Unable to create test subdirectory: /var/www/html/Data/test/<year>/...`
+
+**Root cause**: legacy DerbyNet behavior — `setup.nodata` creates
+per-event scratch dirs (racers, cars, videos, etc.) under
+`$docroot/Data/test/<year>/<event>/` in addition to the real database
+under `default_database_directory()`. In a container, `$docroot` is
+`/var/www/html` and isn't writable by the unprivileged Alpine PHP-FPM
+`nobody` user.
+
+**Fix (v0.9.6)**: `Dockerfile.web` now `mkdir -p -m 777 ${WWW_ROOT}/Data`
+during build. *Caveat*: contents under that dir live in the container's
+writable layer, not a volume — they don't survive deploys. Acceptable
+since the actual SQLite file is under `/var/lib/derbynet` (bind-mounted,
+persistent).
+
+**Lesson**: when running upstream PHP apps in containers, audit anywhere
+the app calls `mkdir` against the document root or the install path. The
+Pi build (Ansible-managed) doesn't see this issue because there the
+docroot IS the install dir and is writable.
+
+### Resetting the cloud twin to a clean setup state
+
+If you ever need to wipe a created event and return the cloud twin to
+the fresh-setup wizard:
+
+```sh
+ssh -i ~/.ssh/sbderby_vps_ed25519 -p 22 claude@uisp.darketech.ca '
+  sudo rm -fv /opt/derbynet/production/data/config-database.inc \
+              /opt/derbynet/production/data/config-roles.inc
+  sudo rm -rfv /opt/derbynet/production/data/<year>
+  sudo docker exec derbynet-web sh -c "rm -rf /var/www/html/Data/test"
+'
+```
+
+`config-database.inc` is the pointer PHP uses to skip setup. Removing it
+*and* the year subdir(s) is enough; PHP regenerates both during the
+next setup run.
+
+### Recurring pattern: bugs hidden until real bootstrap
+
+The cloud stack accumulated a backlog of unsurfaced bugs because nobody
+had previously brought it up end-to-end with auth on. We hit them in
+order during the first live bootstrap:
+
+1. Mosquitto ACL syntax (illegal `B_+` wildcard) — *v0.9.1*
+2. MQTT.js fetched at runtime from a CDN — *v0.9.1*
+3. Production volume bind path didn't match cloud-sync.sh — *v0.9.1*
+4. psutil source build needs gcc on Alpine — *v0.9.2*
+5. CRLF line endings on installer shell scripts — *v0.9.2*
+6. Mosquitto healthcheck used unauth `$SYS/#` topic — *v0.9.2*
+7. `setup-mqtt-auth.sh` wrote `passwd` mode 600 root-only — *v0.9.2*
+8. nginx serves at `/`, website hard-codes `/derbynet/` — *v0.9.2*
+9. Bind-mount uid mismatch (Alpine `nobody` vs Debian `www-data`) — *v0.9.2*
+10. `rsync` without `--inplace` confused docker bind mounts — *v0.9.2*
+11. Caddy bound only `:80`, browsers default to HTTPS — *v0.9.3*
+12. `json_failure()` self-crash (this doc) — *v0.9.6*
+13. `setup.nodata` creates dirs under read-only docroot — *v0.9.6*
+
+**Lesson**: a "test environment" that isn't actually exercised every
+release accumulates these silently. Track 1–2 commits worth of headroom
+for similar surprises during any future first-run on a new host.
+
 ## Disk usage sanity check
 
 Run `derbyvps.sh audit` at any time. The "RESOURCES" section reports
