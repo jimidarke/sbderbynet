@@ -28,9 +28,18 @@ logger = ServerLogger(
 # MQTT configuration - support environment variables for Docker deployment
 MQTT_BROKER = os.getenv('MQTT_BROKER', '127.0.0.1')
 MQTT_PORT = int(os.getenv('MQTT_PORT', '1883'))
+MQTT_USER = os.getenv('MQTT_USER', '')
+MQTT_PASS = os.getenv('MQTT_PASS', '')
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "racetime")
+# Broker requires auth on the cloud twin (allow_anonymous=false). The Pi
+# broker is currently anonymous, so empty creds are also valid there.
+if MQTT_USER:
+    client.username_pw_set(MQTT_USER, MQTT_PASS)
 client.connect(MQTT_BROKER, MQTT_PORT, 5)
+# paho-mqtt v2 requires an explicit loop. Without it, connect() never
+# completes the CONNACK round-trip and every publish returns NO_CONN.
+client.loop_start()
 time_start = time.time()
 
 def sendTime():

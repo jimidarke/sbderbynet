@@ -28,11 +28,28 @@ $show_voting_button =
   $schema_version >= BALLOTING_SCHEMA &&
   read_single_value('SELECT COUNT(*) FROM BallotAwards') > 0;
 
+// Pending heading is printed lazily just before the first visible button
+// in its section, so empty sections (all permissions gated off) collapse.
+$pending_section_heading = null;
+
+function set_section_heading($title) {
+  global $pending_section_heading;
+  $pending_section_heading = $title;
+}
+
+function flush_section_heading() {
+  global $pending_section_heading;
+  if ($pending_section_heading !== null) {
+    echo "<h2 class='menu_section_heading'>".htmlspecialchars($pending_section_heading)."</h2>\n";
+    $pending_section_heading = null;
+  }
+}
+
 // Returns true if we actually showed a button
 function make_link_button($label, $link, $permission, $button_class) {
   if (have_permission($permission)) {
+    flush_section_heading();
     echo "<a class='button_link ".$button_class."' href='".$link."'>".$label."</a>\n";
-    echo "<br/>\n";
     return true;
   } else {
     return false;
@@ -55,7 +72,7 @@ function make_spacer_if($cond) {
 <script type="text/javascript" src="js/modal.js"></script>
 <style type="text/css">
 div.index_spacer {
-  height: 40px;
+  height: 24px;
 }
 
 div.index_background {
@@ -66,28 +83,6 @@ div.index_column {
   width: 50%;
   display: inline-block;
   float: left;
-}
-
-.block_buttons a.button_link {
-  width: 238px;
-  height: 30px;
-}
-
-.block_buttons a.button_link.before_button,
-.block_buttons input.before_button[type='submit'] {
-  color: #ffffcc;
-}
-.block_buttons a.button_link.during_button,
-.block_buttons input.during_button[type='submit'] {
-  color: #ddffdd;
-}
-.block_buttons a.button_link.after_button,
-.block_buttons input.after_button[type='submit'] {
-  color: #ddddff;
-}
-.block_buttons a.button_link.other_button,
-.block_buttons input.other_button[type='submit'] {
-  color: #ffddff;
 }
 </style>
 </head>
@@ -109,15 +104,18 @@ if ($two_columns) {
 echo "<div class='block_buttons'>\n";
 
 // *********** Before ***************
+set_section_heading('Before the Race');
 $need_spacer = make_link_button('Set-Up', 'setup.php', SET_UP_PERMISSION, 'before_button');
 $need_spacer = make_link_button('Racing Groups', 'racing-groups.php', SET_UP_PERMISSION, 'before_button') || $need_spacer;
 $need_spacer = make_link_button('Race Check-In', 'checkin.php', CHECK_IN_RACERS_PERMISSION, 'before_button') || $need_spacer;
 if (have_permission(ASSIGN_RACER_IMAGE_PERMISSION)) {
   if ($schema_version > 1) {
+    flush_section_heading();
     echo "<div class='double'>";
     echo "<a class='button_link left before_button' href='photo-thumbs.php?repo=head'><b>Racer</b><br/>Photos</a>\n";
     echo "<a class='button_link right before_button' href='photo-thumbs.php?repo=car'><b>Car</b><br/>Photos</a>\n";
     echo "</div>";
+    $need_spacer = true;
   } else {
     $need_spacer = make_link_button('Edit Racer Photos', 'photo-thumbs.php?repo=head', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;
   }
@@ -126,6 +124,7 @@ if (have_permission(ASSIGN_RACER_IMAGE_PERMISSION)) {
 make_spacer_if($need_spacer);
 
 // *********** During ***************
+set_section_heading('During the Race');
 $need_spacer = make_link_button('Race Dashboard', 'coordinator.php', SET_UP_PERMISSION, 'during_button');
 $need_spacer = make_link_button('Kiosk Dashboard', 'kiosk-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
 $need_spacer = make_link_button('LED Signs', 'ledsign-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
@@ -153,6 +152,7 @@ if ($two_columns) {
 }
 
 // *********** After ***************
+set_section_heading('After the Race');
 $need_spacer = make_link_button('Device status', 'device-status.php', VIEW_DEVICE_STATUS, 'after_button');
 
 // TEMPORARILY HIDDEN: $need_spacer = make_link_button('Present Awards', 'awards-presentation.php', PRESENT_AWARDS_PERMISSION, 'after_button');
@@ -164,6 +164,7 @@ $need_spacer = make_link_button('Export Results', 'export.php', VIEW_RACE_RESULT
 make_spacer_if($need_spacer);
 
 // *********** Other ***************
+set_section_heading('Other');
 make_link_button('Schedule', 'render-document.php/summary/ScheduleDocument?options=%7B%7D&ids=0', VIEW_RACE_RESULTS_PERMISSION, 'other_button');
 make_link_button('Printables', 'print.php', ASSIGN_RACER_IMAGE_PERMISSION, 'other_button');
 // TEMPORARILY HIDDEN: make_link_button('About', 'about.php', -1, 'other_button');
