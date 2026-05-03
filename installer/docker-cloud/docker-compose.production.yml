@@ -11,7 +11,9 @@
 # the VPS before bringing the stack up:
 #
 #     sudo mkdir -p /opt/derbynet/production/data
-#     sudo chown -R 33:33 /opt/derbynet/production/data   # www-data uid:gid
+#     sudo chmod 777 /opt/derbynet/production/data
+#     # ('nobody' uid 65534 on Alpine PHP-FPM). chmod 777 is the simplest
+#     # cross-distro way to make the dir writable from inside the container.
 #
 # After this override is applied, the cloud-sync.sh defaults
 # (CLOUD_DB_PATH=/opt/derbynet/production/data/derbynet.sqlite3) line up with

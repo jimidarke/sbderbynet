@@ -27,7 +27,18 @@
 		reverse_proxy mqtt:9001
 	}
 
-	# Default route: PHP web app
+	# /derbynet/* — strip the prefix and proxy to nginx.
+	# The PHP app's nginx config serves at /, but the website's hard-coded
+	# URLs (and external bookmarks) use /derbynet/ as the path. handle_path
+	# matches the prefix AND strips it before forwarding.
+	handle_path /derbynet/* {
+		reverse_proxy derbynet-web:80
+	}
+
+	# Bare-host requests redirect into the canonical path.
+	redir / /derbynet/ permanent
+
+	# Default route: anything else goes to nginx as-is.
 	handle {
 		reverse_proxy derbynet-web:80
 	}

@@ -1,0 +1,3 @@
+# Local operational state — never commit
+derbyvps.config
+.derbyvps-deploy.log

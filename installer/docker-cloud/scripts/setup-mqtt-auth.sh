@@ -48,6 +48,13 @@ echo "Adding virtual-device user: ${VIRTUAL_USER}"
 docker run --rm -v "${MQTT_DIR}:/mosquitto/config" eclipse-mosquitto:2 \
     mosquitto_passwd -b /mosquitto/config/passwd "${VIRTUAL_USER}" "${VIRTUAL_PASSWORD}"
 
+# mosquitto_passwd writes the file as root with mode 600 (via the temp
+# container). The broker inside eclipse-mosquitto:2 runs as the unprivileged
+# `mosquitto` user and would fail with "Unable to open pwfile". Hashes are
+# salted+bcrypted so 644 is safe; tighten further (640 + chown to broker uid)
+# if your threat model requires it.
+chmod 644 "${PASSWD_FILE}"
+
 echo "Password file created at: ${PASSWD_FILE}"
 echo ""
 echo "To add additional users (without -c flag to avoid overwriting):"

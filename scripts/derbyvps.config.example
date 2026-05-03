@@ -1,0 +1,27 @@
+# derbyvps.config — connection + path overrides for scripts/derbyvps.sh
+#
+# Copy to derbyvps.config (gitignored) and edit only what you need to change.
+# Anything not set here uses the defaults baked into derbyvps.sh.
+#
+# This file is sourced by bash; all values become shell variables.
+
+# --- VPS connection ---
+# VPS_HOST="uisp.darketech.ca"
+# VPS_PORT=22
+# VPS_USER="claude"
+# VPS_KEY="$HOME/.ssh/sbderby_vps_ed25519"
+
+# --- Remote layout ---
+# VPS_REPO_DIR="/opt/sbderbynet"
+# VPS_DATA_DIR="/opt/derbynet/production/data"
+# VPS_BACKUP_DIR="/opt/sbderbynet-backups"
+# VPS_LOG_FILE="/var/log/sbderbynet-deploy.log"
+
+# --- Operational defaults ---
+# BACKUP_RETENTION=10              # snapshots kept on the VPS
+# COMPOSE_DIR_REL="installer/docker-cloud"
+# COMPOSE_FILES="-f docker-compose.yml -f docker-compose.production.yml"
+# HEALTH_URL="http://localhost/health"
+# EXPECTED_SERVICES_MIN=4           # caddy + mqtt + derbynet-web + race-server
+# DERBYNET_CLOUD_MODE="public"      # 'public' enables name privacy + suppresses
+                                    # device-offline alerts on the cloud twin

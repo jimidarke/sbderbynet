@@ -29,6 +29,10 @@ services:
     container_name: derbynet-mqtt
     expose:
       - "1883"
+    environment:
+      # Used by the healthcheck below; the broker itself reads passwd/acl files.
+      - MQTT_USER=${MQTT_USER:-derbynet}
+      - MQTT_PASS=${MQTT_PASS:-}
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/passwd:/mosquitto/config/passwd:ro
@@ -38,10 +42,16 @@ services:
     networks:
       - derbynet_net
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      # Authenticate as the service user. Publishing to _healthcheck succeeds
+      # because the derbynet user's ACL is `topic readwrite #`. $SYS/# isn't
+      # reachable through that ACL pattern with mosquitto 2.x defaults, so
+      # the previous unauth subscribe was always going to fail once the
+      # passwd/acl pair was active.
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -p 1883 -u \"$$MQTT_USER\" -P \"$$MQTT_PASS\" -t _healthcheck -m ok -q 0"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 5s
     restart: unless-stopped
 
   # PHP Web Application - Main DerbyNet server
