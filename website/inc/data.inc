@@ -24,6 +24,45 @@ if ($dbtype == 'odbc') {
 	$dbtype = 'access';
 }
 
+// Cloud-mode detection. The cloud twin is a read-only replica used for dev,
+// CI, and dress rehearsals. Race-day production is the local Pi and never
+// runs in cloud mode.
+//
+// Allowed values:
+//   ''       (default)  - normal local operation
+//   'public' - cloud twin serving Pi-synced data; enforces name privacy and
+//              suppresses device-offline alerts (no real hardware connects)
+//
+// Set via DERBYNET_CLOUD_MODE env var in installer/docker-cloud/.env.
+if (!defined('DERBYNET_CLOUD_MODE')) {
+  define('DERBYNET_CLOUD_MODE',
+         isset($_SERVER['DERBYNET_CLOUD_MODE']) ? $_SERVER['DERBYNET_CLOUD_MODE'] : '');
+}
+
+function is_cloud_mode() {
+  return DERBYNET_CLOUD_MODE !== '';
+}
+
+function is_cloud_public_mode() {
+  return DERBYNET_CLOUD_MODE === 'public';
+}
+
+// Returns last cloud-sync timestamp (ISO 8601 UTC) if the .cloud_readonly
+// sentinel exists, otherwise null. Cloud-sync (extras/soapbox/infra/server/
+// cloud-sync.sh) writes this alongside the DB on every Pi -> cloud push.
+function cloud_last_sync_utc() {
+  $sentinel = '/var/lib/derbynet/.cloud_readonly';
+  if (!is_cloud_mode() || !is_readable($sentinel)) {
+    return null;
+  }
+  $contents = @file_get_contents($sentinel);
+  if ($contents === false) return null;
+  if (preg_match('/^last_sync_utc=(\S+)/m', $contents, $m)) {
+    return $m[1];
+  }
+  return null;
+}
+
 function dbnow_expr() {
   global $dbtype;
   if ($dbtype == 'sqlite') {

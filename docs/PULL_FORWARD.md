@@ -198,6 +198,7 @@ Undo also restores the dropout racer's `passedinspection` flag so they can be re
 | `website/css/coordinator.css` | Modal and button styles |
 | `website/inc/events.inc` | `EVENT_PULL_FORWARD` (501), `EVENT_PULL_FORWARD_UNDO` (502) |
 | `testing/test-pull-forward.sh` | Integration test suite (9 scenarios) |
+| `testing/puppeteer/pull-forward-test.js` | Puppeteer UI test suite (11 scenarios) |
 
 ## API
 
@@ -225,7 +226,9 @@ Undo also restores the dropout racer's `passedinspection` flag so they can be re
 
 ## Test Scenarios
 
-The integration test (`testing/test-pull-forward.sh`) covers:
+### Integration Tests (Server-Side)
+
+The integration test (`testing/test-pull-forward.sh`) exercises the PHP backend via curl:
 
 | # | Scenario | Validates |
 |---|----------|-----------|
@@ -242,4 +245,27 @@ The integration test (`testing/test-pull-forward.sh`) covers:
 Run with:
 ```bash
 ./testing/test-pull-forward.sh http://localhost:8080
+```
+
+### UI Tests (Frontend)
+
+The Puppeteer test (`testing/puppeteer/pull-forward-test.js`) exercises the coordinator UI using mocked AJAX responses:
+
+| # | Scenario | Validates |
+|---|----------|-----------|
+| 1 | Modal populates correctly | Dropout info, moves table, trailing byes, and warnings render from proposal data |
+| 2 | Empty proposal | "No racers available" message when no candidates exist |
+| 3 | Clean proposal | Warnings and trailing byes sections hidden when empty |
+| 4 | Cancel button | Modal closes without triggering any AJAX call |
+| 5 | Accept button | Sends `schedule.pullforward` with `dry-run: false`, `send_broadcast: 0` |
+| 6 | Accept + Announce | Sends `send_broadcast: 1` flag |
+| 7 | showPullForwardModal | Sends dry-run AJAX and opens modal with response |
+| 8 | Undo button appears | Renders when poll data includes `pull-forward-undo` |
+| 9 | Undo button absent | Hidden when poll has no `pull-forward-undo` |
+| 10 | Undo button click | Sends `schedule.pullforward.undo` with correct roundid |
+| 11 | Modal re-population | Clears stale data when showing a new proposal |
+
+Run with:
+```bash
+node testing/puppeteer/pull-forward-test.js http://localhost/derbynet
 ```

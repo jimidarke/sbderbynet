@@ -1,0 +1,115 @@
+/* virtual.css — shared styles for browser virtual hardware pages.
+ * Cloud-only. Desktop browsers; no mobile breakpoints. */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body.virtual-device {
+  font: 14px/1.4 -apple-system, system-ui, sans-serif;
+  background: #1a1a1a; color: #e8e8e8;
+  min-height: 100vh;
+}
+
+.vd-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px; background: #111; border-bottom: 2px solid #d33;
+}
+.vd-header h1 { margin: 0; font-size: 18px; flex: 1; }
+.vd-tag {
+  background: #d33; color: white; padding: 2px 8px;
+  font-weight: bold; font-size: 12px; letter-spacing: 1px;
+  border-radius: 3px;
+}
+.vd-conn { font-size: 12px; padding: 2px 8px; border-radius: 3px; }
+.vd-conn[data-state="connected"] { background: #283; color: white; }
+.vd-conn[data-state="reconnecting"] { background: #b80; color: white; }
+.vd-conn[data-state="disconnected"], .vd-conn[data-state="error"]
+  { background: #722; color: white; }
+
+.vd-main {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  padding: 20px; max-width: 1100px; margin: 0 auto;
+}
+.vd-main > section {
+  background: #222; border: 1px solid #333; border-radius: 6px;
+  padding: 16px;
+}
+
+.vd-pinny-number {
+  font-family: ui-monospace, monospace; font-size: 96px;
+  text-align: center; color: #ffeb3b; letter-spacing: 4px;
+}
+.vd-pinny-label, .vd-led-label, .vd-state-label, .vd-log-label {
+  text-transform: uppercase; font-size: 11px; color: #888;
+  letter-spacing: 1px; margin-bottom: 8px;
+}
+
+.vd-led { text-align: center; }
+.vd-led-circle {
+  width: 80px; height: 80px; border-radius: 50%;
+  margin: 12px auto; background: #444;
+  box-shadow: inset 0 0 12px rgba(0,0,0,.6);
+  transition: background-color .15s, box-shadow .15s;
+}
+.vd-led[data-color="red"]    .vd-led-circle { background: #d33; box-shadow: 0 0 24px #d33; }
+.vd-led[data-color="green"]  .vd-led-circle { background: #2c2; box-shadow: 0 0 24px #2c2; }
+.vd-led[data-color="blue"]   .vd-led-circle { background: #29f; box-shadow: 0 0 24px #29f; }
+.vd-led[data-color="purple"] .vd-led-circle { background: #93c; box-shadow: 0 0 24px #93c; }
+.vd-led[data-color="yellow"] .vd-led-circle { background: #ec0; box-shadow: 0 0 24px #ec0; }
+.vd-led[data-color="white"]  .vd-led-circle { background: #eee; box-shadow: 0 0 24px #eee; }
+.vd-led-color { font-size: 12px; color: #aaa; }
+
+.vd-state-value {
+  font-family: ui-monospace, monospace; font-size: 28px;
+  text-align: center; color: #5cf;
+}
+
+.vd-controls { grid-column: 1 / -1; }
+.vd-toggle, .vd-auto { display: block; padding: 8px 0; cursor: pointer; }
+.vd-toggle input, .vd-auto input[type="checkbox"] { margin-right: 8px; }
+.vd-auto input[type="number"] { width: 60px; margin: 0 4px; }
+
+.vd-finish-button {
+  display: block; width: 100%; padding: 32px;
+  background: #d33; color: white; border: none; border-radius: 8px;
+  font-size: 28px; font-weight: bold; letter-spacing: 2px; cursor: pointer;
+  margin: 12px 0;
+}
+.vd-finish-button:disabled { background: #555; color: #888; cursor: not-allowed; }
+.vd-finish-button:not(:disabled):hover { background: #e44; }
+.vd-finish-button:not(:disabled):active { background: #b22; }
+
+.vd-go-button {
+  display: block; width: 100%; padding: 32px;
+  background: #2c2; color: white; border: none; border-radius: 8px;
+  font-size: 28px; font-weight: bold; letter-spacing: 2px; cursor: pointer;
+  margin: 12px 0;
+}
+.vd-go-button:disabled { background: #555; color: #888; cursor: not-allowed; }
+.vd-go-button:not(:disabled):hover { background: #3d3; }
+
+.vd-log { grid-column: 1 / -1; max-height: 320px; overflow: auto; }
+.vd-log ol {
+  list-style: none; margin: 0; padding: 0;
+  font-family: ui-monospace, monospace; font-size: 12px;
+}
+.vd-log li { padding: 2px 0; border-bottom: 1px solid #2a2a2a; }
+.vd-log .log-tx { color: #5cf; }
+.vd-log .log-rx { color: #cf5; }
+.vd-log .log-sys { color: #aaa; }
+
+.vd-sign-display {
+  background: #000; color: #f60; font-family: ui-monospace, monospace;
+  font-size: 32px; padding: 24px; text-align: center; letter-spacing: 4px;
+  min-height: 80px; border-radius: 4px;
+}
+.vd-index-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px; padding: 20px; max-width: 1100px; margin: 0 auto;
+}
+.vd-index-card {
+  background: #222; border: 1px solid #333; border-radius: 6px;
+  padding: 16px; text-align: center;
+}
+.vd-index-card a { color: #5cf; text-decoration: none; font-size: 18px; }
+.vd-index-card a:hover { text-decoration: underline; }
+.vd-index-card .vd-index-meta { color: #888; font-size: 12px; margin-top: 4px; }

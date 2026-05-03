@@ -32,6 +32,7 @@ services:
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/passwd:/mosquitto/config/passwd:ro
+      - ./mosquitto/acl:/mosquitto/config/acl:ro
       - mqtt_data:/mosquitto/data
       - mqtt_log:/mosquitto/log
     networks:
@@ -60,6 +61,9 @@ services:
       - MQTT_PASS=${MQTT_PASS:-}
       - DERBYNET_CONFIG_DIR=/var/lib/derbynet
       - DERBYNET_DATA_DIR=/var/lib/derbynet
+      - DERBYNET_CLOUD_MODE=${DERBYNET_CLOUD_MODE:-}
+      - VIRTUAL_MQTT_USER=${VIRTUAL_MQTT_USER:-virtual-device}
+      - VIRTUAL_MQTT_PASS=${VIRTUAL_MQTT_PASS:-}
     volumes:
       - derbynet_data:/var/lib/derbynet
     networks:

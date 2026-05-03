@@ -19,6 +19,8 @@ This is the core of the system. The Race Server (`extras/soapbox/infra/server/`)
 - `inc/racing-state.inc` — Race state management (NowRacingState)
 - `inc/heartbeat-config.inc` — Centralized timeout constants (cross-component alignment)
 - `inc/error-codes.inc` — Standardized error code registry
+- `inc/data.inc` — DB bootstrap; also defines `is_cloud_mode()`, `is_cloud_public_mode()`, `cloud_last_sync_utc()`
+- `virtual/` — Cloud-only browser virtual hardware pages (finish/start timer, LED sign, display, control panel). Gated by `virtual/_guard.inc` (cloud-mode + coordinator permission). `B_`-prefixed hwids; never deployed for race-day use.
 
 ## File Naming Conventions
 

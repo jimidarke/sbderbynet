@@ -8,7 +8,6 @@
 #   Domain:   derbynet.d-t.pw { ... }
 
 :80 {
-	reverse_proxy derbynet-web:80
 	encode gzip
 
 	# Longer timeouts for file uploads (racer photos)
@@ -19,6 +18,18 @@
 	# Health check endpoint
 	handle /health {
 		respond "OK" 200
+	}
+
+	# WebSocket -> MQTT for browser virtual devices (cloud-only).
+	# Browser code connects to wss://<host>/mqtt using MQTT.js.
+	# Auth is enforced by Mosquitto via the virtual-device user + ACL.
+	handle /mqtt {
+		reverse_proxy mqtt:9001
+	}
+
+	# Default route: PHP web app
+	handle {
+		reverse_proxy derbynet-web:80
 	}
 
 	log {

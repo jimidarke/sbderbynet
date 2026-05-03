@@ -14,7 +14,17 @@ if (!isset($_COOKIE['PHPSESSID'])) {
 try {
     // Handle GET: Retrieve device statuses
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $stmt = $db->query('SELECT * FROM DeviceStatus ORDER BY last_updated DESC');
+        // B_*-prefixed serials are browser virtual hardware (cloud-only).
+        // Hide them from the device list when not in cloud mode so a
+        // mistakenly-deployed cloud image on the Pi doesn't show ghost
+        // devices on the coordinator page.
+        if (function_exists('is_cloud_mode') && !is_cloud_mode()) {
+            $stmt = $db->query("SELECT * FROM DeviceStatus "
+                             . "WHERE serial NOT LIKE 'B\\_%' ESCAPE '\\' "
+                             . "ORDER BY last_updated DESC");
+        } else {
+            $stmt = $db->query('SELECT * FROM DeviceStatus ORDER BY last_updated DESC');
+        }
         $devices = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['devices' => $devices]);
         exit;
@@ -86,23 +96,31 @@ try {
             }
         }
 
-        // Once all devices are processed, handle inactive devices and deletion in bulk
-        $timestampOneMinuteAgo = time() - 60;
+        // Once all devices are processed, handle inactive devices and deletion in bulk.
+        //
+        // Cloud-mode skip: in the cloud twin no real hardware connects (only
+        // browser virtual devices, which produce their own heartbeats while
+        // open). Pruning silent devices would constantly delete the simulator
+        // entries between race scenarios. The local Pi remains the source of
+        // truth for hardware presence.
+        if (!is_cloud_mode()) {
+            $timestampOneMinuteAgo = time() - 60;
 
-        // Update devices that haven't been updated in the last minute
-        $stmt = $db->prepare("
-            UPDATE DeviceStatus
-            SET status = 'inactive'
-            WHERE last_updated < :timestamp
-        ");
-        $stmt->execute([':timestamp' => $timestampOneMinuteAgo]);
+            // Update devices that haven't been updated in the last minute
+            $stmt = $db->prepare("
+                UPDATE DeviceStatus
+                SET status = 'inactive'
+                WHERE last_updated < :timestamp
+            ");
+            $stmt->execute([':timestamp' => $timestampOneMinuteAgo]);
 
-        // Delete devices that haven't been updated in the last minute
-        $stmt = $db->prepare("
-            DELETE FROM DeviceStatus
-            WHERE last_updated < :timestamp
-        ");
-        $stmt->execute([':timestamp' => $timestampOneMinuteAgo]);
+            // Delete devices that haven't been updated in the last minute
+            $stmt = $db->prepare("
+                DELETE FROM DeviceStatus
+                WHERE last_updated < :timestamp
+            ");
+            $stmt->execute([':timestamp' => $timestampOneMinuteAgo]);
+        }
 
         // Respond with all results
         echo json_encode(['results' => $results]);

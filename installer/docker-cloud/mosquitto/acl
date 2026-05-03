@@ -1,0 +1,41 @@
+# Mosquitto ACL for DerbyNet Cloud
+#
+# Authentication is required (allow_anonymous false). This file gates which
+# topics each user can publish/subscribe.
+#
+# Users are provisioned by scripts/setup-mqtt-auth.sh.
+#
+# ----------------------------------------------------------------------------
+# derbynet (default service user) - full access for race-server and PHP web
+# ----------------------------------------------------------------------------
+user derbynet
+topic readwrite #
+
+# ----------------------------------------------------------------------------
+# virtual-device (browser virtual hardware - cloud only)
+#
+# Browser pages under website/virtual/* fetch this credential from PHP and
+# connect to wss://<host>/mqtt. The ACL prevents a leaked browser cred from
+# impersonating real hardware: virtual devices may only publish under the
+# B_* hwid namespace.
+# ----------------------------------------------------------------------------
+user virtual-device
+
+# Publish: only B_* device topics (browser virtual hardware)
+topic write derbynet/device/B_+/state
+topic write derbynet/device/B_+/telemetry
+topic write derbynet/device/B_+/status
+
+# Publish: virtual start timer is the single non-B_-prefixed exception so the
+# race server's existing START hwid path works unchanged. Comment this out if
+# you want to force a B_START rename instead.
+topic write derbynet/device/START/state
+topic write derbynet/device/START/telemetry
+topic write derbynet/device/START/status
+
+# Subscribe: read everything devices need to render correctly
+topic read derbynet/race/state
+topic read derbynet/lane/+/led
+topic read derbynet/lane/+/pinny
+topic read derbynet/ledsign/+/message
+topic read derbynet/ledsign/broadcast

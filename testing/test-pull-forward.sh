@@ -114,6 +114,16 @@ curl_postj action.php "action=schedule.pullforward&roundid=5&dropout_racerid=25&
 
 jq -e ".proposal.moves | length > 0" testing/debug.curl > /dev/null || test_fails "No moves with broadcast"
 
+# Verify the broadcast actually reaches the kiosk poll endpoint that
+# website/js/kiosk-poller.js consumes. This is the contract the rendering
+# layer depends on; if it ever silently breaks, race-day staging announcements
+# would no-op without any test catching it.
+curl_getj "action.php?query=poll.kiosk&page=welcome.kiosk"
+jq -e '.["broadcast-message"].message' testing/debug.curl > /dev/null \
+    || test_fails "Broadcast pull-forward did not surface a broadcast-message on kiosk poll"
+jq -e '.["broadcast-message"].expires > .["broadcast-message"].timestamp' testing/debug.curl > /dev/null \
+    || test_fails "Broadcast message has invalid expires/timestamp"
+
 echo ""
 echo "============= Test 5: Edge case - racer with no unraced heats ============="
 # Try to pull-forward a racer that doesn't exist in unraced heats

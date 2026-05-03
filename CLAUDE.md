@@ -54,3 +54,6 @@ SBDerbyNet is a soapbox derby race management system built by extensively modify
 - [docs/ROUNDSETUP.md](docs/ROUNDSETUP.md) — Round system and database schema
 - [docs/CICD.md](docs/CICD.md) — CI/CD pipeline and deployment strategy
 - [docs/PULL_FORWARD.md](docs/PULL_FORWARD.md) — Mid-event schedule adjustment system
+- [docs/PULL_FORWARD_OPERATOR.md](docs/PULL_FORWARD_OPERATOR.md) — Race-day operator card for pull-forward
+- [docs/DRESS_REHEARSAL.md](docs/DRESS_REHEARSAL.md) — Cloud + Pi rehearsal runbook and race-day go/no-go
+- [docs/PHONE_USAGE.md](docs/PHONE_USAGE.md) — Phone scope: standard pages only, never a control surface

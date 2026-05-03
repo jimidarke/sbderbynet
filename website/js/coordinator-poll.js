@@ -481,6 +481,7 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
       buttons.append(
         '<input type="button" class="pull-forward-undo-button"' +
         ' onclick="undoPullForward(' + round.roundid + ')"' +
+        ' title="Available until any moved heat is raced. Once a moved heat records a result, this button disappears."' +
         ' value="Undo Pull Forward"/>'
       );
     }
@@ -1344,27 +1345,6 @@ $(document).ajaxSuccess(function (event, xhr, options, data) {
   }
 });
 */
-
-function handleRacerDropout(racerid, roundid) {
-  if (confirm('Are you sure you want to remove this racer from the current round?')) {
-    $.ajax('action.php', {
-      type: 'POST',
-      data: {
-        action: 'racer.dropout',
-        racerid: racerid,
-        roundid: roundid
-      },
-      success: function (data) {
-        if (data.outcome.code == 'success') {
-          // Reload current round display
-          location.reload();
-        } else {
-          alert('Failed to remove racer: ' + data.outcome.description);
-        }
-      }
-    });
-  }
-}
 
 function handleRacerDNF(racerid, roundid, heat) {
   if (confirm('Mark this racer as DNF (Did Not Finish)? This will give them a time of 99.999 seconds.')) {

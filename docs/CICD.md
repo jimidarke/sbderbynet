@@ -135,10 +135,23 @@ Runs on all PRs and pushes to develop/master:
 
 | Service | Image | Purpose |
 |---------|-------|---------|
-| `caddy` | `caddy:2-alpine` | Reverse proxy, automatic HTTPS |
-| `mqtt` | `eclipse-mosquitto:2` | MQTT broker (internal only) |
-| `derbynet-web` | `ghcr.io/.../sbderbynet-web` | PHP/Nginx web application |
-| `race-server` | `ghcr.io/.../sbderbynet-server` | Python race server + simulator |
+| `caddy` | `caddy:2-alpine` | Reverse proxy, automatic HTTPS, plus `/mqtt` WebSocket route to the broker |
+| `mqtt` | `eclipse-mosquitto:2` | MQTT broker. Listens on 1883 (TCP, internal) and 9001 (WebSockets, fronted by Caddy at `/mqtt`) |
+| `derbynet-web` | `ghcr.io/.../sbderbynet-web` | PHP/Nginx web application; serves `website/virtual/*` browser virtual hardware in cloud mode |
+| `race-server` | `ghcr.io/.../sbderbynet-server` | Python race server + simulator (extended with `SimulatedDisplay`/`SimulatedLEDSign` for headless CI) |
+
+### Browser virtual hardware (cloud-only)
+
+When `DERBYNET_CLOUD_MODE` is set, the cloud stack also serves a set of
+desktop-only browser pages under `/derbynet/virtual/` that mimic the real
+finish/start timers, displays, and LED signs over MQTT-WS. Their hwids are
+prefixed `B_` and they are explicitly excluded from race-day code paths
+on the Pi via `_guard.inc` and the `B_*` filter in `device-status-api.php`.
+Credentials are served through `action.virtual-mqtt-creds`. The local Pi
+never exposes these pages and never connects to the cloud broker.
+
+See `docs/DRESS_REHEARSAL.md` for how to drive a full event from the
+control panel at `/derbynet/virtual/index.php`.
 
 ## GitHub Secrets Required
 

@@ -16,7 +16,12 @@ Tests exercise the DerbyNet PHP web application by making HTTP requests (curl) a
 - `test-awards.sh` — Awards system tests
 - `test-permissions.sh` — Permission boundary tests
 - `data/` — Test fixtures and sample data (CSV rosters, photos)
+- `test-pull-forward.sh` — Pull-forward backend (9 scenarios; Test 4 also asserts the broadcast surfaces on the kiosk poll)
 - `puppeteer/` — Browser automation tests (JavaScript)
+  - `pull-forward-test.js` — Pull-forward modal UI tests (11 scenarios)
+  - `virtual-device-test.js` — Smoke test for cloud-twin browser virtual hardware (requires a live cloud stack)
+- `captures/` — JSONL captures of real-hardware MQTT sessions, replayed by the script below
+- `replay-real-race.py` — Paho replayer that drives a captured MQTT timeline against a target broker for deterministic regression
 
 ## Test Naming Patterns
 
