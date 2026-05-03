@@ -102,14 +102,65 @@ body.virtual-device {
   font-size: 32px; padding: 24px; text-align: center; letter-spacing: 4px;
   min-height: 80px; border-radius: 4px;
 }
+.vd-section-heading {
+  margin: 28px auto 8px;
+  padding: 0 20px;
+  max-width: 1100px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8f99;
+}
+
 .vd-index-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px; padding: 20px; max-width: 1100px; margin: 0 auto;
+  gap: 14px; padding: 8px 20px 4px; max-width: 1100px; margin: 0 auto;
 }
+
 .vd-index-card {
-  background: #222; border: 1px solid #333; border-radius: 6px;
-  padding: 16px; text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--color-button-bg, #2a2d33);
+  color: var(--color-button-text, #fff);
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 4px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-button, 0 1px 2px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.10));
+  transition: background 120ms ease, box-shadow 120ms ease,
+              transform 120ms ease, border-color 120ms ease;
 }
-.vd-index-card a { color: #5cf; text-decoration: none; font-size: 18px; }
-.vd-index-card a:hover { text-decoration: underline; }
-.vd-index-card .vd-index-meta { color: #888; font-size: 12px; margin-top: 4px; }
+.vd-index-card:hover {
+  background: var(--color-button-bg-hover, #3a3e46);
+  box-shadow: var(--shadow-button-hover, 0 2px 4px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.14));
+  transform: translateY(-1px);
+}
+.vd-index-card:active {
+  background: var(--color-button-bg-active, #1f2127);
+  transform: translateY(0);
+}
+.vd-index-card:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-button-hover, 0 2px 4px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.14)),
+              var(--focus-ring, 0 0 0 3px rgba(247, 209, 23, 0.55));
+}
+
+.vd-index-card .vd-index-title {
+  font-size: 17px;
+  font-weight: 500;
+}
+.vd-index-card .vd-index-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
+/* Phase accent strips per category — matches index.php phase colors */
+.vd-index-grid.cat-before .vd-index-card { border-left-color: var(--color-phase-before, #F7D117); }
+.vd-index-grid.cat-during .vd-index-card { border-left-color: var(--color-phase-during, #4ade80); }
+.vd-index-grid.cat-after  .vd-index-card { border-left-color: var(--color-phase-after,  #60a5fa); }
+.vd-index-grid.cat-other  .vd-index-card { border-left-color: var(--color-phase-other,  #c084fc); }

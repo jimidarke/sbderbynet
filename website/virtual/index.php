@@ -34,51 +34,51 @@ $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : nu
     the tab is hidden) the device goes offline.
   </p>
 
-  <h2 style="padding: 0 20px;">Finish Timers</h2>
-  <div class="vd-index-grid">
+  <h2 class="vd-section-heading">Finish Timers</h2>
+  <div class="vd-index-grid cat-during">
     <?php for ($lane = 1; $lane <= $lane_count; $lane++): ?>
-      <div class="vd-index-card">
-        <a href="finish-timer.php?lane=<?= $lane ?>" target="_blank">Lane <?= $lane ?></a>
-        <div class="vd-index-meta">B_FINISH_<?= $lane ?> · DIP <?= htmlspecialchars(virtual_dip_for_lane($lane)) ?></div>
-      </div>
+      <a class="vd-index-card" href="finish-timer.php?lane=<?= $lane ?>" target="_blank">
+        <span class="vd-index-title">Lane <?= $lane ?></span>
+        <span class="vd-index-meta">B_FINISH_<?= $lane ?> · DIP <?= htmlspecialchars(virtual_dip_for_lane($lane)) ?></span>
+      </a>
     <?php endfor; ?>
   </div>
 
-  <h2 style="padding: 0 20px;">Start Timer</h2>
-  <div class="vd-index-grid">
-    <div class="vd-index-card">
-      <a href="start-timer.php" target="_blank">Start Gate</a>
-      <div class="vd-index-meta">hwid START</div>
-    </div>
+  <h2 class="vd-section-heading">Start Timer</h2>
+  <div class="vd-index-grid cat-before">
+    <a class="vd-index-card" href="start-timer.php" target="_blank">
+      <span class="vd-index-title">Start Gate</span>
+      <span class="vd-index-meta">hwid START</span>
+    </a>
   </div>
 
-  <h2 style="padding: 0 20px;">LED Signs</h2>
-  <div class="vd-index-grid">
-    <div class="vd-index-card">
-      <a href="led-sign.php?zone=starter" target="_blank">Starter</a>
-      <div class="vd-index-meta">B_LEDSIGN_starter</div>
-    </div>
+  <h2 class="vd-section-heading">LED Signs</h2>
+  <div class="vd-index-grid cat-other">
+    <a class="vd-index-card" href="led-sign.php?zone=starter" target="_blank">
+      <span class="vd-index-title">Starter</span>
+      <span class="vd-index-meta">B_LEDSIGN_starter</span>
+    </a>
     <?php for ($lane = 1; $lane <= $lane_count; $lane++): ?>
-      <div class="vd-index-card">
-        <a href="led-sign.php?zone=usher-lane<?= $lane ?>" target="_blank">Usher Lane <?= $lane ?></a>
-        <div class="vd-index-meta">B_LEDSIGN_usher-lane<?= $lane ?></div>
-      </div>
+      <a class="vd-index-card" href="led-sign.php?zone=usher-lane<?= $lane ?>" target="_blank">
+        <span class="vd-index-title">Usher Lane <?= $lane ?></span>
+        <span class="vd-index-meta">B_LEDSIGN_usher-lane<?= $lane ?></span>
+      </a>
     <?php endfor; ?>
   </div>
 
-  <h2 style="padding: 0 20px;">Displays</h2>
-  <div class="vd-index-grid">
-    <div class="vd-index-card">
-      <a href="derby-display.php?id=1&kiosk=welcome" target="_blank">Display 1 (welcome)</a>
-      <div class="vd-index-meta">B_DISPLAY_1</div>
-    </div>
-    <div class="vd-index-card">
-      <a href="derby-display.php?id=2&kiosk=now-racing" target="_blank">Display 2 (now-racing)</a>
-      <div class="vd-index-meta">B_DISPLAY_2</div>
-    </div>
+  <h2 class="vd-section-heading">Displays</h2>
+  <div class="vd-index-grid cat-after">
+    <a class="vd-index-card" href="derby-display.php?id=1&kiosk=welcome" target="_blank">
+      <span class="vd-index-title">Display 1 (welcome)</span>
+      <span class="vd-index-meta">B_DISPLAY_1</span>
+    </a>
+    <a class="vd-index-card" href="derby-display.php?id=2&kiosk=now-racing" target="_blank">
+      <span class="vd-index-title">Display 2 (now-racing)</span>
+      <span class="vd-index-meta">B_DISPLAY_2</span>
+    </a>
   </div>
 
-  <h2 style="padding: 0 20px;">Quick Reference</h2>
+  <h2 class="vd-section-heading">Quick Reference</h2>
   <ul style="padding: 0 40px; color: #ccc;">
     <li>Race state topic: <code>derbynet/race/state</code></li>
     <li>Lane LED: <code>derbynet/lane/{N}/led</code> · Pinny: <code>derbynet/lane/{N}/pinny</code></li>
