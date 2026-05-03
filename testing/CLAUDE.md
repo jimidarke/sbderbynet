@@ -23,6 +23,9 @@ Tests exercise the DerbyNet PHP web application by making HTTP requests (curl) a
 - `captures/` — JSONL captures of real-hardware MQTT sessions, replayed by the script below
 - `replay-real-race.py` — Paho replayer that drives a captured MQTT timeline against a target broker for deterministic regression
 
+For a structured test-case proposal (categories, priorities, mapping to
+real bugs caught), see `docs/TESTING.md`.
+
 ## Test Naming Patterns
 
 - `test-*.sh` — Feature/integration tests

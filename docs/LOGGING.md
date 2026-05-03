@@ -204,10 +204,44 @@ order during the first live bootstrap:
 11. Caddy bound only `:80`, browsers default to HTTPS — *v0.9.3*
 12. `json_failure()` self-crash (this doc) — *v0.9.6*
 13. `setup.nodata` creates dirs under read-only docroot — *v0.9.6*
+14. PHP-FPM `clear_env=yes` strips `DERBYNET_CLOUD_MODE` — *v0.9.8*
+15. `paho-mqtt==1.6.1` pinned but code uses v2 `CallbackAPIVersion` — *v0.9.8*
+16. `result.error_string` (paho v1) vs `mqtt.error_string(rc)` (v2) — *v0.9.8*
+17. Pi-only `hostname -I` / `vcgencmd` crash on Alpine — *v0.9.8*
+18. `derbyapi.py` hardcoded `/derbynet/` API path — *v0.9.8*
+19. `derbyTime.py` missing `username_pw_set` + `loop_start` — *v0.9.9*
+20. `virtual/_guard.inc` missing `session_start()` — *v0.9.10*
+21. JS sent `GET ?action=...` against POST-only dispatcher — *v0.9.11*
+22. Browser cache held stale virtual JS after deploy — *v0.9.14*
 
 **Lesson**: a "test environment" that isn't actually exercised every
 release accumulates these silently. Track 1–2 commits worth of headroom
 for similar surprises during any future first-run on a new host.
+
+### Patterns worth automating
+
+Looking back at the 22 fixes above, several share a shape that would be
+caught by a CI smoke test against a real cloud-twin deploy:
+
+- **Auth-required endpoints surfaced as 5xx/cryptic errors**
+  (#12 json_failure, #20 session_start, #21 GET vs POST). A simple
+  "log in as RaceCoordinator, hit every action.* endpoint, expect a
+  valid JSON `outcome`" pass would have caught all three.
+- **Container-runtime drift from the Pi**
+  (#9 uid mismatch, #14 clear_env, #17 hostname/vcgencmd, #18 path).
+  Each surfaced because the cloud and Pi runtimes diverge in subtle
+  ways. A cloud-only "env probe" test that asserts
+  `is_cloud_mode() === true && DERBYNET_CLOUD_MODE === 'public'`
+  inside PHP-FPM would have caught #14 alone.
+- **Library version drift** (#15, #16, #19). `paho-mqtt` 1→2 is a real
+  API break. Pinning Python deps in `requirements.txt` plus a smoke
+  test that imports race-server modules would make this loud.
+- **Browser caching across deploys** (#22). Now mitigated by
+  `virtual_asset_v()` cache-busting; an HTTP-level test that asserts
+  every script src includes `?v=` would prevent regressions.
+
+See `docs/TESTING.md` for a structured proposal of test categories,
+priorities, and which of these fix patterns each one would have caught.
 
 ## Disk usage sanity check
 

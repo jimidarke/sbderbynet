@@ -81,6 +81,8 @@ $(function() { populate_details(<?php echo $initial_details; ?>); });
 
 </div>
 
+<h2 class="setup_section_heading">Database</h2>
+
 <!-- Database -->
 <div id="database_step" class="step_div">
   <div class="status_icon"><img/></div>
@@ -118,6 +120,8 @@ $(function() { populate_details(<?php echo $initial_details; ?>); });
 
 </div>
 
+<h2 class="setup_section_heading">Race Data</h2>
+
 <!-- Roster -->
 <div id="roster_step" class="step_div">
   <div class="status_icon"><img/></div>
@@ -150,6 +154,8 @@ $(function() { populate_details(<?php echo $initial_details; ?>); });
 
   <div class="step_details"></div>
 </div>
+
+<h2 class="setup_section_heading">Configuration</h2>
 
 <!-- Photo directories and lane count -->
 <div id="settings_step" class="step_div">
