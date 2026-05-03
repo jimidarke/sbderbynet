@@ -227,6 +227,8 @@ cmd_bootstrap() {
   info "rsync working tree"
   do_rsync
 
+  install_logrotate
+
   info "generating broker passwords + .env"
   local mqtt_pass virtual_pass
   mqtt_pass=$(openssl rand -hex 16)
@@ -260,6 +262,17 @@ cmd_bootstrap() {
   ok "bootstrap complete"
   say "  control panel: http://$VPS_HOST/derbynet/virtual/index.php"
   say "  health:        http://$VPS_HOST/health"
+}
+
+install_logrotate() {
+  info "installing logrotate policy"
+  ssh_logged "
+    if [ -f $VPS_REPO_DIR/$COMPOSE_DIR_REL/sbderbynet.logrotate ]; then
+      sudo install -m 644 -o root -g root \
+        $VPS_REPO_DIR/$COMPOSE_DIR_REL/sbderbynet.logrotate \
+        /etc/logrotate.d/sbderbynet
+    fi
+  "
 }
 
 do_rsync() {
@@ -304,6 +317,8 @@ cmd_deploy() {
   info "rsync working tree"
   do_rsync
 
+  install_logrotate
+
   info "validating compose"
   ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES config -q" || {
     warn "compose config invalid — rolling back"
@@ -342,9 +357,44 @@ sudo cat $VPS_DATA_DIR/.cloud_readonly 2>/dev/null || echo '(no sentinel)'
 }
 
 cmd_logs() {
-  local svc="${1:-}"
-  section "Logs $svc"
-  SSH "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES logs -f --tail=100 $svc"
+  local arg="${1:-}"
+  if [[ "$arg" == "--where" || "$arg" == "-w" ]]; then
+    cat <<MAP
+== Where logs go ==
+
+Container stdout (rotated; 10 MB x 3 files per service):
+  Caddy           docker logs derbynet-caddy
+                  derbyvps.sh logs caddy
+  Mosquitto       docker logs derbynet-mqtt + /mosquitto/log/mosquitto.log
+                  (mqtt_log volume; survives recreates)
+  derbynet-web    docker logs derbynet-web
+                  (PHP application errors stream here too — see Persistent below)
+  race-server     docker logs derbynet-race-server
+                  (DERBY_CONSOLE_LOG=true diverts derbylogger.py to stdout)
+
+Persistent files (volumes; survive container recreates):
+  /var/log/nginx/{access,error}.log    (derbynet_web_nginx_logs volume)
+  /var/log/php83/error.log             (derbynet_web_php_logs volume)
+  /var/log/derbynet.log + .jsonl       (derbynet_logs volume; written when
+                                        DERBY_CONSOLE_LOG=false)
+  /mosquitto/log/mosquitto.log         (mqtt_log volume)
+
+Wrapper trail (host /etc/logrotate.d/sbderbynet — weekly, keep 4):
+  Local:    scripts/.derbyvps-deploy.log
+  VPS:      /var/log/sbderbynet-deploy.log
+
+Quick recipes:
+  derbyvps.sh logs                      # tail all services live
+  derbyvps.sh logs derbynet-web         # one service
+  ssh ... 'sudo docker run --rm -v derbynet_web_nginx_logs:/v alpine cat /v/access.log'
+                                        # peek a volume without entering the web container
+
+For the full map and troubleshooting recipes, see docs/LOGGING.md.
+MAP
+    return 0
+  fi
+  section "Logs $arg"
+  SSH "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES logs -f --tail=100 $arg"
 }
 
 cmd_backup() {
@@ -414,7 +464,7 @@ Commands:
   bootstrap [--force]   First-time setup: dirs, .env, broker users, build, up.
   deploy                Backup → rsync → up → validate. With --dry-run, preview rsync.
   status                Container state, /health, recent errors.
-  logs [service]        Tail compose logs.
+  logs [service]        Tail compose logs (use --where to print log map).
   backup [tag]          Manual snapshot (default tag: manual-<timestamp>).
   rollback <tag>        Restore from a backup tag.
   shutdown              Clean down (volumes preserved).

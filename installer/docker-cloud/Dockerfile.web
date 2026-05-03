@@ -39,6 +39,13 @@ RUN apk update && \
 # Verify PHP version
 RUN ls /usr/sbin/php-fpm83 || exit 1
 
+# Ensure PHP application errors land in a known persistent file rather than
+# stderr (which on Alpine PHP-FPM gets multiplexed into nginx's access log).
+# Also ensure the log dir exists before php-fpm tries to write to it.
+RUN mkdir -p /var/log/php83 && \
+    printf '\n; sbderbynet: explicit error_log path so volume mount catches it\nerror_log = /var/log/php83/error.log\nlog_errors = On\ndisplay_errors = Off\n' \
+      > /etc/php83/conf.d/99-sbderbynet-logging.ini
+
 # Install Python dependencies for simulation.
 # psutil needs gcc + headers to compile on Alpine because pip can't always
 # match the musllinux wheel for the bundled pip/Python combination.

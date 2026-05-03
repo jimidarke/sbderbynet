@@ -170,6 +170,7 @@ If a deploy goes sideways, attach both files to the post-mortem.
 ## See also
 
 - `.claude/skills/derbyVPS/SKILL.md` — connection details, what's running, what's siloed.
+- `docs/LOGGING.md` — full server-side logging map. `derbyvps.sh logs --where` prints the live cheat sheet.
 - `docs/CICD.md` — eventual GitHub-Actions-driven deploy path (when the
   feature branch lands on master).
 - `docs/DRESS_REHEARSAL.md` — race-day go/no-go gates that depend on the

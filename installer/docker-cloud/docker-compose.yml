@@ -26,6 +26,11 @@ services:
       derbynet-web:
         condition: service_started
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # MQTT Broker - Internal message coordination (dev/test only)
   mqtt:
@@ -57,6 +62,11 @@ services:
       retries: 3
       start_period: 5s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # PHP Web Application - Main DerbyNet server
   derbynet-web:
@@ -80,12 +90,21 @@ services:
       - VIRTUAL_MQTT_PASS=${VIRTUAL_MQTT_PASS:-}
     volumes:
       - derbynet_data:/var/lib/derbynet
+      # Persist nginx + php-fpm logs across container recreates so a deploy
+      # doesn't erase the evidence right when you need it.
+      - derbynet_web_nginx_logs:/var/log/nginx
+      - derbynet_web_php_logs:/var/log/php83
     networks:
       - derbynet_net
     depends_on:
       mqtt:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Python Race Server - Race orchestration and timer management
   race-server:
@@ -116,6 +135,11 @@ services:
       derbynet-web:
         condition: service_started
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   derbynet_net:
@@ -134,3 +158,7 @@ volumes:
     name: mqtt_log
   derbynet_logs:
     name: derbynet_logs
+  derbynet_web_nginx_logs:
+    name: derbynet_web_nginx_logs
+  derbynet_web_php_logs:
+    name: derbynet_web_php_logs
