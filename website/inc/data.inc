@@ -1,14 +1,42 @@
 <?php
 $configdir = isset($_SERVER['DERBYNET_CONFIG_DIR']) ? $_SERVER['DERBYNET_CONFIG_DIR'] : 'local';
-try {
-    @include($configdir.DIRECTORY_SEPARATOR."config-database.inc");
-} catch (PDOException $p) {
-}
 
-if (!isset($db)) {
-  $_SESSION['setting_up'] = 1;
-  header('Location: setup.php');
-  exit();
+// On the cloud VPS, the active database is per-browser-session ("tenant
+// sandbox"), not server-global. The slug lives in $_SESSION['tenant_slug']
+// and is set by tenant-picker.php / action.tenant-select.nodata.inc.
+// Pi deployments fall through to the legacy single-DB include path below.
+$_dn_cloud_mode = isset($_SERVER['DERBYNET_CLOUD_MODE']) ? $_SERVER['DERBYNET_CLOUD_MODE'] : '';
+if ($_dn_cloud_mode !== '') {
+  require_once(dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cloud-tenant.inc');
+  if (isset($_SESSION['tenant_slug']) && tenant_exists($_SESSION['tenant_slug'])) {
+    $db_connection_string = 'sqlite:' . tenant_db_path($_SESSION['tenant_slug']);
+    try {
+      $db = new PDO($db_connection_string, '', '', array());
+      $db->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
+    } catch (PDOException $p) {
+    }
+  }
+  if (!isset($db)) {
+    // No tenant chosen yet — kick the browser to the picker. AJAX endpoints
+    // that need a DB will receive HTML here, but those callers should already
+    // be inside a session that has a tenant; no-tenant AJAX is a programming
+    // error, not an end-user path.
+    if (basename($_SERVER['SCRIPT_NAME']) !== 'tenant-picker.php') {
+      header('Location: tenant-picker.php');
+      exit();
+    }
+  }
+} else {
+  try {
+      @include($configdir.DIRECTORY_SEPARATOR."config-database.inc");
+  } catch (PDOException $p) {
+  }
+
+  if (!isset($db)) {
+    $_SESSION['setting_up'] = 1;
+    header('Location: setup.php');
+    exit();
+  }
 }
 
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

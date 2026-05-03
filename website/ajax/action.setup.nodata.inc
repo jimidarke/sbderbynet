@@ -16,6 +16,16 @@ require_once('inc/default-database-directory.inc');
 require_once('inc/write-config-files.inc');
 require_once('inc/standard-configs.inc');
 
+// Cloud mode uses per-session tenant databases; the global config-database.inc
+// path is intentionally retired. Refuse this action so a stray "Choose
+// Database" click can't reintroduce a global pointer and silently break the
+// tenant model for everyone on the server.
+if ((isset($_SERVER['DERBYNET_CLOUD_MODE']) ? $_SERVER['DERBYNET_CLOUD_MODE'] : '') !== '') {
+  json_failure('not-cloud-allowed',
+               'Database selection is per-sandbox on this server. Use the Switch link in the banner, or Quit on the dashboard, to pick a different sandbox.');
+  return true;  // truthy so action.php's @include dispatch is satisfied
+}
+
 function error_handler($errno, $errstr, $errfile, $errline)
 {
   global $g_errstr;

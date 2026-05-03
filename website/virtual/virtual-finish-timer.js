@@ -3,6 +3,11 @@
 // Browser-resident finish timer. Wire-compatible with the real device
 // (extras/soapbox/infra/finishtimer/files/finishtimer.py): same topics,
 // same JSON payloads, same DIP-derived lane mapping.
+//
+// Real-hardware fidelity: the only operator interaction is the physical
+// toggle switch. UP = car loaded/staged. DOWN = car has departed/crossed.
+// The device publishes {toggle, timestamp, hwid, dip, lane} on each flip;
+// it does not publish a synthesized READY/IDLE/GO state.
 
 (function () {
   const body = document.body;
@@ -18,31 +23,22 @@
   const pinnyTopic     = 'derbynet/lane/' + lane + '/pinny';
 
   let raceState = 'UNCONFIGURED';
-  let isReady = false;     // toggle position
-  let hasFinished = false; // car has crossed in this race
-  let autoFinishTimer = null;
+  let toggleUp = false;  // physical switch position; true = UP
 
   const ui = {
     raceState: document.getElementById('race-state'),
     pinny: document.getElementById('pinny'),
     led: document.getElementById('lane-led'),
-    ledName: document.getElementById('lane-led-name'),
-    btnFinish: document.getElementById('btn-finish'),
-    readyToggle: document.getElementById('ready-toggle'),
-    autoMode: document.getElementById('auto-mode'),
-    autoMin: document.getElementById('auto-min'),
-    autoMax: document.getElementById('auto-max'),
+    toggle: document.getElementById('ready-toggle'),
   };
 
   function setLed(color) {
     ui.led.dataset.color = color;
-    ui.ledName.textContent = color;
   }
 
-  function refreshFinishButton() {
-    // Real timer fires the toggle on any car cross, but UX-wise we only enable
-    // the button while the race is RACING and the toggle is up.
-    ui.btnFinish.disabled = !(raceState === 'RACING' && isReady && !hasFinished);
+  function renderToggle() {
+    ui.toggle.dataset.position = toggleUp ? 'up' : 'down';
+    ui.toggle.setAttribute('aria-checked', toggleUp ? 'true' : 'false');
   }
 
   function buildTelemetry() {
@@ -59,8 +55,8 @@
       memory_usage: 0,
       disk: 0,
       cpu_usage: 0,
-      readyToRace: isReady,
-      toggle: isReady && !hasFinished,
+      readyToRace: toggleUp,
+      toggle: toggleUp,
       pcbVersion: 'browser',
     };
   }
@@ -76,47 +72,21 @@
     setInterval(send, 1000);
   }
 
-  function publishState(client, payload) {
-    VirtualCommon.publish(client, stateTopic, payload, { qos: 2, retain: true });
+  function publishToggle(client) {
+    // Mirrors finishtimer.py toggle_callback payload exactly.
+    VirtualCommon.publish(client, stateTopic, {
+      toggle: toggleUp,
+      timestamp: Math.floor(Date.now() / 1000),
+      hwid: hwid,
+      dip: dip,
+      lane: lane,
+    }, { qos: 2, retain: true });
   }
 
-  function onReadyToggle(client) {
-    isReady = ui.readyToggle.checked;
-    hasFinished = false;
-    refreshFinishButton();
-    publishState(client, {
-      hwid: hwid, dip: dip,
-      state: isReady ? 'READY' : 'IDLE',
-      toggle: isReady,
-      timestamp: Date.now() / 1000,
-    });
-  }
-
-  function triggerFinish(client) {
-    if (!isReady || hasFinished || raceState !== 'RACING') return;
-    hasFinished = true;
-    refreshFinishButton();
-    publishState(client, {
-      hwid: hwid, dip: dip,
-      state: 'GO',         // matches real device
-      toggle: false,       // switch DOWN = car crossed
-      timestamp: Date.now() / 1000,
-    });
-  }
-
-  function maybeScheduleAutoFinish() {
-    clearTimeout(autoFinishTimer);
-    if (!ui.autoMode.checked) return;
-    if (raceState !== 'RACING') return;
-    if (!isReady || hasFinished) return;
-    const lo = parseFloat(ui.autoMin.value) || 2.5;
-    const hi = parseFloat(ui.autoMax.value) || 6.5;
-    const delay = lo + Math.random() * Math.max(0, hi - lo);
-    autoFinishTimer = setTimeout(() => {
-      // re-resolve client through closure below
-      autoFinishTimer = null;
-      triggerFinish(window.__virtual_client);
-    }, delay * 1000);
+  function flipToggle(client) {
+    toggleUp = !toggleUp;
+    renderToggle();
+    publishToggle(client);
   }
 
   function onMessage(topic, payload) {
@@ -124,11 +94,6 @@
       raceState = (typeof payload === 'string') ? payload
                   : (payload.state || JSON.stringify(payload));
       ui.raceState.textContent = raceState;
-      if (raceState === 'STAGING' || raceState === 'STOPPED') {
-        hasFinished = false;
-      }
-      refreshFinishButton();
-      maybeScheduleAutoFinish();
     } else if (topic === ledTopic) {
       setLed(typeof payload === 'string' ? payload : (payload.color || 'off'));
     } else if (topic === pinnyTopic) {
@@ -155,9 +120,8 @@
     window.__virtual_client = client;
     VirtualCommon.wireVisibilityOffline(client, statusTopic);
 
-    ui.readyToggle.addEventListener('change', () => onReadyToggle(client));
-    ui.btnFinish.addEventListener('click', () => triggerFinish(client));
-    ui.autoMode.addEventListener('change', maybeScheduleAutoFinish);
+    renderToggle();
+    ui.toggle.addEventListener('click', () => flipToggle(client));
   }
 
   main().catch((e) => {

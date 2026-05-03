@@ -1,38 +1,34 @@
 // virtual-start-timer.js
 //
-// Browser start timer. Wire-compatible with extras/soapbox/infra/starttimer/.
-// Single device per cloud twin: hwid 'START', publishes GO via the lane-1 DIP
-// topic so derbyRace.startRace() picks it up unchanged.
+// Browser start timer. Wire-compatible with extras/soapbox/infra/starttimer/
+// (ESP32, MicroPython). The real device is just a latching push-button on
+// a GPIO: when the signal goes HIGH it publishes {state:'GO'}, when it
+// returns LOW it publishes {state:'STOP'}. The user has to press the
+// button again to release the latch — this virtual mirrors that exactly.
 
 (function () {
-  const hwid = 'START';
+  const hwid = 'starttimer';
   const dip = '0001';
   const stateTopic     = 'derbynet/device/' + hwid + '/state';
   const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';
   const statusTopic    = 'derbynet/device/' + hwid + '/status';
   const raceStateTopic = 'derbynet/race/state';
 
-  // The race server's startRace() listens for state=GO on a finish-timer
-  // topic (the one that maps to lane 1 by DIP). Real ESP32 start timer
-  // publishes to derbynet/device/starttimer/state but the simulator path
-  // (simulate_racing.py:271) uses the lane-1 DIP topic and that's what
-  // derbyRace.py:229 reacts to. We mirror the simulator behavior.
-  const goPublishTopic = 'derbynet/device/1000/state';
-
   let raceState = 'UNCONFIGURED';
-  let gateOpen = false;
-  let autoTimer = null;
+  let latched = false; // mirrors start_signal pin: HIGH = GO, LOW = STOP
 
   const ui = {
     raceState: document.getElementById('race-state'),
-    gate: document.getElementById('gate-state'),
-    btnGo: document.getElementById('btn-go'),
-    autoMode: document.getElementById('auto-mode'),
-    autoDelay: document.getElementById('auto-delay'),
+    signal: document.getElementById('signal-state'),
+    btn: document.getElementById('btn-latch'),
+    label: document.getElementById('latch-label'),
   };
 
-  function refreshButton() {
-    ui.btnGo.disabled = !(raceState === 'STAGING' || raceState === 'RACING') || gateOpen;
+  function renderLatch() {
+    ui.btn.dataset.latched = latched ? 'true' : 'false';
+    ui.btn.setAttribute('aria-checked', latched ? 'true' : 'false');
+    ui.label.textContent = latched ? 'GO' : 'START';
+    ui.signal.textContent = latched ? 'HIGH' : 'LOW';
   }
 
   function buildTelemetry() {
@@ -46,6 +42,7 @@
       wifi_rssi: -45,
       temperature: 22.0,
       humidity: 50.0,
+      state: latched ? 1 : 0,
     };
   }
 
@@ -57,51 +54,37 @@
       }
     };
     send();
-    setInterval(send, 5000); // real ESP32 publishes ~5 Hz from main.py loop
+    setInterval(send, 5000); // real ESP32 publishes ~5s telemetry
   }
 
-  function fireGo(client) {
-    if (gateOpen) return;
-    gateOpen = true;
-    ui.gate.textContent = 'OPEN';
-    refreshButton();
-    VirtualCommon.publish(client, goPublishTopic, {
-      hwid: hwid, dip: dip, state: 'GO', toggle: true,
-      timestamp: Date.now() / 1000,
-    }, { qos: 2, retain: true });
-    // Also post our own /state for observers
+  function publishLatchEdge(client) {
+    // Mirrors starttimer/src/main.py send_mqtt_message():
+    // edge HIGH → 'GO', edge LOW → 'STOP'. Retained, on its own topic.
     VirtualCommon.publish(client, stateTopic, {
-      hwid: hwid, state: 'GO', timestamp: Date.now() / 1000,
-    }, { qos: 1 });
+      state: latched ? 'GO' : 'STOP',
+      timestamp: Math.floor(Date.now() / 1000),
+      hwid: hwid,
+      dip: dip,
+    }, { qos: 2, retain: true });
   }
 
-  function maybeAutoFire(client) {
-    clearTimeout(autoTimer);
-    if (!ui.autoMode.checked) return;
-    if (raceState !== 'STAGING') return;
-    if (gateOpen) return;
-    const delay = parseFloat(ui.autoDelay.value) || 2.0;
-    autoTimer = setTimeout(() => fireGo(client), delay * 1000);
+  function pressButton(client) {
+    latched = !latched;
+    renderLatch();
+    publishLatchEdge(client);
   }
 
-  function onMessage(topic, payload, client) {
+  function onMessage(topic, payload) {
     if (topic === raceStateTopic) {
       raceState = (typeof payload === 'string') ? payload
                   : (payload.state || JSON.stringify(payload));
       ui.raceState.textContent = raceState;
-      if (raceState === 'STAGING' || raceState === 'STOPPED') {
-        gateOpen = false;
-        ui.gate.textContent = 'CLOSED';
-      }
-      refreshButton();
-      maybeAutoFire(client);
     }
   }
 
   async function main() {
     const clientId = 'b_start_' + Math.random().toString(36).slice(2, 8);
-    let client;
-    client = await VirtualCommon.connectBroker({
+    const client = await VirtualCommon.connectBroker({
       clientId: clientId,
       will: { topic: statusTopic, payload: 'offline', qos: 1, retain: true },
       onConnect: (c) => {
@@ -109,11 +92,12 @@
         c.publish(statusTopic, 'online', { qos: 1, retain: true });
         startTelemetry(c);
       },
-      onMessage: (t, p) => onMessage(t, p, client),
+      onMessage: onMessage,
     });
     VirtualCommon.wireVisibilityOffline(client, statusTopic);
-    ui.btnGo.addEventListener('click', () => fireGo(client));
-    ui.autoMode.addEventListener('change', () => maybeAutoFire(client));
+
+    renderLatch();
+    ui.btn.addEventListener('click', () => pressButton(client));
   }
 
   main().catch((e) => {

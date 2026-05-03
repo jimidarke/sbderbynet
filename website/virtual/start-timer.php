@@ -11,7 +11,7 @@ virtual_page_guard();
 <link rel="stylesheet" href="/derbynet/virtual/virtual.css<?= virtual_asset_v('virtual.css') ?>">
 </head>
 <body class="virtual-device" data-role="start-timer"
-      data-hwid="START" data-dip="0001">
+      data-hwid="starttimer" data-dip="0001">
 
 <header class="vd-header">
   <span class="vd-tag">VIRTUAL</span>
@@ -19,26 +19,29 @@ virtual_page_guard();
   <span class="vd-conn" id="conn-status" data-state="off">disconnected</span>
 </header>
 
-<main class="vd-main">
-  <section class="vd-state">
-    <div class="vd-state-label">Race State</div>
-    <div class="vd-state-value" id="race-state">UNCONFIGURED</div>
-  </section>
+<main class="vd-main vd-start-main">
+  <section class="vd-start-device" aria-label="Start timer device">
+    <div class="vd-device-chassis vd-start-chassis">
+      <button type="button"
+              class="vd-latch-button"
+              id="btn-latch"
+              role="switch"
+              aria-checked="false"
+              data-latched="false"
+              title="Press to latch GO. Press again to release (STOP).">
+        <span class="vd-latch-bezel">
+          <span class="vd-latch-cap">
+            <span class="vd-latch-label" id="latch-label">START</span>
+          </span>
+        </span>
+      </button>
 
-  <section>
-    <div class="vd-pinny-label">Gate</div>
-    <div class="vd-state-value" id="gate-state">CLOSED</div>
-  </section>
-
-  <section class="vd-controls">
-    <button id="btn-go" class="vd-go-button" disabled>OPEN GATE — GO</button>
-
-    <label class="vd-auto">
-      <input type="checkbox" id="auto-mode">
-      Auto-fire GO when state enters STAGING after
-      <input type="number" id="auto-delay" value="2.0" min="0.0" max="30" step="0.1">
-      seconds
-    </label>
+      <div class="vd-device-meta">
+        <span>HWID starttimer</span>
+        <span>Signal: <span id="signal-state">LOW</span></span>
+        <span>Race: <span id="race-state">UNCONFIGURED</span></span>
+      </div>
+    </div>
   </section>
 
   <section class="vd-log">

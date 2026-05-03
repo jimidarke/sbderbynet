@@ -1267,6 +1267,9 @@ function set_emergency_ui_active(message) {
   $("#emergency-input-wrap-coordinator").addClass('hidden');
   $("#emergency-broadcast-btn").addClass('hidden');
   $(".emergency-char-counter").addClass('hidden');
+  // Collapse the compose section — input is hidden anyway during an active emergency
+  var details = document.getElementById('emergency-broadcast-details');
+  if (details) details.open = false;
 }
 
 // Update UI when emergency is cleared

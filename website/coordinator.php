@@ -255,24 +255,29 @@ $warn_no_timer = warn_no_timer();
             <span class="emergency-icon">⚠️</span>
             <span id="emergency-status-text">No Active Emergency</span>
           </div>
-          <label for="emergency-message-coordinator">
-            <span class="emergency-label-icon">🚨</span> Emergency Broadcast:
-          </label>
-          <div class="emergency-char-counter">
-            <span id="emergency-char-count">0</span>/255 characters
-          </div>
-          <div id="emergency-input-wrap-coordinator">
-            <input type="text" id="emergency-message-coordinator"
-                   maxlength="255"
-                   placeholder="Enter EMERGENCY message for all kiosks and LED signs..."
-                   oninput="update_emergency_char_count()" />
-          </div>
-          <div id="emergency-button-wrap">
-            <input type="button" id="emergency-broadcast-btn" value="🚨 BROADCAST EMERGENCY"
-                   onclick="handle_emergency_broadcast()" />
-            <input type="button" id="emergency-clear-btn" value="✓ Clear Emergency"
-                   onclick="handle_emergency_clear()" class="hidden" />
-          </div>
+          <input type="button" id="emergency-clear-btn" value="✓ Clear Emergency"
+                 onclick="handle_emergency_clear()" class="hidden" />
+          <details id="emergency-broadcast-details" class="emergency-broadcast-details">
+            <summary>🚨 Compose Emergency Broadcast</summary>
+            <div class="emergency-broadcast-body">
+              <label for="emergency-message-coordinator">
+                <span class="emergency-label-icon">🚨</span> Emergency Broadcast:
+              </label>
+              <div class="emergency-char-counter">
+                <span id="emergency-char-count">0</span>/255 characters
+              </div>
+              <div id="emergency-input-wrap-coordinator">
+                <input type="text" id="emergency-message-coordinator"
+                       maxlength="255"
+                       placeholder="Enter EMERGENCY message for all kiosks and LED signs..."
+                       oninput="update_emergency_char_count()" />
+              </div>
+              <div id="emergency-button-wrap">
+                <input type="button" id="emergency-broadcast-btn" value="🚨 BROADCAST EMERGENCY"
+                       onclick="handle_emergency_broadcast()" />
+              </div>
+            </div>
+          </details>
         </div>
       </div>
 

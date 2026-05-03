@@ -86,6 +86,7 @@ services:
       - DERBYNET_CONFIG_DIR=/var/lib/derbynet
       - DERBYNET_DATA_DIR=/var/lib/derbynet
       - DERBYNET_CLOUD_MODE=${DERBYNET_CLOUD_MODE:-}
+      - DERBYNET_TENANTS_DIR=${DERBYNET_TENANTS_DIR:-/var/lib/derbynet/tenants}
       - VIRTUAL_MQTT_USER=${VIRTUAL_MQTT_USER:-virtual-device}
       - VIRTUAL_MQTT_PASS=${VIRTUAL_MQTT_PASS:-}
     volumes:

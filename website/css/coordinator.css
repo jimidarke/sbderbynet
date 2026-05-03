@@ -1192,3 +1192,308 @@ div#emergency-input-wrap-coordinator {
   font-weight: bold;
   margin-top: 5px;
 }
+
+/* =============================================================================
+   COMPACT REFRESH + TABLET PORTRAIT (2026)
+   Tightens spacing, softens borders, reduces title sizes, and adds a real
+   portrait-tablet breakpoint. Layout flow / button positions are NOT changed.
+   ============================================================================= */
+
+/* --- Lighter, softer control-group framing --- */
+.control_group,
+.coordinator-control-group {
+  border: 1px solid #d6dbe3;
+  border-left: 3px solid var(--color-brand, #023882);
+  border-radius: var(--radius-md, 8px);
+  margin: 6px 5px;
+  padding: 10px 12px;
+  background: var(--color-surface, #ffffff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Keep the status pulse on .current — but use a softer warm yellow */
+.current {
+  background-color: #fff4c2;
+}
+
+/* Compact section headings inside groups */
+.control_group h3,
+.coordinator-control-group h3,
+.scheduling_control_group h3,
+.master_schedule_group h3,
+.new_round_control h3 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #1f2937;
+}
+.current.control_group h3 {
+  font-size: 18px;
+}
+#master-schedule-group h3 {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 4px;
+  color: #be2525;
+}
+
+/* Tighter inline metadata */
+p.last_contact {
+  font-size: 13px;
+  margin: 3px 0;
+}
+
+/* Coordinator control group (right column scene+broadcast) -- tighter */
+.coordinator-control-group {
+  width: auto;
+  max-width: 540px;
+}
+.coordinator-control-divider {
+  margin: 10px 0;
+}
+div#scenes-control-coordinator { font-size: 14px; margin-bottom: 4px; }
+div#scenes-control-coordinator label { font-size: 14px; }
+#scenes-status-message-coordinator { font-size: 12px; }
+
+/* --- Heat-control buttons: keep horizontal layout, tighten metrics --- */
+.heat_control_group .block_buttons {
+  margin: 0;
+  padding: 0;
+}
+
+/* Don't let the global menu-button rules override the per-page heat-button overrides:
+   prev/skip use the dark gradient look and are 75x41 image buttons */
+.heat_control_group #prev_heat_button,
+.heat_control_group #skip_heat_button {
+  width: 64px;
+  height: 36px;
+  padding-top: 6px;
+  margin: 0 6px;
+}
+.heat_control_group #prev_heat_button img,
+.heat_control_group #skip_heat_button img {
+  width: 26px;
+  height: 26px;
+}
+
+#manual_results_button {
+  margin: 0 6px;
+}
+
+/* Centered flipswitch — keep but slim */
+.centered_flipswitch {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+/* --- Now-racing group: less padding, smaller heading --- */
+div#now-racing-group {
+  padding: 8px 12px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+#now-racing-group div.heat-text {
+  width: auto;
+  font-size: 16px;
+}
+
+/* Heat lineup: keep desktop table, but allow it to shrink */
+.heat-lineup {
+  width: auto;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.heat-lineup td {
+  padding: 6px 12px;
+  font-size: 16px;
+}
+.heat-lineup th {
+  font-size: 18px;
+}
+
+/* --- Not-racing warning: span the page, smaller padding --- */
+#not-racing-warning {
+  width: auto;
+  max-width: 1080px;
+  font-size: 18px;
+  padding: 6px 10px;
+  border: 2px solid #b71c1c;
+  border-radius: var(--radius-md, 8px);
+  text-shadow: none;
+}
+#timer-testing-herald {
+  font-size: 18px;
+  padding: 6px 10px;
+  border: 2px solid #1f2937;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* --- Playlist group: shrink the giant 500px buttons, sensible widths --- */
+#playlist-group {
+  margin-top: 6px;
+}
+#playlist-group a.button_link,
+#playlist-group input[type='button'] {
+  height: auto;
+  width: 100%;
+  max-width: 480px;
+  font-size: 16px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+}
+#playlist-group input[type='button'] {
+  background: #006000;
+  height: auto;
+}
+
+/* Adjustment-needed warning: less shouty, still orange */
+div.adjustment-needed div.late-arrival-prompt,
+div.adjustment-needed div.adjustment-in-progress-message {
+  font-size: 15px;
+  padding: 8px 10px;
+}
+div.adjustment-needed div.adjustment-in-progress-message { font-size: 16px; }
+div.adjustment-needed div.late-arrival-prompt p,
+div.adjustment-needed div.late-arrival-prompt span { font-size: 15px; }
+
+/* --- Collapsible Emergency Broadcast (NEW) --- */
+div#emergency-control-coordinator { margin-top: 6px; }
+
+#emergency-status-banner {
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  border-radius: var(--radius-sm, 4px);
+}
+.emergency-icon { font-size: 16px; }
+
+/* Clear button when an emergency is active — sits above the (collapsed) compose section */
+#emergency-clear-btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  background-color: #388e3c;
+  color: #fff;
+  border: 1px solid #2e7d32;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+}
+#emergency-clear-btn:hover { background-color: #2e7d32; }
+
+/* The <details> wrapper. Closed by default — operator clicks summary to type. */
+.emergency-broadcast-details {
+  border: 1px solid #f1c0c0;
+  border-radius: var(--radius-md, 8px);
+  background: #fdf6f6;
+}
+.emergency-broadcast-details > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #b71c1c;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.emergency-broadcast-details > summary::-webkit-details-marker { display: none; }
+.emergency-broadcast-details > summary::after {
+  content: "▾";
+  margin-left: auto;
+  font-size: 12px;
+  color: #b71c1c;
+  transition: transform 120ms ease;
+}
+.emergency-broadcast-details[open] > summary::after { transform: rotate(180deg); }
+.emergency-broadcast-details > summary:hover { background: #fbeaea; border-radius: var(--radius-md, 8px) var(--radius-md, 8px) 0 0; }
+
+.emergency-broadcast-body {
+  padding: 8px 12px 12px;
+  border-top: 1px solid #f1c0c0;
+}
+
+/* Compact emergency input + button inside the collapsed section */
+div#emergency-control-coordinator label {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.emergency-char-counter {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+#emergency-message-coordinator {
+  padding: 8px 10px;
+  font-size: 14px;
+}
+#emergency-broadcast-btn {
+  padding: 9px 14px;
+  font-size: 14px;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* =============================================================================
+   TABLET PORTRAIT (≤ 834px) — stack columns, 100% widths
+   Operators run from a tablet held vertically; this is the primary breakpoint.
+   ============================================================================= */
+@media (max-width: 834px) {
+  /* Stack the two main columns */
+  .control_column_container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin: 0;
+  }
+  .control_column,
+  .double_control_column {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Banner title shrinks so it doesn't overflow */
+  .banner .banner_title { font-size: 32px; }
+
+  /* Now-racing block goes full width */
+  div#now-racing-group { width: 100%; max-width: 100%; padding: 8px; }
+  .heat-lineup { width: 100%; max-width: 100%; }
+  .heat-lineup div.racing,
+  .heat-lineup div.staging { display: block; width: 100%; }
+  .heat-lineup div.now-racing-spacer { display: block; height: 12px; width: auto; }
+  .heat-lineup td { padding: 6px 8px; font-size: 14px; }
+  .heat-lineup th { font-size: 14px; }
+  .heat-lineup td.racer-name { max-width: none; }
+
+  /* Coordinator control group spans full width */
+  .coordinator-control-group { max-width: 100%; }
+  div#select-wrap-coordinator { width: 100%; }
+
+  /* Warning banners scale */
+  #not-racing-warning,
+  #timer-testing-herald { width: 100%; max-width: 100%; }
+
+  /* Modals */
+  .modal_dialog,
+  .modal_dialog.wide_modal { max-width: 92vw; width: auto; }
+  #manual_results_modal { width: auto; max-width: 92vw; }
+  #constituent-clip { width: 100%; }
+  #constituent-div { width: 200%; }
+  #constituent-rounds,
+  #constituent-subgroups { width: 50%; }
+
+  /* Playlist buttons full width on portrait */
+  #playlist-group a.button_link,
+  #playlist-group input[type='button'] { max-width: 100%; }
+}
+
+/* Override the older incomplete @media(max-width:900px) rule that hard-pinned
+   widths to 490px. The new rule above takes over at 834px and uses 100%. */
+@media (max-width: 900px) and (min-width: 835px) {
+  .double_control_column,
+  .control_column_container { width: 100%; }
+  #not-racing-warning { width: auto; max-width: 100%; }
+}

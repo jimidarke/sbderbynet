@@ -29,41 +29,35 @@ if (!$dip) {
   <span class="vd-conn" id="conn-status" data-state="off">disconnected</span>
 </header>
 
-<main class="vd-main">
-  <section class="vd-pinny">
-    <div class="vd-pinny-label">Car</div>
-    <div class="vd-pinny-number" id="pinny">----</div>
-  </section>
+<main class="vd-main vd-finish-main">
+  <section class="vd-finish-device" aria-label="Finish timer device">
+    <div class="vd-device-chassis">
+      <div class="vd-led" id="lane-led" data-color="off">
+        <div class="vd-led-circle"></div>
+      </div>
 
-  <section class="vd-led" id="lane-led" data-color="off">
-    <div class="vd-led-label">Lane LED</div>
-    <div class="vd-led-circle"></div>
-    <div class="vd-led-color" id="lane-led-name">off</div>
-  </section>
+      <div class="vd-7seg" id="pinny" aria-label="Pinny display">----</div>
 
-  <section class="vd-state">
-    <div class="vd-state-label">Race State</div>
-    <div class="vd-state-value" id="race-state">UNCONFIGURED</div>
-  </section>
+      <button type="button"
+              class="vd-hw-toggle"
+              id="ready-toggle"
+              role="switch"
+              aria-checked="false"
+              data-position="down"
+              title="Click to flip the toggle (up = car loaded, down = car gone)">
+        <span class="vd-hw-toggle-track">
+          <span class="vd-hw-toggle-label vd-hw-toggle-up">UP</span>
+          <span class="vd-hw-toggle-label vd-hw-toggle-down">DOWN</span>
+          <span class="vd-hw-toggle-lever"></span>
+        </span>
+      </button>
 
-  <section class="vd-controls">
-    <label class="vd-toggle">
-      <input type="checkbox" id="ready-toggle">
-      <span>Ready (toggle is up — staff has loaded a car)</span>
-    </label>
-
-    <button id="btn-finish" class="vd-finish-button" disabled>
-      CAR CROSSED FINISH LINE
-    </button>
-
-    <label class="vd-auto">
-      <input type="checkbox" id="auto-mode">
-      Auto-finish during RACING
-      <input type="number" id="auto-min" value="2.5" min="0.5" max="30" step="0.1">
-      to
-      <input type="number" id="auto-max" value="6.5" min="0.5" max="30" step="0.1">
-      seconds
-    </label>
+      <div class="vd-device-meta">
+        <span>HWID <?= htmlspecialchars('B_FINISH_' . $lane) ?></span>
+        <span>DIP <?= htmlspecialchars($dip) ?></span>
+        <span>Race: <span id="race-state">UNCONFIGURED</span></span>
+      </div>
+    </div>
   </section>
 
   <section class="vd-log">

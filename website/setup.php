@@ -35,14 +35,26 @@ require_once('inc/locked.inc');
 
 
 $configdir = isset($_SERVER['DERBYNET_CONFIG_DIR']) ? $_SERVER['DERBYNET_CONFIG_DIR'] : 'local';
-try {
-  @include($configdir.DIRECTORY_SEPARATOR."config-database.inc");
-} catch (PDOException $p) {
-}
+$_dn_cloud_mode = isset($_SERVER['DERBYNET_CLOUD_MODE']) ? $_SERVER['DERBYNET_CLOUD_MODE'] : '';
 
-if (isset($db) && $db) {
+if ($_dn_cloud_mode !== '') {
+  // Cloud: the tenant is the database. inc/data.inc is tenant-aware and will
+  // redirect to tenant-picker.php if no sandbox is bound to this session.
   require_once('inc/data.inc');
   require_once('inc/schema_version.inc');
+} else {
+  // Pi: legacy bootstrap path. setup.php is the escape hatch when no
+  // config-database.inc exists yet, so we can't go through inc/data.inc here
+  // (it would redirect us back to setup.php in a loop).
+  try {
+    @include($configdir.DIRECTORY_SEPARATOR."config-database.inc");
+  } catch (PDOException $p) {
+  }
+
+  if (isset($db) && $db) {
+    require_once('inc/data.inc');
+    require_once('inc/schema_version.inc');
+  }
 }
 
 session_write_close();
@@ -69,122 +81,143 @@ $(function() { populate_details(<?php echo $initial_details; ?>); });
 //]]>
 </script>
 
-<div id="right-float">
-  <div id="offer_fake" class="block_buttons">
-    <p>For experimenting, you might want to make a</p>
-    <a class="button_link" href="fakeroster.php">Fake Roster</a>
-  </div>
+<div class="setup-columns">
 
-  <div id="remind_fake" class="block_buttons">
-  <p>To remove the fake roster data, re-initialize the database, or click "Purge Data" and delete racers.</p>
-  </div>
+  <!-- ============================================================ -->
+  <!-- Column 1: Database                                           -->
+  <!-- ============================================================ -->
+  <div class="setup-column">
+    <h2 class="setup_section_heading">Database</h2>
 
-</div>
-
-<h2 class="setup_section_heading">Database</h2>
-
-<!-- Database -->
-<div id="database_step" class="step_div">
-  <div class="status_icon"><img/></div>
-
-  <div class="step_button block_buttons">
-    <input type="button" value="Choose Database" onclick="show_ezsetup_modal()"/>
-  </div>
-
-  <div class="step_details"></div>
-</div>
-
-<!-- Schema -->
-<div id="schema_step" class="step_div">
-  <div class="status_icon"><img/></div>
-
-  <div class="upper">
-    <div class="step_button block_buttons">
-      <input id="schema_button" type="button"/>
-    </div>
-
-    <div id="schema_details" class="step_details"></div>
-  </div>
-
-  <div class="lower">
-    <div class="step_button block_buttons">
-      <input id="purge_data_button" type="button"
-             value="Purge Data" onclick="show_purge_modal()"/>
-    </div>
-
-    <div class="step_details">
-      <p>After testing or experimentation, you may wish to delete
-      some or all of the data in the database.</p>
-    </div>
-  </div>
-
-</div>
-
-<h2 class="setup_section_heading">Race Data</h2>
-
-<!-- Roster -->
-<div id="roster_step" class="step_div">
-  <div class="status_icon"><img/></div>
-
-  <div class="step_button block_buttons">
-    <a class="button_link" href="import-roster.php">Import Roster</a>
-  </div>
-
-  <div class="step_details"></div>
-</div>
-
-<!-- Groups -->
-<div id="groups_step" class="step_div">
-  <div class="status_icon"><img/></div>
-
-  <div class="step_button block_buttons">
-    <a class="button_link" href="racing-groups.php">Racing Groups</a>
-  </div>
-
-  <div class="step_details"></div>
-</div>
-
-<!-- Awards -->
-<div id="awards_step" class="step_div">
-  <div class="status_icon"><img/></div>
-
-  <div class="step_button block_buttons">
-    <a class="button_link" href="import-awards.php">Import Awards</a>
-  </div>
-
-  <div class="step_details"></div>
-</div>
-
-<h2 class="setup_section_heading">Configuration</h2>
-
-<!-- Photo directories and lane count -->
-<div id="settings_step" class="step_div">
-  <div class="status_icon"><img/></div>
-
-  <div class="step_button block_buttons">
-    <a class="button_link" href="settings.php">Settings</a>
-  </div>
-  <div class="step_details"></div>
-</div>
-
-<div id="directions_step" class="step_div">
-  <div class="status_icon">&nbsp;</div>
-  <div class="step_button block_buttons">
-    <p id="prefs-drop-intro">If you have a saved prefs file,</p>
-    <form id="prefs-drop" action="action.php" class="dropzone">
-      <p id="prefs-drop-msg" class="dz-message">Drop prefs file here</p>
-      <div class="fallback">
-        <input type="file" name="prefs" value="Upload Files"/>
+<?php if (function_exists('is_cloud_mode') && is_cloud_mode()) {
+  $sandbox = htmlspecialchars($_SESSION['tenant_slug'] ?? '(none)', ENT_QUOTES, 'UTF-8');
+?>
+    <!-- Database step (cloud: sandbox is chosen on tenant-picker, button stays
+         in place but is disabled — gives the column a stable visual rhythm). -->
+    <div id="database_step" class="step_div cloud-locked">
+      <div class="status_icon"><img/></div>
+      <div class="step_button block_buttons">
+        <input type="button" value="Choose Database" disabled/>
       </div>
-      <input type="hidden" name="action" value="preferences.upload"/>
-    </form>
+      <div class="step_details">
+        <p>Working in sandbox <b><?php echo $sandbox; ?></b>.
+        Use the <b>Quit</b> button on the dashboard
+        (or <a href="tenant-picker.php?switch=1">Switch sandbox</a>)
+        to pick a different one.</p>
+      </div>
+    </div>
+<?php } else { ?>
+    <div id="database_step" class="step_div">
+      <div class="status_icon"><img/></div>
+      <div class="step_button block_buttons">
+        <input type="button" value="Choose Database" onclick="show_ezsetup_modal()"/>
+      </div>
+      <div class="step_details"></div>
+    </div>
+<?php } ?>
+
+    <!-- Schema -->
+    <div id="schema_step" class="step_div">
+      <div class="status_icon"><img/></div>
+      <div class="step_button block_buttons">
+        <input id="schema_button" type="button"/>
+      </div>
+      <div id="schema_details" class="step_details"></div>
+    </div>
+
+    <!-- Purge (split out of schema_step so it sits cleanly as its own card) -->
+    <div id="purge_step" class="step_div">
+      <div class="status_icon">&nbsp;</div>
+      <div class="step_button block_buttons">
+        <input id="purge_data_button" type="button"
+               value="Purge Data" onclick="show_purge_modal()"/>
+      </div>
+      <div class="step_details">
+        <p>After testing or experimentation, you may wish to delete
+        some or all of the data in the database.</p>
+      </div>
+    </div>
   </div>
-  <div class="step_details">
-    <p>You may also want to visit
-        the <a class="button_link" href="scenes.php?back=setup.php">Scene Editor</a>
-        or the <a class="button_link" href="playlist.php?back=setup.php">Playlist Editor</a></p>
+
+  <!-- ============================================================ -->
+  <!-- Column 2: Configuration                                      -->
+  <!-- ============================================================ -->
+  <div class="setup-column">
+    <h2 class="setup_section_heading">Configuration</h2>
+
+    <!-- Photo directories and lane count -->
+    <div id="settings_step" class="step_div">
+      <div class="status_icon"><img/></div>
+      <div class="step_button block_buttons">
+        <a class="button_link" href="settings.php">Settings</a>
+      </div>
+      <div class="step_details"></div>
+    </div>
+
+    <div id="directions_step" class="step_div">
+      <div class="status_icon">&nbsp;</div>
+      <div class="step_button block_buttons">
+        <p id="prefs-drop-intro">If you have a saved prefs file,</p>
+        <form id="prefs-drop" action="action.php" class="dropzone">
+          <p id="prefs-drop-msg" class="dz-message">Drop prefs file here</p>
+          <div class="fallback">
+            <input type="file" name="prefs" value="Upload Files"/>
+          </div>
+          <input type="hidden" name="action" value="preferences.upload"/>
+        </form>
+      </div>
+      <div class="step_details">
+        <p>You may also want to visit
+            the <a class="button_link" href="scenes.php?back=setup.php">Scene Editor</a>
+            or the <a class="button_link" href="playlist.php?back=setup.php">Playlist Editor</a></p>
+      </div>
+    </div>
   </div>
-</div>
+
+  <!-- ============================================================ -->
+  <!-- Column 3: Race Data                                          -->
+  <!-- ============================================================ -->
+  <div class="setup-column">
+    <h2 class="setup_section_heading">Race Data</h2>
+
+    <!-- Roster -->
+    <div id="roster_step" class="step_div">
+      <div class="status_icon"><img/></div>
+      <div class="step_button block_buttons">
+        <a class="button_link" href="import-roster.php">Import Roster</a>
+      </div>
+      <div class="step_details"></div>
+    </div>
+
+    <!-- Groups -->
+    <div id="groups_step" class="step_div">
+      <div class="status_icon"><img/></div>
+      <div class="step_button block_buttons">
+        <a class="button_link" href="racing-groups.php">Racing Groups</a>
+      </div>
+      <div class="step_details"></div>
+    </div>
+
+    <!-- Awards -->
+    <div id="awards_step" class="step_div">
+      <div class="status_icon"><img/></div>
+      <div class="step_button block_buttons">
+        <a class="button_link" href="import-awards.php">Import Awards</a>
+      </div>
+      <div class="step_details"></div>
+    </div>
+
+    <!-- Fake roster hints (formerly the right-float panel) -->
+    <div id="offer_fake" class="block_buttons">
+      <p>For experimenting, you might want to make a</p>
+      <a class="button_link" href="fakeroster.php">Fake Roster</a>
+    </div>
+    <div id="remind_fake" class="block_buttons">
+      <p>To remove the fake roster data, re-initialize the database, or click "Purge Data" and delete racers.</p>
+    </div>
+  </div>
+
+</div><!-- /.setup-columns -->
 
 
 <?php require_once('inc/ajax-failure.inc'); ?>
