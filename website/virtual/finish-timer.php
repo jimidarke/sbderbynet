@@ -16,7 +16,7 @@ if (!$dip) {
 <meta charset="utf-8">
 <title>Virtual Finish Timer — Lane <?= htmlspecialchars($lane) ?></title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="/derbynet/virtual/virtual.css">
+<link rel="stylesheet" href="/derbynet/virtual/virtual.css<?= virtual_asset_v('virtual.css') ?>">
 </head>
 <body class="virtual-device" data-role="finish-timer"
       data-lane="<?= htmlspecialchars($lane) ?>"
@@ -74,7 +74,7 @@ if (!$dip) {
 
 <!-- mqtt.min.js is loaded dynamically by virtual-common.js (vendored first,
      unpkg fallback). See website/js/vendor/README.md. -->
-<script src="/derbynet/virtual/virtual-common.js"></script>
-<script src="/derbynet/virtual/virtual-finish-timer.js"></script>
+<script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
+<script src="/derbynet/virtual/virtual-finish-timer.js<?= virtual_asset_v('virtual-finish-timer.js') ?>"></script>
 </body>
 </html>

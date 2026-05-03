@@ -37,12 +37,18 @@ require_once('inc/locked.inc');
     cursor: default;
 }
 
-#login-kiosk {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
+/* Tightly stacked buttons on the login page (no inter-button gap). */
+.login_buttons input[type='button'],
+.login_buttons input[type='submit'],
+.login_buttons a.button_link {
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+.login_buttons .menu_section_heading {
+    margin-top: var(--space-4);
+}
+.login_buttons .menu_section_heading:first-child {
+    margin-top: var(--space-3);
 }
 </style>
 <script type="text/javascript" src="js/jquery.js"></script>
@@ -57,9 +63,9 @@ require_once('inc/locked.inc');
 </a>
 
 <div class="index_background">
-<div class="block_buttons">
-<legend>Please choose a role:</legend>
+<div class="block_buttons login_buttons">
 
+<h2 class="menu_section_heading">Choose a Role</h2>
 <?php
 foreach ($roles as $name => $details) {
   if (empty($name)) {
@@ -72,15 +78,14 @@ foreach ($roles as $name => $details) {
 }
 ?>
 
-<div id="login-kiosk">
+<h2 class="menu_section_heading">Other Modes</h2>
 <input type="button" id="kiosk_button" value="Be a Kiosk" onclick="show_kiosk_form();"/>
 <a class="button_link" id="camera_button" href="camera.php">Be a Camera</a>
-</div>
 
 <?php
 if (@$_SESSION['role']) {
 ?>
-<br/>
+<h2 class="menu_section_heading">Session</h2>
 <input type="button" value="Log out" onclick='handle_logout();'/>
 <?php
 }

@@ -8,7 +8,7 @@ virtual_page_guard();
 <meta charset="utf-8">
 <title>Virtual Start Timer</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="/derbynet/virtual/virtual.css">
+<link rel="stylesheet" href="/derbynet/virtual/virtual.css<?= virtual_asset_v('virtual.css') ?>">
 </head>
 <body class="virtual-device" data-role="start-timer"
       data-hwid="START" data-dip="0001">
@@ -49,7 +49,7 @@ virtual_page_guard();
 
 <!-- mqtt.min.js is loaded dynamically by virtual-common.js (vendored first,
      unpkg fallback). See website/js/vendor/README.md. -->
-<script src="/derbynet/virtual/virtual-common.js"></script>
-<script src="/derbynet/virtual/virtual-start-timer.js"></script>
+<script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
+<script src="/derbynet/virtual/virtual-start-timer.js<?= virtual_asset_v('virtual-start-timer.js') ?>"></script>
 </body>
 </html>

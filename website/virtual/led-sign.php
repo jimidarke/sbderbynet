@@ -16,7 +16,7 @@ $hwid = 'B_LEDSIGN_' . $zone;
 <meta charset="utf-8">
 <title>Virtual LED Sign — <?= htmlspecialchars($zone) ?></title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="/derbynet/virtual/virtual.css">
+<link rel="stylesheet" href="/derbynet/virtual/virtual.css<?= virtual_asset_v('virtual.css') ?>">
 </head>
 <body class="virtual-device" data-role="led-sign"
       data-zone="<?= htmlspecialchars($zone) ?>"
@@ -41,7 +41,7 @@ $hwid = 'B_LEDSIGN_' . $zone;
 </main>
 
 <!-- mqtt.min.js loaded dynamically by virtual-common.js (vendored first). -->
-<script src="/derbynet/virtual/virtual-common.js"></script>
+<script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
 <script>
 (function () {
   const body = document.body;

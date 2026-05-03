@@ -48,6 +48,18 @@ function virtual_page_guard() {
   }
 }
 
+// Cache-busting query string for virtual/* assets. Returns "?v=<mtime>"
+// so any change to the file forces browsers to re-download it. Without
+// this, an aggressive proxy or browser cache holds onto stale JS even
+// after a deploy — exactly how the v0.9.11 fetch-creds fix kept showing
+// the old "Unrecognized query" error after the wrapper had shipped the
+// new JS.
+function virtual_asset_v($filename) {
+  $path = __DIR__ . '/' . ltrim($filename, '/');
+  $mtime = @filemtime($path);
+  return $mtime ? "?v={$mtime}" : '';
+}
+
 // DIP-switch -> lane mapping mirrors derbyRace.py:getDIPName().
 // The race server reads this from the JSON payload, not the topic.
 function virtual_dip_for_lane($lane) {

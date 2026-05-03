@@ -13,7 +13,7 @@ $hwid = 'B_DISPLAY_' . $id;
 <meta charset="utf-8">
 <title>Virtual Display <?= htmlspecialchars($id) ?></title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="/derbynet/virtual/virtual.css">
+<link rel="stylesheet" href="/derbynet/virtual/virtual.css<?= virtual_asset_v('virtual.css') ?>">
 <style>
   .vd-display-frame { width: 100%; height: calc(100vh - 60px); border: 0; background: white; }
 </style>
@@ -32,7 +32,7 @@ $hwid = 'B_DISPLAY_' . $id;
         src="/derbynet/kiosk.php?name=<?= htmlspecialchars($kiosk) ?>"></iframe>
 
 <!-- mqtt.min.js loaded dynamically by virtual-common.js (vendored first). -->
-<script src="/derbynet/virtual/virtual-common.js"></script>
+<script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
 <script>
 // Display devices are passive: they only report telemetry/status so the
 // race server tracks them as online. The kiosk content itself is fetched
