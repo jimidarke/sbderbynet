@@ -17,6 +17,13 @@
 // chdir to the docroot first so those nested requires resolve.
 chdir(__DIR__ . '/..');
 
+// Every other entry-point PHP file (action.php, coordinator.php, etc.)
+// starts with session_start() as line 1. Virtual pages need it too so
+// have_permission() can read $_SESSION['permissions'] populated by the
+// role.login flow. @ suppresses the harmless "session already active"
+// warning if a caller has already started one.
+@session_start();
+
 require_once(__DIR__ . '/../inc/data.inc');
 require_once(__DIR__ . '/../inc/authorize.inc');
 require_once(__DIR__ . '/../inc/permissions.inc');
