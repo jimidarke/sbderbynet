@@ -153,6 +153,11 @@ set_section_heading('During the Race');
 $need_spacer = make_link_button('Race Dashboard', 'coordinator.php', SET_UP_PERMISSION, 'during_button');
 $need_spacer = make_link_button('Kiosk Dashboard', 'kiosk-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
 $need_spacer = make_link_button('LED Signs', 'ledsign-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
+// Virtual Hardware control panel — cloud twin only. Coordinator-gated.
+// The Pi build never sets DERBYNET_CLOUD_MODE so this link is hidden there.
+if (function_exists('is_cloud_mode') && is_cloud_mode()) {
+  $need_spacer = make_link_button('Virtual Hardware', 'virtual/index.php', CONTROL_RACE_PERMISSION, 'during_button') || $need_spacer;
+}
 // TEMPORARILY HIDDEN: $need_spacer = make_link_button('Judging', 'judging.php', JUDGING_PERMISSION, 'during_button') || $need_spacer;
 if (!have_permission(SET_UP_PERMISSION)) {
   $need_spacer = make_link_button('Slideshow', 'slideshow.php', VIEW_RACE_RESULTS_PERMISSION, 'during_button') || $need_spacer;
