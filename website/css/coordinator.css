@@ -1648,7 +1648,21 @@ div#emergency-control-coordinator label {
   text-transform: uppercase;
   color: #000;
 }
-.cc-heat-actions { margin-top: 4px; }
+.cc-heat-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  align-items: stretch;
+}
+.cc-heat-actions > #now-racing-group-buttons { display: contents; }
+.cc-heat-actions input[type="button"] {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
 .cc-arrow-btn {
   display: inline-flex !important;
   align-items: center;

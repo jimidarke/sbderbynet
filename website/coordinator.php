@@ -117,16 +117,16 @@ $warn_no_timer = warn_no_timer();
           </div>
         </div>
 
-        <div class="block_buttons cc-heat-actions cc-row-2">
+        <div class="block_buttons cc-heat-actions">
           <input type="button" id="manual_results_button" value="Manual Results"
             onclick="on_manual_results_button_click(<?php echo !$warn_no_timer ? "true" : "false"; ?>)" />
           <input type="button" id="rerun-button" value="Re-Run" data-rerun="none" onclick="handle_rerun(this);" />
+          <div id="now-racing-group-buttons"></div>
         </div>
         </div>
       </section>
 
       <div id="supplemental-control-group" class="control_group block_buttons new_round_control hidden">
-        <div id="now-racing-group-buttons"></div>
         <div id="add-new-rounds-button" class="hidden">
           <input type="button" value="Add New Rounds" onclick="show_choose_new_round_modal()" />
         </div>

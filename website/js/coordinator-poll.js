@@ -1206,11 +1206,12 @@ function process_coordinator_poll_json(json) {
     )
   );
 
-  // Hide the control group if there's nothing to show
+  // Hide the control group if there's nothing to show.
+  // (now-racing-group-buttons was relocated into .cc-heat-actions; this
+  // panel only carries Add New Rounds now.)
   $("#supplemental-control-group").toggleClass(
     "hidden",
-    $("#add-new-rounds-button").hasClass("hidden") &&
-    $("#now-racing-group-buttons").is(":empty")
+    $("#add-new-rounds-button").hasClass("hidden")
   );
 
   // Process device statuses
