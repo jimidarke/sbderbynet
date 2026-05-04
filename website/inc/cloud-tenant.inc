@@ -93,10 +93,59 @@ function create_tenant($slug) {
     foreach ($script as $stmt) {
       $pdo->exec($stmt);
     }
+    apply_tenant_defaults($pdo, $slug);
   } finally {
     umask($old_umask);
   }
   return true;
+}
+
+// SBDerbyNet sandbox defaults — written after the stock schema bootstrap so
+// they overlay or supplement schema.inc's INSERTs. Captured from the test01
+// reference sandbox on 2026-05-03; update here when the canonical preset
+// changes. Media paths are recomputed per tenant from the slug.
+function tenant_default_raceinfo($slug) {
+  $base = tenant_dir($slug);
+  return array(
+    // Track / scoring
+    'lane_count'           => '3',
+    'track-length'         => '500',
+    'weight-units'         => 'kg',
+    'name-style'           => '0',
+    // Labels / branding
+    'partition-label'      => 'Age Group',
+    'supergroup-label'     => 'Event',
+    'images-dir'           => 'SoapBox',
+    // Display toggles (overlay schema.inc defaults)
+    'photos-on-now-racing' => '0',
+    'show-cars-on-deck'    => '0',
+    'show-racer-photos-rr' => '0',
+    'show-car-photos-rr'   => '0',
+    'upload-videos'        => '1',
+    // Scheduling weights
+    'avoid-consecutive'    => '1000',
+    'heat-counts'          => '300',
+    // Per-tenant media paths
+    'photo-directory'      => $base . '/racers/',
+    'car-photo-directory'  => $base . '/cars/',
+    'video-directory'      => $base . '/videos/',
+    'slideshow-directory'  => $base . '/slides/',
+  );
+}
+
+function apply_tenant_defaults(PDO $pdo, $slug) {
+  $defaults = tenant_default_raceinfo($slug);
+  $exists = $pdo->prepare('SELECT COUNT(*) FROM RaceInfo WHERE itemkey = :k');
+  $insert = $pdo->prepare('INSERT INTO RaceInfo(itemkey, itemvalue) VALUES(:k, :v)');
+  $update = $pdo->prepare('UPDATE RaceInfo SET itemvalue = :v WHERE itemkey = :k');
+  foreach ($defaults as $key => $val) {
+    $exists->execute(array(':k' => $key));
+    if ($exists->fetchColumn() > 0) {
+      $update->execute(array(':k' => $key, ':v' => $val));
+    } else {
+      $insert->execute(array(':k' => $key, ':v' => $val));
+    }
+  }
 }
 
 // Bind a (validated) slug to the current session, regenerating the session ID

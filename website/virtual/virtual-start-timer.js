@@ -7,7 +7,12 @@
 // button again to release the latch — this virtual mirrors that exactly.
 
 (function () {
-  const hwid = 'starttimer';
+  // Cloud broker ACL enumerates allowed B_*/STATE/etc. topics literally; using
+  // the real-device hostname 'starttimer' would publish to a topic outside the
+  // ACL and be rejected. We keep the hwid 'START' (matching the cloud ACL) and
+  // rely on derbyRace.py's wildcard subscription on derbynet/device/+/state to
+  // consume the GO edge regardless of the segment value.
+  const hwid = 'START';
   const dip = '0001';
   const stateTopic     = 'derbynet/device/' + hwid + '/state';
   const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';

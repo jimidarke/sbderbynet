@@ -11,6 +11,14 @@
 {$CADDY_HOST:uisp.darketech.ca} {
 	encode gzip
 
+	# Strip internal-only headers from any inbound external request. These
+	# headers are how the race-server overrides the per-session tenant
+	# binding when calling /action.php container-to-container; allowing a
+	# public client to set them would let anyone target any tenant DB.
+	# Internal services bypass Caddy by talking to derbynet-web:80 directly.
+	request_header -X-DerbyNet-Tenant
+	request_header -X-DerbyNet-Internal-Token
+
 	# Longer timeouts for file uploads (racer photos)
 	request_body {
 		max_size 16MB

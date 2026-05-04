@@ -89,6 +89,10 @@ services:
       - DERBYNET_TENANTS_DIR=${DERBYNET_TENANTS_DIR:-/var/lib/derbynet/tenants}
       - VIRTUAL_MQTT_USER=${VIRTUAL_MQTT_USER:-virtual-device}
       - VIRTUAL_MQTT_PASS=${VIRTUAL_MQTT_PASS:-}
+      # Shared secret that gates the X-DerbyNet-Tenant header override used
+      # by internal services (the race-server) to bypass session-based tenant
+      # routing. Caddy strips the X-DerbyNet-* headers from external traffic.
+      - DERBYNET_INTERNAL_TOKEN=${DERBYNET_INTERNAL_TOKEN:-}
     volumes:
       - derbynet_data:/var/lib/derbynet
       # Persist nginx + php-fpm logs across container recreates so a deploy
@@ -126,6 +130,11 @@ services:
       - DERBYNET_API_URL=http://derbynet-web/action.php
       - DERBYNET_API_PATH=/
       - DERBYNET_DB_PATH=/var/lib/derbynet
+      # Per-session tenant routing: race-server addresses one tenant DB
+      # with the shared-secret-gated X-DerbyNet-* header pair. Empty values
+      # mean "no override" (Pi mode behaviour).
+      - DERBYNET_TENANT=${DERBYNET_TENANT:-}
+      - DERBYNET_INTERNAL_TOKEN=${DERBYNET_INTERNAL_TOKEN:-}
       - LANE_COUNT=${LANE_COUNT:-3}
       - DERBY_CONSOLE_LOG=true
       - DERBY_DEBUG=${DERBY_DEBUG:-false}

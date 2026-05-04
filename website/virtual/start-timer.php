@@ -11,7 +11,7 @@ virtual_page_guard();
 <link rel="stylesheet" href="/derbynet/virtual/virtual.css<?= virtual_asset_v('virtual.css') ?>">
 </head>
 <body class="virtual-device" data-role="start-timer"
-      data-hwid="starttimer" data-dip="0001">
+      data-hwid="START" data-dip="0001">
 
 <header class="vd-header">
   <span class="vd-tag">VIRTUAL</span>
@@ -37,7 +37,7 @@ virtual_page_guard();
       </button>
 
       <div class="vd-device-meta">
-        <span>HWID starttimer</span>
+        <span>HWID START</span>
         <span>Signal: <span id="signal-state">LOW</span></span>
         <span>Race: <span id="race-state">UNCONFIGURED</span></span>
       </div>

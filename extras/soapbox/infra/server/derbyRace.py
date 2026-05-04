@@ -80,6 +80,13 @@ logger = ServerLogger(
 # MQTT setup - Support environment variables for Docker deployment
 MQTT_BROKER             = os.getenv('MQTT_BROKER', 'localhost')
 MQTT_PORT               = int(os.getenv('MQTT_PORT', '1883'))
+# Cloud broker has allow_anonymous=false; the Pi broker is currently
+# anonymous, so empty creds remain valid there. Mirrors the derbyTime.py
+# fix in commit 840dcfd0 — that commit's message claimed derbyRace already
+# had auth, but it didn't (broker logged "Client derbysvr ... not
+# authorised" on every reconnect attempt).
+MQTT_USER               = os.getenv('MQTT_USER', '')
+MQTT_PASS               = os.getenv('MQTT_PASS', '')
 MQTT_QOS_CRITICAL       = 2     # QoS level for critical race messages
 MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
 ##### Subscribe Topics #####
@@ -116,6 +123,8 @@ class derbyRace:
         self._heartbeat_lock = threading.Lock()
 
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr" )
+        if MQTT_USER:
+            self.client.username_pw_set(MQTT_USER, MQTT_PASS)
         self.client.will_set("derbynet/status", payload="offline", qos=1, retain=True)
         self.client.on_message = self.on_message
         self.client.on_connect = self.on_connect
@@ -129,7 +138,16 @@ class derbyRace:
         # This eliminates HTTP latency for writing race results
         self.db = None
         if DIRECT_DB_AVAILABLE:
-            db_path = os.getenv('DERBYNET_DB_PATH')
+            # On the cloud twin, the active DB is per-tenant. If DERBYNET_TENANT
+            # is set, address that tenant's sqlite directly; otherwise fall back
+            # to the legacy single-DB path (Pi).
+            tenant_slug = os.getenv('DERBYNET_TENANT', '')
+            if tenant_slug:
+                db_path = os.path.join(
+                    os.getenv('DERBYNET_DB_PATH', '/var/lib/derbynet'),
+                    'tenants', tenant_slug, 'derbynet.sqlite3')
+            else:
+                db_path = os.getenv('DERBYNET_DB_PATH')
             if db_path and os.path.exists(db_path):
                 try:
                     self.db = DerbyDatabase(db_path)

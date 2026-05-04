@@ -82,7 +82,10 @@ function json_timer_state() {
       }
   }
 
-  // Virtual timer display for testing mode
+  // Virtual timer display for testing mode — DISABLED: superseded by
+  // /virtual/ cloud virtual-hardware pages. Re-enable alongside the
+  // settings.php Testing Mode UI and coordinator.php virtual-timer-panel.
+  /*
   $testing_mode = testing_mode_enabled();
   $virtual_display = array();
   if ($testing_mode) {
@@ -95,6 +98,7 @@ function json_timer_state() {
           );
       }
   }
+  */
 
   return array(
       'lanes' => get_lane_count(),
@@ -111,9 +115,9 @@ function json_timer_state() {
       'timers_required' => $required_timers,
       'health_status' => $health_status,
       'health_message' => $health_message,
-      // Testing mode virtual display
-      'testing_mode' => $testing_mode,
-      'virtual_display' => $virtual_display,
+      // Testing mode virtual display — DISABLED (see commented block above).
+      // 'testing_mode' => $testing_mode,
+      // 'virtual_display' => $virtual_display,
   );
 }
 

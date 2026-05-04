@@ -70,8 +70,47 @@ $at_cap = count($tenants) >= TENANT_MAX;
 
   .lede {
     color: #4b5563;
-    margin: 0 0 24px;
+    margin: 0 0 16px;
     line-height: 1.5;
+  }
+
+  /* Demo login credentials notice — visible only on the cloud test site */
+  .tp-creds {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 4px solid var(--color-accent, #F7D117);
+    border-radius: var(--radius-md, 8px);
+    padding: 10px 14px;
+    margin: 0 0 24px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #4b5563;
+  }
+  .tp-creds-label {
+    flex: 0 0 auto;
+    background: var(--color-accent, #F7D117);
+    color: #1f2937;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+  .tp-creds-body { flex: 1 1 240px; min-width: 0; }
+  .tp-creds code {
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    font-weight: 600;
   }
 
   .tp-section-heading {
@@ -238,6 +277,13 @@ $at_cap = count($tenants) >= TENANT_MAX;
 <p class="lede">Each sandbox is an independent DerbyNet database on this cloud server.
 Pick an existing one to continue working in it, or create a new one to start fresh.
 Sandboxes are isolated from each other; nothing you do in one affects another.</p>
+
+<div class="tp-creds">
+  <span class="tp-creds-label">Demo login</span>
+  <span class="tp-creds-body">Pick any role on the login screen and use the password
+    <code>derbynet</code>. The same password works for all roles
+    (<b>RaceCoordinator</b>, <b>RaceCrew</b>, <b>Photo</b>) on this test site.</span>
+</div>
 
 <h2 class="tp-section-heading">Existing Sandboxes</h2>
 <div class="tenants">

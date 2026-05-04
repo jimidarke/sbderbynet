@@ -8,8 +8,29 @@ $configdir = isset($_SERVER['DERBYNET_CONFIG_DIR']) ? $_SERVER['DERBYNET_CONFIG_
 $_dn_cloud_mode = isset($_SERVER['DERBYNET_CLOUD_MODE']) ? $_SERVER['DERBYNET_CLOUD_MODE'] : '';
 if ($_dn_cloud_mode !== '') {
   require_once(dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cloud-tenant.inc');
-  if (isset($_SESSION['tenant_slug']) && tenant_exists($_SESSION['tenant_slug'])) {
-    $db_connection_string = 'sqlite:' . tenant_db_path($_SESSION['tenant_slug']);
+  // Internal-service override: the race-server (and other backend services
+  // that run without a browser session) cannot pick a tenant via the picker.
+  // They send X-DerbyNet-Tenant + X-DerbyNet-Internal-Token; the token is a
+  // shared secret known only to internal services. Caddy strips both headers
+  // from external traffic so a public client cannot spoof them.
+  $_dn_internal_token = getenv('DERBYNET_INTERNAL_TOKEN') ?: '';
+  $_dn_hdr_token  = isset($_SERVER['HTTP_X_DERBYNET_INTERNAL_TOKEN'])
+                    ? $_SERVER['HTTP_X_DERBYNET_INTERNAL_TOKEN'] : '';
+  $_dn_hdr_tenant = isset($_SERVER['HTTP_X_DERBYNET_TENANT'])
+                    ? $_SERVER['HTTP_X_DERBYNET_TENANT'] : '';
+  $_dn_internal_tenant = '';
+  if ($_dn_internal_token !== ''
+      && hash_equals($_dn_internal_token, $_dn_hdr_token)
+      && valid_tenant_slug($_dn_hdr_tenant)
+      && tenant_exists($_dn_hdr_tenant)) {
+    $_dn_internal_tenant = $_dn_hdr_tenant;
+  }
+  $_dn_active_tenant = $_dn_internal_tenant !== ''
+    ? $_dn_internal_tenant
+    : (isset($_SESSION['tenant_slug']) && tenant_exists($_SESSION['tenant_slug'])
+       ? $_SESSION['tenant_slug'] : '');
+  if ($_dn_active_tenant !== '') {
+    $db_connection_string = 'sqlite:' . tenant_db_path($_dn_active_tenant);
     try {
       $db = new PDO($db_connection_string, '', '', array());
       $db->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
@@ -17,6 +38,16 @@ if ($_dn_cloud_mode !== '') {
     }
   }
   if (!isset($db)) {
+    // Internal callers should never see a redirect — return 503 so they can
+    // log/retry instead of following a browser-flow redirect.
+    if ($_dn_internal_token !== ''
+        && isset($_SERVER['HTTP_X_DERBYNET_INTERNAL_TOKEN'])) {
+      http_response_code(503);
+      header('Content-Type: application/json');
+      echo json_encode(array('error' => 'tenant-not-bound',
+                             'message' => 'Internal request did not match a known tenant'));
+      exit();
+    }
     // No tenant chosen yet — kick the browser to the picker. AJAX endpoints
     // that need a DB will receive HTML here, but those callers should already
     // be inside a session that has a tenant; no-tenant AJAX is a programming

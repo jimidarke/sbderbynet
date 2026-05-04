@@ -160,9 +160,16 @@ $need_spacer = make_link_button('Race Dashboard', 'coordinator.php', SET_UP_PERM
 $need_spacer = make_link_button('Kiosk Dashboard', 'kiosk-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
 $need_spacer = make_link_button('LED Signs', 'ledsign-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
 // Virtual Hardware control panel — cloud twin only. Coordinator-gated.
-// The Pi build never sets DERBYNET_CLOUD_MODE so this link is hidden there.
-if (function_exists('is_cloud_mode') && is_cloud_mode()) {
-  $need_spacer = make_link_button('Virtual Hardware', 'virtual/index.php', CONTROL_RACE_PERMISSION, 'during_button') || $need_spacer;
+// Opens in a popup window (not a new tab) so the test instruments stay
+// visually separate from the main dashboard. The Pi build never sets
+// DERBYNET_CLOUD_MODE so this link is hidden there.
+if (function_exists('is_cloud_mode') && is_cloud_mode() && have_permission(CONTROL_RACE_PERMISSION)) {
+  flush_section_heading();
+  echo "<a class='button_link during_button' href='virtual/index.php'"
+       . " onclick=\"window.open(this.href, 'derbynet_virtual_hw',"
+       . " 'width=1400,height=900,toolbar=no,menubar=no,location=no,resizable=yes,scrollbars=yes');"
+       . " return false;\">Virtual Hardware</a>\n";
+  $need_spacer = true;
 }
 // TEMPORARILY HIDDEN: $need_spacer = make_link_button('Judging', 'judging.php', JUDGING_PERMISSION, 'during_button') || $need_spacer;
 if (!have_permission(SET_UP_PERMISSION)) {

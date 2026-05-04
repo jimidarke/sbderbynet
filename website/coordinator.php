@@ -205,14 +205,17 @@ $warn_no_timer = warn_no_timer();
         <?php } ?>
       </div>
 
-      <!-- Virtual Timer Display (Testing Mode) -->
+      <!-- Virtual Timer Display (Testing Mode) — DISABLED: superseded by
+           /virtual/ cloud virtual-hardware pages. Re-enable alongside the
+           settings.php Testing Mode block and json-timer-state virtual_display
+           if we want the on-coordinator Pi simulator back.
       <div id="virtual-timer-panel" class="control_group hidden">
         <div class="testing-mode-banner">
           &#9888; TESTING MODE - Race results are simulated
         </div>
         <h3>Virtual Timer Display</h3>
         <div id="virtual-lanes">
-          <!-- Populated dynamically by JavaScript -->
+          Populated dynamically by JavaScript
         </div>
         <div class="block_buttons" style="margin-top: 15px;">
           <input type="button" id="simulate-race-btn" value="Simulate Race"
@@ -220,6 +223,7 @@ $warn_no_timer = warn_no_timer();
           <span id="simulation-status" style="margin-left: 10px; color: #ff9800;"></span>
         </div>
       </div>
+      -->
 
       <div class="control_group replay_control_group">
         <div class="status_icon">

@@ -72,6 +72,29 @@ class DerbyNetClient:
         self.timer_state = TIMER_STATE_NOT_CONNECTED
         self.last_heartbeat_time = 0
         self.last_connection_attempt = 0
+        # Cloud per-session tenant routing: when DerbyNet runs in cloud mode
+        # the active SQLite is bound to $_SESSION['tenant_slug']. This server
+        # process has no session, so without an override every request 302's
+        # to tenant-picker.php. We send a shared-secret-gated header pair on
+        # every request; PHP honors it only when X-DerbyNet-Internal-Token
+        # matches and Caddy strips both headers from external traffic.
+        # Empty values disable the override (Pi mode behaviour).
+        self._tenant_slug = os.getenv('DERBYNET_TENANT', '')
+        self._internal_token = os.getenv('DERBYNET_INTERNAL_TOKEN', '')
+        self._tenant_headers = {}
+        if self._tenant_slug and self._internal_token:
+            self._tenant_headers = {
+                'X-DerbyNet-Tenant': self._tenant_slug,
+                'X-DerbyNet-Internal-Token': self._internal_token,
+            }
+            logger.info(f"Tenant-bound API client: tenant={self._tenant_slug}")
+
+    def _hdr(self, base):
+        # Merges the tenant/internal-token headers into a per-call headers dict.
+        # No-op when env vars unset (e.g. Pi deployments).
+        if self._tenant_headers:
+            base.update(self._tenant_headers)
+        return base
 
     def login(self):
         """Logs in to the DerbyNet server and retrieves an auth cookie."""
@@ -88,7 +111,7 @@ class DerbyNetClient:
         
         while attempt < 5:
             try: 
-                response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+                response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
                 if response.status_code == 200:
                     break
             except Exception as e:
@@ -194,7 +217,7 @@ class DerbyNetClient:
         }
         logger.debug("Sending heartbeat message: %s", payload)
         try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
                 logger.warning("Heartbeat authentication failed, retrying login")
                 self.authcode = self.login()
@@ -261,7 +284,7 @@ class DerbyNetClient:
         }
 
         try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
                 self.authcode = self.login()
                 return self.send_start()
@@ -307,7 +330,7 @@ class DerbyNetClient:
             'Cookie': self.authcode
         }
         try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
                 self.authcode = self.login()
                 return self.send_finish(roundid, heatid, lane_times)
@@ -357,7 +380,7 @@ class DerbyNetClient:
         }
         
         try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
                 self.authcode = self.login()
                 return self.set_staging()
@@ -382,7 +405,7 @@ class DerbyNetClient:
             'Cookie': self.authcode
         }
         try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
                 self.authcode = self.login()
                 return self.simulate_heartbeat()
@@ -407,7 +430,7 @@ class DerbyNetClient:
         payload = ''
         url = self.url + '?query=poll.coordinator'
         try:
-            response = requests.get(url, headers=headers, data=payload, timeout=5)
+            response = requests.get(url, headers=self._hdr(headers), data=payload, timeout=5)
             if response.status_code == 401:
                 self.authcode = self.login()
                 return self.get_race_status()
@@ -481,7 +504,7 @@ class DerbyNetClient:
         }
         url = self.rooturl + 'device-status-api.php'
         try:
-            response = requests.post(url, headers=headers, json=APIpayload, timeout=5)
+            response = requests.post(url, headers=self._hdr(headers), json=APIpayload, timeout=5)
             if response.status_code == 401:
                 self.authcode = self.login()
                 return self.send_device_status(payload)

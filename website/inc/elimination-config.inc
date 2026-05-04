@@ -450,4 +450,35 @@ function format_advancement_info($round_config) {
     return "Unknown advancement rule";
 }
 
+/**
+ * Returns the tournament setup status for the current database.
+ * Used by setup.php to render the Tournament button badge.
+ *
+ * @return array {
+ *   state: 'unset' | 'partial' | 'complete',
+ *   classes: int,        total racing groups (Classes rows)
+ *   initialized: int,    classes with an active tournament row
+ * }
+ */
+function tournament_setup_status() {
+    global $db;
+    $out = array('state' => 'unset', 'classes' => 0, 'initialized' => 0);
+    try {
+        $out['classes'] = (int)$db->query('SELECT COUNT(*) FROM Classes')->fetchColumn();
+        $out['initialized'] = (int)$db->query(
+            'SELECT COUNT(DISTINCT classid) FROM EliminationTournaments WHERE active = 1'
+        )->fetchColumn();
+    } catch (PDOException $p) {
+        return $out;  // table missing or DB issue → treat as unset
+    }
+    if ($out['classes'] === 0 || $out['initialized'] === 0) {
+        $out['state'] = 'unset';
+    } else if ($out['initialized'] >= $out['classes']) {
+        $out['state'] = 'complete';
+    } else {
+        $out['state'] = 'partial';
+    }
+    return $out;
+}
+
 ?>
