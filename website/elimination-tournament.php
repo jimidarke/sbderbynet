@@ -26,7 +26,7 @@ if (schema_version() < PARTITION_SCHEMA) {
 <script type="text/javascript" src="js/elimination-tournament.js"></script>
 </head>
 <body class="tournament-page">
-<?php make_banner('Elimination Tournament', 'setup.php'); ?>
+<?php make_banner('Elimination Tournament', 'index.php'); ?>
 
 <div id="below-banner" class="tournament-shell">
 

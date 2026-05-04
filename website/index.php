@@ -136,6 +136,7 @@ echo "<div class='block_buttons'>\n";
 set_section_heading('Before the Race');
 $need_spacer = make_link_button('Set-Up', 'setup.php', SET_UP_PERMISSION, 'before_button');
 $need_spacer = make_link_button('Racing Groups', 'racing-groups.php', SET_UP_PERMISSION, 'before_button') || $need_spacer;
+$need_spacer = make_link_button('Tournament', 'elimination-tournament.php', SET_UP_PERMISSION, 'before_button') || $need_spacer;
 $need_spacer = make_link_button('Race Check-In', 'checkin.php', CHECK_IN_RACERS_PERMISSION, 'before_button') || $need_spacer;
 if ($schema_version > 1) {
   $need_spacer = make_link_button('Racer Photos', 'photo-thumbs.php?repo=head', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;

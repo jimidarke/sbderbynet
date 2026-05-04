@@ -32,7 +32,6 @@ require_once('inc/details-for-setup-page.inc');
 require_once('inc/default-database-directory.inc');
 require_once('inc/standard-configs.inc');
 require_once('inc/locked.inc');
-require_once('inc/elimination-config.inc');
 
 
 $configdir = isset($_SERVER['DERBYNET_CONFIG_DIR']) ? $_SERVER['DERBYNET_CONFIG_DIR'] : 'local';
@@ -206,32 +205,6 @@ $(function() { populate_details(<?php echo $initial_details; ?>); });
         <a class="button_link" href="import-awards.php">Import Awards</a>
       </div>
       <div class="step_details"></div>
-    </div>
-
-    <!-- Tournament -->
-<?php
-  $tstat = isset($db) ? tournament_setup_status() : array('state' => 'unset', 'classes' => 0, 'initialized' => 0);
-  $badge = array(
-    'unset'    => array('color' => '#b91c1c', 'glyph' => '✕', 'text' => 'Not set'),
-    'partial'  => array('color' => '#d97706', 'glyph' => '!',  'text' => $tstat['initialized'].' of '.$tstat['classes'].' groups initialized'),
-    'complete' => array('color' => '#16a34a', 'glyph' => '✓', 'text' => 'All '.$tstat['classes'].' groups initialized'),
-  )[$tstat['state']];
-?>
-    <div id="tournament_step" class="step_div">
-      <div class="status_icon">
-        <span style="display:inline-flex; width:24px; height:24px; border-radius:50%;
-                     background:<?php echo $badge['color']; ?>; color:#fff;
-                     font-weight:bold; align-items:center; justify-content:center;
-                     font-size:14px;" title="<?php echo htmlspecialchars($badge['text'], ENT_QUOTES); ?>">
-          <?php echo $badge['glyph']; ?>
-        </span>
-      </div>
-      <div class="step_button block_buttons">
-        <a class="button_link" href="elimination-tournament.php">Tournament</a>
-      </div>
-      <div class="step_details">
-        <p><?php echo htmlspecialchars($badge['text']); ?></p>
-      </div>
     </div>
 
     <!-- Fake roster hints (formerly the right-float panel) -->
