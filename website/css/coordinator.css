@@ -1505,24 +1505,28 @@ div#emergency-control-coordinator label {
    ============================================================================= */
 
 :root {
-  --cc-bg:            #f5f7fa;
+  --cc-bg:            #ffffff;
   --cc-card:          #ffffff;
-  --cc-ink:           #1f2937;
-  --cc-ink-soft:      #6b7280;
-  --cc-line:          #e5e7eb;
-  --cc-line-strong:   #d1d5db;
-  --cc-accent:        #1e40af;
+  --cc-ink:           #000000;          /* pure black for max contrast */
+  --cc-ink-soft:      #1f2937;          /* near-black, readable in shade */
+  --cc-line:          #111111;          /* heavy black separators */
+  --cc-line-soft:     #d1d5db;          /* faint internal divider only */
+  --cc-line-strong:   #000000;
+  --cc-accent:        #1e40af;          /* deep blue for secondary actions */
   --cc-accent-soft:   #dbeafe;
+  --cc-amber:         #d97706;          /* primary CTA: outdoor-readable amber */
+  --cc-amber-bright:  #f59e0b;
+  --cc-amber-soft:    #fef3c7;
   --cc-good:          #15803d;
-  --cc-good-soft:     #dcfce7;
-  --cc-warn:          #b45309;
+  --cc-good-soft:     #d1fae5;
+  --cc-warn:          #92400e;
   --cc-warn-soft:     #fef3c7;
-  --cc-bad:           #b91c1c;
-  --cc-bad-soft:      #fee2e2;
-  --cc-radius:        12px;
-  --cc-radius-sm:     8px;
-  --cc-shadow:        0 1px 2px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.05);
-  --cc-gap:           14px;
+  --cc-bad:           #991b1b;
+  --cc-bad-soft:      #fecaca;
+  --cc-radius:        10px;
+  --cc-radius-sm:     6px;
+  --cc-shadow:        0 2px 0 rgba(0,0,0,.10), 0 8px 16px rgba(0,0,0,.08);
+  --cc-gap:           18px;
   --cc-pad:           16px;
 }
 
@@ -1536,59 +1540,48 @@ div#emergency-control-coordinator label {
 }
 .cc-icon--lg { width: 28px; height: 28px; flex-basis: 28px; }
 
-/* Card shell — applied alongside legacy .control_group classes so existing
-   spacing/positional rules still cascade where needed. */
+/* Card shell — stark black framing for high contrast in all lighting. */
 .cc-card {
   position: relative;
   background: var(--cc-card);
-  border: 1px solid var(--cc-line);
+  border: 2px solid var(--cc-line);
   border-radius: var(--cc-radius);
   box-shadow: var(--cc-shadow);
   margin: 0 0 var(--cc-gap) 0;
   overflow: hidden;
-  /* Override the legacy 4px solid black border the .control_group rule applies. */
-  /* Legacy padding is replaced by cc-card__head + cc-card__body padding. */
   padding: 0;
 }
 .cc-card::before {
   content: "";
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 4px;
+  width: 6px;
   background: var(--cc-accent);
-  border-top-left-radius: var(--cc-radius);
-  border-bottom-left-radius: var(--cc-radius);
 }
-.cc-card--heat::before     { background: var(--cc-accent); }
+.cc-card--heat::before     { background: var(--cc-amber); }
 .cc-card--timer::before    { background: var(--cc-good); }
 .cc-card--timer.cc-state-bad::before { background: var(--cc-bad); }
-.cc-card--replay::before   { background: var(--cc-warn); }
-.cc-card--scene::before    { background: var(--cc-ink-soft); }
+.cc-card--replay::before   { background: var(--cc-accent); }
+.cc-card--scene::before    { background: #000; }
 .cc-card--emergency::before{ background: var(--cc-bad); }
-.cc-card--playlist::before { background: var(--cc-accent); }
+.cc-card--playlist::before { background: var(--cc-amber); }
 
 .cc-card__head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px var(--cc-pad);
-  border-bottom: 1px solid var(--cc-line);
-  background: linear-gradient(180deg, #fafbfc 0%, #f3f5f8 100%);
+  padding: 10px var(--cc-pad) 10px calc(var(--cc-pad) + 6px);
+  border-bottom: 2px solid var(--cc-line);
+  background: #f5f5f5;
 }
-.cc-card__head .cc-icon { color: var(--cc-ink-soft); }
-.cc-card--emergency .cc-card__head .cc-icon { color: var(--cc-bad); }
-.cc-card--timer .cc-card__head .cc-icon { color: var(--cc-good); }
-.cc-card--timer.cc-state-bad .cc-card__head .cc-icon { color: var(--cc-bad); }
-.cc-card--replay .cc-card__head .cc-icon { color: var(--cc-warn); }
-.cc-card--heat .cc-card__head .cc-icon,
-.cc-card--playlist .cc-card__head .cc-icon { color: var(--cc-accent); }
+.cc-card__head .cc-icon { color: #000; stroke-width: 2.25; }
 
 .cc-card__title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: .02em;
-  color: var(--cc-ink);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: #000;
   text-transform: uppercase;
 }
 .cc-card__badge {
@@ -1598,16 +1591,20 @@ div#emergency-control-coordinator label {
   gap: 6px;
   padding: 3px 10px;
   font-size: 12px;
-  font-weight: 600;
-  border-radius: 999px;
-  border: 1px solid transparent;
+  font-weight: 700;
+  border-radius: 4px;
+  border: 2px solid #000;
+  background: #fff;
+  color: #000;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: .03em;
 }
 .cc-card__badge img { width: 16px; height: 16px; }
-.cc-badge--good    { background: var(--cc-good-soft); color: var(--cc-good); border-color: rgba(21,128,61,.2); }
-.cc-badge--bad     { background: var(--cc-bad-soft);  color: var(--cc-bad);  border-color: rgba(185,28,28,.2); }
-.cc-badge--warn    { background: var(--cc-warn-soft); color: var(--cc-warn); border-color: rgba(180,83,9,.2); }
-.cc-badge--neutral { background: #f3f4f6; color: var(--cc-ink-soft); border-color: var(--cc-line); }
+.cc-badge--good    { background: var(--cc-good); color: #fff; border-color: #000; }
+.cc-badge--bad     { background: var(--cc-bad);  color: #fff; border-color: #000; }
+.cc-badge--warn    { background: var(--cc-amber); color: #000; border-color: #000; }
+.cc-badge--neutral { background: #fff; color: #000; border-color: #000; }
 
 .cc-card__body {
   padding: var(--cc-pad);
@@ -1638,18 +1635,18 @@ div#emergency-control-coordinator label {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 4px 0 10px;
-  margin-bottom: 10px;
-  border-bottom: 1px dashed var(--cc-line);
+  padding: 8px 0 14px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #000;
 }
 .cc-heat-nav-label {
   flex: 1 1 auto;
   text-align: center;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .06em;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--cc-ink-soft);
+  color: #000;
 }
 .cc-heat-actions { margin-top: 4px; }
 .cc-arrow-btn {
@@ -1659,20 +1656,19 @@ div#emergency-control-coordinator label {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--cc-accent);
+  background: #000;
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(30,64,175,.25);
-  border: none;
+  box-shadow: 0 2px 0 rgba(0,0,0,.4);
+  border: 2px solid #000;
   transition: background 120ms, transform 80ms;
-  /* Override legacy #prev_heat_button / #skip_heat_button img-based sizing. */
   padding: 0;
   flex: 0 0 auto;
 }
-.cc-arrow-btn:hover  { background: #1d4ed8; }
+.cc-arrow-btn:hover  { background: var(--cc-amber); color: #000; border-color: #000; }
 .cc-arrow-btn:active { transform: scale(.96); }
-.cc-arrow-btn .cc-icon { color: #fff; width: 28px; height: 28px; }
-.cc-arrow-btn img { display: none; }   /* hide legacy png if anything still injects it */
+.cc-arrow-btn .cc-icon { color: inherit; width: 28px; height: 28px; stroke-width: 3; }
+.cc-arrow-btn img { display: none; }
 
 /* Override the legacy heat_control_group rules at lines 1259/1266/1273
    so the new round buttons take precedence in cards. */
@@ -1681,11 +1677,18 @@ div#emergency-control-coordinator label {
 .cc-card--heat #skip_heat_button {
   width: 56px !important;
   height: 56px !important;
-  background: var(--cc-accent) !important;
+  background: #000 !important;
   border-radius: 50% !important;
-  border: none !important;
+  border: 2px solid #000 !important;
   margin: 0 !important;
 }
+.cc-card--heat #prev_heat_button:hover,
+.cc-card--heat #skip_heat_button:hover {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+}
+.cc-card--heat #prev_heat_button:hover .cc-icon,
+.cc-card--heat #skip_heat_button:hover .cc-icon { color: #000 !important; }
 .cc-card--heat #prev_heat_button img,
 .cc-card--heat #skip_heat_button img {
   display: none !important;
@@ -1714,13 +1717,15 @@ div#emergency-control-coordinator label {
 /* Status text rows in Timer / Replay cards. */
 .cc-status-line {
   margin: 0 0 4px 0;
-  font-size: 14px;
-  color: var(--cc-ink);
+  font-size: 16px;
+  font-weight: 700;
+  color: #000;
 }
 .cc-status-meta {
   margin: 0 0 12px 0;
-  font-size: 12px;
-  color: var(--cc-ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  color: #000;
 }
 
 /* Timer status table — soften from solid red/green to soft pills. */
@@ -1742,34 +1747,56 @@ div#emergency-control-coordinator label {
   padding: 4px 10px;
 }
 .cc-card--timer .lane-timers td {
-  border: none;
-  background: #f9fafb;
-  padding: 8px 12px;
+  background: #fff;
+  padding: 10px 12px;
   font-size: 14px;
-  color: var(--cc-ink);
+  color: #000;
+  border: 2px solid #000;
+  font-weight: 700;
 }
-.cc-card--timer .lane-timers td:first-child { border-radius: 8px 0 0 8px; }
-.cc-card--timer .lane-timers td:last-child  { border-radius: 0 8px 8px 0; }
-.cc-card--timer .lane-timers td.timer-label { font-weight: 600; }
+.cc-card--timer .lane-timers th {
+  font-weight: 800;
+  color: #000;
+}
 
-/* Pill recolor: keep original .timer-online etc class names so JS stays untouched. */
+/* Pill recolor: keep original .timer-online etc class names so JS stays untouched.
+   Solid high-contrast fills for outdoor readability. */
 .cc-card--timer .timer-online,
 .cc-card--timer .timer-ready,
 .cc-card--timer .timer-running {
-  background-color: var(--cc-good-soft) !important;
-  color: var(--cc-good) !important;
-  font-weight: 600;
+  background-color: var(--cc-good) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-align: center;
+  border: 2px solid #000 !important;
 }
 .cc-card--timer .timer-offline,
 .cc-card--timer .timer-not-ready {
-  background-color: var(--cc-bad-soft) !important;
-  color: var(--cc-bad) !important;
-  font-weight: 600;
+  background-color: var(--cc-bad) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-align: center;
+  border: 2px solid #000 !important;
 }
 .cc-card--timer .timer-staging {
-  background-color: var(--cc-warn-soft) !important;
-  color: var(--cc-warn) !important;
-  font-weight: 600;
+  background-color: var(--cc-amber) !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-align: center;
+  border: 2px solid #000 !important;
+}
+.cc-card--timer .lane-timers td.timer-label {
+  background: #fff;
+  font-weight: 800;
+  color: #000;
+  border: 2px solid #000 !important;
+  font-size: 15px;
 }
 
 /* Scene card — tighter, no surrounding double border/legacy padding. */
@@ -1781,12 +1808,20 @@ div#emergency-control-coordinator label {
 }
 .cc-card--scene #scenes-select-coordinator {
   width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid var(--cc-line-strong);
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 2px solid #000;
   border-radius: var(--cc-radius-sm);
   background: #fff;
-  font-size: 14px;
+  color: #000;
+  font-size: 15px;
+  font-weight: 700;
+}
+.cc-card--scene #scenes-status-message-coordinator {
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  margin-top: 6px;
 }
 
 /* Compact Emergency Strip — single line by default, expands when composing
@@ -1831,7 +1866,7 @@ div#emergency-control-coordinator label {
   border-bottom: 1px solid rgba(185,28,28,.2);
   border-radius: var(--cc-radius) var(--cc-radius) 0 0;
 }
-.cc-emergency-strip__icon { color: var(--cc-bad); width: 22px; height: 22px; }
+.cc-emergency-strip__icon { color: var(--cc-bad); width: 24px; height: 24px; stroke-width: 2.5; }
 .cc-emergency-strip__status {
   flex: 1 1 auto;
   margin: 0 !important;
@@ -1839,18 +1874,19 @@ div#emergency-control-coordinator label {
   background: transparent !important;
   border: none !important;
   text-align: left !important;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cc-ink);
+  font-size: 14px;
+  font-weight: 800;
+  color: #000;
   display: flex !important;
   align-items: center;
   justify-content: flex-start !important;
   animation: none !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
-.cc-emergency-strip__status.emergency-status-inactive { color: var(--cc-ink-soft); }
+.cc-emergency-strip__status.emergency-status-inactive { color: #000; }
 .cc-emergency-strip__status.emergency-status-active   {
   color: var(--cc-bad);
-  font-weight: 700;
   animation: emergency-pulse 1.5s infinite !important;
 }
 .cc-emergency-strip__toggle {
@@ -1893,14 +1929,17 @@ div#emergency-control-coordinator label {
 }
 .cc-card--emergency .emergency-broadcast-body label {
   display: block;
-  font-weight: 600;
+  font-weight: 800;
   font-size: 13px;
-  color: var(--cc-bad);
-  margin-bottom: 4px;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 6px;
 }
 .cc-card--emergency .emergency-char-counter {
-  font-size: 11px;
-  color: var(--cc-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
   margin-bottom: 6px;
   text-align: right;
 }
@@ -1910,7 +1949,12 @@ div#emergency-control-coordinator label {
 .cc-card--emergency #emergency-message-coordinator {
   width: 100%;
   padding: 10px 12px;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: var(--cc-radius-sm);
+  background: #fff;
 }
 .cc-card--emergency #emergency-message-coordinator {
   width: 100%;
@@ -1918,26 +1962,31 @@ div#emergency-control-coordinator label {
   border: 1px solid rgba(185,28,28,.35);
 }
 .cc-card--emergency #emergency-broadcast-btn {
-  background: var(--cc-bad);
-  color: #fff;
-  border: none;
-  border-radius: var(--cc-radius-sm);
-  font-weight: 700;
-  width: 100%;
-  min-height: 44px;
+  background: var(--cc-bad) !important;
+  color: #fff !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  width: 100% !important;
+  min-height: 48px !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-shadow: none !important;
+  box-shadow: none !important;
 }
-.cc-card--emergency #emergency-broadcast-btn:hover { background: #991b1b; }
+.cc-card--emergency #emergency-broadcast-btn:hover { background: #7f1d1d !important; }
 .cc-card--emergency #emergency-clear-btn {
-  background: var(--cc-bad);
-  color: #fff;
-  border: none;
-  border-radius: var(--cc-radius-sm);
-  padding: 6px 14px;
-  min-height: 36px;
-  font-weight: 600;
+  background: var(--cc-bad) !important;
+  color: #fff !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  padding: 6px 14px !important;
+  min-height: 36px !important;
+  font-weight: 800 !important;
   flex: 0 0 auto;
+  text-transform: uppercase;
 }
-.cc-card--emergency #emergency-clear-btn:hover { background: #991b1b; }
+.cc-card--emergency #emergency-clear-btn:hover { background: #7f1d1d !important; }
 
 /* When emergency is active, brighten the whole card. */
 .cc-card--emergency:has(.emergency-status-active) {
@@ -1958,56 +2007,101 @@ div#emergency-control-coordinator label {
 .cc-card__body > h3 { display: none; }
 
 
-/* Playlist card — buttons full-width and primary style. */
+/* Playlist card — high-contrast buttons. */
 .cc-card--playlist a.button_link {
-  background: #fff;
-  color: var(--cc-accent);
-  border: 1px solid var(--cc-accent);
-  border-radius: var(--cc-radius-sm);
-  font-weight: 600;
-  text-decoration: none;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #fff !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  text-decoration: none !important;
+  text-shadow: none !important;
+  padding: 10px 16px !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 48px !important;
+  box-shadow: none !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
-.cc-card--playlist a.button_link:hover { background: var(--cc-accent-soft); }
+.cc-card--playlist a.button_link:hover {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  transform: none !important;
+}
 .cc-card--playlist input[type="button"] {
-  background: var(--cc-accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--cc-radius-sm);
-  font-weight: 600;
-  width: 100%;
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 48px !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
-.cc-card--playlist input[type="button"]:hover { background: #1d4ed8; }
+.cc-card--playlist input[type="button"]:hover {
+  background: var(--cc-amber-bright) !important;
+}
 .cc-card--playlist #playlist-start { width: 100%; }
+/* Hide the playlist-start wrapper when its button is hidden, so the row
+   doesn't reserve empty 50% space for nothing. */
+.cc-card--playlist #playlist-start.hidden { display: none !important; }
 
-/* Replay card — Trigger primary, Settings secondary. */
+/* Replay card — Trigger primary (amber), Settings secondary (white). */
 .cc-card--replay #test_replay {
-  background: var(--cc-warn);
-  color: #fff;
-  border: none;
-  border-radius: var(--cc-radius-sm);
-  font-weight: 600;
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
 }
-.cc-card--replay #test_replay:hover { background: #92400e; }
+.cc-card--replay #test_replay:hover { background: var(--cc-amber-bright) !important; }
 
 /* Generic secondary look for non-primary buttons inside cards. */
-.cc-card .block_buttons input[type="button"]:not(#test_replay):not(.cc-btn--danger) {
-  border-radius: var(--cc-radius-sm);
-  border: 1px solid var(--cc-line-strong);
-  background: #fff;
-  color: var(--cc-ink);
-  font-weight: 600;
+.cc-card .block_buttons input[type="button"]:not(#test_replay):not(.cc-btn--danger):not(#rerun-button):not(#emergency-broadcast-btn):not(#emergency-clear-btn) {
+  border-radius: var(--cc-radius-sm) !important;
+  border: 2px solid #000 !important;
+  background: #fff !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  min-height: 48px;
+  font-size: 15px;
 }
-.cc-card .block_buttons input[type="button"]:not(#test_replay):not(.cc-btn--danger):hover {
-  background: #f9fafb;
+.cc-card .block_buttons input[type="button"]:not(#test_replay):not(.cc-btn--danger):not(#rerun-button):not(#emergency-broadcast-btn):not(#emergency-clear-btn):hover {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  transform: none !important;
 }
 
-/* Re-Run button gets the primary blue look (it's the most-used recover action). */
+/* Re-Run gets primary amber so it stands out as the recover action. */
 .cc-card--heat #rerun-button {
-  background: var(--cc-accent) !important;
-  color: #fff !important;
-  border: none !important;
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  min-height: 48px;
+  font-size: 15px;
 }
-.cc-card--heat #rerun-button:hover { background: #1d4ed8 !important; }
+.cc-card--heat #rerun-button:hover { background: var(--cc-amber-bright) !important; }
 
 /* Manual Results stays secondary — already covered by the generic rule. */
 

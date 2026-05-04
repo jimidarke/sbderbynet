@@ -144,11 +144,6 @@ $warn_no_timer = warn_no_timer();
         <?php if (!$warn_no_timer) { ?>
           <p>Not monitoring timer state</p>
         <?php } else { ?>
-          <div id='timer-test' class="block_buttons cc-row-2">
-            <a class="button_link" onclick="open_timer_window();">Timer</a>
-            <a class='button_link' href='timer-test.php'>Test</a>
-          </div>
-
           <p class="cc-status-line"><b id="timer_status_text">Timer status not yet updated</b></p>
           <p class="cc-status-meta">The track has <span id="lane_count">an unknown number of</span> lane(s).</p>
 
