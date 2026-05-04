@@ -20,72 +20,133 @@ $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : nu
 <header class="vd-header">
   <span class="vd-tag">VIRTUAL</span>
   <h1>Browser Virtual Hardware</h1>
+  <span class="vd-conn" id="conn-status" data-state="off">disconnected</span>
   <?php if ($last_sync): ?>
     <span class="vd-conn" data-state="connected">last sync <?= htmlspecialchars($last_sync) ?></span>
   <?php endif; ?>
 </header>
 
-<main>
-  <p style="padding: 0 20px; color: #aaa;">
-    Cloud-only test instruments. Each card opens a dedicated browser tab that
-    publishes/subscribes to MQTT exactly like the corresponding real device.
-    All hwids are prefixed <code>B_</code> and excluded from race-day device
-    assignment. Open these on a desktop browser. Once the page is closed (or
-    the tab is hidden) the device goes offline.
-  </p>
+<main class="vd-combined" style="--lanes: <?= $lane_count ?>">
+  <section class="vd-combined-start" aria-label="Start timer">
+    <div class="vd-combined-label">START · hwid <code>START</code></div>
+    <div id="device-start" class="vd-device-chassis vd-start-chassis">
+      <button type="button"
+              class="vd-latch-button"
+              data-role="btn-latch"
+              role="switch"
+              aria-checked="false"
+              data-latched="false"
+              title="Press to latch GO. Press again to release (STOP).">
+        <span class="vd-latch-bezel">
+          <span class="vd-latch-cap">
+            <span class="vd-latch-label" data-role="latch-label">START</span>
+          </span>
+        </span>
+      </button>
+      <div class="vd-device-meta">
+        <span>Signal: <span data-role="signal-state">LOW</span></span>
+        <span>Race: <span data-role="race-state">UNCONFIGURED</span></span>
+      </div>
+    </div>
+  </section>
 
-  <h2 class="vd-section-heading">Finish Timers</h2>
-  <div class="vd-index-grid cat-during">
-    <?php for ($lane = 1; $lane <= $lane_count; $lane++): ?>
-      <a class="vd-index-card" href="finish-timer.php?lane=<?= $lane ?>" target="_blank">
-        <span class="vd-index-title">Lane <?= $lane ?></span>
-        <span class="vd-index-meta">B_FINISH_<?= $lane ?> · DIP <?= htmlspecialchars(virtual_dip_for_lane($lane)) ?></span>
-      </a>
+  <section class="vd-combined-finishes" aria-label="Finish timers">
+    <?php for ($lane = 1; $lane <= $lane_count; $lane++):
+      $dip = virtual_dip_for_lane($lane);
+      $hwid = 'B_FINISH_' . $lane; ?>
+    <div class="vd-combined-finish">
+      <div class="vd-combined-label">LANE <?= $lane ?> · hwid <code><?= htmlspecialchars($hwid) ?></code> · DIP <?= htmlspecialchars($dip) ?></div>
+      <div class="vd-device-chassis device-finish"
+           data-lane="<?= $lane ?>"
+           data-dip="<?= htmlspecialchars($dip) ?>"
+           data-hwid="<?= htmlspecialchars($hwid) ?>">
+        <div class="vd-led" data-role="lane-led" data-color="off">
+          <div class="vd-led-circle"></div>
+        </div>
+        <div class="vd-7seg" data-role="pinny" aria-label="Pinny display">----</div>
+        <button type="button"
+                class="vd-hw-toggle"
+                data-role="ready-toggle"
+                role="switch"
+                aria-checked="false"
+                data-position="down"
+                title="Click to flip the toggle (up = car loaded, down = car gone)">
+          <span class="vd-hw-toggle-track">
+            <span class="vd-hw-toggle-label vd-hw-toggle-up">UP</span>
+            <span class="vd-hw-toggle-label vd-hw-toggle-down">DOWN</span>
+            <span class="vd-hw-toggle-lever"></span>
+          </span>
+        </button>
+        <div class="vd-device-meta">
+          <span>Race: <span data-role="race-state">UNCONFIGURED</span></span>
+        </div>
+      </div>
+    </div>
     <?php endfor; ?>
-  </div>
+  </section>
 
-  <h2 class="vd-section-heading">Start Timer</h2>
-  <div class="vd-index-grid cat-before">
-    <a class="vd-index-card" href="start-timer.php" target="_blank">
-      <span class="vd-index-title">Start Gate</span>
-      <span class="vd-index-meta">hwid START</span>
-    </a>
-  </div>
-
-  <h2 class="vd-section-heading">LED Signs</h2>
-  <div class="vd-index-grid cat-other">
-    <a class="vd-index-card" href="led-sign.php?zone=starter" target="_blank">
-      <span class="vd-index-title">Starter</span>
-      <span class="vd-index-meta">B_LEDSIGN_starter</span>
-    </a>
-    <?php for ($lane = 1; $lane <= $lane_count; $lane++): ?>
-      <a class="vd-index-card" href="led-sign.php?zone=usher-lane<?= $lane ?>" target="_blank">
-        <span class="vd-index-title">Usher Lane <?= $lane ?></span>
-        <span class="vd-index-meta">B_LEDSIGN_usher-lane<?= $lane ?></span>
-      </a>
-    <?php endfor; ?>
-  </div>
-
-  <h2 class="vd-section-heading">Displays</h2>
-  <div class="vd-index-grid cat-after">
-    <a class="vd-index-card" href="derby-display.php?id=1&kiosk=welcome" target="_blank">
-      <span class="vd-index-title">Display 1 (welcome)</span>
-      <span class="vd-index-meta">B_DISPLAY_1</span>
-    </a>
-    <a class="vd-index-card" href="derby-display.php?id=2&kiosk=now-racing" target="_blank">
-      <span class="vd-index-title">Display 2 (now-racing)</span>
-      <span class="vd-index-meta">B_DISPLAY_2</span>
-    </a>
-  </div>
-
-  <h2 class="vd-section-heading">Quick Reference</h2>
-  <ul style="padding: 0 40px; color: #ccc;">
-    <li>Race state topic: <code>derbynet/race/state</code></li>
-    <li>Lane LED: <code>derbynet/lane/{N}/led</code> · Pinny: <code>derbynet/lane/{N}/pinny</code></li>
-    <li>Device state: <code>derbynet/device/{hwid}/state</code> with <code>{dip,state,toggle,timestamp}</code></li>
-    <li>Telemetry: <code>derbynet/device/{hwid}/telemetry</code> · Status (LWT): <code>derbynet/device/{hwid}/status</code></li>
-  </ul>
+  <section class="vd-log" aria-label="MQTT log">
+    <div class="vd-log-label">MQTT log (single shared client)</div>
+    <ol id="mqtt-log"></ol>
+  </section>
 </main>
+
+<script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
+<script src="/derbynet/virtual/virtual-start-timer.js<?= virtual_asset_v('virtual-start-timer.js') ?>"></script>
+<script src="/derbynet/virtual/virtual-finish-timer.js<?= virtual_asset_v('virtual-finish-timer.js') ?>"></script>
+<script>
+(async function () {
+  // Single MQTT client serving START + N finish timers. MQTT's `will` is
+  // per-connection so LWT only covers one hwid (we point it at START).
+  // The visibility hook publishes offline retained for ALL hwids; the race
+  // server's telemetry-gap fallback (~5s) handles ungraceful disconnects
+  // for the rest.
+  const startRoot = document.getElementById('device-start');
+  const finishRoots = Array.from(document.querySelectorAll('.device-finish'));
+  const startStatus = 'derbynet/device/START/status';
+
+  const descriptors = [];
+  function dispatch(topic, payload) {
+    descriptors.forEach((d) => d.onMessage(topic, payload));
+  }
+  function onConnectAll(c) {
+    descriptors.forEach((d) => d.onConnected());
+  }
+
+  const client = await VirtualCommon.connectBroker({
+    clientId: 'b_combined_' + Math.random().toString(36).slice(2, 8),
+    will: { topic: startStatus, payload: 'offline', qos: 1, retain: true },
+    onConnect: onConnectAll,
+    onMessage: dispatch,
+  });
+
+  // Mount finish timers first, then start. Order doesn't matter for MQTT;
+  // it only affects the order onConnected publishes online/telemetry.
+  finishRoots.forEach((root) => {
+    descriptors.push(VirtualFinish.mount({
+      root: root,
+      client: client,
+      lane: parseInt(root.dataset.lane, 10),
+      hwid: root.dataset.hwid,
+      dip: root.dataset.dip,
+    }));
+  });
+  descriptors.push(VirtualStart.mount({
+    root: startRoot,
+    client: client,
+    hwid: 'START',
+    dip: '0001',
+  }));
+
+  VirtualCommon.wireVisibilityOfflineMany(
+    client,
+    descriptors.map((d) => d.statusTopic)
+  );
+})().catch((e) => {
+  VirtualCommon.log('sys', '', 'init error: ' + e.message);
+  alert('Virtual hardware init failed: ' + e.message);
+});
+</script>
 
 </body>
 </html>

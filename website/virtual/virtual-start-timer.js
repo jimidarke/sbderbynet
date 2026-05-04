@@ -5,108 +5,119 @@
 // a GPIO: when the signal goes HIGH it publishes {state:'GO'}, when it
 // returns LOW it publishes {state:'STOP'}. The user has to press the
 // button again to release the latch — this virtual mirrors that exactly.
+//
+// Exposed as a factory on window.VirtualStart.mount({root, client, hwid, dip})
+// so the combined index pane drives all devices on one MQTT client.
 
-(function () {
-  // Cloud broker ACL enumerates allowed B_*/STATE/etc. topics literally; using
-  // the real-device hostname 'starttimer' would publish to a topic outside the
-  // ACL and be rejected. We keep the hwid 'START' (matching the cloud ACL) and
-  // rely on derbyRace.py's wildcard subscription on derbynet/device/+/state to
-  // consume the GO edge regardless of the segment value.
-  const hwid = 'START';
-  const dip = '0001';
-  const stateTopic     = 'derbynet/device/' + hwid + '/state';
-  const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';
-  const statusTopic    = 'derbynet/device/' + hwid + '/status';
-  const raceStateTopic = 'derbynet/race/state';
+(function (global) {
+  function mount(opts) {
+    const root = opts.root;
+    const client = opts.client;
+    // Cloud broker ACL enumerates allowed topics literally; the real-device
+    // hostname 'starttimer' would be rejected. We keep hwid 'START' (matching
+    // the cloud ACL) and rely on derbyRace.py's wildcard subscription on
+    // derbynet/device/+/state to consume the GO edge regardless.
+    const hwid = opts.hwid || 'START';
+    const dip = opts.dip || '0001';
 
-  let raceState = 'UNCONFIGURED';
-  let latched = false; // mirrors start_signal pin: HIGH = GO, LOW = STOP
+    const stateTopic     = 'derbynet/device/' + hwid + '/state';
+    const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';
+    const statusTopic    = 'derbynet/device/' + hwid + '/status';
+    const raceStateTopic = 'derbynet/race/state';
 
-  const ui = {
-    raceState: document.getElementById('race-state'),
-    signal: document.getElementById('signal-state'),
-    btn: document.getElementById('btn-latch'),
-    label: document.getElementById('latch-label'),
-  };
+    let raceState = 'UNCONFIGURED';
+    let latched = false; // mirrors start_signal pin: HIGH = GO, LOW = STOP
 
-  function renderLatch() {
-    ui.btn.dataset.latched = latched ? 'true' : 'false';
-    ui.btn.setAttribute('aria-checked', latched ? 'true' : 'false');
-    ui.label.textContent = latched ? 'GO' : 'START';
-    ui.signal.textContent = latched ? 'HIGH' : 'LOW';
-  }
-
-  function buildTelemetry() {
-    return {
-      hostname: 'browser-start',
-      hwid: hwid,
-      dip: dip,
-      uptime: Math.floor(performance.now() / 1000),
-      ip: '0.0.0.0',
-      mac: 'B2:00:00:00:00:00',
-      wifi_rssi: -45,
-      temperature: 22.0,
-      humidity: 50.0,
-      state: latched ? 1 : 0,
+    const ui = {
+      raceState: root.querySelector('[data-role="race-state"]') || root.querySelector('#race-state'),
+      signal:    root.querySelector('[data-role="signal-state"]') || root.querySelector('#signal-state'),
+      btn:       root.querySelector('[data-role="btn-latch"]') || root.querySelector('#btn-latch'),
+      label:     root.querySelector('[data-role="latch-label"]') || root.querySelector('#latch-label'),
     };
-  }
 
-  function startTelemetry(client) {
-    const send = () => {
-      if (client.connected) {
-        VirtualCommon.publish(client, telemetryTopic, buildTelemetry(),
-                              { qos: 0, retain: true });
-      }
-    };
-    send();
-    setInterval(send, 5000); // real ESP32 publishes ~5s telemetry
-  }
-
-  function publishLatchEdge(client) {
-    // Mirrors starttimer/src/main.py send_mqtt_message():
-    // edge HIGH → 'GO', edge LOW → 'STOP'. Retained, on its own topic.
-    VirtualCommon.publish(client, stateTopic, {
-      state: latched ? 'GO' : 'STOP',
-      timestamp: Math.floor(Date.now() / 1000),
-      hwid: hwid,
-      dip: dip,
-    }, { qos: 2, retain: true });
-  }
-
-  function pressButton(client) {
-    latched = !latched;
-    renderLatch();
-    publishLatchEdge(client);
-  }
-
-  function onMessage(topic, payload) {
-    if (topic === raceStateTopic) {
-      raceState = (typeof payload === 'string') ? payload
-                  : (payload.state || JSON.stringify(payload));
-      ui.raceState.textContent = raceState;
+    function renderLatch() {
+      ui.btn.dataset.latched = latched ? 'true' : 'false';
+      ui.btn.setAttribute('aria-checked', latched ? 'true' : 'false');
+      ui.label.textContent = latched ? 'GO' : 'START';
+      if (ui.signal) ui.signal.textContent = latched ? 'HIGH' : 'LOW';
     }
-  }
 
-  async function main() {
-    const clientId = 'b_start_' + Math.random().toString(36).slice(2, 8);
-    const client = await VirtualCommon.connectBroker({
-      clientId: clientId,
-      will: { topic: statusTopic, payload: 'offline', qos: 1, retain: true },
-      onConnect: (c) => {
-        c.subscribe(raceStateTopic, { qos: 1 });
-        c.publish(statusTopic, 'online', { qos: 1, retain: true });
-        startTelemetry(c);
-      },
-      onMessage: onMessage,
-    });
-    VirtualCommon.wireVisibilityOffline(client, statusTopic);
+    function buildTelemetry() {
+      return {
+        hostname: 'browser-start',
+        hwid: hwid,
+        dip: dip,
+        uptime: Math.floor(performance.now() / 1000),
+        ip: '0.0.0.0',
+        mac: 'B2:00:00:00:00:00',
+        wifi_rssi: -45,
+        temperature: 22.0,
+        humidity: 50.0,
+        state: latched ? 1 : 0,
+      };
+    }
+
+    let telemetryHandle = null;
+    function startTelemetry() {
+      const send = () => {
+        if (client.connected) {
+          VirtualCommon.publish(client, telemetryTopic, buildTelemetry(),
+                                { qos: 0, retain: true });
+        }
+      };
+      send();
+      telemetryHandle = setInterval(send, 5000); // real ESP32 publishes ~5s
+    }
+
+    function publishLatchEdge() {
+      // Mirrors starttimer/src/main.py send_mqtt_message():
+      // edge HIGH → 'GO', edge LOW → 'STOP'. Retained, on its own topic.
+      VirtualCommon.publish(client, stateTopic, {
+        state: latched ? 'GO' : 'STOP',
+        timestamp: Math.floor(Date.now() / 1000),
+        hwid: hwid,
+        dip: dip,
+      }, { qos: 2, retain: true });
+    }
+
+    function pressButton() {
+      latched = !latched;
+      renderLatch();
+      publishLatchEdge();
+    }
+
+    function onMessage(topic, payload) {
+      if (topic === raceStateTopic) {
+        raceState = (typeof payload === 'string') ? payload
+                    : (payload.state || JSON.stringify(payload));
+        if (ui.raceState) ui.raceState.textContent = raceState;
+      }
+    }
+
+    function onConnected() {
+      client.subscribe(raceStateTopic, { qos: 1 });
+      client.publish(statusTopic, 'online', { qos: 1, retain: true });
+      startTelemetry();
+    }
 
     renderLatch();
-    ui.btn.addEventListener('click', () => pressButton(client));
+    ui.btn.addEventListener('click', pressButton);
+    // Caller is responsible for invoking onConnected() once the client's
+    // 'connect' event fires (and again on each reconnect if telemetry/online
+    // re-publish is desired).
+
+    return {
+      hwid: hwid,
+      statusTopic: statusTopic,
+      subscriptions: [{ topic: raceStateTopic, qos: 1 }],
+      onConnected: onConnected,
+      onMessage: onMessage,
+      teardown: function () {
+        if (telemetryHandle) clearInterval(telemetryHandle);
+        ui.btn.removeEventListener('click', pressButton);
+      },
+    };
   }
 
-  main().catch((e) => {
-    VirtualCommon.log('sys', '', 'init error: ' + e.message);
-    alert('Virtual start timer init failed: ' + e.message);
-  });
-})();
+  global.VirtualStart = { mount: mount };
+})(window);

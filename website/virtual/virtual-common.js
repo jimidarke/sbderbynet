@@ -137,11 +137,29 @@
     });
   }
 
+  // Multi-hwid variant for the combined view: one shared client owns
+  // several status topics. MQTT's `will` is per-connection (only one hwid
+  // gets LWT coverage on ungraceful disconnect), but the explicit publish
+  // on visibilitychange covers all of them, and derbyRace.py treats a
+  // telemetry gap as offline within a few seconds anyway.
+  function wireVisibilityOfflineMany(client, statusTopics) {
+    document.addEventListener('visibilitychange', () => {
+      if (!client || !client.connected) return;
+      const payload = document.hidden ? 'offline' : 'online';
+      const tag = document.hidden ? '(hidden)' : '(visible)';
+      statusTopics.forEach((t) => {
+        client.publish(t, payload, { qos: 1, retain: true });
+        logEvent('tx', t, payload + ' ' + tag);
+      });
+    });
+  }
+
   global.VirtualCommon = {
     log: logEvent,
     setConnState: setConnState,
     connectBroker: connectBroker,
     publish: publish,
     wireVisibilityOffline: wireVisibilityOffline,
+    wireVisibilityOfflineMany: wireVisibilityOfflineMany,
   };
 })(window);

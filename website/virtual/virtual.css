@@ -310,6 +310,92 @@ body.virtual-device {
   letter-spacing: 0.02em;
 }
 
+/* ───── Combined single-pane mock-race rig ─────
+ * Hosts START + N finish timers in one window so a dual-monitor setup can
+ * put the coordinator on the primary screen and the full virtual rig on
+ * the secondary. Reuses the existing chassis components at compressed
+ * sizes so all four devices fit a 1080p secondary without scrolling. */
+.vd-combined {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(var(--lanes, 3), 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 14px;
+  padding: 12px;
+  max-width: none;
+  margin: 0;
+}
+.vd-combined-start { grid-row: 1; grid-column: 1; }
+.vd-combined-finishes {
+  grid-row: 1;
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: repeat(var(--lanes, 3), 1fr);
+  gap: 12px;
+}
+.vd-combined-start, .vd-combined-finish {
+  background: #1d1f24;
+  border: 1px solid #2a2d33;
+  border-radius: 8px;
+  padding: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.vd-combined-label {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #8a8f99;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  width: 100%;
+  text-align: center;
+}
+.vd-combined-label code { color: #cdd; }
+
+/* Compressed chassis sizing for the combined view. */
+.vd-combined .vd-device-chassis {
+  padding: 14px 18px;
+  gap: 14px;
+  min-width: 0;
+}
+.vd-combined .vd-led-circle { width: 42px; height: 42px; }
+.vd-combined .vd-7seg {
+  font-size: 40px;
+  letter-spacing: 6px;
+  min-width: 140px;
+  padding: 6px 12px;
+}
+.vd-combined .vd-hw-toggle-track { width: 48px; height: 108px; }
+.vd-combined .vd-hw-toggle-lever { width: 34px; height: 44px; margin-left: -17px; }
+.vd-combined .vd-hw-toggle[data-position="up"]   .vd-hw-toggle-lever { top: 14px; }
+.vd-combined .vd-hw-toggle[data-position="down"] .vd-hw-toggle-lever { top: 50px; }
+
+.vd-combined .vd-latch-bezel { width: 150px; height: 150px; }
+.vd-combined .vd-latch-cap   { width: 112px; height: 112px; margin: -56px 0 0 -56px; }
+.vd-combined .vd-latch-label { font-size: 18px; }
+.vd-combined .vd-start-chassis { padding: 16px 24px; }
+
+.vd-combined .vd-device-meta { font-size: 10px; gap: 10px; }
+
+.vd-combined .vd-log {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  max-height: 160px;
+  overflow: auto;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+@media (max-height: 900px) {
+  .vd-combined .vd-log { max-height: 100px; }
+  .vd-combined .vd-7seg { font-size: 34px; padding: 4px 10px; }
+  .vd-combined .vd-hw-toggle-track { height: 92px; }
+  .vd-combined .vd-hw-toggle[data-position="up"]   .vd-hw-toggle-lever { top: 10px; }
+  .vd-combined .vd-hw-toggle[data-position="down"] .vd-hw-toggle-lever { top: 42px; }
+  .vd-combined .vd-latch-bezel { width: 130px; height: 130px; }
+  .vd-combined .vd-latch-cap   { width: 96px;  height: 96px;  margin: -48px 0 0 -48px; }
+}
+
 /* Phase accent strips per category — matches index.php phase colors */
 .vd-index-grid.cat-before .vd-index-card { border-left-color: var(--color-phase-before, #F7D117); }
 .vd-index-grid.cat-during .vd-index-card { border-left-color: var(--color-phase-during, #4ade80); }
