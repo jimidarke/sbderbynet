@@ -2134,6 +2134,52 @@ div#emergency-control-coordinator label {
 /* Manual Results stays secondary — already covered by the generic rule. */
 
 /* =============================================================================
+   HEAT-ACTION ROW — text-only buttons. Best practices applied:
+   - flex-wrap (not fixed grid) so the row redistributes naturally as buttons
+     are added/removed by poll. No more orphaned 5th tile in row 2.
+   - generous min-width per button so labels never truncate or hyphenate.
+   - 56px min height — Apple HIG/Material both call ~44–48px the floor for
+     touch; we go 56 because this is mouse + adrenaline race-day operation.
+   - primary (Re-Run amber) and destructive-recovery (Undo Pull Forward
+     red outline) carry visual weight; the rest are neutral peers.
+   ============================================================================= */
+.cc-card--heat .cc-heat-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.cc-card--heat .cc-heat-actions > #now-racing-group-buttons { display: contents; }
+.cc-card--heat .cc-heat-actions input[type="button"] {
+  flex: 1 1 150px;
+  min-width: 150px;
+  min-height: 56px !important;
+  padding: 8px 14px !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+  background-image: none !important;
+}
+
+/* Undo Pull Forward — destructive recovery, red outline so it reads as
+   "use carefully" without screaming like an emergency. */
+.cc-card--heat .pull-forward-undo-button {
+  border-color: #c0392b !important;
+  color: #c0392b !important;
+}
+.cc-card--heat .pull-forward-undo-button:hover {
+  background: #c0392b !important;
+  color: #fff !important;
+}
+
+@media (max-width: 834px) {
+  .cc-card--heat .cc-heat-actions input[type="button"] {
+    min-height: 64px !important;
+    flex-basis: calc(50% - var(--space-2));
+    font-size: var(--fs-body) !important;
+  }
+}
+
+/* =============================================================================
    PORTRAIT TIGHTENING — single source of truth for portrait-tablet overrides.
    Anything that needs to differ at ≤834px goes here, not in a second @media.
    ============================================================================= */
