@@ -100,7 +100,8 @@ class AlertHandler:
         mqtt_client,
         rate_limit: int = DEFAULT_RATE_LIMIT,
         rate_window: int = DEFAULT_RATE_WINDOW,
-        on_alert: Optional[Callable[[Dict[str, Any]], None]] = None
+        on_alert: Optional[Callable[[Dict[str, Any]], None]] = None,
+        tenant_slug: Optional[str] = None,
     ):
         """
         Initialize the alert handler.
@@ -110,11 +111,18 @@ class AlertHandler:
             rate_limit: Maximum alerts per error code per time window
             rate_window: Time window in seconds for rate limiting
             on_alert: Optional callback function for custom alert handling
+            tenant_slug: Cloud-twin tenant slug; when provided, alerts publish
+                under ``derbynet/t/<slug>/alerts`` so sandboxes can't see each
+                other's noise. Pi callers leave this None for legacy
+                ``derbynet/alerts``.
         """
         self.mqtt = mqtt_client
         self.rate_limit = rate_limit
         self.rate_window = rate_window
         self.on_alert = on_alert
+        # Shadow the class constant per-instance when running multi-tenant.
+        if tenant_slug:
+            self.ALERT_TOPIC_BASE = f'derbynet/t/{tenant_slug}/alerts'
 
         # Track alert counts for rate limiting: {code: [(timestamp, count), ...]}
         self._alert_history: Dict[str, list] = defaultdict(list)

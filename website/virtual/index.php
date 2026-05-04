@@ -5,6 +5,7 @@ virtual_page_guard();
 $lane_count = isset($_SERVER['LANE_COUNT']) ? (int)$_SERVER['LANE_COUNT'] : 3;
 if ($lane_count < 1 || $lane_count > 4) $lane_count = 3;
 $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : null;
+$tenant_slug = virtual_active_tenant();
 ?>
 <!doctype html>
 <html lang="en">
@@ -20,6 +21,10 @@ $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : nu
 <header class="vd-header">
   <span class="vd-tag">VIRTUAL</span>
   <h1>Browser Virtual Hardware</h1>
+  <span class="vd-sandbox" data-state="<?= $tenant_slug === '' ? 'warn' : 'info' ?>"
+        title="All MQTT publishes on this page are scoped to this sandbox.">
+    sandbox: <b><?= htmlspecialchars($tenant_slug !== '' ? $tenant_slug : '(none)') ?></b>
+  </span>
   <span class="vd-conn" id="conn-status" data-state="off">disconnected</span>
   <?php if ($last_sync): ?>
     <span class="vd-conn" data-state="connected">last sync <?= htmlspecialchars($last_sync) ?></span>
@@ -91,6 +96,12 @@ $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : nu
   </section>
 </main>
 
+<script>
+  // Tenant slug bridge: makes the session-bound sandbox name available to
+  // every virtual JS module so MQTT topic helpers can prefix correctly.
+  // See website/virtual/_guard.inc::virtual_active_tenant().
+  window.DERBYNET_TENANT = <?= json_encode($tenant_slug) ?>;
+</script>
 <script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
 <script src="/derbynet/virtual/virtual-start-timer.js<?= virtual_asset_v('virtual-start-timer.js') ?>"></script>
 <script src="/derbynet/virtual/virtual-finish-timer.js<?= virtual_asset_v('virtual-finish-timer.js') ?>"></script>
@@ -103,7 +114,7 @@ $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : nu
   // for the rest.
   const startRoot = document.getElementById('device-start');
   const finishRoots = Array.from(document.querySelectorAll('.device-finish'));
-  const startStatus = 'derbynet/device/START/status';
+  const startStatus = VirtualCommon.topic('device', 'START', 'status');
 
   const descriptors = [];
   function dispatch(topic, payload) {

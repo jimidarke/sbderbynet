@@ -6,6 +6,7 @@ $id = isset($_GET['id']) ? (int)$_GET['id'] : 1;
 $kiosk = isset($_GET['kiosk']) ? preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['kiosk'])
                                 : 'welcome';
 $hwid = 'B_DISPLAY_' . $id;
+$tenant_slug = virtual_active_tenant();
 ?>
 <!doctype html>
 <html lang="en">
@@ -25,12 +26,19 @@ $hwid = 'B_DISPLAY_' . $id;
 <header class="vd-header">
   <span class="vd-tag">VIRTUAL</span>
   <h1>Display <?= htmlspecialchars($id) ?> · kiosk=<?= htmlspecialchars($kiosk) ?></h1>
+  <span class="vd-sandbox" data-state="<?= $tenant_slug === '' ? 'warn' : 'info' ?>"
+        title="All MQTT publishes on this page are scoped to this sandbox.">
+    sandbox: <b><?= htmlspecialchars($tenant_slug !== '' ? $tenant_slug : '(none)') ?></b>
+  </span>
   <span class="vd-conn" id="conn-status" data-state="off">disconnected</span>
 </header>
 
 <iframe class="vd-display-frame"
         src="/derbynet/kiosk.php?name=<?= htmlspecialchars($kiosk) ?>"></iframe>
 
+<script>
+  window.DERBYNET_TENANT = <?= json_encode($tenant_slug) ?>;
+</script>
 <!-- mqtt.min.js loaded dynamically by virtual-common.js (vendored first). -->
 <script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
 <script>
@@ -40,8 +48,8 @@ $hwid = 'B_DISPLAY_' . $id;
 (function () {
   const hwid = document.body.dataset.hwid;
   const id   = document.body.dataset.id;
-  const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';
-  const statusTopic    = 'derbynet/device/' + hwid + '/status';
+  const telemetryTopic = VirtualCommon.topic('device', hwid, 'telemetry');
+  const statusTopic    = VirtualCommon.topic('device', hwid, 'status');
 
   async function main() {
     const clientId = 'b_display_' + id + '_' + Math.random().toString(36).slice(2, 8);

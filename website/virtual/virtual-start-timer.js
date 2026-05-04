@@ -20,10 +20,10 @@
     const hwid = opts.hwid || 'START';
     const dip = opts.dip || '0001';
 
-    const stateTopic     = 'derbynet/device/' + hwid + '/state';
-    const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';
-    const statusTopic    = 'derbynet/device/' + hwid + '/status';
-    const raceStateTopic = 'derbynet/race/state';
+    const stateTopic     = VirtualCommon.topic('device', hwid, 'state');
+    const telemetryTopic = VirtualCommon.topic('device', hwid, 'telemetry');
+    const statusTopic    = VirtualCommon.topic('device', hwid, 'status');
+    const raceStateTopic = VirtualCommon.topic('race', 'state');
 
     let raceState = 'UNCONFIGURED';
     let latched = false; // mirrors start_signal pin: HIGH = GO, LOW = STOP

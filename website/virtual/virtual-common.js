@@ -154,11 +154,33 @@
     });
   }
 
+  // Build a tenant-scoped MQTT topic. Every cloud-twin virtual page emits
+  // `window.DERBYNET_TENANT = "<slug>"` from PHP (see _guard.inc /
+  // virtual_active_tenant()) before this file loads, so all topics this
+  // page touches land under `derbynet/t/<slug>/...` and can never bleed
+  // into a sibling sandbox. Throws loudly if the slug isn't bridged —
+  // silent global publishes would re-introduce the exact bug we're
+  // closing here.
+  function topic() {
+    const slug = global.DERBYNET_TENANT;
+    if (typeof slug !== 'string' || slug === '') {
+      throw new Error('VirtualCommon.topic: window.DERBYNET_TENANT not set; '
+                      + 'check that the page emitted the tenant bridge before '
+                      + 'loading virtual-common.js');
+    }
+    const parts = ['derbynet', 't', slug];
+    for (let i = 0; i < arguments.length; i++) {
+      parts.push(String(arguments[i]));
+    }
+    return parts.join('/');
+  }
+
   global.VirtualCommon = {
     log: logEvent,
     setConnState: setConnState,
     connectBroker: connectBroker,
     publish: publish,
+    topic: topic,
     wireVisibilityOffline: wireVisibilityOffline,
     wireVisibilityOfflineMany: wireVisibilityOfflineMany,
   };

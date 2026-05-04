@@ -25,6 +25,21 @@ body.virtual-device {
 .vd-conn[data-state="disconnected"], .vd-conn[data-state="error"]
   { background: #722; color: white; }
 
+/* Sandbox-name badge: identifies which tenant DB every MQTT publish on
+ * this page is scoped to. Sits to the left of #conn-status in the header.
+ * `info` is the normal slate look; `warn` paints red when no tenant is
+ * bound (the JS topic builder will throw on first publish anyway, but
+ * the badge makes the misconfiguration visually loud). */
+.vd-sandbox {
+  font-size: 12px; padding: 2px 8px; border-radius: 3px;
+  background: #2a2d33; color: #cdd; border: 1px solid #3a3e46;
+}
+.vd-sandbox b { color: #ffeb3b; font-weight: 600; }
+.vd-sandbox[data-state="warn"] {
+  background: #722; color: white; border-color: #944;
+}
+.vd-sandbox[data-state="warn"] b { color: #fff; }
+
 .vd-main {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   padding: 20px; max-width: 1100px; margin: 0 auto;

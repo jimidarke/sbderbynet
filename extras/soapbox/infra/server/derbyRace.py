@@ -41,6 +41,7 @@ import time
 import uuid
 import paho.mqtt.client as mqtt # type: ignore
 import random
+import re
 import json
 import threading
 import queue
@@ -89,10 +90,37 @@ MQTT_USER               = os.getenv('MQTT_USER', '')
 MQTT_PASS               = os.getenv('MQTT_PASS', '')
 MQTT_QOS_CRITICAL       = 2     # QoS level for critical race messages
 MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
-##### Subscribe Topics #####
+
+# Tenant routing mode (cloud only). When 'multi', the race-server runs as a
+# dispatcher: one MQTT connection subscribes derbynet/t/+/... and routes each
+# message to a per-tenant derbyRace context. When unset / 'single' (Pi), the
+# legacy single-tenant flow is preserved exactly — topics stay unprefixed and
+# DERBYNET_TENANT (if set) names the one bound DB.
+DERBYNET_TENANT_MODE    = os.getenv('DERBYNET_TENANT_MODE', '').lower()
+
+# Slug regex must match website/inc/cloud-tenant.inc::TENANT_SLUG_RE.
+# Keep these in sync — both sides validate the same shape so one cannot
+# accept a slug the other rejects.
+TENANT_SLUG_RE = re.compile(r'^[a-z0-9][a-z0-9-]{0,31}$')
+
+
+def _valid_tenant_slug(slug):
+    return isinstance(slug, str) and bool(TENANT_SLUG_RE.match(slug))
+
+
+def _tenant_db_path(slug):
+    """Mirror of website/inc/cloud-tenant.inc::tenant_db_path()."""
+    base = os.getenv('DERBYNET_DB_PATH', '/var/lib/derbynet')
+    return os.path.join(base, 'tenants', slug, 'derbynet.sqlite3')
+
+
+##### Subscribe Topics — single-tenant (Pi) #####
 MQTT_TOPIC_RACESTATE    = "derbynet/race/state"
 MQTT_TOPIC_TELEMETRY    = "derbynet/device/+/telemetry"
 MQTT_TOPIC_STATE        = "derbynet/device/+/state"
+##### Subscribe Topics — multi-tenant (cloud dispatcher) #####
+MQTT_TOPIC_TELEMETRY_MT = "derbynet/t/+/device/+/telemetry"
+MQTT_TOPIC_STATE_MT     = "derbynet/t/+/device/+/state"
 ##### LED Sign Topics #####
 MQTT_TOPIC_LEDSIGN_PREFIX = "derbynet/ledsign"
 
@@ -112,9 +140,24 @@ RACE_STATE_STAGING      = "STAGING"       # Race active, waiting for start (LED:
 RACE_STATE_RACING       = "RACING"        # Race in progress (LED: green)
 RACE_STATE_FINISHED     = "FINISHED"      # All lanes complete (transient, returns to STOPPED)
 class derbyRace:
-    def __init__(self, lane_count = 3 ):
-        logger.info(f"Initializing DerbyRace v{VERSION}")
+    def __init__(self, lane_count=3, slug='', mqtt_client=None):
+        """Per-tenant race-state machine.
+
+        Pi / single-tenant mode: call with `slug=''` and `mqtt_client=None`.
+        The class owns its own MQTT client, publishes to legacy unprefixed
+        topics (`derbynet/...`), and behaves exactly as it did before the
+        multi-tenant refactor.
+
+        Cloud / multi-tenant mode: `RaceServer` constructs one instance per
+        active tenant, passes its `slug` and the shared MQTT client. All
+        publishes from this instance land under `derbynet/t/<slug>/...` so
+        sibling sandboxes never collide on the broker. The shared client is
+        owned by `RaceServer`, not by us.
+        """
+        logger.info(f"Initializing DerbyRace v{VERSION}"
+                    + (f" [tenant={slug}]" if slug else ""))
         self.boottime = datetime.now()
+        self.slug = slug or ''
 
         # Thread synchronization locks
         # race_lock: Protects race state variables (race_state, lane_times, lanesFinished, start_time)
@@ -122,30 +165,40 @@ class derbyRace:
         self._race_lock = threading.Lock()
         self._heartbeat_lock = threading.Lock()
 
-        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr" )
-        if MQTT_USER:
-            self.client.username_pw_set(MQTT_USER, MQTT_PASS)
-        self.client.will_set("derbynet/status", payload="offline", qos=1, retain=True)
-        self.client.on_message = self.on_message
-        self.client.on_connect = self.on_connect
-        self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
-        self.client.loop_start()
-        # Support environment variable for Docker deployment
+        if mqtt_client is not None:
+            # Shared client owned by RaceServer (multi-tenant mode). Don't
+            # bind on_message/on_connect — RaceServer routes for us.
+            self.client = mqtt_client
+            self._owns_client = False
+        else:
+            self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr")
+            if MQTT_USER:
+                self.client.username_pw_set(MQTT_USER, MQTT_PASS)
+            # LWT remains on the unscoped legacy topic in single-tenant mode;
+            # operators read this as "race-server is down" regardless of any
+            # tenant routing.
+            self.client.will_set("derbynet/status", payload="offline", qos=1, retain=True)
+            self.client.on_message = self.on_message
+            self.client.on_connect = self.on_connect
+            self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
+            self.client.loop_start()
+            self._owns_client = True
+
+        # API client carries the tenant header pair (X-DerbyNet-Tenant +
+        # X-DerbyNet-Internal-Token) when slug is set, so HTTP fallback writes
+        # land in the right sandbox DB on the cloud.
         api_host = os.getenv('DERBYNET_API_HOST', 'localhost')
-        self.api = DerbyNetClient(api_host)
+        self.api = DerbyNetClient(api_host, tenant_slug=(self.slug or None))
 
         # Initialize direct database access for race-critical operations
         # This eliminates HTTP latency for writing race results
         self.db = None
         if DIRECT_DB_AVAILABLE:
-            # On the cloud twin, the active DB is per-tenant. If DERBYNET_TENANT
-            # is set, address that tenant's sqlite directly; otherwise fall back
-            # to the legacy single-DB path (Pi).
-            tenant_slug = os.getenv('DERBYNET_TENANT', '')
-            if tenant_slug:
-                db_path = os.path.join(
-                    os.getenv('DERBYNET_DB_PATH', '/var/lib/derbynet'),
-                    'tenants', tenant_slug, 'derbynet.sqlite3')
+            # Cloud (multi or single-with-DERBYNET_TENANT): per-tenant SQLite
+            # under /var/lib/derbynet/tenants/<slug>/. Pi: legacy single DB.
+            db_tenant = self.slug or os.getenv('DERBYNET_TENANT', '')
+            if db_tenant:
+                db_path = _tenant_db_path(db_tenant)
             else:
                 db_path = os.getenv('DERBYNET_DB_PATH')
             if db_path and os.path.exists(db_path):
@@ -159,12 +212,15 @@ class derbyRace:
         else:
             logger.info("derbydb module not available, using HTTP API for results")
 
-        # Initialize alert handler for critical error notifications
+        # Initialize alert handler for critical error notifications. Each
+        # tenant gets its own handler so alerts publish under the correct
+        # `derbynet/t/<slug>/alerts/...` prefix.
         self.alert_handler = None
         if ALERT_HANDLER_AVAILABLE:
             try:
-                self.alert_handler = AlertHandler(self.client)
-                logger.info("Alert handler initialized - critical errors will publish to derbynet/alerts")
+                self.alert_handler = AlertHandler(self.client, tenant_slug=(self.slug or None))
+                logger.info("Alert handler initialized - critical errors will publish to "
+                            + (f"derbynet/t/{self.slug}/alerts" if self.slug else "derbynet/alerts"))
             except Exception as e:
                 logger.warning(f"Failed to initialize alert handler: {e}")
 
@@ -181,12 +237,24 @@ class derbyRace:
         self.timer_heartbeats = {} # stores the last heartbeat and isready status for each lane
         self.firstupdated = False
         self.last_heartbeat = 0 # updates to unix time when the last heartbeat was sent
-        self.updateFromDerbyAPI()
-        
+        if self._owns_client:
+            self.updateFromDerbyAPI()
+
+    def _t(self, *parts):
+        """Build an MQTT topic. In multi-tenant mode prefixes with
+        `derbynet/t/<slug>/...`; in single-tenant (Pi) mode keeps the
+        legacy unprefixed `derbynet/...` shape so real Pi firmware and the
+        Pi race-server keep talking on the same topics they always have."""
+        if self.slug:
+            return '/'.join(('derbynet', 't', self.slug) + tuple(str(p) for p in parts))
+        return '/'.join(('derbynet',) + tuple(str(p) for p in parts))
+
     def on_connect(self, client, userdata, flags, rc, properties=None): # callback for mqtt connection
         self.mqtt_connected = True
         logger.debug(f"Connected to MQTT broker with result code {rc}")
-        # Subscribe to all required topics
+        # Single-tenant (Pi) mode: subscribe to legacy unprefixed topics.
+        # Multi-tenant mode owns its subscriptions in RaceServer.on_connect,
+        # so this method only ever runs when self._owns_client is True.
         client.subscribe(MQTT_TOPIC_TELEMETRY)
         logger.info(f"Subscribed to {MQTT_TOPIC_TELEMETRY}")
         client.subscribe(MQTT_TOPIC_STATE)
@@ -225,8 +293,14 @@ class derbyRace:
                 logger.warning(f"Failed to send alert: {e}")
     
     def on_message(self, client, userdata, message): # callback for mqtt messages
-        topic = message.topic
-        payload = message.payload.decode("utf-8")
+        # Pi-mode entry point. Multi-tenant mode goes through
+        # RaceServer.on_message → derbyRace._handle_message instead.
+        self._handle_message(message.topic, message.payload.decode("utf-8"))
+
+    def _handle_message(self, topic, payload):
+        """Process one MQTT message. `topic` may be either a full legacy
+        topic (`derbynet/device/<dip>/state`) or the tenant-stripped suffix
+        (`device/<dip>/state`); the substring checks below accept both."""
         logger.debug(f"Received message on {topic} {payload}")
 
         # Validate message format first
@@ -287,7 +361,7 @@ class derbyRace:
 
     def updateFromDerbyAPI(self):
         # sets online
-        self.client.publish("derbynet/status", payload="online", qos=1, retain=True)
+        self.client.publish(self._t('status'), payload="online", qos=1, retain=True)
         # called frequently once a second to update the finish timers and led colours
         racestats = self.api.get_race_status()
         if not racestats or not isinstance(racestats, dict):
@@ -298,7 +372,7 @@ class derbyRace:
                 self.race_state = RACE_STATE_UNCONFIGURED
                 self.led = "yellow"
                 self.updateLED("yellow")  # Yellow = needs configuration
-                self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+                self.client.publish(self._t('race', 'state'), self.race_state, qos=1, retain=True)
                 logger.info(f"Race state changed: {prev_state} -> {self.race_state} (API unavailable)")
             return
         self.roundid = racestats.get("roundid",0)
@@ -337,16 +411,17 @@ class derbyRace:
         for lane in lanes:
             self.setLanePinny(lane["lane"],lane["racerid"])
         # publish racestate
-        result = self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1)
+        racestate_topic = self._t('race', 'state')
+        result = self.client.publish(racestate_topic, self.race_state, qos=1)
         if result.rc != 0:
-            logger.error(f"Error publishing to {MQTT_TOPIC_RACESTATE} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
+            logger.error(f"Error publishing to {racestate_topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
 
     def setLanePinny(self, lane, pinny):
         pinny = str(pinny).zfill(4)
         if self.lanePinny.get(str(lane),None) == pinny:
             return
         self.lanePinny[str(lane)] = pinny
-        topic = f"derbynet/lane/{lane}/pinny"
+        topic = self._t('lane', lane, 'pinny')
         result = self.client.publish(topic, pinny, qos=2, retain=True)
         if result.rc != 0:
             logger.error(f"Error publishing to {topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
@@ -446,12 +521,12 @@ class derbyRace:
     def updateLED(self,led,lane="all"):
         if lane == "all":
             for i in range(1,self.lane_count+1):
-                topic = f"derbynet/lane/{i}/led"
+                topic = self._t('lane', i, 'led')
                 result = self.client.publish(topic, led, qos=2, retain=True)
                 if result.rc != 0:
                     logger.error(f"Error publishing to {topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
         else:
-            topic = f"derbynet/lane/{lane}/led"
+            topic = self._t('lane', lane, 'led')
             result = self.client.publish(topic, led, qos=2, retain=True)
             if result.rc != 0:
                 logger.error(f"Error publishing to {topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
@@ -465,12 +540,12 @@ class derbyRace:
             for lane_num in range(1, self.lane_count + 1):
                 pinny = self.lanePinny.get(str(lane_num), "----")
                 msg = ledsign_content.lane_sign_message(pinny, self.race_state)
-                topic = f"{MQTT_TOPIC_LEDSIGN_PREFIX}/usher-lane{lane_num}/message"
+                topic = self._t('ledsign', f'usher-lane{lane_num}', 'message')
                 self.client.publish(topic, json.dumps(msg), qos=1, retain=True)
 
             # Starter sign
             msg = ledsign_content.starter_sign_message(self.race_state)
-            topic = f"{MQTT_TOPIC_LEDSIGN_PREFIX}/starter/message"
+            topic = self._t('ledsign', 'starter', 'message')
             self.client.publish(topic, json.dumps(msg), qos=1, retain=True)
         except Exception as e:
             logger.error(f"Error updating LED signs: {e}")
@@ -530,7 +605,7 @@ class derbyRace:
         self.updateLED("green")
 
         # Immediately publish race state change to MQTT for faster propagation
-        self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+        self.client.publish(self._t('race', 'state'), self.race_state, qos=1, retain=True)
 
         # Update LED signs with GO!
         self.updateLedSigns()
@@ -562,7 +637,7 @@ class derbyRace:
         logger.info(lane_times_copy)
 
         # Immediately publish race state change to MQTT for faster propagation
-        self.client.publish(MQTT_TOPIC_RACESTATE, self.race_state, qos=1, retain=True)
+        self.client.publish(self._t('race', 'state'), self.race_state, qos=1, retain=True)
 
         # Update LED signs with FINISHED
         self.updateLedSigns()
@@ -845,20 +920,26 @@ class derbyRace:
         # Send offline status
         try:
             if hasattr(self, 'mqtt_connected') and self.mqtt_connected:
-                self.client.publish("derbynet/status", payload="offline", qos=MQTT_QOS_CRITICAL, retain=True)
+                self.client.publish(self._t('status'), payload="offline", qos=MQTT_QOS_CRITICAL, retain=True)
         except Exception as e:
             logger.error(f"Error sending offline status: {e}")
-        
-        # Clean up MQTT
-        self.client.loop_stop()
-        self.client.disconnect()
-        logger.warning("DerbyRace Closed")
-        
-        # Exit with appropriate code
-        if not graceful:
-            exit(1)
-        else:
-            exit(0)
+
+        # Clean up MQTT only if we own the client. In multi-tenant mode the
+        # client is owned by RaceServer and shutting it down here would tear
+        # down every other tenant's session too.
+        if self._owns_client:
+            self.client.loop_stop()
+            self.client.disconnect()
+        logger.warning("DerbyRace Closed"
+                       + (f" [tenant={self.slug}]" if self.slug else ""))
+
+        # Exit with appropriate code (single-tenant entrypoint only —
+        # RaceServer never calls close() this way).
+        if self._owns_client:
+            if not graceful:
+                exit(1)
+            else:
+                exit(0)
             
     def connect_with_retry(self):
         """Connect to MQTT broker with retry mechanism"""
@@ -943,8 +1024,117 @@ class derbyRace:
         logger.debug(f"Telemetry: {payload}")
         self.api.send_device_status(payload)
 
-if __name__ == "__main__":
-    logger.info("DerbyRace Server Started")
+class RaceServer:
+    """Multi-tenant dispatcher. Owns the single MQTT connection, parses the
+    tenant slug out of every incoming topic, and forwards each message to the
+    matching `derbyRace` context (lazily creating one on first sight of a
+    valid tenant). Each context publishes back through the same shared client
+    using its own `derbynet/t/<slug>/...` prefix, so cross-tenant collisions
+    on the broker are impossible.
+
+    Used only when DERBYNET_TENANT_MODE=multi. Pi keeps using the legacy
+    single-class entrypoint below, where one `derbyRace` instance owns its
+    own MQTT client and the topic prefix is always `derbynet/...`."""
+
+    def __init__(self):
+        logger.info(f"Initializing RaceServer (multi-tenant) v{VERSION}")
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "derbysvr")
+        if MQTT_USER:
+            self.client.username_pw_set(MQTT_USER, MQTT_PASS)
+        # Server-level LWT is unscoped — operators read this as
+        # "race-server is down" regardless of tenant. Per-tenant
+        # `derbynet/t/<slug>/status` is owned by each context.
+        self.client.will_set("derbynet/status", payload="offline", qos=1, retain=True)
+        self.client.on_message = self.on_message
+        self.client.on_connect = self.on_connect
+        self.client.connect(MQTT_BROKER, MQTT_PORT, 90)
+        self.client.loop_start()
+
+        self.contexts = {}
+        self._contexts_lock = threading.Lock()
+
+    def on_connect(self, client, userdata, flags, rc, properties=None):
+        logger.info(f"RaceServer connected to MQTT broker (rc={rc})")
+        client.subscribe(MQTT_TOPIC_TELEMETRY_MT)
+        logger.info(f"Subscribed to {MQTT_TOPIC_TELEMETRY_MT}")
+        client.subscribe(MQTT_TOPIC_STATE_MT)
+        logger.info(f"Subscribed to {MQTT_TOPIC_STATE_MT}")
+        client.publish("derbynet/status", payload="online",
+                       qos=MQTT_QOS_CRITICAL, retain=True)
+
+    def on_message(self, client, userdata, message):
+        topic = message.topic
+        parts = topic.split('/')
+        # Expect: derbynet / t / <slug> / device / <hwid> / state|telemetry
+        if len(parts) < 4 or parts[0] != 'derbynet' or parts[1] != 't':
+            logger.debug(f"Ignoring non-tenant topic: {topic}")
+            return
+        slug = parts[2]
+        if not _valid_tenant_slug(slug):
+            logger.warning(f"Rejecting message with invalid slug in topic: {topic}")
+            return
+        ctx = self._get_or_create_context(slug)
+        if ctx is None:
+            return
+        try:
+            payload = message.payload.decode("utf-8")
+        except Exception as e:
+            logger.error(f"Failed to decode payload on {topic}: {e}")
+            return
+        sub_topic = '/'.join(parts[3:])
+        ctx._handle_message(sub_topic, payload)
+
+    def _get_or_create_context(self, slug):
+        with self._contexts_lock:
+            ctx = self.contexts.get(slug)
+            if ctx is not None:
+                return ctx
+        # Lazy validation: only spin up state for tenants whose DB exists.
+        # Defends against typo'd slugs from a leaked browser cred.
+        db_path = _tenant_db_path(slug)
+        if not os.path.exists(db_path):
+            logger.warning(f"Refusing to create context for unknown tenant {slug!r} "
+                           f"(no DB at {db_path})")
+            return None
+        try:
+            lane_count = int(os.getenv('LANE_COUNT', '3'))
+        except (TypeError, ValueError):
+            lane_count = 3
+        ctx = derbyRace(lane_count=lane_count, slug=slug, mqtt_client=self.client)
+        with self._contexts_lock:
+            # Race: another thread may have created it between checks; keep
+            # the first one.
+            existing = self.contexts.get(slug)
+            if existing is not None:
+                return existing
+            self.contexts[slug] = ctx
+            logger.info(f"Created RaceContext for tenant {slug!r}")
+            return ctx
+
+    def tick(self):
+        """Per-second update across every active tenant. Errors in one
+        tenant's update never affect the others."""
+        with self._contexts_lock:
+            ctxs = list(self.contexts.values())
+        for ctx in ctxs:
+            try:
+                ctx.updateFromDerbyAPI()
+            except Exception as e:
+                logger.error(f"Error updating tenant {ctx.slug!r}: {e}")
+
+    def close(self):
+        try:
+            self.client.publish("derbynet/status", payload="offline",
+                                qos=MQTT_QOS_CRITICAL, retain=True)
+        except Exception as e:
+            logger.error(f"Error sending server offline status: {e}")
+        self.client.loop_stop()
+        self.client.disconnect()
+
+
+def _run_single_tenant():
+    """Pi entrypoint — preserved verbatim from the pre-refactor behaviour."""
+    logger.info("DerbyRace Server Started (single-tenant)")
     derby = derbyRace()
     while True:
         try:
@@ -960,5 +1150,26 @@ if __name__ == "__main__":
             logger.error(f"Error in DerbyRace: {e}")
             derby.close()
             exit(1)
-        time.sleep(1) # update every .5 seconds to keep the api happy and not hammer it too hard
-    
+        time.sleep(1)
+
+
+def _run_multi_tenant():
+    """Cloud entrypoint — one MQTT client, per-tenant contexts on demand."""
+    logger.info("DerbyRace Server Started (multi-tenant)")
+    server = RaceServer()
+    while True:
+        try:
+            server.tick()
+        except KeyboardInterrupt:
+            server.close()
+            return
+        except Exception as e:
+            logger.error(f"Error in RaceServer tick: {e}")
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    if DERBYNET_TENANT_MODE == 'multi':
+        _run_multi_tenant()
+    else:
+        _run_single_tenant()

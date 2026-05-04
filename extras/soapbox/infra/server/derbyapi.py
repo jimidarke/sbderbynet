@@ -55,7 +55,7 @@ HEARTBEAT_INTERVAL          = 2     # seconds - how often to send heartbeats to 
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
 
-    def __init__(self, server_ip = None):
+    def __init__(self, server_ip=None, tenant_slug=None):
         if not server_ip:
             # Support environment variable for Docker deployment
             server_ip = os.getenv('DERBYNET_API_HOST', '192.168.100.10')
@@ -78,8 +78,14 @@ class DerbyNetClient:
         # to tenant-picker.php. We send a shared-secret-gated header pair on
         # every request; PHP honors it only when X-DerbyNet-Internal-Token
         # matches and Caddy strips both headers from external traffic.
-        # Empty values disable the override (Pi mode behaviour).
-        self._tenant_slug = os.getenv('DERBYNET_TENANT', '')
+        #
+        # Caller (derbyRace.RaceContext / RaceServer) passes the slug
+        # explicitly in multi-tenant mode so each context targets its own
+        # sandbox DB. Pi/single-tenant calls pass nothing and we fall back to
+        # DERBYNET_TENANT for backwards compatibility.
+        if tenant_slug is None:
+            tenant_slug = os.getenv('DERBYNET_TENANT', '')
+        self._tenant_slug = tenant_slug or ''
         self._internal_token = os.getenv('DERBYNET_INTERNAL_TOKEN', '')
         self._tenant_headers = {}
         if self._tenant_slug and self._internal_token:

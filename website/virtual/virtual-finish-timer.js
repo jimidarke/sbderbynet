@@ -21,12 +21,12 @@
     const dip = opts.dip;
     const hwid = opts.hwid;
 
-    const stateTopic     = 'derbynet/device/' + hwid + '/state';
-    const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';
-    const statusTopic    = 'derbynet/device/' + hwid + '/status';
-    const raceStateTopic = 'derbynet/race/state';
-    const ledTopic       = 'derbynet/lane/' + lane + '/led';
-    const pinnyTopic     = 'derbynet/lane/' + lane + '/pinny';
+    const stateTopic     = VirtualCommon.topic('device', hwid, 'state');
+    const telemetryTopic = VirtualCommon.topic('device', hwid, 'telemetry');
+    const statusTopic    = VirtualCommon.topic('device', hwid, 'status');
+    const raceStateTopic = VirtualCommon.topic('race', 'state');
+    const ledTopic       = VirtualCommon.topic('lane', lane, 'led');
+    const pinnyTopic     = VirtualCommon.topic('lane', lane, 'pinny');
 
     let raceState = 'UNCONFIGURED';
     let toggleUp = false;  // physical switch position; true = UP

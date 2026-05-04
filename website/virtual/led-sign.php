@@ -9,6 +9,7 @@ if ($zone === '') {
   exit;
 }
 $hwid = 'B_LEDSIGN_' . $zone;
+$tenant_slug = virtual_active_tenant();
 ?>
 <!doctype html>
 <html lang="en">
@@ -25,6 +26,10 @@ $hwid = 'B_LEDSIGN_' . $zone;
 <header class="vd-header">
   <span class="vd-tag">VIRTUAL</span>
   <h1>LED Sign · <?= htmlspecialchars($zone) ?></h1>
+  <span class="vd-sandbox" data-state="<?= $tenant_slug === '' ? 'warn' : 'info' ?>"
+        title="All MQTT publishes on this page are scoped to this sandbox.">
+    sandbox: <b><?= htmlspecialchars($tenant_slug !== '' ? $tenant_slug : '(none)') ?></b>
+  </span>
   <span class="vd-conn" id="conn-status" data-state="off">disconnected</span>
 </header>
 
@@ -40,6 +45,9 @@ $hwid = 'B_LEDSIGN_' . $zone;
   </section>
 </main>
 
+<script>
+  window.DERBYNET_TENANT = <?= json_encode($tenant_slug) ?>;
+</script>
 <!-- mqtt.min.js loaded dynamically by virtual-common.js (vendored first). -->
 <script src="/derbynet/virtual/virtual-common.js<?= virtual_asset_v('virtual-common.js') ?>"></script>
 <script>
@@ -47,10 +55,10 @@ $hwid = 'B_LEDSIGN_' . $zone;
   const body = document.body;
   const zone = body.dataset.zone;
   const hwid = body.dataset.hwid;
-  const messageTopic   = 'derbynet/ledsign/' + zone + '/message';
-  const broadcastTopic = 'derbynet/ledsign/broadcast';
-  const telemetryTopic = 'derbynet/device/' + hwid + '/telemetry';
-  const statusTopic    = 'derbynet/device/' + hwid + '/status';
+  const messageTopic   = VirtualCommon.topic('ledsign', zone, 'message');
+  const broadcastTopic = VirtualCommon.topic('ledsign', 'broadcast');
+  const telemetryTopic = VirtualCommon.topic('device', hwid, 'telemetry');
+  const statusTopic    = VirtualCommon.topic('device', hwid, 'status');
   const sign = document.getElementById('sign-text');
 
   function render(payload) {

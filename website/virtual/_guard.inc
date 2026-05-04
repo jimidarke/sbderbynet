@@ -27,6 +27,7 @@ chdir(__DIR__ . '/..');
 require_once(__DIR__ . '/../inc/data.inc');
 require_once(__DIR__ . '/../inc/authorize.inc');
 require_once(__DIR__ . '/../inc/permissions.inc');
+require_once(__DIR__ . '/../inc/cloud-tenant.inc');
 
 function virtual_page_guard() {
   if (!is_cloud_mode()) {
@@ -58,6 +59,16 @@ function virtual_asset_v($filename) {
   $path = __DIR__ . '/' . ltrim($filename, '/');
   $mtime = @filemtime($path);
   return $mtime ? "?v={$mtime}" : '';
+}
+
+// Returns the validated session tenant slug bound to this request, or
+// '' if none. Safe to call only after virtual_page_guard() has run
+// (the guard is what enforces is_cloud_mode + session_start). Pages use
+// it to render the sandbox-name badge and to seed window.DERBYNET_TENANT
+// for the JS topic builder in virtual-common.js.
+function virtual_active_tenant() {
+  $slug = function_exists('current_tenant_slug') ? current_tenant_slug() : null;
+  return is_string($slug) ? $slug : '';
 }
 
 // DIP-switch -> lane mapping mirrors derbyRace.py:getDIPName().

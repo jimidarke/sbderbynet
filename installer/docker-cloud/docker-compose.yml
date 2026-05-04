@@ -130,9 +130,17 @@ services:
       - DERBYNET_API_URL=http://derbynet-web/action.php
       - DERBYNET_API_PATH=/
       - DERBYNET_DB_PATH=/var/lib/derbynet
-      # Per-session tenant routing: race-server addresses one tenant DB
-      # with the shared-secret-gated X-DerbyNet-* header pair. Empty values
-      # mean "no override" (Pi mode behaviour).
+      # Tenant routing mode (cloud only).
+      #   multi  → one race-server process holds a per-tenant state map,
+      #            subscribes derbynet/t/+/... and routes every message by
+      #            the slug parsed from the topic. Multiple sandboxes can
+      #            be live at once without colliding on the broker.
+      #   unset  → legacy single-tenant flow (Pi behaviour). DERBYNET_TENANT
+      #            below names the one bound DB.
+      - DERBYNET_TENANT_MODE=${DERBYNET_TENANT_MODE:-multi}
+      # Single-tenant fallback (kept so an operator can pin the cloud
+      # race-server to one sandbox by setting DERBYNET_TENANT_MODE='' for
+      # debugging). Ignored when DERBYNET_TENANT_MODE=multi.
       - DERBYNET_TENANT=${DERBYNET_TENANT:-}
       - DERBYNET_INTERNAL_TOKEN=${DERBYNET_INTERNAL_TOKEN:-}
       - LANE_COUNT=${LANE_COUNT:-3}
