@@ -102,24 +102,24 @@ $warn_no_timer = warn_no_timer();
           </div> -->
         <?php } ?>
 
-        <div class="centered_flipswitch">
+        <div class="centered_flipswitch cc-racing-toggle">
           <input type="checkbox" class="flipswitch" name="is-currently-racing" id="is-currently-racing"
             checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
         </div>
 
-        <div class="block_buttons cc-heat-row">
-
+        <div class="cc-heat-nav-row">
           <div id="prev_heat_button" class="button_link cc-arrow-btn" onclick="handle_previous_heat_button()" aria-label="Previous heat">
             <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#prev"/></svg>
           </div>
-
-          <input type="button" id="manual_results_button" value="Manual Results"
-            onclick="on_manual_results_button_click(<?php echo !$warn_no_timer ? "true" : "false"; ?>)" />
-
+          <span class="cc-heat-nav-label">Heat Navigation</span>
           <div id="skip_heat_button" class="button_link cc-arrow-btn" onclick="handle_skip_heat_button()" aria-label="Skip to next heat">
             <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#next"/></svg>
           </div>
+        </div>
 
+        <div class="block_buttons cc-heat-actions cc-row-2">
+          <input type="button" id="manual_results_button" value="Manual Results"
+            onclick="on_manual_results_button_click(<?php echo !$warn_no_timer ? "true" : "false"; ?>)" />
           <input type="button" id="rerun-button" value="Re-Run" data-rerun="none" onclick="handle_rerun(this);" />
         </div>
         </div>
@@ -272,35 +272,36 @@ $warn_no_timer = warn_no_timer();
       </section>
 
       <section class="cc-card cc-card--emergency" id="emergency-card">
-        <div id="emergency-control-coordinator" class="cc-emergency-strip">
-          <svg class="cc-icon cc-emergency-strip__icon" aria-hidden="true"><use href="img/coord-icons.svg#emergency"/></svg>
-          <div id="emergency-status-banner" class="emergency-status-inactive cc-emergency-strip__status">
-            <span id="emergency-status-text">No Active Emergency</span>
-          </div>
-          <input type="button" id="emergency-clear-btn" value="Clear"
-                 onclick="handle_emergency_clear()" class="hidden cc-btn cc-btn--danger" />
-          <details id="emergency-broadcast-details" class="emergency-broadcast-details">
-            <summary class="cc-emergency-strip__toggle" aria-label="Compose emergency broadcast">
-              <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#dots"/></svg>
-            </summary>
-            <div class="emergency-broadcast-body">
-              <label for="emergency-message-coordinator">Emergency Broadcast:</label>
-              <div class="emergency-char-counter">
-                <span id="emergency-char-count">0</span>/255 characters
-              </div>
-              <div id="emergency-input-wrap-coordinator">
-                <input type="text" id="emergency-message-coordinator"
-                       maxlength="255"
-                       placeholder="Enter EMERGENCY message for all kiosks and LED signs..."
-                       oninput="update_emergency_char_count()" />
-              </div>
-              <div id="emergency-button-wrap">
-                <input type="button" id="emergency-broadcast-btn" value="BROADCAST EMERGENCY"
-                       onclick="handle_emergency_broadcast()" />
-              </div>
+        <details id="emergency-broadcast-details" class="emergency-broadcast-details">
+          <summary class="cc-emergency-strip" aria-label="Compose emergency broadcast">
+            <svg class="cc-icon cc-emergency-strip__icon" aria-hidden="true"><use href="img/coord-icons.svg#emergency"/></svg>
+            <div id="emergency-status-banner" class="emergency-status-inactive cc-emergency-strip__status">
+              <span id="emergency-status-text">No Active Emergency</span>
             </div>
-          </details>
-        </div>
+            <input type="button" id="emergency-clear-btn" value="Clear"
+                   onclick="event.stopPropagation(); handle_emergency_clear();"
+                   class="hidden cc-btn cc-btn--danger" />
+            <span class="cc-emergency-strip__toggle" aria-hidden="true">
+              <svg class="cc-icon"><use href="img/coord-icons.svg#dots"/></svg>
+            </span>
+          </summary>
+          <div class="emergency-broadcast-body">
+            <label for="emergency-message-coordinator">Emergency Broadcast:</label>
+            <div class="emergency-char-counter">
+              <span id="emergency-char-count">0</span>/255 characters
+            </div>
+            <div id="emergency-input-wrap-coordinator">
+              <input type="text" id="emergency-message-coordinator"
+                     maxlength="255"
+                     placeholder="Enter EMERGENCY message for all kiosks and LED signs..."
+                     oninput="update_emergency_char_count()" />
+            </div>
+            <div id="emergency-button-wrap">
+              <input type="button" id="emergency-broadcast-btn" value="BROADCAST EMERGENCY"
+                     onclick="event.stopPropagation(); handle_emergency_broadcast();" />
+            </div>
+          </div>
+        </details>
       </section>
 
       <section id="playlist-group" class="cc-card cc-card--playlist block_buttons">

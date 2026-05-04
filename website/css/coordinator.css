@@ -1625,16 +1625,33 @@ div#emergency-control-coordinator label {
   width: auto;
 }
 
-/* Heat control specifics — tighter row with circular arrow buttons. */
+/* Heat control specifics — three balanced rows: racing toggle / heat-nav / actions. */
 .cc-card--heat .cc-card__body { padding: 14px var(--cc-pad) 16px; }
-.cc-card--heat .centered_flipswitch { margin: 4px 0 12px; text-align: center; }
-.cc-heat-row {
+.cc-card--heat .cc-racing-toggle {
+  margin: 4px auto 14px;
+  text-align: center;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
   justify-content: center;
 }
+.cc-heat-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--cc-line);
+}
+.cc-heat-nav-label {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--cc-ink-soft);
+}
+.cc-heat-actions { margin-top: 4px; }
 .cc-arrow-btn {
   display: inline-flex !important;
   align-items: center;
@@ -1673,8 +1690,7 @@ div#emergency-control-coordinator label {
 .cc-card--heat #skip_heat_button img {
   display: none !important;
 }
-.cc-card--heat .cc-heat-row input[type="button"] {
-  flex: 1 1 140px;
+.cc-card--heat .cc-heat-actions input[type="button"] {
   min-height: 48px;
 }
 
@@ -1778,17 +1794,43 @@ div#emergency-control-coordinator label {
 .cc-card--emergency {
   border-color: rgba(185,28,28,.2);
 }
+/* Emergency: the <details> element is the card's main content; its <summary>
+   is styled as a compact strip. Body renders naturally below as a block. */
+.cc-card--emergency .emergency-broadcast-details {
+  display: block;
+  border: none;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--cc-radius);
+  overflow: hidden;
+}
 .cc-emergency-strip {
-  display: flex;
-  flex-wrap: wrap;
+  display: flex !important;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  background: linear-gradient(180deg, #fff 0%, #fff7f7 100%);
+  padding: 10px 14px !important;
+  background: linear-gradient(180deg, #fff 0%, #fff7f7 100%) !important;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0;
 }
-/* Let the <details> children participate directly in the strip flex row,
-   so the body can wrap to its own line below when opened. */
-.cc-card--emergency .emergency-broadcast-details { display: contents; }
+.cc-emergency-strip::-webkit-details-marker { display: none; }
+.cc-emergency-strip::marker { content: ""; }
+/* Defeat the legacy summary::after chevron rule. */
+.cc-card--emergency .emergency-broadcast-details > summary::after {
+  content: "" !important;
+  display: none !important;
+}
+.cc-card--emergency .emergency-broadcast-details > summary:hover {
+  background: linear-gradient(180deg, #fff 0%, #ffeded 100%) !important;
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0 !important;
+}
+.cc-card--emergency .emergency-broadcast-details[open] > summary {
+  border-bottom: 1px solid rgba(185,28,28,.2);
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0;
+}
 .cc-emergency-strip__icon { color: var(--cc-bad); width: 22px; height: 22px; }
 .cc-emergency-strip__status {
   flex: 1 1 auto;
@@ -1812,26 +1854,27 @@ div#emergency-control-coordinator label {
   animation: emergency-pulse 1.5s infinite !important;
 }
 .cc-emergency-strip__toggle {
-  list-style: none !important;
-  cursor: pointer;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: #f3f4f6;
   color: var(--cc-ink-soft);
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 !important;
   border: 1px solid var(--cc-line);
-  font-weight: 600;
   flex: 0 0 auto;
-  transition: background 120ms;
+  transition: background 120ms, transform 200ms;
 }
-.cc-emergency-strip__toggle:hover { background: var(--cc-bad-soft); color: var(--cc-bad); }
-.cc-emergency-strip__toggle::-webkit-details-marker { display: none; }
-.cc-emergency-strip__toggle::after { content: "" !important; display: none !important; }
-.emergency-broadcast-details[open] .cc-emergency-strip__toggle { background: var(--cc-bad); color: #fff; }
+.cc-emergency-strip:hover .cc-emergency-strip__toggle {
+  background: var(--cc-bad-soft);
+  color: var(--cc-bad);
+}
+.emergency-broadcast-details[open] .cc-emergency-strip__toggle {
+  background: var(--cc-bad);
+  color: #fff;
+  transform: rotate(90deg);
+}
 
 /* When the strip's <details> opens, the body slides in below the strip. */
 .cc-card--emergency .emergency-broadcast-details {
@@ -1839,13 +1882,35 @@ div#emergency-control-coordinator label {
   background: transparent;
 }
 .cc-card--emergency .emergency-broadcast-body {
-  flex: 1 1 100%;
-  width: 100%;
-  margin: 6px 0 4px;
-  padding: 12px;
+  display: block;
+  width: auto;
+  margin: 12px 14px 14px;
+  padding: 12px 14px;
   background: var(--cc-bad-soft);
   border: 1px solid rgba(185,28,28,.25);
   border-radius: var(--cc-radius-sm);
+  border-top: 1px solid rgba(185,28,28,.25);
+}
+.cc-card--emergency .emergency-broadcast-body label {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--cc-bad);
+  margin-bottom: 4px;
+}
+.cc-card--emergency .emergency-char-counter {
+  font-size: 11px;
+  color: var(--cc-ink-soft);
+  margin-bottom: 6px;
+  text-align: right;
+}
+.cc-card--emergency #emergency-input-wrap-coordinator {
+  margin-bottom: 10px;
+}
+.cc-card--emergency #emergency-message-coordinator {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
 }
 .cc-card--emergency #emergency-message-coordinator {
   width: 100%;
@@ -1892,10 +1957,6 @@ div#emergency-control-coordinator label {
    carries the title. */
 .cc-card__body > h3 { display: none; }
 
-/* Hide the duplicate "Compose Emergency Broadcast" summary text styling
-   from the legacy rule — our toggle uses an icon only. */
-.cc-emergency-strip__toggle { font-size: 0; }
-.cc-emergency-strip__toggle .cc-icon { font-size: 16px; }
 
 /* Playlist card — buttons full-width and primary style. */
 .cc-card--playlist a.button_link {
@@ -1976,6 +2037,27 @@ div#emergency-control-coordinator label {
   .cc-row-2 { flex-direction: column; }
   .cc-row-2 > * { width: 100%; }
 
-  .cc-emergency-strip { padding: 12px 14px; }
+  .cc-emergency-strip { padding: 12px 14px !important; }
   .cc-emergency-strip__status { font-size: 14px; }
+}
+
+/* Timer health warning is JS-injected as the first child of .timer_control_group
+   (which is now also our .cc-card--timer). Make it fit cleanly inside the card
+   between the rounded edge and the header instead of breaking out as a banner. */
+.cc-card--timer > .health-warning {
+  margin: 0 !important;
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  font-size: 13px;
+  padding: 8px 14px;
+  text-align: left;
+}
+.cc-card--timer > .health-warning .warning-icon {
+  font-size: 14px;
+  margin-right: 6px;
+}
+.cc-card--timer > .health-warning + .cc-card__head {
+  border-top: 1px solid var(--cc-line);
 }
