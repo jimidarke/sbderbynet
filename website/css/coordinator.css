@@ -1662,13 +1662,18 @@ div#emergency-control-coordinator label {
   width: auto !important;
   max-width: none !important;
   margin: 0 !important;
+  min-height: 64px !important;
+  white-space: normal !important;
+  line-height: 1.15 !important;
+  padding: 8px 10px !important;
+  word-break: break-word;
 }
 .cc-arrow-btn {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: #000;
   color: #fff;
@@ -1681,7 +1686,7 @@ div#emergency-control-coordinator label {
 }
 .cc-arrow-btn:hover  { background: var(--cc-amber); color: #000; border-color: #000; }
 .cc-arrow-btn:active { transform: scale(.96); }
-.cc-arrow-btn .cc-icon { color: inherit; width: 28px; height: 28px; stroke-width: 3; }
+.cc-arrow-btn .cc-icon { color: inherit; width: 22px; height: 22px; stroke-width: 3; }
 .cc-arrow-btn img { display: none; }
 
 /* Override the legacy heat_control_group rules at lines 1259/1266/1273
@@ -1689,12 +1694,13 @@ div#emergency-control-coordinator label {
 .cc-card--heat .heat_control_group { /* no-op selector to raise specificity in some flows */ }
 .cc-card--heat #prev_heat_button,
 .cc-card--heat #skip_heat_button {
-  width: 56px !important;
-  height: 56px !important;
+  width: 42px !important;
+  height: 42px !important;
   background: #000 !important;
   border-radius: 50% !important;
   border: 2px solid #000 !important;
   margin: 0 !important;
+  padding: 0 !important;
 }
 .cc-card--heat #prev_heat_button:hover,
 .cc-card--heat #skip_heat_button:hover {
@@ -2131,11 +2137,11 @@ div#emergency-control-coordinator label {
   .cc-arrow-btn,
   .cc-card--heat #prev_heat_button,
   .cc-card--heat #skip_heat_button {
-    width: 60px !important;
-    height: 60px !important;
+    width: 48px !important;
+    height: 48px !important;
   }
-  .cc-card--heat .cc-heat-row input[type="button"] {
-    min-height: 52px;
+  .cc-card--heat .cc-heat-actions input[type="button"] {
+    min-height: 72px;
     font-size: 16px;
   }
 

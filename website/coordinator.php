@@ -126,10 +126,8 @@ $warn_no_timer = warn_no_timer();
         </div>
       </section>
 
-      <div id="supplemental-control-group" class="control_group block_buttons new_round_control hidden">
-        <div id="add-new-rounds-button" class="hidden">
-          <input type="button" value="Add New Rounds" onclick="show_choose_new_round_modal()" />
-        </div>
+      <div id="add-new-rounds-button" class="cc-add-new-rounds hidden">
+        <input type="button" value="Add New Rounds" onclick="show_choose_new_round_modal()" />
       </div>
 
       <section class="cc-card cc-card--timer control_group timer_control_group">
