@@ -15,6 +15,7 @@ $warn_no_timer = warn_no_timer();
 <html>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Race Coordinator Page</title>
   <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css" />
   <?php require('inc/stylesheet.inc'); ?>

@@ -831,16 +831,9 @@ div#broadcast-input-wrap-coordinator {
   font-weight: bold;
 }
 
-/* Responsive styles for narrow screens (upstream c3a9df71) */
-@media(max-width: 900px) {
-    .double_control_column,
-    .control_column_container {
-      width: 490px;
-    }
-    #not-racing-warning {
-        width: 480px;
-    }
-}
+/* (Removed: legacy @media(max-width:900px) block that hard-pinned widths
+   to 490px. Replaced by the consolidated @media(max-width:834px) block
+   below, which uses 100% widths for true portrait flow.) */
 
 /* =============================================================================
    EMERGENCY BROADCAST CONTROLS
@@ -1298,41 +1291,50 @@ div#scenes-control-coordinator label { font-size: 14px; }
 
 /* Centered flipswitch — keep but slim */
 .centered_flipswitch {
-  font-size: 18px;
-  margin-bottom: 4px;
+  font-size: var(--fs-title);
+  margin-bottom: var(--space-1);
 }
 
-/* --- Now-racing group: less padding, smaller heading --- */
+/* --- Now-racing group: tighter padding, headline at display size --- */
 div#now-racing-group {
-  padding: 8px 12px;
-  margin-top: 6px;
-  margin-bottom: 6px;
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 #now-racing-group div.heat-text {
   width: auto;
-  font-size: 16px;
+  font-size: var(--fs-body);
+}
+#now-racing-group .heat_number,
+#now-racing-group h3 {
+  font-size: var(--fs-display);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
-/* Heat lineup: keep desktop table, but allow it to shrink */
+/* Heat lineup table — body size cells, title size headers */
 .heat-lineup {
   width: auto;
   max-width: 100%;
   overflow-x: auto;
 }
 .heat-lineup td {
-  padding: 6px 12px;
-  font-size: 16px;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-body);
 }
 .heat-lineup th {
-  font-size: 18px;
+  font-size: var(--fs-title);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
 /* --- Not-racing warning: span the page, smaller padding --- */
 #not-racing-warning {
   width: auto;
   max-width: 1080px;
-  font-size: 18px;
-  padding: 6px 10px;
+  font-size: var(--fs-title);
+  padding: var(--space-1) var(--space-2);
   border: 2px solid #b71c1c;
   border-radius: var(--radius-md, 8px);
   text-shadow: none;
@@ -1506,13 +1508,9 @@ div#emergency-control-coordinator label {
   #playlist-group input[type='button'] { max-width: 100%; }
 }
 
-/* Override the older incomplete @media(max-width:900px) rule that hard-pinned
-   widths to 490px. The new rule above takes over at 834px and uses 100%. */
-@media (max-width: 900px) and (min-width: 835px) {
-  .double_control_column,
-  .control_column_container { width: 100%; }
-  #not-racing-warning { width: auto; max-width: 100%; }
-}
+/* (Removed: 835–900px undo block — the legacy 900px rule it was correcting
+   no longer exists, so this band is now governed by the desktop styles
+   above and the 834px portrait block below.) */
 
 /* =============================================================================
    COORDINATOR CARD SYSTEM (cc-*)
@@ -1594,9 +1592,9 @@ div#emergency-control-coordinator label {
 
 .cc-card__title {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--fs-title);
   font-weight: 800;
-  letter-spacing: .04em;
+  letter-spacing: var(--tracking-caps);
   color: #000;
   text-transform: uppercase;
 }
@@ -1657,25 +1655,30 @@ div#emergency-control-coordinator label {
   margin-bottom: 10px;
   border-bottom: 2px solid #000;
 }
+/* Heat-action button row.
+   Grid layout, not flex: prevents the "UNSCHEDU LE" mid-word break that
+   flex+min-width:0+word-break:break-word produced. Each cell gets a
+   fair, predictable share of width; portrait collapses 4 columns to 2
+   so labels stay on one line at --fs-body. */
 .cc-heat-actions {
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 4px;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-1);
   align-items: stretch;
 }
 .cc-heat-actions > #now-racing-group-buttons { display: contents; }
 .cc-heat-actions input[type="button"] {
-  flex: 1 1 0;
-  min-width: 0;
   width: auto !important;
   max-width: none !important;
   margin: 0 !important;
-  min-height: 64px !important;
+  min-height: 56px !important;
+  font-size: var(--fs-body) !important;
+  line-height: 1.2 !important;
   white-space: normal !important;
-  line-height: 1.15 !important;
-  padding: 8px 10px !important;
-  word-break: break-word;
+  word-break: normal;
+  hyphens: none;
+  padding: var(--space-2) !important;
 }
 .cc-arrow-btn {
   display: inline-flex !important;
@@ -1767,25 +1770,21 @@ div#emergency-control-coordinator label {
 .cc-card--timer .lane-timers th {
   border: none;
   background: transparent;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .04em;
+  font-size: var(--fs-meta);
+  font-weight: 800;
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
-  color: var(--cc-ink-soft);
+  color: #000;
   text-align: left;
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
 }
 .cc-card--timer .lane-timers td {
   background: #fff;
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-body);
   color: #000;
   border: 2px solid #000;
   font-weight: 700;
-}
-.cc-card--timer .lane-timers th {
-  font-weight: 800;
-  color: #000;
 }
 
 /* Pill recolor: keep original .timer-online etc class names so JS stays untouched.
@@ -2135,13 +2134,14 @@ div#emergency-control-coordinator label {
 /* Manual Results stays secondary — already covered by the generic rule. */
 
 /* =============================================================================
-   PORTRAIT TIGHTENING — refinements layered on top of the existing 834px rule
+   PORTRAIT TIGHTENING — single source of truth for portrait-tablet overrides.
+   Anything that needs to differ at ≤834px goes here, not in a second @media.
    ============================================================================= */
 @media (max-width: 834px) {
-  .cc-card { margin-bottom: 12px; }
-  .cc-card__head { padding: 10px 14px; }
-  .cc-card__body { padding: 14px; }
-  .cc-card__title { font-size: 14px; }
+  .cc-card        { margin-bottom: var(--space-3); }
+  .cc-card__head  { padding: var(--space-2) var(--space-3); }
+  .cc-card__body  { padding: var(--space-3); }
+  .cc-card__title { font-size: var(--fs-title); }
 
   .cc-arrow-btn,
   .cc-card--heat #prev_heat_button,
@@ -2149,19 +2149,28 @@ div#emergency-control-coordinator label {
     width: 48px !important;
     height: 48px !important;
   }
+
+  /* Heat-action row: 2×2 grid in portrait so 4 buttons each get ~165px
+     instead of ~85px. Fixes the "UNSCHEDU LE" / "PULL FORWARD …" wrap. */
+  .cc-card--heat .cc-heat-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .cc-card--heat .cc-heat-actions input[type="button"] {
-    min-height: 72px;
-    font-size: 16px;
+    min-height: 64px;
+    font-size: var(--fs-body);
   }
 
-  .cc-card--timer .lane-timers td { padding: 10px 12px; font-size: 15px; }
-  .cc-card--timer .lane-timers th { font-size: 12px; }
+  /* Timer table: drop the column header row entirely on portrait — the row
+     itself is self-describing (lane label + colored pill + GO button +
+     timestamp). Bigger data text. */
+  .cc-card--timer .lane-timers thead { display: none; }
+  .cc-card--timer .lane-timers td    { padding: var(--space-2) var(--space-3); font-size: var(--fs-body); }
 
   .cc-row-2 { flex-direction: column; }
   .cc-row-2 > * { width: 100%; }
 
-  .cc-emergency-strip { padding: 12px 14px !important; }
-  .cc-emergency-strip__status { font-size: 14px; }
+  .cc-emergency-strip          { padding: var(--space-3) !important; }
+  .cc-emergency-strip__status  { font-size: var(--fs-meta); }
 }
 
 /* Timer health warning is JS-injected as the first child of .timer_control_group

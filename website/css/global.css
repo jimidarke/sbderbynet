@@ -26,11 +26,20 @@
   --color-success: #00a000;
   --color-warning: #ffa500;
 
-  /* Typography */
+  /* Typography — 4-step ladder for the whole app.
+     Sized for portrait-tablet operator use at ~1m viewing distance.
+     References: Apple HIG iPadOS controls (17pt body), Material 3
+     Typography (≤4 roles per surface), WCAG 2.2 §1.4.4. */
   --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                 Helvetica, Arial, sans-serif;
-  --fs-button: 1.25rem;
-  --fs-section: 1.0rem;
+  --fs-display: 1.75rem;   /* 28px — round banners, urgent alerts (sentence case) */
+  --fs-title:   1.125rem;  /* 18px — card headers, inline section labels (UPPERCASE .04em) */
+  --fs-body:    1.0625rem; /* 17px — buttons, table cells, status lines (sentence case) */
+  --fs-meta:    0.875rem;  /* 14px — timestamps, last-contact, secondary metadata */
+  --tracking-caps: 0.04em;
+  /* Aliases retained for backwards compatibility (deprecated, do not use in new code) */
+  --fs-button:  var(--fs-body);
+  --fs-section: var(--fs-title);
 
   /* Spacing & shape */
   --space-1: 4px;

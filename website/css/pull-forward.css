@@ -1,53 +1,54 @@
-/* Pull-Forward dedicated page — tablet portrait optimised. */
+/* Pull-Forward dedicated page — tablet portrait optimised.
+   Uses the app-wide --fs-* / --space-* tokens defined in global.css. */
 
 #pf-page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px 12px 140px; /* bottom padding clears the sticky action bar */
+  padding: var(--space-4) var(--space-3) 140px; /* bottom clears sticky bar */
   font-family: var(--font-stack, sans-serif);
-  color: var(--color-text, #1c1f24);
+  color: #1c1f24;
 }
 
 .pf-empty-state {
   text-align: center;
-  padding: 48px 16px;
+  padding: var(--space-5) var(--space-3);
 }
-.pf-empty-state h2 { font-size: 28px; margin-bottom: 12px; }
-.pf-empty-state p  { font-size: 18px; line-height: 1.5; color: #555; }
+.pf-empty-state h2 { font-size: var(--fs-display); margin-bottom: var(--space-3); }
+.pf-empty-state p  { font-size: var(--fs-body); line-height: 1.5; color: #555; }
 
 #pf-round-banner {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  background: var(--color-card-bg, #f4f6f9);
-  border-left: 4px solid var(--color-accent, #1670c1);
-  border-radius: 6px;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: #f4f6f9;
+  border-left: 4px solid #1670c1;
+  border-radius: var(--radius-md);
 }
-.pf-round-label { font-size: 22px; font-weight: 600; }
-.pf-round-hint  { font-size: 16px; color: #555; }
+.pf-round-label { font-size: var(--fs-display); font-weight: 700; }
+.pf-round-hint  { font-size: var(--fs-body); color: #555; }
 
 /* --- Roster list ------------------------------------------------------- */
 
 #pf-roster {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
 .pf-racer-row {
   display: grid;
   grid-template-columns: 90px 1fr auto;
   align-items: center;
-  gap: 16px;
-  min-height: 72px;
-  padding: 12px 16px;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
   background: #fff;
   border: 2px solid #cdd3da;
-  border-radius: 8px;
-  font-size: 20px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-body);
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, transform 0.05s;
   user-select: none;
@@ -66,72 +67,79 @@
 .pf-racer-row .pf-badge {
   background: #1670c1;
   color: #fff;
-  padding: 4px 12px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 999px;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 /* --- Preview / simulation --------------------------------------------- */
 
 #pf-preview {
-  margin-top: 8px;
-  padding: 16px;
+  margin-top: var(--space-2);
+  padding: var(--space-4);
   background: #fafbfc;
   border: 2px solid #cdd3da;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 #pf-preview.hidden { display: none; }
 
-.pf-loading { font-size: 18px; color: #555; }
+.pf-loading { font-size: var(--fs-body); color: #555; }
 .pf-info {
-  font-size: 18px;
-  padding: 12px;
+  font-size: var(--fs-body);
+  padding: var(--space-3);
   background: #fff8e1;
   border-left: 4px solid #d39e00;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .pf-error-inline {
-  font-size: 18px;
-  padding: 12px;
+  font-size: var(--fs-body);
+  padding: var(--space-3);
   background: #fdecea;
   border-left: 4px solid #c0392b;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .pf-dropout-line {
-  font-size: 22px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  font-size: var(--fs-display);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid #cdd3da;
 }
-.pf-dropout-label { color: #555; }
-.pf-dropout-gaps  { color: #555; }
+.pf-dropout-label { color: #555; font-weight: 500; }
+.pf-dropout-gaps  { color: #555; font-size: var(--fs-body); font-weight: 500; }
 
-#pf-preview .pf-section {
-  margin-top: 16px;
-}
+#pf-preview .pf-section { margin-top: var(--space-4); }
 #pf-preview .pf-section h3 {
-  font-size: 18px;
-  margin: 0 0 8px;
+  font-size: var(--fs-title);
+  font-weight: 800;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  margin: 0 0 var(--space-2);
   color: #2a3038;
 }
 
 .pf-moves-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 17px;
+  font-size: var(--fs-body);
 }
 .pf-moves-table th,
 .pf-moves-table td {
-  padding: 10px 8px;
+  padding: var(--space-2);
   text-align: left;
   border-bottom: 1px solid #e4e7eb;
 }
 .pf-moves-table th {
   background: #eef1f5;
-  font-weight: 600;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 .pf-moves-table td.pf-empty {
   text-align: center;
@@ -139,21 +147,21 @@
   color: #555;
 }
 
-.pf-byes p     { font-size: 17px; margin: 0; }
-.pf-warnings ul { padding-left: 22px; margin: 0; }
+.pf-byes p     { font-size: var(--fs-body); margin: 0; }
+.pf-warnings ul { padding-left: var(--space-4); margin: 0; }
 .pf-warnings li {
-  font-size: 17px;
-  margin-bottom: 6px;
+  font-size: var(--fs-body);
+  margin-bottom: var(--space-1);
   color: #6b4500;
 }
 
 .pf-side-effect-note {
-  margin-top: 16px;
-  padding: 10px 12px;
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-3);
   background: #fff8e1;
   border-left: 4px solid #d39e00;
-  border-radius: 4px;
-  font-size: 15px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-meta);
   line-height: 1.4;
   color: #5b4500;
 }
@@ -161,13 +169,13 @@
 /* --- Error banner above sticky action bar ----------------------------- */
 
 #pf-error {
-  margin-top: 16px;
-  padding: 12px 16px;
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   background: #fdecea;
   border: 2px solid #c0392b;
   color: #7a1d12;
-  border-radius: 6px;
-  font-size: 17px;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-body);
 }
 #pf-error.hidden { display: none; }
 
@@ -180,9 +188,9 @@
   bottom: 0;
   z-index: 10;
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: center;
-  padding: 12px 12px env(safe-area-inset-bottom, 12px);
+  padding: var(--space-3) var(--space-3) env(safe-area-inset-bottom, var(--space-3));
   background: rgba(255, 255, 255, 0.97);
   border-top: 1px solid #cdd3da;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
@@ -192,11 +200,11 @@
 .pf-btn {
   flex: 1 1 0;
   max-width: 240px;
-  min-height: 60px;
-  padding: 14px 16px;
-  font-size: 18px;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-body);
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid #b6bdc6;
   cursor: pointer;
   transition: background 0.12s, transform 0.05s;
@@ -214,26 +222,22 @@
 /* --- Portrait tablet breakpoint --------------------------------------- */
 
 @media (max-width: 834px) {
-  #pf-page { padding: 12px 8px 160px; }
+  #pf-page { padding: var(--space-3) var(--space-2) 160px; }
 
   .pf-racer-row {
     grid-template-columns: 80px 1fr auto;
-    font-size: 19px;
-    min-height: 68px;
+    min-height: 64px;
   }
 
   .pf-actions {
     flex-direction: column;
-    gap: 8px;
-    padding: 10px 10px env(safe-area-inset-bottom, 10px);
+    gap: var(--space-2);
   }
   .pf-btn {
     max-width: none;
     min-height: 56px;
-    font-size: 17px;
   }
 
-  .pf-moves-table { font-size: 16px; }
   .pf-moves-table th,
-  .pf-moves-table td { padding: 8px 6px; }
+  .pf-moves-table td { padding: var(--space-2) var(--space-1); }
 }

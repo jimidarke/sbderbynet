@@ -29,6 +29,17 @@ gates, and backup behavior.
 
 ### Step-by-step
 
+0. **Tablet sanity check** (do this on the actual race-day Android tablet,
+   in portrait, before anything else):
+   - Open the coordinator page in Chrome on the tablet, not just DevTools'
+     mobile mode (DevTools is a poor proxy for real touch handling).
+   - Drag-scroll the page top-to-bottom — must be smooth, no rubber-band
+     fight, no element absorbing the touch.
+   - Every interactive element (button, flipswitch, arrow, table row)
+     must be ≥48 px tall in portrait. Tap each Heat-Control button —
+     no mid-word wrap, every label fits on one line.
+   - Timer-status row labels readable from arm's length without leaning in.
+
 1. **Sign in as RaceCoordinator** at `https://uisp.darketech.ca/derbynet/login.php`
    (replace with your `CADDY_HOST` if you've overridden it).
 2. **Open virtual control panel**: `https://uisp.darketech.ca/derbynet/virtual/index.php`.
