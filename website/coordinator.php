@@ -86,11 +86,16 @@ $warn_no_timer = warn_no_timer();
 
     <div class="control_column">
 
-      <div class="control_group heat_control_group">
+      <section class="cc-card cc-card--heat control_group heat_control_group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#heat"/></svg>
+          <h3 class="cc-card__title">Heat Control</h3>
+        </header>
+        <div class="cc-card__body">
         <div id="start_race_button_div" class="block_buttons hidden">
           <input type="button" value="Start Race" onclick="handle_start_race_button()" />
         </div>
-        
+
         <?php if (read_raceinfo('show-simulate-results', 0)) { ?>
           <!-- <div class="block_buttons">
             <input type="button" value="Simulate Results" onclick="simulateRaceResults();" id="simulate-results-btn" />
@@ -102,22 +107,23 @@ $warn_no_timer = warn_no_timer();
             checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
         </div>
 
-        <div class="block_buttons">
+        <div class="block_buttons cc-heat-row">
 
-          <div id="prev_heat_button" class="button_link" onclick="handle_previous_heat_button()">
-            <img src="img/left-white-60.png" />
+          <div id="prev_heat_button" class="button_link cc-arrow-btn" onclick="handle_previous_heat_button()" aria-label="Previous heat">
+            <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#prev"/></svg>
           </div>
 
           <input type="button" id="manual_results_button" value="Manual Results"
             onclick="on_manual_results_button_click(<?php echo !$warn_no_timer ? "true" : "false"; ?>)" />
 
-          <div id="skip_heat_button" class="button_link" onclick="handle_skip_heat_button()">
-            <img src="img/right-white-60.png" />
+          <div id="skip_heat_button" class="button_link cc-arrow-btn" onclick="handle_skip_heat_button()" aria-label="Skip to next heat">
+            <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#next"/></svg>
           </div>
 
           <input type="button" id="rerun-button" value="Re-Run" data-rerun="none" onclick="handle_rerun(this);" />
         </div>
-      </div>
+        </div>
+      </section>
 
       <div id="supplemental-control-group" class="control_group block_buttons new_round_control hidden">
         <div id="now-racing-group-buttons"></div>
@@ -126,22 +132,25 @@ $warn_no_timer = warn_no_timer();
         </div>
       </div>
 
-      <div class="control_group timer_control_group">
+      <section class="cc-card cc-card--timer control_group timer_control_group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#timer"/></svg>
+          <h3 class="cc-card__title">Timer Status</h3>
+          <span id="timer_status_icon_wrap" class="cc-card__badge cc-badge--neutral">
+            <img id="timer_status_icon" src="img/status/unknown.png" alt="" />
+          </span>
+        </header>
+        <div class="cc-card__body">
         <?php if (!$warn_no_timer) { ?>
           <p>Not monitoring timer state</p>
         <?php } else { ?>
-          <div class="status_icon">
-            <img id="timer_status_icon" src="img/status/unknown.png" />
-          </div>
-
-          <div id='timer-test' class="block_buttons">
+          <div id='timer-test' class="block_buttons cc-row-2">
             <a class="button_link" onclick="open_timer_window();">Timer</a>
             <a class='button_link' href='timer-test.php'>Test</a>
           </div>
 
-          <h3>Timer Status</h3>
-          <p><b id="timer_status_text">Timer status not yet updated</b></p>
-          <p>The track has <span id="lane_count">an unknown number of</span> lane(s).</p>
+          <p class="cc-status-line"><b id="timer_status_text">Timer status not yet updated</b></p>
+          <p class="cc-status-meta">The track has <span id="lane_count">an unknown number of</span> lane(s).</p>
 
           <div id='lane-timers' class="lane-timers">
             <!-- <table border="1" cellpadding="10" style="width:fit-content">
@@ -203,7 +212,8 @@ $warn_no_timer = warn_no_timer();
 
           </div>
         <?php } ?>
-      </div>
+        </div>
+      </section>
 
       <!-- Virtual Timer Display (Testing Mode) — DISABLED: superseded by
            /virtual/ cloud virtual-hardware pages. Re-enable alongside the
@@ -225,48 +235,56 @@ $warn_no_timer = warn_no_timer();
       </div>
       -->
 
-      <div class="control_group replay_control_group">
-        <div class="status_icon">
-          <img id="replay_status_icon" src="img/status/unknown.png" />
+      <section class="cc-card cc-card--replay control_group replay_control_group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#replay"/></svg>
+          <h3 class="cc-card__title">Replay Status</h3>
+          <span class="cc-card__badge cc-badge--neutral">
+            <img id="replay_status_icon" src="img/status/unknown.png" alt="" />
+          </span>
+        </header>
+        <div class="cc-card__body">
+          <p class="cc-status-line"><b id="replay_status">Remote replay status not yet updated</b></p>
+          <div class="block_buttons cc-row-2">
+            <input type="button" id="test_replay" value="Trigger Replay" onclick="handle_test_replay();" />
+            <input type="button" value="Replay Settings" onclick="show_replay_settings_modal();" />
+          </div>
         </div>
-        <h3>Replay Status</h3>
-        <p><b id="replay_status">Remote replay status not yet updated</b></p>
-        <div id="test_replay" class="block_buttons">
-          <input type="button" value="Trigger Replay" onclick="handle_test_replay();" />
-        </div>
-        <div class="block_buttons">
-          <input type="button" value="Replay Settings" onclick="show_replay_settings_modal();" />
-        </div>
-      </div>
+      </section>
 
     </div>
 
     <div class="control_column">
 
-      <div class="coordinator-control-group">
-        <div id="scenes-control-coordinator">
-          <label for="scenes-select-coordinator">Current scene:</label>
-          <div id="select-wrap-coordinator">
-            <select id="scenes-select-coordinator"></select>
+      <section class="cc-card cc-card--scene coordinator-control-group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#scene"/></svg>
+          <h3 class="cc-card__title">Current Scene</h3>
+        </header>
+        <div class="cc-card__body">
+          <div id="scenes-control-coordinator">
+            <div id="select-wrap-coordinator">
+              <select id="scenes-select-coordinator"></select>
+            </div>
+            <div id="scenes-status-message-coordinator"></div>
           </div>
-          <div id="scenes-status-message-coordinator"></div>
         </div>
+      </section>
 
-        <hr class="coordinator-control-divider" />
-
-        <div id="emergency-control-coordinator">
-          <div id="emergency-status-banner" class="emergency-status-inactive">
-            <span class="emergency-icon">⚠️</span>
+      <section class="cc-card cc-card--emergency" id="emergency-card">
+        <div id="emergency-control-coordinator" class="cc-emergency-strip">
+          <svg class="cc-icon cc-emergency-strip__icon" aria-hidden="true"><use href="img/coord-icons.svg#emergency"/></svg>
+          <div id="emergency-status-banner" class="emergency-status-inactive cc-emergency-strip__status">
             <span id="emergency-status-text">No Active Emergency</span>
           </div>
-          <input type="button" id="emergency-clear-btn" value="✓ Clear Emergency"
-                 onclick="handle_emergency_clear()" class="hidden" />
+          <input type="button" id="emergency-clear-btn" value="Clear"
+                 onclick="handle_emergency_clear()" class="hidden cc-btn cc-btn--danger" />
           <details id="emergency-broadcast-details" class="emergency-broadcast-details">
-            <summary>🚨 Compose Emergency Broadcast</summary>
+            <summary class="cc-emergency-strip__toggle" aria-label="Compose emergency broadcast">
+              <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#dots"/></svg>
+            </summary>
             <div class="emergency-broadcast-body">
-              <label for="emergency-message-coordinator">
-                <span class="emergency-label-icon">🚨</span> Emergency Broadcast:
-              </label>
+              <label for="emergency-message-coordinator">Emergency Broadcast:</label>
               <div class="emergency-char-counter">
                 <span id="emergency-char-count">0</span>/255 characters
               </div>
@@ -277,20 +295,26 @@ $warn_no_timer = warn_no_timer();
                        oninput="update_emergency_char_count()" />
               </div>
               <div id="emergency-button-wrap">
-                <input type="button" id="emergency-broadcast-btn" value="🚨 BROADCAST EMERGENCY"
+                <input type="button" id="emergency-broadcast-btn" value="BROADCAST EMERGENCY"
                        onclick="handle_emergency_broadcast()" />
               </div>
             </div>
           </details>
         </div>
-      </div>
+      </section>
 
-      <div id="playlist-group" class="block_buttons">
-        <a class='button_link' href='playlist.php'>Rounds Playlist</a>
-        <div id="playlist-start">
-          <input type="button" value="Start Playlist" onclick="handle_start_playlist();" />
+      <section id="playlist-group" class="cc-card cc-card--playlist block_buttons">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#playlist"/></svg>
+          <h3 class="cc-card__title">Rounds Playlist</h3>
+        </header>
+        <div class="cc-card__body cc-row-2">
+          <a class='button_link' href='playlist.php'>Open Playlist</a>
+          <div id="playlist-start">
+            <input type="button" value="Start Playlist" onclick="handle_start_playlist();" />
+          </div>
         </div>
-      </div>
+      </section>
 
       <div id="master-schedule-group" class="master_schedule_group"></div>
       <div id="ready-to-race-group" class="scheduling_control_group"></div>
