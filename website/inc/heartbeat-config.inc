@@ -50,6 +50,10 @@ define('DEVICE_INACTIVE_THRESHOLD', 20);
 // Should match TIMER_STALE_THRESHOLD for consistency
 define('FRONTEND_OFFLINE_THRESHOLD', 5);
 
+// Start timer publishes telemetry at a slower cadence (~10s) than finish
+// timers (~1s), so it needs a more lenient offline window in the UI.
+define('STARTER_FRONTEND_OFFLINE_THRESHOLD', 25);
+
 // =============================================================================
 // RACE REQUIREMENTS
 // =============================================================================

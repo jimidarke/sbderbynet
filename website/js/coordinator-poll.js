@@ -1031,9 +1031,13 @@ function process_coordinator_poll_json(json) {
       : currentTime / 1000 - timer.last_heartbeat;
     const isReady = timer.ready || false;
 
-    // Assign lane status based on its online state and the global race status
+    // Assign lane status based on its online state and the global race status.
+    // The start timer is a latched switch (HIGH = Active, LOW = Standby), not
+    // an arming signal, so it gets distinct labels from the finish timers.
     let laneStatus = "NOT READY";
-    if (isOnline) {
+    if (timer.is_starter) {
+      laneStatus = isOnline ? (isReady ? "Active" : "Standby") : "OFFLINE";
+    } else if (isOnline) {
       if (nowRacing && status === "Race") {
         laneStatus = "Running";
       } else if (status === "Staging") {
@@ -1122,7 +1126,7 @@ function process_coordinator_poll_json(json) {
           statusCell.className = "timer-staging";
         } else if (timer.status === "Running") {
           statusCell.className = "timer-running";
-        } else if (timer.status === "Ready") {
+        } else if (timer.status === "Ready" || timer.status === "Active") {
           statusCell.className = "timer-ready";
         } else {
           statusCell.className = "timer-not-ready";

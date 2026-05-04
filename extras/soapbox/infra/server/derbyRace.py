@@ -129,6 +129,9 @@ MQTT_TOPIC_LEDSIGN_PREFIX = "derbynet/ledsign"
 LANE_FINISH_TIMEOUT     = 90    # seconds to wait for all lanes to finish before auto-completion
 HEARTBEAT_TIMEOUT       = 3     # seconds to consider a timer offline (aligned with TIMER_RECENT_THRESHOLD)
 HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
+# Start timer publishes telemetry every ~10s (vs. 1s for finish timers), so it
+# needs a more generous offline window to avoid flapping between heartbeats.
+STARTER_HEARTBEAT_TIMEOUT = 25  # seconds to consider the start timer offline
 RACE_TIMEOUT            = 70    # seconds maximum race time before marking DNF
 DNF_TIME               = 99.999 # DNF (Did Not Finish) time value
 
@@ -235,6 +238,10 @@ class derbyRace:
         self.lanePinny = {}
         self.race_state = RACE_STATE_UNCONFIGURED  # Start unconfigured until API responds
         self.timer_heartbeats = {} # stores the last heartbeat and isready status for each lane
+        # Start timer (latched switch) heartbeat is tracked separately from
+        # finish-timer lanes — it has no DIP/lane number and its readiness
+        # semantics differ (HIGH = Active, LOW = Standby; latched, not armed).
+        self.starter_heartbeat = None  # {'time': float, 'isReady': bool, 'timerID': str}
         self.firstupdated = False
         self.last_heartbeat = 0 # updates to unix time when the last heartbeat was sent
         if self._owns_client:
@@ -344,6 +351,13 @@ class derbyRace:
                 if lane > 0:
                     self.timerHeartbeat(lane, isReady)
                     logger.debug(f"Updated heartbeat for lane {lane}, ready: {isReady}")
+                elif hwid == "START" or "starttimer" in topic:
+                    # Start timer reports the latched switch level in `state`
+                    # (1 = HIGH = Active, 0 = LOW = Standby). Map that to
+                    # the ready flag so the coordinator UI can show it.
+                    starter_ready = bool(payload_data.get("state", 0))
+                    self.starterHeartbeat(starter_ready, hwid or "STARTER_001")
+                    logger.debug(f"Updated starter heartbeat, ready: {starter_ready}")
 
                 # Only forward full device telemetry when NOT racing (for timing accuracy)
                 if self.race_state != RACE_STATE_RACING:
@@ -859,18 +873,56 @@ class derbyRace:
         if force_immediate_heartbeat or (current_time - self.last_heartbeat) >= HEARTBEAT_PULSE:
             self.send_heartbeat_to_api(current_time)
     
+    def starterHeartbeat(self, isReady, timerID="STARTER_001"):
+        """Update the start-timer heartbeat (thread-safe).
+
+        The start timer has no DIP-derived lane and its readiness is the
+        latched switch level rather than an arming flag, so it lives in its
+        own slot rather than the per-lane dict.
+        """
+        current_time = time.time()
+        force_immediate_heartbeat = False
+
+        with self._heartbeat_lock:
+            prev = self.starter_heartbeat or {}
+            self.starter_heartbeat = {
+                'time': current_time,
+                'isReady': isReady,
+                'timerID': timerID,
+            }
+            last = prev.get('time', 0)
+            if last == 0 or (current_time - last) > HEARTBEAT_TIMEOUT:
+                logger.info("Start timer is online (reconnected)")
+                force_immediate_heartbeat = True
+            if prev.get('isReady', None) != isReady:
+                logger.info(f"Start timer ready state changed to: {isReady}")
+                force_immediate_heartbeat = True
+
+        self.cleanup_offline_timers(current_time)
+
+        if force_immediate_heartbeat or (current_time - self.last_heartbeat) >= HEARTBEAT_PULSE:
+            self.send_heartbeat_to_api(current_time)
+
     def cleanup_offline_timers(self, current_time):
         """Remove timers that haven't sent heartbeats within timeout period (thread-safe).
 
         Uses _heartbeat_lock to safely iterate and modify timer_heartbeats dictionary.
         """
         offline_timers = []
+        starter_offline = False
         with self._heartbeat_lock:
             for lane_num in list(self.timer_heartbeats.keys()):
                 time_since_heartbeat = current_time - self.timer_heartbeats[lane_num]['time']
                 if time_since_heartbeat > HEARTBEAT_TIMEOUT:
                     offline_timers.append(lane_num)
                     del self.timer_heartbeats[lane_num]
+            # Start timer publishes telemetry every ~10s; use a more lenient
+            # offline window so we don't flap between heartbeats.
+            if self.starter_heartbeat is not None:
+                age = current_time - self.starter_heartbeat['time']
+                if age > STARTER_HEARTBEAT_TIMEOUT:
+                    self.starter_heartbeat = None
+                    starter_offline = True
 
         # Log and alert outside lock
         for lane_num in offline_timers:
@@ -879,6 +931,9 @@ class derbyRace:
                 'lane': lane_num,
                 'timeout_seconds': HEARTBEAT_TIMEOUT
             })
+
+        if starter_offline:
+            logger.warning(f"Start timer is offline (no heartbeat within {STARTER_HEARTBEAT_TIMEOUT}s)")
 
         return offline_timers
     
@@ -892,6 +947,7 @@ class derbyRace:
         # Copy heartbeats under lock for thread safety
         with self._heartbeat_lock:
             heartbeats_copy = dict(self.timer_heartbeats)
+            starter_copy = dict(self.starter_heartbeat) if self.starter_heartbeat else None
 
         # Log current timer status (outside lock)
         online_timers = list(heartbeats_copy.keys())
@@ -904,7 +960,7 @@ class derbyRace:
             logger.warning(f"Missing timers for lanes: {missing}")
 
         # Send heartbeat to API - this will determine confirmation based on current status
-        success = self.api.send_timer_heartbeat(heartbeats_copy)
+        success = self.api.send_timer_heartbeat(heartbeats_copy, starter_copy)
         if not success:
             logger.error("Failed to send timer heartbeat to API")
     

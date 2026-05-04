@@ -146,11 +146,19 @@ class DerbyNetClient:
             self.timer_state = TIMER_STATE_NOT_CONNECTED
             return None    
     
-    def send_timer_heartbeat(self, timer_heartbeats):  # sends heartbeat messages
+    def send_timer_heartbeat(self, timer_heartbeats, starter_heartbeat=None):  # sends heartbeat messages
         """
         Send heartbeat message to DerbyNet with active timer information
-        
+
         timer_heartbeats = {2: {'time': 1747607679.600188, 'isReady': True}, 1: {'time': 1747607678.8986795, 'isReady': False}, 3: {'time': 1747607681.1048107, 'isReady': True}}
+
+        starter_heartbeat (optional) tracks the start-timer (latched switch).
+        Shape: {'time': float, 'isReady': bool, 'timerID': str}.
+        Forwarded as `starter=1&starter_id=...&starter_ready=0|1` so PHP's
+        action.timer-message HEARTBEAT branch records it under lane=0,
+        is_starter=1 in TimerStatus. Absence of the starter does NOT affect
+        the lane-1/2/3 confirmed-flag calculation: the start switch is
+        latched, not an arming signal, so it shouldn't gate race readiness.
         """
         current_time = time.time()
         
@@ -216,6 +224,16 @@ class DerbyNetClient:
                 payload += f"&ready{lane}=1"
             else:
                 payload += f"&ready{lane}=0"
+
+        # Append the start timer if present and recent. The PHP handler
+        # writes a row with lane=0, is_starter=1 keyed off the `starter`
+        # field — see website/ajax/action.timer-message.inc:285.
+        if starter_heartbeat:
+            starter_age = current_time - starter_heartbeat.get('time', 0)
+            if starter_age <= TIMER_RECENT_THRESHOLD * 5:  # be lenient: starter telemetry is ~10s
+                starter_id = starter_heartbeat.get('timerID') or 'STARTER_001'
+                starter_ready = 1 if starter_heartbeat.get('isReady', False) else 0
+                payload += f"&starter=1&starter_id={starter_id}&starter_ready={starter_ready}"
         
         headers = {
             'Content-Type': "application/x-www-form-urlencoded",
