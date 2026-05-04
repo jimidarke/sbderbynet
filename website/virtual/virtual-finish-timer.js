@@ -30,6 +30,12 @@
 
     let raceState = 'UNCONFIGURED';
     let toggleUp = false;  // physical switch position; true = UP
+    // Cache the last colour the server commanded so a transient local
+    // override (network disconnect → white) can be reverted on the next
+    // server message. The toggle itself never sets the LED — real
+    // hardware (finishtimer.py + derbynetPCBv1.py) only flips colour in
+    // response to derbynet/lane/N/led, and we mirror that exactly.
+    let lastServerColor = 'off';
 
     const ui = {
       raceState: root.querySelector('[data-role="race-state"]') || root.querySelector('#race-state'),
@@ -93,6 +99,12 @@
     function flipToggle() {
       toggleUp = !toggleUp;
       renderToggle();
+      // Real-hardware fidelity: do NOT change the LED locally on a toggle
+      // flip. The colour comes only from server publishes on
+      // derbynet/lane/N/led. During RACING, a DOWN flip triggers
+      // laneFinish on the server which publishes red back; during
+      // STAGING/STOPPED the LED stays on whatever colour was last
+      // broadcast (blue/red) until state changes.
       publishToggle();
     }
 
@@ -102,7 +114,12 @@
                     : (payload.state || JSON.stringify(payload));
         if (ui.raceState) ui.raceState.textContent = raceState;
       } else if (topic === ledTopic) {
-        setLed(typeof payload === 'string' ? payload : (payload.color || 'off'));
+        const colour = typeof payload === 'string' ? payload : (payload.color || 'off');
+        lastServerColor = colour;
+        // Server publishes win — RACING green, lane-finish red, etc. The
+        // toggle's local override is intentionally short-lived: any new
+        // server colour replaces it.
+        setLed(colour);
       } else if (topic === pinnyTopic) {
         const v = (typeof payload === 'string') ? payload
                   : (payload.pinny || JSON.stringify(payload));
@@ -116,6 +133,15 @@
       client.subscribe(pinnyTopic, { qos: 1 });
       client.publish(statusTopic, 'online', { qos: 1, retain: true });
       startTelemetry();
+      // Retained-message subscribe will replay the last published lane
+      // LED colour to us within one roundtrip; nothing else to do here.
+    }
+
+    function onDisconnect() {
+      // Real hardware: derbynetPCBv1.networkError() drives the LED white
+      // when the broker connection drops. Mirror that locally — the next
+      // server message will replace it.
+      setLed('white');
     }
 
     renderToggle();
@@ -135,6 +161,7 @@
       pinnyTopic: pinnyTopic,
       onConnected: onConnected,
       onMessage: onMessage,
+      onDisconnect: onDisconnect,
       teardown: function () {
         if (telemetryHandle) clearInterval(telemetryHandle);
         ui.toggle.removeEventListener('click', flipToggle);

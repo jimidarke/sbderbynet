@@ -142,6 +142,17 @@ $last_sync = function_exists('cloud_last_sync_utc') ? cloud_last_sync_utc() : nu
     client,
     descriptors.map((d) => d.statusTopic)
   );
+
+  // Mirror real-hardware networkError(): when the broker drops the
+  // shared client, every device that wants a disconnect override gets
+  // notified. Reconnect-driven onConnected() runs again via the connect
+  // event and reapplies the toggle's local colour.
+  client.on('close', () => {
+    descriptors.forEach((d) => { if (d.onDisconnect) d.onDisconnect(); });
+  });
+  client.on('offline', () => {
+    descriptors.forEach((d) => { if (d.onDisconnect) d.onDisconnect(); });
+  });
 })().catch((e) => {
   VirtualCommon.log('sys', '', 'init error: ' + e.message);
   alert('Virtual hardware init failed: ' + e.message);
