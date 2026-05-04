@@ -79,12 +79,14 @@ starts containers in dependency order).
 
 ## Design decisions worth remembering
 
-- **Why rsync instead of git pull on the VPS?** PAT scope on the
-  feature branch can't push workflow changes, so the standard CI/CD path
-  is blocked until merged to master. Rsync from the dev box is the
-  pragmatic interim. Once `feature/2026-cloud-deployment` lands on
-  master, the GitHub Actions deploy in `.github/workflows/deploy.yml`
-  takes over and `derbyvps.sh deploy` becomes a fallback.
+- **Why rsync instead of git pull on the VPS?** The GitHub Actions
+  deploy at `.github/workflows/deploy.yml` was removed (2026-05-03) —
+  rsync via `derbyvps.sh deploy` is now the only path to the VPS. We
+  chose this because the cloud twin is a test environment, the wrapper
+  already handles backup-rotate-deploy-rollback safely, and CI auto-deploy
+  on master push was an over-engineered fit. If you ever want CI deploy
+  back, see git history (commit 8de623ca added the original) — but
+  prefer keeping the path explicit.
 - **Why is `/etc/cron.d/unms-update` renamed instead of deleted?** UISP
   needs it back when we decommission. The dot-in-filename rule in cron's
   `cron.d/` parser disables it without removing data.
@@ -116,7 +118,7 @@ workspace; treat as session-scoped.
 
 - **Pi side** — `extras/soapbox/CLAUDE.md`, `docs/CICD.md`.
 - **Race-day operations** — `docs/PULL_FORWARD_OPERATOR.md`, `docs/DRESS_REHEARSAL.md`.
-- **GitHub Actions deploy** — `.github/workflows/deploy.yml` and `docs/CICD.md`.
+- **(Removed) GitHub Actions deploy** — `.github/workflows/deploy.yml` was deleted; `docs/CICD.md` is now historical.
 
 ## Quick safety reminders
 
