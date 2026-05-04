@@ -215,6 +215,7 @@ if ($num_columns >= 4) {
 
 // *********** Other ***************
 set_section_heading('Other');
+make_link_button('Documentation', 'docs/site/index.html', -1, 'other_button');
 make_link_button('Schedule', 'render-document.php/summary/ScheduleDocument?options=%7B%7D&ids=0', VIEW_RACE_RESULTS_PERMISSION, 'other_button');
 make_link_button('Printables', 'print.php', ASSIGN_RACER_IMAGE_PERMISSION, 'other_button');
 // TEMPORARILY HIDDEN: make_link_button('About', 'about.php', -1, 'other_button');

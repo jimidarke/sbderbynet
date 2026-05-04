@@ -10,6 +10,9 @@ IDEWorkspaceChecks.plist
 *.log
 *.pkg
 
+# Dev screenshots (coordinator UI iteration captures)
+coordpage*.png
+
 docs/dist/
 
 replay/build/
