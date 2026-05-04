@@ -40,6 +40,23 @@ $warn_no_timer = warn_no_timer();
     var g_current_scene = <?php echo json_encode(read_raceinfo('current_scene', ''),
                                                  JSON_HEX_TAG | JSON_HEX_AMP); ?>;
 
+    // If we just came back from pull-forward.php with a successful Apply,
+    // briefly highlight the Undo Pull Forward button (rendered by poll) so the
+    // operator notices undo is available.
+    var g_pf_pulse_until = 0;
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('pf_committed') === '1') {
+          g_pf_pulse_until = Date.now() + 8000;
+          params.delete('pf_committed');
+          var qs = params.toString();
+          history.replaceState({}, '',
+            window.location.pathname + (qs ? ('?' + qs) : ''));
+        }
+      } catch (e) { /* older browsers — no-op */ }
+    })();
+
     $(function () {
       $("#replay-skipback option[value='<?php
       echo read_raceinfo('replay-skipback', '3000'); ?>']").attr('selected', 'selected');
@@ -102,16 +119,14 @@ $warn_no_timer = warn_no_timer();
           </div> -->
         <?php } ?>
 
-        <div class="centered_flipswitch cc-racing-toggle">
-          <input type="checkbox" class="flipswitch" name="is-currently-racing" id="is-currently-racing"
-            checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
-        </div>
-
         <div class="cc-heat-nav-row">
           <div id="prev_heat_button" class="button_link cc-arrow-btn" onclick="handle_previous_heat_button()" aria-label="Previous heat">
             <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#prev"/></svg>
           </div>
-          <span class="cc-heat-nav-label">Heat Navigation</span>
+          <div class="centered_flipswitch cc-racing-toggle">
+            <input type="checkbox" class="flipswitch" name="is-currently-racing" id="is-currently-racing"
+              checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
+          </div>
           <div id="skip_heat_button" class="button_link cc-arrow-btn" onclick="handle_skip_heat_button()" aria-label="Skip to next heat">
             <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#next"/></svg>
           </div>
@@ -524,6 +539,11 @@ $warn_no_timer = warn_no_timer();
     </div>
   </div>
 
+  <!-- DEPRECATED: replaced by pull-forward.php (a dedicated tablet-friendly
+       page reached via the "Pull Forward…" button on the running round).
+       Retained for one release as a console-callable fallback in case the
+       page hits a bug on race day (call showPullForwardModal(racerid, roundid)
+       from devtools). Slated for removal next release. -->
   <div id='pull_forward_modal' class="modal_dialog wide_modal hidden block_buttons">
     <h3>Pull Forward — Fill Schedule Gaps</h3>
     <div id="pf-dropout-info" class="pf-section">

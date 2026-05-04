@@ -596,6 +596,375 @@ puppeteer.launch({devtools: debugging, slowMo: 200}).then(async browser => {
 
   console.log("  PASS");
 
+  // ================================================================
+  // PAGE-DRIVEN TESTS — pull-forward.php (the primary entry point)
+  // ================================================================
+
+  // ---- Test 12: Coordinator renders "Pull Forward…" entry button ----
+  console.log("Test 12: Coordinator renders Pull Forward... entry button on running round");
+
+  // basePollJson has roundid=5 == current.roundid, heats_run=2 < heats_scheduled=9
+  await page.evaluate(function(json) {
+    process_coordinator_poll_json(JSON.parse(json));
+  }, JSON.stringify(basePollJson));
+
+  var entryButtonExists = await page.evaluate(() => {
+    return $('.pull-forward-button').length > 0
+      && $('.pull-forward-button').val() === 'Pull Forward…';
+  });
+  assert.equal(true, entryButtonExists);
+
+  // Should NOT appear when all heats have run
+  var pollAllDone = JSON.parse(JSON.stringify(basePollJson));
+  pollAllDone.rounds[0].heats_run = pollAllDone.rounds[0].heats_scheduled;
+  await page.evaluate(function(json) {
+    process_coordinator_poll_json(JSON.parse(json));
+  }, JSON.stringify(pollAllDone));
+
+  var entryButtonGone = await page.evaluate(() => {
+    return $('.pull-forward-button').length === 0;
+  });
+  assert.equal(true, entryButtonGone);
+
+  console.log("  PASS");
+
+  // ---- Test 13: Page handles "no active round" gracefully ----
+  console.log("Test 13: pull-forward.php shows empty state when no roster present");
+
+  // Navigate to the page with no active round (we simulate by setting globals
+  // before the page's $(function) runs is hard; instead, navigate and inspect
+  // what the server rendered for the current state).
+  await page.goto(root + '/pull-forward.php');
+
+  var emptyOrRoster = await page.evaluate(() => {
+    return {
+      hasEmpty: $('.pf-empty-state').length > 0,
+      hasRoster: $('#pf-roster .pf-racer-row').length > 0,
+      hasActions: !$('#pf-actions').hasClass('hidden'),
+    };
+  });
+  // Either the empty state is shown OR a roster is shown — never both.
+  // Action bar must not be visible until a racer is selected.
+  assert.equal(false, emptyOrRoster.hasEmpty && emptyOrRoster.hasRoster);
+  assert.equal(false, emptyOrRoster.hasActions);
+
+  console.log("  PASS");
+
+  // ---- Test 14: Roster rendering, selection fires dry-run, preview renders ----
+  console.log("Test 14: Roster + selection + preview rendering on pull-forward.php");
+
+  // Stub the page state so the roster has predictable racers.
+  // pull-forward.js renders from g_pf_roster on $(function); we re-run after
+  // injecting test data.
+  await page.evaluate(function() {
+    g_pf_has_active_round = true;
+    g_pf_roster = [
+      {racerid: 17, firstname: 'Justin', lastname: 'Lee', carnumber: '435', carname: '', unraced_heats: 4},
+      {racerid: 20, firstname: 'Bob',    lastname: 'Smith', carnumber: '420', carname: '', unraced_heats: 2},
+      {racerid: 31, firstname: 'Alex',   lastname: 'Chen',  carnumber: '445', carname: '', unraced_heats: 3}
+    ];
+    g_pf_roundid = 5;
+    // Re-render roster (the original $(function) already ran on a possibly-
+    // empty roster; clear and re-render to test against our injected data).
+    $('#pf-roster').empty();
+    $('#pf-page .pf-empty-state').remove();
+    if ($('#pf-roster').length === 0) {
+      $('body').append('<div id="pf-page"><div id="pf-roster"></div>' +
+        '<div id="pf-preview" class="hidden"></div>' +
+        '<div id="pf-error" class="hidden"></div>' +
+        '<div id="pf-actions" class="pf-actions hidden">' +
+          '<input type="button" class="pf-btn pf-btn-apply" value="Apply"/>' +
+          '<input type="button" class="pf-btn pf-btn-announce" value="Apply + Announce"/>' +
+          '<input type="button" class="pf-btn pf-btn-discard" value="Discard"/>' +
+        '</div></div>');
+    }
+    renderRoster();
+  });
+
+  var rowOrder = await page.evaluate(() => {
+    var out = [];
+    $('#pf-roster .pf-racer-row').each(function() {
+      out.push({
+        racerid: $(this).attr('data-racerid'),
+        car: $(this).find('.pf-car').text(),
+        name: $(this).find('.pf-name').text(),
+        badge: $(this).find('.pf-badge').text()
+      });
+    });
+    return out;
+  });
+  assert.equal(3, rowOrder.length);
+  // Roster passed in already car-sorted (server orders); JS preserves order.
+  assert.equal('#435', rowOrder[0].car);
+  assert.equal('Justin Lee', rowOrder[0].name);
+  assert.includes('4', rowOrder[0].badge);
+
+  // Capture the dry-run AJAX call when a racer row is tapped.
+  var dryRunCall = await page.evaluate(function(response) {
+    return new Promise(function(resolve) {
+      $.ajax = function(url, config) {
+        resolve({
+          url: url,
+          action: config.data.action,
+          roundid: config.data.roundid,
+          dropout_racerid: config.data.dropout_racerid,
+          dry_run: config.data['dry-run']
+        });
+        config.success(response);
+      };
+      $('#pf-roster .pf-racer-row[data-racerid="20"]').trigger('click');
+    });
+  }, sampleProposal);
+
+  assert.equal('action.php', dryRunCall.url);
+  assert.equal('schedule.pullforward', dryRunCall.action);
+  assert.equal(5, dryRunCall.roundid);
+  assert.equal(20, dryRunCall.dropout_racerid);
+  assert.equal(1, dryRunCall.dry_run);
+
+  // Preview should now be rendered, action bar visible, row marked selected.
+  var previewState = await page.evaluate(() => {
+    return {
+      previewShown: !$('#pf-preview').hasClass('hidden'),
+      actionsShown: !$('#pf-actions').hasClass('hidden'),
+      selected: $('#pf-roster .pf-racer-row.pf-selected').attr('data-racerid'),
+      moveRows: $('#pf-preview .pf-moves-table tbody tr').length,
+      hasByesSection: $('#pf-preview .pf-byes').length > 0,
+      hasWarningsSection: $('#pf-preview .pf-warnings').length > 0,
+      hasSideEffectNote: $('#pf-preview .pf-side-effect-note').length > 0,
+      dropoutText: $('#pf-preview .pf-dropout-line').text()
+    };
+  });
+  assert.equal(true, previewState.previewShown);
+  assert.equal(true, previewState.actionsShown);
+  assert.equal('20', previewState.selected);
+  assert.equal(2, previewState.moveRows);
+  assert.equal(true, previewState.hasByesSection);
+  assert.equal(true, previewState.hasWarningsSection);
+  assert.equal(true, previewState.hasSideEffectNote);
+  assert.includes('Bob Smith', previewState.dropoutText);
+  assert.includes('420', previewState.dropoutText);
+
+  console.log("  PASS");
+
+  // ---- Test 15: Re-selecting a different racer replaces preview ----
+  console.log("Test 15: Re-selecting a different racer replaces the preview");
+
+  await page.evaluate(function(response) {
+    $.ajax = function(url, config) {
+      config.success(response);
+    };
+    $('#pf-roster .pf-racer-row[data-racerid="31"]').trigger('click');
+  }, cleanProposal);
+
+  var afterReselect = await page.evaluate(() => {
+    return {
+      selected: $('#pf-roster .pf-racer-row.pf-selected').attr('data-racerid'),
+      selectedCount: $('#pf-roster .pf-racer-row.pf-selected').length,
+      dropoutText: $('#pf-preview .pf-dropout-line').text(),
+      moveRows: $('#pf-preview .pf-moves-table tbody tr').length,
+      hasByesSection: $('#pf-preview .pf-byes').length > 0,
+      hasWarningsSection: $('#pf-preview .pf-warnings').length > 0
+    };
+  });
+  assert.equal('31', afterReselect.selected);
+  assert.equal(1, afterReselect.selectedCount);
+  assert.includes('Kim Park', afterReselect.dropoutText);
+  assert.equal(1, afterReselect.moveRows);
+  assert.equal(false, afterReselect.hasByesSection);
+  assert.equal(false, afterReselect.hasWarningsSection);
+
+  console.log("  PASS");
+
+  // ---- Test 16: no_gaps shows inline info, action bar stays hidden ----
+  console.log("Test 16: no_gaps response shows inline info and hides actions");
+
+  await page.evaluate(function() {
+    $.ajax = function(url, config) {
+      config.success({outcome: {code: 'no_gaps', description: 'Racer has no unraced heats'}});
+    };
+    $('#pf-roster .pf-racer-row[data-racerid="17"]').trigger('click');
+  });
+
+  var noGapsState = await page.evaluate(() => {
+    return {
+      previewHtml: $('#pf-preview').text(),
+      actionsHidden: $('#pf-actions').hasClass('hidden'),
+      hasInfo: $('#pf-preview .pf-info').length > 0
+    };
+  });
+  assert.equal(true, noGapsState.hasInfo);
+  assert.includes('No remaining heats', noGapsState.previewHtml);
+  assert.equal(true, noGapsState.actionsHidden);
+
+  console.log("  PASS");
+
+  // ---- Test 17: Apply commits without broadcast and redirects ----
+  console.log("Test 17: Apply commits with send_broadcast=0 and redirects with pf_committed=1");
+
+  // Re-select a racer to enable the action bar.
+  await page.evaluate(function(response) {
+    $.ajax = function(url, config) { config.success(response); };
+    $('#pf-roster .pf-racer-row[data-racerid="20"]').trigger('click');
+  }, sampleProposal);
+
+  var applyCall = await page.evaluate(function() {
+    return new Promise(function(resolve) {
+      var capturedHref = null;
+      // Stub window.location assignment to a sentinel object that records href
+      var fakeLoc = {};
+      Object.defineProperty(fakeLoc, 'href', {
+        set: function(v) { capturedHref = v; resolve({captured: capturedHref, ajax: window._pfApplyAjax}); }
+      });
+      try { window.location = fakeLoc; } catch (e) { /* read-only in some envs */ }
+
+      $.ajax = function(url, config) {
+        window._pfApplyAjax = {
+          action: config.data.action,
+          roundid: config.data.roundid,
+          dropout_racerid: config.data.dropout_racerid,
+          dry_run: config.data['dry-run'],
+          send_broadcast: config.data.send_broadcast
+        };
+        // The success handler does `window.location = '...';` which triggers
+        // the setter above and resolves the promise.
+        config.success({outcome: {code: 'success'}});
+      };
+
+      $('.pf-btn-apply').trigger('click');
+    });
+  });
+
+  assert.equal('schedule.pullforward', applyCall.ajax.action);
+  assert.equal(5, applyCall.ajax.roundid);
+  assert.equal(20, applyCall.ajax.dropout_racerid);
+  assert.equal(0, applyCall.ajax.dry_run);
+  assert.equal(0, applyCall.ajax.send_broadcast);
+  assert.includes('coordinator.php', applyCall.captured);
+  assert.includes('pf_committed=1', applyCall.captured);
+
+  console.log("  PASS");
+
+  // ---- Test 18: Apply + Announce sends send_broadcast=1 ----
+  console.log("Test 18: Apply + Announce sends send_broadcast=1");
+
+  // Reload the test scaffold so window.location is fresh.
+  await page.goto(root + '/pull-forward.php');
+  await page.evaluate(function() {
+    g_pf_has_active_round = true;
+    g_pf_roster = [
+      {racerid: 20, firstname: 'Bob', lastname: 'Smith', carnumber: '420', carname: '', unraced_heats: 2}
+    ];
+    g_pf_roundid = 5;
+    $('#pf-roster').empty();
+    $('#pf-page .pf-empty-state').remove();
+    if ($('#pf-roster').length === 0) {
+      $('body').append('<div id="pf-page"><div id="pf-roster"></div>' +
+        '<div id="pf-preview" class="hidden"></div>' +
+        '<div id="pf-error" class="hidden"></div>' +
+        '<div id="pf-actions" class="pf-actions hidden">' +
+          '<input type="button" class="pf-btn pf-btn-apply" value="Apply"/>' +
+          '<input type="button" class="pf-btn pf-btn-announce" value="Apply + Announce"/>' +
+          '<input type="button" class="pf-btn pf-btn-discard" value="Discard"/>' +
+        '</div></div>');
+    }
+    renderRoster();
+  });
+
+  var announceCall = await page.evaluate(function(response) {
+    return new Promise(function(resolve) {
+      // First the dry-run for selection
+      $.ajax = function(url, config) { config.success(response); };
+      $('#pf-roster .pf-racer-row[data-racerid="20"]').trigger('click');
+
+      // Then capture the apply call
+      var fakeLoc = {};
+      Object.defineProperty(fakeLoc, 'href', {
+        set: function(v) { resolve({captured: v, sb: window._sb}); }
+      });
+      try { window.location = fakeLoc; } catch (e) {}
+
+      $.ajax = function(url, config) {
+        window._sb = config.data.send_broadcast;
+        config.success({outcome: {code: 'success'}});
+      };
+      $('.pf-btn-announce').trigger('click');
+    });
+  }, sampleProposal);
+
+  assert.equal(1, announceCall.sb);
+
+  console.log("  PASS");
+
+  // ---- Test 19: Discard returns to coordinator with no AJAX ----
+  console.log("Test 19: Discard returns to coordinator without committing");
+
+  await page.goto(root + '/pull-forward.php');
+  await page.evaluate(function() {
+    g_pf_has_active_round = true;
+    g_pf_roster = [
+      {racerid: 20, firstname: 'Bob', lastname: 'Smith', carnumber: '420', carname: '', unraced_heats: 2}
+    ];
+    g_pf_roundid = 5;
+    $('#pf-roster').empty();
+    $('#pf-page .pf-empty-state').remove();
+    if ($('#pf-roster').length === 0) {
+      $('body').append('<div id="pf-page"><div id="pf-roster"></div>' +
+        '<div id="pf-preview" class="hidden"></div>' +
+        '<div id="pf-error" class="hidden"></div>' +
+        '<div id="pf-actions" class="pf-actions hidden">' +
+          '<input type="button" class="pf-btn pf-btn-apply" value="Apply"/>' +
+          '<input type="button" class="pf-btn pf-btn-announce" value="Apply + Announce"/>' +
+          '<input type="button" class="pf-btn pf-btn-discard" value="Discard"/>' +
+        '</div></div>');
+    }
+    renderRoster();
+  });
+
+  var discardResult = await page.evaluate(function() {
+    return new Promise(function(resolve) {
+      var ajaxCalled = false;
+      $.ajax = function() { ajaxCalled = true; };
+
+      var fakeLoc = {};
+      Object.defineProperty(fakeLoc, 'href', {
+        set: function(v) { resolve({captured: v, ajaxCalled: ajaxCalled}); }
+      });
+      try { window.location = fakeLoc; } catch (e) {}
+
+      $('.pf-btn-discard').trigger('click');
+    });
+  });
+
+  assert.equal(false, discardResult.ajaxCalled);
+  assert.includes('coordinator.php', discardResult.captured);
+  assert.equal(false, /pf_committed/.test(discardResult.captured));
+
+  console.log("  PASS");
+
+  // ---- Test 20: ?pf_committed=1 triggers undo-button pulse class ----
+  console.log("Test 20: pf_committed=1 query param pulses the Undo button on coordinator");
+
+  await page.goto(root + '/coordinator.php?pf_committed=1');
+  await fakeAjax.installOn(page);
+  // Render poll with undo state set
+  var pollWithUndo3 = JSON.parse(JSON.stringify(basePollJson));
+  pollWithUndo3['pull-forward-undo'] = {roundid: 5, dropout_racerid: 20};
+  await page.evaluate(function(json) {
+    process_coordinator_poll_json(JSON.parse(json));
+  }, JSON.stringify(pollWithUndo3));
+
+  var pulseClassPresent = await page.evaluate(() => {
+    return $('.pull-forward-undo-button').hasClass('pull-forward-undo-pulse');
+  });
+  assert.equal(true, pulseClassPresent);
+
+  // The query param should have been stripped from the URL
+  var urlAfterStrip = await page.evaluate(() => window.location.search);
+  assert.equal(false, /pf_committed/.test(urlAfterStrip));
+
+  console.log("  PASS");
+
   // ================================ Done ================================
   console.log("");
   console.log("============= All pull-forward UI tests passed =============");

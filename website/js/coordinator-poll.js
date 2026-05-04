@@ -476,10 +476,25 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
         .addClass("adjustment-needed");
     }
 
+    // Pull-Forward entry button — only the running round, only while there
+    // are unraced heats. Sends the operator to the dedicated pull-forward.php
+    // page where they pick a racer, see the simulated cascade, and Apply.
+    if (round.roundid == current.roundid &&
+        round.heats_scheduled > round.heats_run) {
+      buttons.append(
+        '<input type="button" class="pull-forward-button"' +
+        ' onclick="window.location=\'pull-forward.php\'"' +
+        ' title="Drop a racer from the schedule and pull replacements forward from later heats."' +
+        ' value="Pull Forward…"/>'
+      );
+    }
+
     // Pull-forward undo button
     if (g_pull_forward_undo && g_pull_forward_undo.roundid == round.roundid) {
+      var pulse = (typeof g_pf_pulse_until !== 'undefined' &&
+                   Date.now() < g_pf_pulse_until) ? ' pull-forward-undo-pulse' : '';
       buttons.append(
-        '<input type="button" class="pull-forward-undo-button"' +
+        '<input type="button" class="pull-forward-undo-button' + pulse + '"' +
         ' onclick="undoPullForward(' + round.roundid + ')"' +
         ' title="Available until any moved heat is raced. Once a moved heat records a result, this button disappears."' +
         ' value="Undo Pull Forward"/>'

@@ -32,14 +32,23 @@ Heat 8: Alex, Sam, Tony        Heat 8: [bye], Sam, Tony       <-- trailing bye
 
 **Situation:** Racing is underway. A racer scheduled for upcoming heats can no longer race.
 
-**Trigger:** Coordinator clicks the dropout button on the coordinator page.
+**Trigger:** Coordinator taps **Pull Forward…** in the running round's
+control block on the coordinator page. This opens a dedicated tablet-friendly
+page (`pull-forward.php`).
 
 **Flow:**
-1. System asks: "Remove this racer from the schedule?"
-2. System asks: "Pull forward a replacement from upcoming heats?"
-3. If yes: preview modal shows which racers move where, any fairness warnings, and trailing byes
-4. Coordinator clicks "Accept" or "Accept + Announce" (broadcasts to staging area)
-5. Schedule updates atomically. All kiosk displays reload.
+1. The page lists racers in the running round who still have unraced heats,
+   sorted by car number, with a badge showing remaining heat count.
+2. Coordinator taps the dropout racer. The page runs a dry-run pull-forward
+   against current chart state and renders the simulated result inline.
+3. The simulation is faithful: the same `pull_forward()` algorithm runs again
+   on Apply, against current state — so what's previewed is what will commit
+   (modulo any heat that completes between preview and Apply, which the
+   server handles correctly by re-deriving the moves).
+4. Coordinator taps **Apply** or **Apply + Announce** (broadcasts to
+   staging area), or **Discard** to abort.
+5. On success: schedule updates atomically; coordinator page reloads with
+   the **Undo Pull Forward** button briefly highlighted.
 
 **Outcome:** Every heat stays full (or as full as possible). Pulled racers race earlier than originally scheduled. The gap cascades to the tail of the schedule.
 
@@ -98,18 +107,16 @@ Heat 8: Alex, Sam, Tony        Heat 8: [bye], Sam, Tony       <-- trailing bye
 ## Coordinator Workflow
 
 ```
-Coordinator clicks "Dropout" on a racer
+Coordinator taps "Pull Forward…" on the running round (coordinator.php)
          |
          v
-   "Remove from schedule?"
-    Yes /          \ No
-       /            \ (cancel, no action)
-      v
-   "Pull forward a replacement?"
-    Yes /              \ No
-       /                \ (standard dropout -- empty lanes)
-      v
-  Preview Modal
+  pull-forward.php opens — roster of racers with unraced heats
+         |
+         v
+  Coordinator taps a racer
+         |
+         v
+  Inline simulated result appears below the roster
   +-----------------------------------------------+
   | PULL FORWARD - Fill Schedule Gaps              |
   |                                                |
@@ -126,12 +133,13 @@ Coordinator clicks "Dropout" on a racer
   | Fairness Warnings:                             |
   | ! Justin races in consecutive heats 4 and 5   |
   |                                                |
-  | [Accept]  [Accept + Announce]  [Cancel]        |
+  | [Apply]  [Apply + Announce]  [Discard]         |
   +-----------------------------------------------+
          |
          v
-  Schedule updated. Kiosks reload.
-  "Undo Pull Forward" button appears until affected heats record results.
+  Schedule updated. Kiosks reload. Coordinator page returns with
+  "Undo Pull Forward" button briefly pulsed for visibility.
+  Undo is available until any affected heat records results.
 ```
 
 ---
@@ -192,10 +200,13 @@ Undo also restores the dropout racer's `passedinspection` flag so they can be re
 | `website/inc/schedule-adjuster.inc` | `ScheduleAdjuster` class with `pull_forward()`, scoring, and snapshot methods |
 | `website/ajax/action.schedule.pullforward.inc` | AJAX endpoint: dry-run preview and execute |
 | `website/ajax/action.schedule.pullforward.undo.inc` | AJAX endpoint: undo |
-| `website/coordinator.php` | Pull-forward preview modal HTML |
-| `website/js/coordinator-controls.js` | `showPullForwardModal()`, `executePullForward()`, `undoPullForward()` |
-| `website/js/coordinator-poll.js` | Undo button rendering from poll data |
-| `website/css/coordinator.css` | Modal and button styles |
+| `website/pull-forward.php` | Dedicated operator page (primary entry) — roster query, layout |
+| `website/js/pull-forward.js` | Page logic: `pfSelectRacer()`, `renderProposal()`, `pfApply()`, `pfDiscard()` |
+| `website/css/pull-forward.css` | Portrait-tablet styling, sticky action bar |
+| `website/coordinator.php` | Deprecated pull-forward modal HTML (one-release fallback) |
+| `website/js/coordinator-controls.js` | Deprecated modal helpers + `undoPullForward()` |
+| `website/js/coordinator-poll.js` | "Pull Forward…" entry button + Undo button rendering |
+| `website/css/coordinator.css` | Entry / undo button styles, post-apply pulse animation |
 | `website/inc/events.inc` | `EVENT_PULL_FORWARD` (501), `EVENT_PULL_FORWARD_UNDO` (502) |
 | `testing/test-pull-forward.sh` | Integration test suite (9 scenarios) |
 | `testing/puppeteer/pull-forward-test.js` | Puppeteer UI test suite (11 scenarios) |

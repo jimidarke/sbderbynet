@@ -1193,6 +1193,22 @@ div#emergency-input-wrap-coordinator {
   margin-top: 5px;
 }
 
+.pull-forward-button {
+  background: #e3eef9;
+  border: 2px solid #1670c1;
+  color: #0d4e87;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+@keyframes pull-forward-undo-pulse-anim {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.55); }
+  50%      { box-shadow: 0 0 0 10px rgba(255, 152, 0, 0); }
+}
+.pull-forward-undo-pulse {
+  animation: pull-forward-undo-pulse-anim 1.4s ease-out 4;
+}
+
 /* =============================================================================
    COMPACT REFRESH + TABLET PORTRAIT (2026)
    Tightens spacing, softens borders, reduces title sizes, and adds a real
@@ -1625,28 +1641,21 @@ div#emergency-control-coordinator label {
 /* Heat control specifics — three balanced rows: racing toggle / heat-nav / actions. */
 .cc-card--heat .cc-card__body { padding: 14px var(--cc-pad) 16px; }
 .cc-card--heat .cc-racing-toggle {
-  margin: 4px auto 14px;
-  text-align: center;
+  flex: 1 1 auto;
   display: flex;
   justify-content: center;
+  align-items: center;
+  margin: 0;
+  min-width: 0;
 }
 .cc-heat-nav-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0 14px;
-  margin-bottom: 14px;
+  padding: 6px 0 10px;
+  margin-bottom: 10px;
   border-bottom: 2px solid #000;
-}
-.cc-heat-nav-label {
-  flex: 1 1 auto;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #000;
 }
 .cc-heat-actions {
   display: flex !important;

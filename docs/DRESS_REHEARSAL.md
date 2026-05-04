@@ -43,10 +43,17 @@ gates, and backup behavior.
    - On each finish-timer, click **CAR CROSSED FINISH LINE** at staggered
      intervals (or use *Auto-finish* with a 2.0–6.0s window).
    - Verify the coordinator page advances and results record.
-6. **Trigger a pull-forward**:
-   - Drop a racer scheduled for an upcoming heat.
-   - Walk through the modal, accept with announce.
+6. **Trigger a pull-forward** (now via the dedicated page):
+   - On the coordinator page, in the running round's controls, tap
+     **Pull Forward…** (only appears once at least one heat has run).
+   - On `pull-forward.php`, tap a racer scheduled for an upcoming heat.
+   - Confirm the inline simulation renders below the roster: dropout summary,
+     moves table, any trailing byes, fairness warnings, side-effect note.
+   - Tap **Apply + Announce**. Verify you land back on the coordinator page
+     and the **Undo Pull Forward** button briefly pulses.
    - Verify the staging announcement appears on `/derbynet/kiosk.php?name=now-racing`.
+   - Verify the schedule shown on the coordinator page matches the
+     simulated moves byte-for-byte.
 7. **Run the full suite for the round** (auto-mode on all finish timers).
 8. **Inspect**:
    - `https://<host>/derbynet/device-status.php` — virtual devices appear with `B_` hwids.
@@ -58,7 +65,9 @@ gates, and backup behavior.
 ### Cloud-twin pass criteria
 
 - All virtual devices stayed connected for the duration.
-- Pull-forward modal worked, announcement reached the kiosk.
+- Pull-forward page rendered correctly in portrait orientation, simulation
+  matched the post-Apply schedule, announcement reached the kiosk, Undo
+  button pulsed and was usable.
 - Round completed without manual intervention beyond clicking GO/finish.
 - No `B_` hwid leaked into a "must be online to race" decision (the race
   server should treat them like any other timer over MQTT).
@@ -80,9 +89,11 @@ Run on the actual race-day Pi with all hardware connected on the
    Confirm telemetry from the real finish timers, start timer, and signs.
 2. **Mock event**: import the test roster, generate a schedule with the
    real lane count, run a complete round end-to-end.
-3. **Pull-forward live**: mid-event, simulate a dropout. Confirm the
-   physical staging-area kiosk shows the broadcast and the moved racer
-   appears on the lane LED in the next heat.
+3. **Pull-forward live**: mid-event, open `pull-forward.php` from the
+   coordinator's tablet (portrait), pick a racer, tap **Apply + Announce**.
+   Confirm the physical staging-area kiosk shows the broadcast, the moved
+   racer appears on the lane LED in the next heat, and the coordinator's
+   Undo button pulses on return.
 4. **Cloud-sync verification**: after the round completes, run
    `./scripts/derbyvps.sh audit` from your dev box and confirm the
    "LAST CLOUD-SYNC" sentinel `last_sync_utc` is within a minute.

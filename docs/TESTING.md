@@ -12,8 +12,8 @@ caught the majority of what we hit.
 
 | Suite | Lives in | Runs against |
 |---|---|---|
-| Pull-forward backend | `testing/test-pull-forward.sh` | curl against running stack — 9 scenarios |
-| Pull-forward UI | `testing/puppeteer/pull-forward-test.js` | Puppeteer with mocked AJAX — 11 scenarios |
+| Pull-forward backend | `testing/test-pull-forward.sh` | curl against running stack — 10 scenarios; Test 10 asserts dry-run JSON == execute JSON (simulation fidelity) |
+| Pull-forward UI | `testing/puppeteer/pull-forward-test.js` | Puppeteer with mocked AJAX — 20 scenarios (1–11 deprecated modal, 12–20 dedicated `pull-forward.php` page) |
 | Cloud stack smoke | `testing/puppeteer/virtual-device-test.js` | Live cloud stack — opens virtual pages, asserts MQTT-WS connect |
 | MQTT replay | `testing/replay-real-race.py` | Captured Pi session against any broker |
 | Race-server unit | `extras/soapbox/infra/server/tests/` (pytest) | Mocked MQTT — heartbeat tests pass |

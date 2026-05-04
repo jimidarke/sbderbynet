@@ -1,0 +1,239 @@
+/* Pull-Forward dedicated page — tablet portrait optimised. */
+
+#pf-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 12px 140px; /* bottom padding clears the sticky action bar */
+  font-family: var(--font-stack, sans-serif);
+  color: var(--color-text, #1c1f24);
+}
+
+.pf-empty-state {
+  text-align: center;
+  padding: 48px 16px;
+}
+.pf-empty-state h2 { font-size: 28px; margin-bottom: 12px; }
+.pf-empty-state p  { font-size: 18px; line-height: 1.5; color: #555; }
+
+#pf-round-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--color-card-bg, #f4f6f9);
+  border-left: 4px solid var(--color-accent, #1670c1);
+  border-radius: 6px;
+}
+.pf-round-label { font-size: 22px; font-weight: 600; }
+.pf-round-hint  { font-size: 16px; color: #555; }
+
+/* --- Roster list ------------------------------------------------------- */
+
+#pf-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.pf-racer-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 72px;
+  padding: 12px 16px;
+  background: #fff;
+  border: 2px solid #cdd3da;
+  border-radius: 8px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.05s;
+  user-select: none;
+}
+.pf-racer-row:hover  { background: #eef4fb; border-color: #8aa9c8; }
+.pf-racer-row:active { transform: translateY(1px); }
+.pf-racer-row.pf-selected {
+  border-color: #1670c1;
+  border-width: 3px;
+  background: #e3eef9;
+  box-shadow: 0 0 0 2px rgba(22, 112, 193, 0.18);
+}
+
+.pf-racer-row .pf-car   { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pf-racer-row .pf-name  { font-weight: 500; }
+.pf-racer-row .pf-badge {
+  background: #1670c1;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* --- Preview / simulation --------------------------------------------- */
+
+#pf-preview {
+  margin-top: 8px;
+  padding: 16px;
+  background: #fafbfc;
+  border: 2px solid #cdd3da;
+  border-radius: 8px;
+}
+#pf-preview.hidden { display: none; }
+
+.pf-loading { font-size: 18px; color: #555; }
+.pf-info {
+  font-size: 18px;
+  padding: 12px;
+  background: #fff8e1;
+  border-left: 4px solid #d39e00;
+  border-radius: 4px;
+}
+.pf-error-inline {
+  font-size: 18px;
+  padding: 12px;
+  background: #fdecea;
+  border-left: 4px solid #c0392b;
+  border-radius: 4px;
+}
+
+.pf-dropout-line {
+  font-size: 22px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #cdd3da;
+}
+.pf-dropout-label { color: #555; }
+.pf-dropout-gaps  { color: #555; }
+
+#pf-preview .pf-section {
+  margin-top: 16px;
+}
+#pf-preview .pf-section h3 {
+  font-size: 18px;
+  margin: 0 0 8px;
+  color: #2a3038;
+}
+
+.pf-moves-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 17px;
+}
+.pf-moves-table th,
+.pf-moves-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e4e7eb;
+}
+.pf-moves-table th {
+  background: #eef1f5;
+  font-weight: 600;
+}
+.pf-moves-table td.pf-empty {
+  text-align: center;
+  font-style: italic;
+  color: #555;
+}
+
+.pf-byes p     { font-size: 17px; margin: 0; }
+.pf-warnings ul { padding-left: 22px; margin: 0; }
+.pf-warnings li {
+  font-size: 17px;
+  margin-bottom: 6px;
+  color: #6b4500;
+}
+
+.pf-side-effect-note {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: #fff8e1;
+  border-left: 4px solid #d39e00;
+  border-radius: 4px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #5b4500;
+}
+
+/* --- Error banner above sticky action bar ----------------------------- */
+
+#pf-error {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #fdecea;
+  border: 2px solid #c0392b;
+  color: #7a1d12;
+  border-radius: 6px;
+  font-size: 17px;
+}
+#pf-error.hidden { display: none; }
+
+/* --- Sticky action bar ------------------------------------------------- */
+
+.pf-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 12px 12px env(safe-area-inset-bottom, 12px);
+  background: rgba(255, 255, 255, 0.97);
+  border-top: 1px solid #cdd3da;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+}
+.pf-actions.hidden { display: none; }
+
+.pf-btn {
+  flex: 1 1 0;
+  max-width: 240px;
+  min-height: 60px;
+  padding: 14px 16px;
+  font-size: 18px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #b6bdc6;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.05s;
+}
+.pf-btn:disabled { opacity: 0.5; cursor: default; }
+.pf-btn:active   { transform: translateY(1px); }
+
+.pf-btn-apply    { background: #1c8a3a; color: #fff; border-color: #156c2c; }
+.pf-btn-apply:hover:not(:disabled)    { background: #167030; }
+.pf-btn-announce { background: #1670c1; color: #fff; border-color: #115a9a; }
+.pf-btn-announce:hover:not(:disabled) { background: #115a9a; }
+.pf-btn-discard  { background: #f1f3f5; color: #2a3038; border-color: #b6bdc6; }
+.pf-btn-discard:hover:not(:disabled)  { background: #e1e5ea; }
+
+/* --- Portrait tablet breakpoint --------------------------------------- */
+
+@media (max-width: 834px) {
+  #pf-page { padding: 12px 8px 160px; }
+
+  .pf-racer-row {
+    grid-template-columns: 80px 1fr auto;
+    font-size: 19px;
+    min-height: 68px;
+  }
+
+  .pf-actions {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 10px env(safe-area-inset-bottom, 10px);
+  }
+  .pf-btn {
+    max-width: none;
+    min-height: 56px;
+    font-size: 17px;
+  }
+
+  .pf-moves-table { font-size: 16px; }
+  .pf-moves-table th,
+  .pf-moves-table td { padding: 8px 6px; }
+}

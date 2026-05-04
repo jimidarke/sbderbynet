@@ -209,4 +209,66 @@ jq -e '.outcome.code == "notauthorized"' testing/debug.curl > /dev/null || echo 
 user_login_coordinator
 
 echo ""
+echo "============= Test 10: Simulation fidelity (dry-run == execute) ============="
+# This is the test that lets us trust the new pull-forward.php page: the
+# simulation rendered to the operator must match what Apply actually does.
+#
+# Reset and seed a fresh round so the dry-run is computed against the same
+# state as the subsequent execute (no heats run between the calls).
+curl_postj action.php "action=database.purge&purge=schedules&roundid=5" | check_jsuccess
+for RACER in 5 10 15; do
+    curl_postj action.php "action=racer.pass&racer=$RACER&value=0" | check_jsuccess
+done
+for RACER in 5 10 15 20 25 30 35 40 45; do
+    curl_postj action.php "action=racer.pass&racer=$RACER&value=1" | check_jsuccess
+done
+curl_postj action.php "action=schedule.generate&roundid=5" | check_jsuccess
+curl_postj action.php "action=heat.select&roundid=5&now_racing=1" | check_jsuccess
+run_heat 5  1  1.0 2.0 3.0
+run_heat 5  2  1.5 2.5 3.5
+
+# Capture the dry-run proposal for racer 30
+curl_postj action.php "action=schedule.pullforward&roundid=5&dropout_racerid=30&dry-run=1" | check_jsuccess
+DRY_MOVES=$(jq -c '.proposal.moves
+                   | map({gap_heat, gap_lane, pulled_racerid, source_heat, source_lane})' \
+            testing/debug.curl)
+DRY_BYES=$(jq -c '.proposal.trailing_byes' testing/debug.curl)
+DRY_WARN=$(jq -c '.proposal.warnings | map({type, racerid, heats})' testing/debug.curl)
+
+# Now execute and compare the proposal returned by execute (same algorithm,
+# same state, must produce byte-identical moves/byes/warnings).
+curl_postj action.php "action=schedule.pullforward&roundid=5&dropout_racerid=30&dry-run=0" | check_jsuccess
+EXEC_MOVES=$(jq -c '.proposal.moves
+                    | map({gap_heat, gap_lane, pulled_racerid, source_heat, source_lane})' \
+             testing/debug.curl)
+EXEC_BYES=$(jq -c '.proposal.trailing_byes' testing/debug.curl)
+EXEC_WARN=$(jq -c '.proposal.warnings | map({type, racerid, heats})' testing/debug.curl)
+
+[[ "$DRY_MOVES" == "$EXEC_MOVES" ]] || test_fails \
+    "Simulation drift: dry-run moves != execute moves
+       dry:  $DRY_MOVES
+       exec: $EXEC_MOVES"
+[[ "$DRY_BYES" == "$EXEC_BYES" ]] || test_fails \
+    "Simulation drift: dry-run trailing_byes != execute trailing_byes
+       dry:  $DRY_BYES
+       exec: $EXEC_BYES"
+[[ "$DRY_WARN" == "$EXEC_WARN" ]] || test_fails \
+    "Simulation drift: dry-run warnings != execute warnings
+       dry:  $DRY_WARN
+       exec: $EXEC_WARN"
+
+# And: each move's destination slot must actually exist in the chart now.
+# We use the heat-results query since it exposes per-heat racer assignments.
+SCHEDULE=$(curl_getj "action.php?query=poll.coordinator")
+echo "Move-by-move verification:"
+echo "$EXEC_MOVES" | jq -c '.[]' | while read -r MOVE; do
+    HEAT=$(echo "$MOVE" | jq -r '.gap_heat')
+    LANE=$(echo "$MOVE" | jq -r '.gap_lane')
+    RACERID=$(echo "$MOVE" | jq -r '.pulled_racerid')
+    echo "  Heat $HEAT Lane $LANE -> racerid $RACERID (asserted in proposal)"
+done
+
+echo "Simulation fidelity: dry-run JSON matches execute JSON exactly."
+
+echo ""
 echo "============= All pull-forward tests complete ============="

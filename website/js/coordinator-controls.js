@@ -865,48 +865,12 @@ function handle_racing_mode_activation(json) {
   }
 }
 
-function handleRacerDropout(racerid, roundid) {
-  var choice = confirm(
-    'Remove this racer from the schedule?\n\n' +
-    'Click OK to remove and optionally pull forward a replacement.\n' +
-    'Click Cancel to keep the racer in the schedule.'
-  );
-  if (!choice) return;
-
-  var pullForward = confirm(
-    'Would you like to pull forward a replacement from upcoming heats?\n\n' +
-    'OK = Show pull-forward preview (recommended)\n' +
-    'Cancel = Just remove the racer (leave empty lanes)'
-  );
-
-  if (pullForward) {
-    // Go directly to pull-forward (it handles the removal internally)
-    showPullForwardModal(racerid, roundid);
-  } else {
-    // Standard dropout without pull-forward
-    $.ajax('action.php', {
-      type: 'POST',
-      data: {
-        action: 'racer.dropout',
-        racerid: racerid,
-        roundid: roundid
-      },
-      success: function (data) {
-        if (data.outcome.code == 'success') {
-          location.reload();
-        } else {
-          alert('Failed to remove racer: ' + data.outcome.description);
-        }
-      },
-      error: function () {
-        alert('Server error while processing racer dropout');
-      }
-    });
-  }
-}
-
 // =========================================================
 // Pull-Forward: Fill gaps by pulling racers from later heats
+// (Primary entry point is now pull-forward.php — the modal-based
+//  showPullForwardModal/executePullForward path below is retained for one
+//  release as a console-callable fallback. handleRacerDropout was removed
+//  because it had no UI callers.)
 // =========================================================
 
 var g_pull_forward_roundid = null;
