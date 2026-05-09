@@ -1,6 +1,17 @@
 # -*- mode: gitignore; -*-
 
-# Xcode 6 
+# Secrets / credentials (keep .example templates tracked)
+*.env
+!*.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.*
+secrets.*
+*.netrc
+
+# Xcode 6
 UserInterfaceState.xcuserstate
 xcuserdata/
 IDEWorkspaceChecks.plist
