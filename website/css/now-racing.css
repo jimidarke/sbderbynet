@@ -44,7 +44,9 @@ body {
 /* ---- Main table --------------------------------------------------------- */
 table {
   border-collapse: collapse;
-  table-layout: fixed;
+  /* No table-layout: fixed — let the lane/car/place columns be intrinsic and
+     give the rest of the width to .name. Fixed layout was causing the name
+     to wrap and inflate row heights past the viewport. */
 }
 
 #main-table {
@@ -128,6 +130,17 @@ td.name {
   text-align: left;
   padding-left: 0.4em;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 1px;   /* with overflow:hidden + an explicit table cell, browsers
+                       treat this as "shrink to fit available space" — keeps
+                       long names from forcing the row taller. */
+}
+td.name > div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 td.name .subtitle { font-size: 65%; color: var(--ink-muted); }
 td.name .carname  { font-size: 65%; font-style: italic; color: var(--ink-muted); }
