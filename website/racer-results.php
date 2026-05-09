@@ -43,10 +43,11 @@ if (isset($as_kiosk)) {
 }
 ?>
 <script type="text/javascript" src="js/common-update.js"></script>
+<?php if (isset($as_kiosk)) { ?>
+<script type="text/javascript" src="js/results-by-racer-paginator.js"></script>
+<?php } else { ?>
 <script type="text/javascript" src="js/results-by-racer-update.js"></script>
-<?php if (isset($as_kiosk))
-    echo '<script type="text/javascript" src="js/results-by-racer-scrolling.js"></script>'."\n";
-?>
+<?php } ?>
 <title>Results By Racer <?php
     if (isset($_GET['racerid']) && is_numeric($_GET['racerid'])) {
       echo ' for '.$_GET['racerid'];
@@ -56,16 +57,31 @@ if (isset($as_kiosk)) {
 <link rel="stylesheet" type="text/css" href="css/main-table.css"/>
 <link rel="stylesheet" type="text/css" href="css/racer-results.css"/>
 </head>
-<body>
+<body class="<?php echo isset($as_kiosk) ? 'rr-kiosk' : 'rr-admin'; ?>">
 <?php
 make_banner('Results By Racer', isset($as_kiosk) ? '' : 'index.php');
 
 $nlanes = get_lane_count_from_results();
 
 $now_running = get_running_round();
-if (!$limit_to_roundid) {
+if (!$limit_to_roundid && !isset($as_kiosk)) {
     running_round_header($now_running, /* Use RoundID */ true);
 }
+
+if (isset($as_kiosk)) {
+?>
+<div id="rr-stage" class="rr-stage" data-state="loading">
+  <div class="rr-empty">Waiting for results…</div>
+</div>
+<div id="rr-pageindicator" class="rr-pageindicator" aria-hidden="true"></div>
+<?php require_once('inc/ajax-failure.inc'); ?>
+</body>
+</html>
+<?php
+  return;  // skip the admin server-side table rendering below
+}
+?>
+<?php
 
 $show_racer_photos = read_raceinfo_boolean('show-racer-photos-rr');
 $show_car_photos = read_raceinfo_boolean('show-car-photos-rr');

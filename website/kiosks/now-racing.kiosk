@@ -4,16 +4,14 @@ $use_points = read_raceinfo_boolean('use-points');
 $linger_ms = read_raceinfo('now-racing-linger-ms', 10000);
 require_once('inc/banner.inc');
 ?><!DOCTYPE html>
-<html>
+<html style="--nlanes: <?php echo max(1, (int)$nlanes); ?>;">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 <title>Derby Racing Main Board</title>
-<link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css"/>
 <link rel="stylesheet" type="text/css" href="css/global.css"/>
 <link rel="stylesheet" type="text/css" href="css/kiosks.css"/>
 <link rel="stylesheet" type="text/css" href="css/now-racing.css"/>
 <script type="text/javascript" src="js/jquery.js"></script>
-<script type="text/javascript" src="js/jquery-ui.min.js"></script>
 <?php require('inc/kiosk-poller.inc'); ?>
 <script type="text/javascript" src="js/now-racing-overlay.js"></script>
 <script type="text/javascript" src="js/now-racing-poller.js"></script>
@@ -42,7 +40,7 @@ var g_linger_ms = <?php echo $linger_ms; ?>;
 <body>
 <?php make_banner('Racing', /* back_button */ false); ?>
 <?php if ($nlanes > 0) { ?>
-<!--- UPDATE : Wrap table in race-status-container for changing background when race starts -->
+<div id="race-status-bar" data-state="idle">Ready</div>
 <div id="race-status-container" class="race-status-wrapper">
     <table id="main-table">
     <tr id="table-headers">

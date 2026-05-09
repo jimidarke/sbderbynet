@@ -1,199 +1,213 @@
-.flying {
-    position: fixed;
-    background-color: red;
-    left: -5em;
-    top: -5em;
-    width: 3em;
-    text-align: center;
+/* now-racing main board — modern face-lift.
+   Goals: large, calm, scannable from across the room; runs cheaply on a Pi.
+   Sizing is driven by --nlanes (set inline on <html> by the kiosk template),
+   so we don't need a JS reflow loop. */
 
-    padding: 13px;
-    display: table;
+html, body, table { width: 100%; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
 }
 
-.flying span {
-    display: table-cell;
-    vertical-align: middle;
+/* ---- Race-state bar ----------------------------------------------------- */
+/* Sits between banner and table. data-state attribute drives colour. */
+#race-status-bar {
+  height: 6vh;
+  min-height: 36px;
+  background: var(--state-idle);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(1rem, 2.6vh, 2rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background-color 0.25s ease;
+}
+#race-status-bar[data-state="staging"] { background: var(--state-stage); color: #1a1100; }
+#race-status-bar[data-state="racing"]  { background: var(--state-race); }
+#race-status-bar[data-state="paused"]  { background: var(--state-pause); }
+#race-status-bar[data-state="fault"] {
+  background: var(--state-fault);
+  animation: nr-fault-pulse 1.2s ease-in-out infinite;
+}
+@keyframes nr-fault-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.35); }
 }
 
-html, body, table { width: 100%; height: 100%; margin: 0; padding: 0; }
-
-/* To avoid scrollbars: */
-body { overflow: hidden; }
-
-table { 
+/* ---- Main table --------------------------------------------------------- */
+table {
   border-collapse: collapse;
+  table-layout: fixed;
 }
+
+#main-table {
+  /* Total height available below banner + status bar. */
+  height: calc(100vh - 64px - 6vh);
+}
+
+/* Cell font is computed from available row height. 1.4 ~ comfortable line. */
+table, td {
+  font-size: clamp(
+    1.5rem,
+    calc((100vh - 64px - 6vh - 6vh) / (var(--nlanes, 4) + 0.6) / 1.4),
+    14rem
+  );
+  font-variant-numeric: tabular-nums;
+}
+th {
+  font-size: clamp(0.9rem, 2.2vh, 2rem);
+  height: 6vh;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+th .aside {
+  display: inline;
+  font-size: 0.7em;
+  font-weight: 400;
+  opacity: 0.85;
+  margin-left: 0.25em;
+}
+#speed-div { max-height: 6vh; }
 
 td {
-    border: 14px solid black;
-    text-align: center;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: center;
+  vertical-align: middle;
+  padding: 0;
 }
+tr:last-child td { border-bottom: 0; }
 
-td.photo {
-    border-right-width: 0px;
+/* Subtle alternating rows so a 3-lane board doesn't feel empty. */
+tr[data-lane]:nth-child(odd)  td { background: var(--surface); }
+tr[data-lane]:nth-child(even) td { background: var(--surface-alt); }
+
+/* Lane-colour left stripe (uses data-lane attribute; CSS only, no JS). */
+td.lane {
+  position: relative;
+  font-weight: 700;
+  color: var(--brand);
+}
+td.lane::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 8%;
+  width: 8px; height: 84%;
+  background: var(--brand);
+  border-radius: 4px;
+}
+tr[data-lane="1"] td.lane::before { background: #d62828; }
+tr[data-lane="2"] td.lane::before { background: #1d7874; }
+tr[data-lane="3"] td.lane::before { background: #f3a712; }
+tr[data-lane="4"] td.lane::before { background: #4361ee; }
+tr[data-lane="5"] td.lane::before { background: #6a4c93; }
+tr[data-lane="6"] td.lane::before { background: #2f9e44; }
+
+td.carnumber {
+  font-weight: 700;
+  color: var(--ink);
+}
+td.photo img {
+  display: block;
+  margin: 0 auto;
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
 }
 td.name {
-    border-left-width: 0px;
+  text-align: left;
+  padding-left: 0.4em;
+  font-weight: 500;
 }
+td.name .subtitle { font-size: 65%; color: var(--ink-muted); }
+td.name .carname  { font-size: 65%; font-style: italic; color: var(--ink-muted); }
 
-td p {
-    /* TODO Chrome sets these to 1em for p by default?
-        Mozilla equivalents needed?  Others? */
-    -webkit-margin-before: 0px;
-    -webkit-margin-after: 0px;
-    margin-top: auto;
-    margin-bottom: auto;
+td.time, td.speed {
+  text-align: right;
+  padding-right: 0.6em;
+  font-feature-settings: "tnum" 1;
+  font-weight: 600;
 }
-
-th {
-    font-size: 32px;
-    /* Without fixing this value, WebKit (at least) calculates strangely large
-       initial heights, and then takes a few rounds to come to equilibrium.
-       41px = line height (1.3) for 32px font size.
-       $("#table-headers th").height() reports 48, the difference being
-       half the border width: */
-    height: 41px;
-}
-
-th .aside {
-    font-size: 24px;
-}
-
-#speed-div {
-    overflow-y: hidden;
-    /* Once again, lineheight for tr th, namely, 1.3 x 32px. */
-    max-height: 41px;
-}
-
-table, td {
-    /* This is just a placeholder value; the real font size gets set dynamically.
-       See js/now-racing-adjust-fonts.js */
-    font-size: 85px;
-}
-
-td {
-    vertical-align: middle;
-    /* ondeck.css:10 sets a 13px padding which makes more difference than you'd think. */
-    padding: 0px;
-}
-/* Not floating the img leaves some extra whitespace below the photo,
-   for reasons I don't understand (empty anonymous block box?). */
-td.photo img {
-    float: left;
+td.place {
+  font-weight: 700;
+  color: var(--accent);
 }
 
 td.test-only {
   color: #fffd38;
-  background-color: #888;
-  font-size: 50px;
+  background-color: #444;
+  font-size: clamp(1rem, 4vh, 3rem);
   font-weight: bold;
   text-align: center;
 }
-td.test-only img {
-  max-width: 50%;
+td.test-only img { max-width: 50%; }
+
+/* ---- Flying place numbers (kept) --------------------------------------- */
+.flying {
+  position: fixed;
+  background-color: var(--accent);
+  color: #fff;
+  left: -5em;
+  top: -5em;
+  width: 3em;
+  text-align: center;
+  padding: 13px;
+  display: table;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.flying span {
+  display: table-cell;
+  vertical-align: middle;
 }
 
-@media screen and (max-width: 800px),
-       screen and (max-height: 500px) {
-  td {
-    border: 7px solid black;
-  }
-  th {
-    font-size: 20px;
-    height: 30px;
-  }
-}
-
-@media screen and (max-width: 600px),
-       screen and (max-height: 350px) {
-  td {
-    border: 5px solid black;
-  }
-  th {
-    font-size: 16px;
-    height: 22px;
-  }
-}
-
-@media screen and (max-width: 400px), 
-       screen and (max-height: 250px) {
-  td {
-    border: 2px solid black;
-  }
-  th {
-    font-size: 12px;
-    height: 17px;
-  }
-}
-
-.name .subtitle {
-  font-size: 75%;
-}
-.name .carname {
-  font-size: 75%;
-  font-style: italic;
-}
-
+/* ---- Overlays ---------------------------------------------------------- */
 #overlay_background {
-    position: fixed;
-    z-index:100;
-    top: 0px;
-    left: 0px;
-    height:100%;
-    width:100%;
-    background: #000;
-    display: none;
+  position: fixed;
+  z-index: 100;
+  top: 0; left: 0;
+  height: 100%; width: 100%;
+  background: rgba(0, 0, 0, 0.78);
+  display: none;
 }
-
 .overlay_foreground {
   display: none;
-  width: 512px;
-  padding: 15px 20px;
-  background-color: transparent;
-/*  -webkit-border-radius: 6px;
-  -moz-border-radius: 6px;
-  border-radius: 6px;
-  -webkit-box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
-  -moz-box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5); */
+  width: 60vw;
+  max-width: 720px;
+  padding: 24px 32px;
+  text-align: center;
 }
+.overlay_foreground img { max-width: 60%; height: auto; }
 
 #timer_overlay {
-  color: #a7101c;
-  font-size: 50px;
+  color: var(--state-fault);
   font-weight: bold;
-  text-align: center;
 }
 #timer_overlay p {
   background: white;
-  opacity: 0.75;
-}
-
-#reschedule_overlay img {
-/*  background: white;
-  opacity: 0.75; */
+  border-radius: 8px;
+  padding: 0.4em 0.8em;
+  margin-top: 0.6em;
+  font-size: clamp(2rem, 6vh, 5rem);
 }
 #reschedule_overlay p {
-  color: #cf1f25;
-  font-size: xxx-large;
-  text-align: center;
+  color: var(--state-fault);
+  font-size: clamp(2rem, 6vh, 5rem);
   font-weight: bold;
   background: white;
-  opacity: 0.75;
-}
-
-.race-status-wrapper {
-  transition: background-color 0.3s ease;
-}
-
-.race-started {
-  background-color: #e8f5e9; /* Light green color for racing */
-}
-
-.race-staging {
-  background-color: #fff3e0; /* Light yellow/orange color for staging */
+  border-radius: 8px;
+  padding: 0.4em 0.8em;
 }
 
 .banner_version { display: none; }
-
-.aside { display: none; }
+.aside { display: none; }   /* legacy hide; #speed-div opts back in via th .aside */

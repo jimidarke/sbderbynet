@@ -1,5 +1,9 @@
 .group_spacer {
-   height: 30px;
+   height: 16px;
+}
+
+td .time, td.chart .time, span.time {
+  font-variant-numeric: tabular-nums;
 }
 
 .pre_group_title {
@@ -13,9 +17,8 @@
 
 .curgroup .group_title,
 .curgroup .pre_group_title {
-	/* Cub Scout blue & gold, respectively. */
-  border: 5px solid #023882;
-  background-color: #F7D117;
+  border: 5px solid var(--brand, #023882);
+  background-color: var(--accent, #F7D117);
 }
 
 tr {
@@ -26,7 +29,7 @@ tr {
 }
 .curgroup .d0 th,
 .curgroup .d1 th {
-  background-color: #023882;
+  background-color: var(--brand, #023882);
   color: #ffffff;
   width: 4vh;
 }

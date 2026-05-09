@@ -1,132 +1,268 @@
-.group_spacer {
-   height: 30px;
+/* results-by-racer kiosk — paginated card layout.
+   The legacy server-rendered table styles below the kiosk block are kept
+   intact so the admin (non-kiosk) view continues to render identically. */
+
+/* ===== Kiosk view ======================================================== */
+
+body.rr-kiosk {
+  background: var(--surface-alt, #f4f6fa);
+  color: var(--ink, #0f1c2e);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  overflow: hidden;
 }
 
-.pre_group_title {
-	align: center;
+.rr-stage {
+  position: relative;
+  padding: 1.6vh 2vw;
+  height: calc(100vh - 64px);   /* below banner */
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.rr-stage .rr-empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint, #99a1ad);
+  font-size: 4vh;
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
-td {
-  padding: 2px 14px;
+.rr-page {
+  position: absolute;
+  inset: 1.6vh 2vw;
+  display: grid;
+  grid-auto-rows: 1fr;
+  gap: 1.4vh;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.rr-page.is-current {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-td span.time {
-  font-size: 32px;
+/* ----- Card -------------------------------------------------------------- */
+.rr-card {
+  display: grid;
+  grid-template-columns: minmax(22ch, 1.2fr) minmax(18ch, 1fr) minmax(28ch, 1.4fr);
+  align-items: center;
+  background: var(--surface, #fff);
+  border-radius: 10px;
+  border: 1px solid var(--rule, rgba(0,0,0,0.12));
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+  overflow: hidden;
+  min-height: 0;
+}
+.rr-card.is-changed {
+  outline: 3px solid var(--accent, #d49b00);
+  outline-offset: -3px;
 }
 
-.scroll-bounding-rect {
-      overflow: hidden;
+/* Identity column ---------------------------------------------------------- */
+.rr-card .rr-identity {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0 1.2vw;
+  padding: 1vh 1.4vw;
+  height: 100%;
+  border-left: 8px solid var(--brand, #023882);
+  background: var(--brand-soft, #e6ecf6);
+}
+.rr-card .rr-photo {
+  grid-row: span 2;
+  width: clamp(56px, 9vh, 110px);
+  height: clamp(56px, 9vh, 110px);
+  border-radius: 50%;
+  background: #fff center/cover no-repeat;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--rule);
+  flex-shrink: 0;
+}
+.rr-card .rr-photo.no-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand, #023882);
+  font-weight: 700;
+  font-size: clamp(1.4rem, 3.2vh, 3rem);
+  background: #fff;
+}
+.rr-card .rr-car {
+  font-size: clamp(2.2rem, 5.5vh, 5.5rem);
+  font-weight: 800;
+  color: var(--brand, #023882);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.rr-card .rr-name {
+  font-size: clamp(1rem, 2.6vh, 2.4rem);
+  font-weight: 500;
+  color: var(--ink, #0f1c2e);
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.curgroup {
-  table-layout: fixed;
+/* Stats column ------------------------------------------------------------ */
+.rr-card .rr-stats {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4vh;
+  padding: 1vh 1.4vw;
+  border-right: 1px solid var(--rule);
+  height: 100%;
+  box-sizing: border-box;
 }
-.group_title {  }
+.rr-card .rr-best {
+  font-size: clamp(2rem, 6vh, 6rem);
+  font-weight: 800;
+  color: var(--accent, #d49b00);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.rr-card .rr-best-label,
+.rr-card .rr-avg-label {
+  font-size: clamp(0.7rem, 1.5vh, 1rem);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted, #5a6675);
+  font-weight: 600;
+}
+.rr-card .rr-avg {
+  font-size: clamp(1rem, 2.4vh, 2rem);
+  font-weight: 600;
+  color: var(--ink, #0f1c2e);
+  font-variant-numeric: tabular-nums;
+}
+.rr-card .rr-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: clamp(0.8rem, 1.8vh, 1.2rem);
+  color: var(--ink-muted, #5a6675);
+}
+.rr-card .rr-progress .rr-dot {
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  background: var(--rule-strong, rgba(0,0,0,0.28));
+  display: inline-block;
+}
+.rr-card .rr-progress .rr-dot.is-done {
+  background: var(--state-race, #2f9e44);
+}
 
-.curgroup .group_title,
-.curgroup .pre_group_title {
-	/* Cub Scout blue & gold, respectively. */
-  border: 5px solid #023882;
+/* Runs column ------------------------------------------------------------- */
+.rr-card .rr-runs {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 1vh 1.4vw;
+  height: 100%;
+  box-sizing: border-box;
+}
+.rr-card .rr-run {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 0 0.8em;
+  padding: 0.25vh 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: clamp(1.1rem, 2.6vh, 2.4rem);
+}
+.rr-card .rr-run:last-child { border-bottom: 0; }
+.rr-card .rr-run .rr-run-label {
+  color: var(--ink-muted, #5a6675);
+  font-weight: 500;
+  font-size: 0.65em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.rr-card .rr-run .rr-run-time {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink, #0f1c2e);
+}
+.rr-card .rr-run.is-best .rr-run-time { color: var(--accent, #d49b00); }
+.rr-card .rr-run.is-pending .rr-run-time { color: var(--ink-faint, #99a1ad); font-weight: 500; }
+
+/* Page indicator ---------------------------------------------------------- */
+.rr-pageindicator {
+  position: fixed;
+  right: 2vw;
+  bottom: 1.6vh;
+  background: rgba(15,28,46,0.78);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.5vh 1.2vw;
+  font-size: clamp(0.8rem, 1.8vh, 1.1rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  display: none;
+}
+.rr-pageindicator.is-visible { display: block; }
+
+/* ===== Admin (non-kiosk) view — preserved legacy styles ================== */
+
+body.rr-admin .group_spacer { height: 30px; }
+body.rr-admin .pre_group_title { align: center; }
+body.rr-admin td { padding: 2px 14px; }
+body.rr-admin td span.time { font-size: 32px; font-variant-numeric: tabular-nums; }
+body.rr-admin .scroll-bounding-rect { overflow: hidden; }
+body.rr-admin .curgroup { table-layout: fixed; }
+body.rr-admin .curgroup .group_title,
+body.rr-admin .curgroup .pre_group_title {
+  border: 5px solid var(--brand, #023882);
   background-color: #F7D117;
 }
-
-tr {
-  border: 0px solid black;
-}
-.curheat {
-  border: 10px solid black;
-}
-.curgroup .d0 th,
-.curgroup .d1 th {
-  background-color: #023882;
+body.rr-admin tr { border: 0px solid black; }
+body.rr-admin .curheat { border: 10px solid black; }
+body.rr-admin .curgroup .d0 th,
+body.rr-admin .curgroup .d1 th {
+  background-color: var(--brand, #023882);
   color: #ffffff;
 }
-
-td.in_prev {
+body.rr-admin td.in_prev {
   background-size: contain;
   background-repeat: no-repeat;
   background-position-x: 50%;
 }
-.d1 td.in_prev {
-  background-image: url(../img/chevron-up-tan.svg);
+body.rr-admin .d1 td.in_prev { background-image: url(../img/chevron-up-tan.svg); }
+body.rr-admin .d0 td.in_prev { background-image: url(../img/chevron-up-white.svg); }
+body.rr-admin td .racer { font-size: small; }
+body.rr-admin img.racer-photo { float: left; height: 68px; width: auto; }
+body.rr-admin tbody tr:first-child th { padding-top: 10px; }
+body.rr-admin th.nrows1, body.rr-admin th.nrows2,
+body.rr-admin th.nrows3, body.rr-admin th.nrows4 { vertical-align: top; }
+body.rr-admin .racer_label { float: right; }
+body.rr-admin th.nrows1 .racer_label { margin-top: 19px; }
+body.rr-admin th.nrows2 .racer_label { margin-top: 52px; }
+body.rr-admin th.nrows2 img { margin-top: 34px; }
+body.rr-admin th.nrows3 .racer_label { margin-top: 86px; }
+body.rr-admin th.nrows3 img { margin-top: 68px; }
+body.rr-admin th.nrows4 .racer_label { margin-top: 120px; }
+body.rr-admin th.nrows4 img { margin-top: 102px; }
+body.rr-admin .racer_link { color: inherit; text-decoration: none; }
+body.rr-admin .ondeck_photo { display: none; }
+body.rr-admin .curheat.populated .ondeck_photo,
+body.rr-admin .nextheat.populated .ondeck_photo,
+body.rr-admin .exposed.populated .ondeck_photo {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  height: 100px;
 }
-.d0 td.in_prev {
-  background-image: url(../img/chevron-up-white.svg);
-}
-
-td .racer {
-  font-size: small;
-}
-
-img.racer-photo {
-  float: left;
-  height: 68px;
-  width: auto;
-}
-
-tbody tr:first-child th {
-  padding-top: 10px;
-}
-
-th.nrows1, th.nrows2, th.nrows3, th.nrows4 {
-    vertical-align: top;
-}
-.racer_label {
-    float: right;
-}
-th.nrows1 .racer_label {
-    margin-top: 19px;
-}
-th.nrows2 .racer_label {
-    margin-top: 52px;
-}
-th.nrows2 img {
-    margin-top: 34px;
-}
-
-th.nrows3 .racer_label {
-    margin-top: 86px;
-}
-th.nrows3 img {
-    margin-top: 68px;
-}
-
-th.nrows4 .racer_label {
-    margin-top: 120px;
-}
-th.nrows4 img {
-    margin-top: 102px;
-}
-
-/* Suppress the underline and coloring for these links. */
-.racer_link {
-   color: inherit;
-   text-decoration: none;
-}
-
-.ondeck_photo {
-    display: none;
-}
-
-.curheat.populated .ondeck_photo,
-.nextheat.populated .ondeck_photo,
-.exposed.populated .ondeck_photo {
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    height: 100px;
-}
-
-.heat_row {
-  cursor: pointer;
-}
-
-#photo_view_modal {
-  width: 650px;
-  text-align: center;
-}
-
-#photo_view_modal img {
-  max-width: 600px;
-  max-height: 600px;
-}
+body.rr-admin .heat_row { cursor: pointer; }
+body.rr-admin #photo_view_modal { width: 650px; text-align: center; }
+body.rr-admin #photo_view_modal img { max-width: 600px; max-height: 600px; }

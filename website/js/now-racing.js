@@ -342,13 +342,10 @@ function process_polling_result(data) {
       Lineup.process_new_lineup(data, g_row_height);
     }
 
-    // Pass both current-heat and timer-state
-    updateRaceStatusDisplay({
-      "current-heat": data["current-heat"],
-      "timer-state": data["timer-state"]
-    }); 
+    updateRaceStatusDisplay(data);
 
   } else {
+    updateRaceStatusDisplay(data);
     Lineup.process_new_lineup(data, g_row_height);
   }
 }
@@ -382,22 +379,37 @@ $(function () {
 });
 
 
-// UPDATE: 09-04-2025 | Changing Background color When Race starts.
+// Drive the #race-status-bar via a data-state attribute. The CSS in
+// now-racing.css picks up the colour and label changes.
 function updateRaceStatusDisplay(data) {
-  var container = $("#race-status-container");
-  
-  if (data["current-heat"]) {
-    // Remove all status classes first
-    // container.removeClass("race-started race-staging");
-    
-    if (data["timer-state"] && data["timer-state"].message.startsWith("Race")) {
-      // Add racing class when race is in progress
-      container.removeClass("race-staging");
-      container.addClass("race-started");
-    } else if (data["timer-state"] && data["timer-state"].message.startsWith("Staging")) {
-      // Add staging class when in staging state
-      container.removeClass("race-started");
-      container.addClass("race-staging");
-    }
+  var bar = document.getElementById("race-status-bar");
+  if (!bar) return;
+
+  var state = "idle";
+  var label = "Ready";
+  var ts = data && data["timer-state"];
+  var msg = ts && ts.message ? String(ts.message) : "";
+
+  if (data && data["timer-trouble"]) {
+    state = "fault";
+    label = "Check Timer";
+  } else if (data && data["current-heat"] && data["current-heat"]["now_racing"] === false) {
+    state = "paused";
+    label = "Paused";
+  } else if (msg.indexOf("Race") === 0) {
+    state = "racing";
+    label = "Racing";
+  } else if (msg.indexOf("Staging") === 0) {
+    state = "staging";
+    label = "Staging";
+  } else if (msg) {
+    label = msg;
+  }
+
+  if (bar.getAttribute("data-state") !== state) {
+    bar.setAttribute("data-state", state);
+  }
+  if (bar.textContent !== label) {
+    bar.textContent = label;
   }
 }

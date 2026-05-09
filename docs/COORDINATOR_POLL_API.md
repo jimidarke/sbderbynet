@@ -525,9 +525,47 @@ Roles are configured in `local/config-roles.inc` on the server. Common roles inc
 |----------|---------|
 | `query=poll.coordinator` | Full coordinator status (this document) |
 | `query=poll.now-racing` | Simplified status for now-racing displays |
+| `query=poll.results` | Per-result outcomes + per-racer summaries (results-by-racer kiosk) |
 | `action=role.login` | Authenticate and establish session |
 | `action=result.write` | Submit race results (requires auth) |
 | `action=heat.select` | Change current heat (requires auth) |
+
+### `query=poll.results` — racer summaries
+
+The results-by-racer kiosk paginator (`js/results-by-racer-paginator.js`)
+consumes a `racer_summaries` block on this endpoint. Computed server-side
+in `ajax/query.poll.results.inc` from the current running round; emitted
+in addition to the existing `results[]` patch list.
+
+```json
+{
+  "racer_summaries": {
+    "roundid": 12,
+    "time_format": "%.3f",
+    "racers": [
+      {
+        "racerid": 47,
+        "carnumber": "42",
+        "name": "Alex Kowalski",
+        "photo": "/derbynet/photo.php?...",
+        "roundid": 12,
+        "runs_total": 3,
+        "runs_done": 2,
+        "best_ms": 4221,
+        "avg_ms": 4327,
+        "runs": [
+          { "lane": 1, "heat": 3, "time_ms": 4314, "place": 1, "finished": true },
+          { "lane": 2, "heat": 7, "time_ms": 4221, "place": 1, "finished": true },
+          { "lane": 3, "heat": 11, "time_ms": null, "place": null, "finished": false }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Times are integer milliseconds; the kiosk formats them via `time_format`.
+Sort order is left to the client (the paginator sorts by `carnumber`).
 
 ## Notes
 

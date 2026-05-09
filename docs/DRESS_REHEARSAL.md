@@ -62,7 +62,10 @@ gates, and backup behavior.
      moves table, any trailing byes, fairness warnings, side-effect note.
    - Tap **Apply + Announce**. Verify you land back on the coordinator page
      and the **Undo Pull Forward** button briefly pulses.
-   - Verify the staging announcement appears on `/derbynet/kiosk.php?name=now-racing`.
+   - Verify the staging announcement appears on `/derbynet/kiosk.php?name=now-racing`:
+     the `#race-status-bar` should turn amber and read **STAGING**, then green
+     **RACING** while the heat runs, and red pulsing **CHECK TIMER** if the
+     timer drops out. (Replaces the older full-page background tint.)
    - Verify the schedule shown on the coordinator page matches the
      simulated moves byte-for-byte.
 7. **Run the full suite for the round** (auto-mode on all finish timers).
