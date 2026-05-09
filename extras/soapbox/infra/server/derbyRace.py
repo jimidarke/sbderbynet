@@ -33,7 +33,7 @@ Version History:
 
 import logging
 from serverlogger import ServerLogger
-from derbyapi import DerbyNetClient
+from derbyapi import DerbyNetClient, LoginError
 from datetime import datetime, timedelta
 import os
 import subprocess
@@ -1169,12 +1169,17 @@ class RaceServer:
 
     def tick(self):
         """Per-second update across every active tenant. Errors in one
-        tenant's update never affect the others."""
+        tenant's update never affect the others. LoginError specifically is
+        downgraded to a warning — a tenant whose API is currently unreachable
+        should not crash the dispatcher; it gets retried next tick."""
         with self._contexts_lock:
             ctxs = list(self.contexts.values())
         for ctx in ctxs:
             try:
                 ctx.updateFromDerbyAPI()
+            except LoginError as e:
+                logger.warning(f"Tenant {ctx.slug!r} API login failed: {e} "
+                               f"(will retry next tick)")
             except Exception as e:
                 logger.error(f"Error updating tenant {ctx.slug!r}: {e}")
 
@@ -1202,6 +1207,12 @@ def _run_single_tenant():
             #     derby.checkRaceTimeout()
         except KeyboardInterrupt:
             derby.close()
+        except LoginError as e:
+            # On Pi, the API and race-server are co-located; a sustained
+            # login failure usually means PHP/DB is down. Log and keep ticking
+            # — we'd rather race-server stay up and recover than crash the
+            # service every time the web app restarts.
+            logger.warning(f"DerbyNet API login failed: {e} (will retry next tick)")
         except Exception as e:
             logger.error(f"Error in DerbyRace: {e}")
             derby.close()
@@ -1219,6 +1230,10 @@ def _run_multi_tenant():
         except KeyboardInterrupt:
             server.close()
             return
+        except LoginError as e:
+            # Should already be caught inside tick(), but defence-in-depth:
+            # the dispatcher must NEVER die from one tenant's auth issue.
+            logger.warning(f"LoginError reached _run_multi_tenant: {e}")
         except Exception as e:
             logger.error(f"Error in RaceServer tick: {e}")
         time.sleep(1)
