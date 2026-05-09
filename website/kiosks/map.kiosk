@@ -13,7 +13,7 @@ max-width: 100%;
 }
 </style>
 </head>
-<body>
+<body class="kiosk">
 <!--<p class="kiosk_title">SoapBox Derby Map</p>-->
 <div class="full_page_center">
 <img src="image.php/map"/>

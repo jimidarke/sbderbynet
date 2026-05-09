@@ -37,8 +37,19 @@
     return (ms / 1000).toFixed(dp);
   }
 
+  // Read --banner-h (set in css/kiosks.css) so we don't hardcode the banner.
+  function bannerHeight() {
+    var v = getComputedStyle(document.documentElement)
+              .getPropertyValue('--banner-h').trim();
+    if (v.slice(-2) === 'px') {
+      var n = parseInt(v, 10);
+      if (!isNaN(n) && n > 0) return n;
+    }
+    return 64;
+  }
+
   function cardsPerPage() {
-    var available = window.innerHeight - 64 /* banner */ - 40 /* padding+indicator */;
+    var available = window.innerHeight - bannerHeight() - 40 /* padding+indicator */;
     var cardPx    = (CARD_HEIGHT_VH / 100) * window.innerHeight;
     var n = Math.floor(available / cardPx);
     if (n < MIN_CARDS) n = MIN_CARDS;

@@ -14,7 +14,7 @@ max-height: 80vh;
 }
 </style>
 </head>
-<body>
+<body class="kiosk">
 <div class="full_page_center">
 <img src="image.php/emblem"/>
 </div>

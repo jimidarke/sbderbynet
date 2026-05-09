@@ -216,7 +216,8 @@
 }
 
 .standings-container {
-    height: calc(100vh - 120px);
+    /* 120px = 64px banner + ~56px tournament-header (margin/padding/content). */
+    height: calc(100vh - var(--banner-h, 64px) - 56px);
 }
 
 /* Responsive adjustments */

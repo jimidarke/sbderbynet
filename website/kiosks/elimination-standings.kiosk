@@ -225,7 +225,7 @@ $(document).ready(function() {
 });
 </script>
 </head>
-<body>
+<body class="kiosk">
 <?php make_banner('Elimination Tournament Standings', /* back_button */ false); ?>
 
 <div class="tournament-header">

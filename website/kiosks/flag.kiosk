@@ -34,7 +34,7 @@ html {
 }
 </style>
 </head>
-<body>
+<body class="kiosk">
 <?php
 require_once('inc/banner.inc');
 make_banner('', /* back_button */ false);

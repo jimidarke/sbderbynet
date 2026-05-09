@@ -57,7 +57,7 @@ if (isset($as_kiosk)) {
 <link rel="stylesheet" type="text/css" href="css/main-table.css"/>
 <link rel="stylesheet" type="text/css" href="css/racer-results.css"/>
 </head>
-<body class="<?php echo isset($as_kiosk) ? 'rr-kiosk' : 'rr-admin'; ?>">
+<body class="<?php echo isset($as_kiosk) ? 'kiosk rr-kiosk' : 'rr-admin'; ?>">
 <?php
 make_banner('Results By Racer', isset($as_kiosk) ? '' : 'index.php');
 

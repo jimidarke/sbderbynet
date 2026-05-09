@@ -49,7 +49,7 @@ require_once('inc/schema_version.inc');
   <link rel="stylesheet" type="text/css" href="css/lane-colors.css" />
 </head>
 
-<body>
+<body class="<?php echo isset($as_kiosk) ? 'kiosk' : ''; ?>">
   <?php make_banner('Racers On Deck', isset($as_kiosk) ? '' : 'index.php'); ?>
 
   <div class="schedule-wrapper">

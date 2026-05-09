@@ -37,7 +37,7 @@ $(function () {
 var g_linger_ms = <?php echo $linger_ms; ?>;
 </script>
 </head>
-<body>
+<body class="kiosk">
 <?php make_banner('Racing', /* back_button */ false); ?>
 <?php if ($nlanes > 0) { ?>
 <div id="race-status-bar" data-state="idle">Ready</div>

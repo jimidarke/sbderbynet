@@ -24,7 +24,7 @@ body { overflow: hidden; }
 <script type="text/javascript" src="js/standings.js"></script>
 <script type="text/javascript" src="js/standings-kiosk.js"></script>
 </head>
-<body>
+<body class="kiosk">
 <?php make_banner('Standings', /* back_button */ false); ?>
 <table class="main_table">
 <?php

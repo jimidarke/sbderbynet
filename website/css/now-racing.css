@@ -1,22 +1,14 @@
-/* now-racing main board — modern face-lift.
-   Goals: large, calm, scannable from across the room; runs cheaply on a Pi.
-   Sizing is driven by --nlanes (set inline on <html> by the kiosk template),
-   so we don't need a JS reflow loop. */
+/* now-racing main board — layout-only.
+   Body shell, font stack, status-bar primitives, and the .kiosk-table
+   guardrails live in css/kiosks.css. This file only adds the now-racing
+   table layout, lane stripes, photo cells, flying-place animation, and
+   timer/reschedule overlays. */
 
-html, body, table { width: 100%; margin: 0; padding: 0; }
-html, body { height: 100%; }
-body {
-  overflow: hidden;
-  background: var(--surface);
-  color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-               "Helvetica Neue", Arial, sans-serif;
-}
-
-/* ---- Race-state bar ----------------------------------------------------- */
-/* Sits between banner and table. data-state attribute drives colour. */
+/* ---- Race-state bar ---------------------------------------------------- */
+/* The kiosk template still emits #race-status-bar; alias it onto the
+   shared .kiosk-statusbar styling. */
 #race-status-bar {
-  height: 6vh;
+  height: var(--status-bar-h);
   min-height: 36px;
   background: var(--state-idle);
   color: #fff;
@@ -34,36 +26,30 @@ body {
 #race-status-bar[data-state="paused"]  { background: var(--state-pause); }
 #race-status-bar[data-state="fault"] {
   background: var(--state-fault);
-  animation: nr-fault-pulse 1.2s ease-in-out infinite;
-}
-@keyframes nr-fault-pulse {
-  0%, 100% { filter: brightness(1); }
-  50%      { filter: brightness(1.35); }
+  animation: kiosk-fault-pulse 1.2s ease-in-out infinite;
 }
 
-/* ---- Main table --------------------------------------------------------- */
-table {
-  border-collapse: collapse;
-  /* No table-layout: fixed — let the lane/car/place columns be intrinsic and
-     give the rest of the width to .name. Fixed layout was causing the name
-     to wrap and inflate row heights past the viewport. */
-}
+/* ---- Main table ------------------------------------------------------- */
+table { border-collapse: collapse; }
+html, body, table { margin: 0; padding: 0; }
 
 #main-table {
-  /* Total height available below banner + status bar. */
-  height: calc(100vh - 64px - 6vh);
+  width: 100%;
+  height: calc(100vh - var(--banner-h) - var(--status-bar-h));
 }
 
-/* Cell font is computed from available row height. 1.4 ~ comfortable line. */
-table, td {
+/* Cell font is computed from available row height; --nlanes is set inline
+   on <html> by the kiosk template. 1.4 = comfortable line-height. */
+#main-table, #main-table td {
   font-size: clamp(
     1.5rem,
-    calc((100vh - 64px - 6vh - 6vh) / (var(--nlanes, 4) + 0.6) / 1.4),
+    calc((100vh - var(--banner-h) - var(--status-bar-h) - 6vh)
+         / (var(--nlanes, 4) + 0.6) / 1.4),
     14rem
   );
   font-variant-numeric: tabular-nums;
 }
-th {
+#main-table th {
   font-size: clamp(0.9rem, 2.2vh, 2rem);
   height: 6vh;
   background: var(--brand);
@@ -72,7 +58,7 @@ th {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-th .aside {
+#main-table th .aside {
   display: inline;
   font-size: 0.7em;
   font-weight: 400;
@@ -81,26 +67,26 @@ th .aside {
 }
 #speed-div { max-height: 6vh; }
 
-td {
+#main-table td {
   border: 0;
   border-bottom: 1px solid var(--rule);
   text-align: center;
   vertical-align: middle;
   padding: 0;
 }
-tr:last-child td { border-bottom: 0; }
+#main-table tr:last-child td { border-bottom: 0; }
 
-/* Subtle alternating rows so a 3-lane board doesn't feel empty. */
-tr[data-lane]:nth-child(odd)  td { background: var(--surface); }
-tr[data-lane]:nth-child(even) td { background: var(--surface-alt); }
+/* Alternating rows so a 3-lane board doesn't feel empty. */
+#main-table tr[data-lane]:nth-child(odd)  td { background: var(--surface); }
+#main-table tr[data-lane]:nth-child(even) td { background: var(--surface-alt); }
 
-/* Lane-colour left stripe (uses data-lane attribute; CSS only, no JS). */
-td.lane {
+/* Lane-colour left stripe (CSS only, no JS). */
+#main-table td.lane {
   position: relative;
   font-weight: 700;
   color: var(--brand);
 }
-td.lane::before {
+#main-table td.lane::before {
   content: "";
   position: absolute;
   left: 0; top: 8%;
@@ -108,64 +94,67 @@ td.lane::before {
   background: var(--brand);
   border-radius: 4px;
 }
-tr[data-lane="1"] td.lane::before { background: #d62828; }
-tr[data-lane="2"] td.lane::before { background: #1d7874; }
-tr[data-lane="3"] td.lane::before { background: #f3a712; }
-tr[data-lane="4"] td.lane::before { background: #4361ee; }
-tr[data-lane="5"] td.lane::before { background: #6a4c93; }
-tr[data-lane="6"] td.lane::before { background: #2f9e44; }
+#main-table tr[data-lane="1"] td.lane::before { background: #d62828; }
+#main-table tr[data-lane="2"] td.lane::before { background: #1d7874; }
+#main-table tr[data-lane="3"] td.lane::before { background: #f3a712; }
+#main-table tr[data-lane="4"] td.lane::before { background: #4361ee; }
+#main-table tr[data-lane="5"] td.lane::before { background: #6a4c93; }
+#main-table tr[data-lane="6"] td.lane::before { background: #2f9e44; }
 
-td.carnumber {
+#main-table td.carnumber {
   font-weight: 700;
   color: var(--ink);
 }
-td.photo img {
+#main-table td.photo img {
   display: block;
   margin: 0 auto;
   max-height: 100%;
   max-width: 100%;
   object-fit: contain;
 }
-td.name {
+
+/* Identity guardrail — long racer names truncate, never wrap.
+   max-width:1px is the standard hack for ellipsis inside an auto-layout
+   table cell. */
+#main-table td.name {
   text-align: left;
   padding-left: 0.4em;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 1px;   /* with overflow:hidden + an explicit table cell, browsers
-                       treat this as "shrink to fit available space" — keeps
-                       long names from forcing the row taller. */
+  max-width: 1px;
 }
-td.name > div {
+#main-table td.name > div {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-td.name .subtitle { font-size: 65%; color: var(--ink-muted); }
-td.name .carname  { font-size: 65%; font-style: italic; color: var(--ink-muted); }
+#main-table td.name .subtitle { font-size: 65%; color: var(--ink-muted); }
+#main-table td.name .carname  { font-size: 65%; font-style: italic; color: var(--ink-muted); }
 
-td.time, td.speed {
+#main-table td.time,
+#main-table td.speed {
   text-align: right;
   padding-right: 0.6em;
   font-feature-settings: "tnum" 1;
   font-weight: 600;
 }
-td.place {
+#main-table td.place {
   font-weight: 700;
   color: var(--accent);
 }
 
-td.test-only {
+#main-table td.test-only {
   color: #fffd38;
   background-color: #444;
   font-size: clamp(1rem, 4vh, 3rem);
   font-weight: bold;
   text-align: center;
 }
-td.test-only img { max-width: 50%; }
+#main-table td.test-only img { max-width: 50%; }
 
-/* ---- Flying place numbers (kept) --------------------------------------- */
+/* ---- Flying place numbers --------------------------------------------- */
 .flying {
   position: fixed;
   background-color: var(--accent);
@@ -184,7 +173,7 @@ td.test-only img { max-width: 50%; }
   vertical-align: middle;
 }
 
-/* ---- Overlays ---------------------------------------------------------- */
+/* ---- Overlays --------------------------------------------------------- */
 #overlay_background {
   position: fixed;
   z-index: 100;
@@ -221,6 +210,3 @@ td.test-only img { max-width: 50%; }
   border-radius: 8px;
   padding: 0.4em 0.8em;
 }
-
-.banner_version { display: none; }
-.aside { display: none; }   /* legacy hide; #speed-div opts back in via th .aside */

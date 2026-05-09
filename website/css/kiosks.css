@@ -1,5 +1,23 @@
-/* Shared kiosk design tokens. Loaded by every kiosk via css/kiosks.css. */
+/* =========================================================================
+   kiosks.css — central kiosk stylesheet.
+   Loaded by every page under website/kiosks/*.kiosk plus the $as_kiosk
+   branch of ondeck.php and racer-results.php. Per-kiosk CSS files (now-
+   racing.css, racer-results.css, ondeck.css, etc.) layer on top of this
+   base — they should not redefine body, font-stack, banner math, or
+   table-layout primitives.
+
+   Hard rules this file enforces for every kiosk:
+     - body.kiosk fills exactly one viewport (no scrollbars).
+     - banner height has one source of truth: --banner-h.
+     - .kiosk-table cells with .identity never wrap (so a long racer name
+       can never inflate row height past the viewport).
+   ========================================================================= */
+
+/* ---- Design tokens ----------------------------------------------------- */
 :root {
+  --banner-h:    64px;        /* matches global.css .banner { height: 64px; } */
+  --status-bar-h: 6vh;        /* used by kiosks that show the race-state bar */
+
   --rule:        rgba(0, 0, 0, 0.12);
   --rule-strong: rgba(0, 0, 0, 0.28);
   --ink:         #0f1c2e;
@@ -17,18 +35,162 @@
   --state-fault:  #c92a2a;
 }
 
+/* ---- Body shell -------------------------------------------------------- */
+/* Applied to <body class="kiosk"> on every kiosk template. Per-kiosk CSS
+   should NOT redeclare these. */
+body.kiosk {
+  margin: 0;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+body.kiosk .banner_version,
+body.kiosk .aside { display: none; }
+
+/* ---- Stage container --------------------------------------------------- */
+/* The area between banner and viewport bottom. Used by table/grid kiosks. */
+.kiosk-stage {
+  height: calc(100vh - var(--banner-h));
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 1.6vh 2vw;
+}
+.kiosk-stage--with-statusbar {
+  height: calc(100vh - var(--banner-h) - var(--status-bar-h));
+}
+
+/* ---- Status bar -------------------------------------------------------- */
+/* Sits between banner and stage. Drive colour with data-state attribute. */
+.kiosk-statusbar {
+  height: var(--status-bar-h);
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--state-idle);
+  color: #fff;
+  font-size: clamp(1rem, 2.6vh, 2rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background-color 0.25s ease;
+}
+.kiosk-statusbar[data-state="staging"] { background: var(--state-stage); color: #1a1100; }
+.kiosk-statusbar[data-state="racing"]  { background: var(--state-race); }
+.kiosk-statusbar[data-state="paused"]  { background: var(--state-pause); }
+.kiosk-statusbar[data-state="fault"] {
+  background: var(--state-fault);
+  animation: kiosk-fault-pulse 1.2s ease-in-out infinite;
+}
+@keyframes kiosk-fault-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.35); }
+}
+
+/* ---- Table base -------------------------------------------------------- */
+/* Any kiosk that wants a results / schedule table should use:
+     <table class="kiosk-table">
+       <th> ... </th>
+       <td class="identity"> ... </td>   ← never wraps
+       <td class="numeric"> ... </td>    ← right-aligned, tabular nums
+   table-layout is intentionally NOT fixed (auto layout lets the identity
+   column expand into available space; numeric and ordinal columns shrink
+   to content). */
+.kiosk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.kiosk-table th {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: clamp(0.9rem, 2.2vh, 2rem);
+  padding: 0.4em 0.6em;
+}
+.kiosk-table td {
+  padding: 0.3em 0.6em;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+.kiosk-table tr:last-child td { border-bottom: 0; }
+.kiosk-table tr:nth-child(odd)  td { background: var(--surface); }
+.kiosk-table tr:nth-child(even) td { background: var(--surface-alt); }
+
+/* Identity guardrail — long names truncate, never wrap.
+   max-width: 1px is the standard hack to make ellipsis work inside an
+   auto-sized table cell: the cell still grows to fit its row's available
+   width (siblings shrink to content), but the contents respect overflow. */
+.kiosk-table td.identity,
+.kiosk-cell-identity {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 1px;
+}
+.kiosk-table td.numeric,
+.kiosk-cell-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
+
+/* ---- Card base --------------------------------------------------------- */
+/* Per-racer / per-row card surface. Layout (grid columns, etc.) belongs to
+   the per-kiosk CSS file; this gives a consistent border / shadow / radius. */
+.kiosk-card {
+  background: var(--surface);
+  border-radius: 10px;
+  border: 1px solid var(--rule);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  min-height: 0;
+}
+.kiosk-card.is-changed {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+/* ---- Typography helpers ------------------------------------------------ */
+.kiosk-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
+.kiosk-eyebrow {
+  font-size: clamp(0.7rem, 1.5vh, 1rem);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+/* =========================================================================
+   Legacy classes — kept for kiosks that still use them (welcome.kiosk,
+   map.kiosk, rules.kiosk, flag.kiosk, derbynet.kiosk, identify.kiosk,
+   scale-MPH.kiosk, etc.). Do not remove without auditing every consumer.
+   ========================================================================= */
+
 .full_page_center {
   width: 100%;
   text-align: center;
   padding-top: 8px;
 }
 
-.full_page_center img{
-  max-height:80vh;
-  max-width:100vw;
+.full_page_center img {
+  max-height: 80vh;
+  max-width: 100vw;
   text-align: center;
-  }
-  
+}
+
 .kiosk_title {
   font-size: 9vh;
   text-align: center;
@@ -43,4 +205,3 @@
   margin: 0px;
   font-weight: bold;
 }
-

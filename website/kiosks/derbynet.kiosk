@@ -15,7 +15,7 @@ p {
 </style>
 <link rel="stylesheet" type="text/css" href="css/big-logo.css"/>
 </head>
-<body>
+<body class="kiosk">
 <?php
 require_once('inc/banner.inc');
 make_banner('DerbyNet', /* back_button */ false);

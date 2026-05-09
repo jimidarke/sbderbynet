@@ -16,7 +16,7 @@
 </script>
 <script type="text/javascript" src="js/award-presentations-kiosk.js"></script>
 </head>
-<body>
+<body class="kiosk">
 <div class="award-background">
   <video class="confetti" muted="true" loop="true">
     <source src="confetti.webm" type="video/webm"/>

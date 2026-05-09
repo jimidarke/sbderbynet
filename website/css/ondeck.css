@@ -1,18 +1,20 @@
+/* ondeck.css — heat schedule table for ondeck.php (admin + kiosk).
+   Body shell, font stack, banner math, and ellipsis guardrails come from
+   css/kiosks.css when in kiosk context. This file only defines the heat
+   table layout, group headers, and on-deck photo presentation.
+
+   Cleanup pass:
+     - Removed duplicate `html, body` block that re-declared height:100vh
+       AND a `.schedule-wrapper { overflow-y: auto }` that fought it.
+     - Removed `.curgroup { table-layout: fixed }` to prevent racer-name
+       wrapping inflating row heights.
+     - De-duplicated `#schedule tr.heat_row` and `.ondeck_photo img`. */
+
+/* ---- Group headers ----------------------------------------------------- */
 .group_spacer {
-   height: 16px;
+  height: 16px;
 }
-
-td .time, td.chart .time, span.time {
-  font-variant-numeric: tabular-nums;
-}
-
-.pre_group_title {
-	align: center;
-}
-
-.curgroup {
-  table-layout: fixed;
-}
+.pre_group_title { text-align: center; }
 .group_title {  }
 
 .curgroup .group_title,
@@ -21,12 +23,6 @@ td .time, td.chart .time, span.time {
   background-color: var(--accent, #F7D117);
 }
 
-tr {
-  border: 0px solid black;
-}
-.curheat {
-  border: 10px solid black;
-}
 .curgroup .d0 th,
 .curgroup .d1 th {
   background-color: var(--brand, #023882);
@@ -34,80 +30,62 @@ tr {
   width: 4vh;
 }
 
+/* ---- Heat rows --------------------------------------------------------- */
+tr {
+  border: 0px solid black;
+}
+.curheat {
+  border: 10px solid black;
+}
+
 td.in_prev {
   background-size: contain;
   background-repeat: no-repeat;
   background-position-x: 50%;
 }
-.d1 td.in_prev {
-  background-image: url(../img/chevron-up-tan.svg);
-}
-.d0 td.in_prev {
-  background-image: url(../img/chevron-up-white.svg);
-}
-th {
-    font-size: 1.5vw;
-}
-th.masterheat {
-    font-size: 3vw;
-}
+.d1 td.in_prev { background-image: url(../img/chevron-up-tan.svg); }
+.d0 td.in_prev { background-image: url(../img/chevron-up-white.svg); }
+
+th { font-size: 1.5vw; }
+th.masterheat { font-size: 3vw; }
 td {
-    font-size: 2vw;
-    padding: 0.5vw;
+  font-size: 2vw;
+  padding: 0.5vw;
 }
-td .racer {
-    font-weight: bold;
+td .racer { font-weight: bold; }
+
+td .time, td.chart .time, span.time {
+  font-variant-numeric: tabular-nums;
 }
 
+/* ---- Racer label (admin racer-results variants kept for consumers
+   that also pull this stylesheet) -------------------------------------- */
 img.racer-photo {
   float: left;
   height: 68px;
 }
+tbody tr:first-child th { padding-top: 10px; }
 
-tbody tr:first-child th {
-  padding-top: 10px;
-}
+th.nrows1, th.nrows2, th.nrows3, th.nrows4 { vertical-align: top; }
+.racer_label { float: right; }
+th.nrows1 .racer_label { margin-top: 19px; }
+th.nrows2 .racer_label { margin-top: 52px; }
+th.nrows2 img         { margin-top: 34px; }
+th.nrows3 .racer_label { margin-top: 86px; }
+th.nrows3 img         { margin-top: 68px; }
+th.nrows4 .racer_label { margin-top: 120px; }
+th.nrows4 img         { margin-top: 102px; }
 
-th.nrows1, th.nrows2, th.nrows3, th.nrows4 {
-    vertical-align: top;
-}
-.racer_label {
-    float: right;
-}
-th.nrows1 .racer_label {
-    margin-top: 19px;
-}
-th.nrows2 .racer_label {
-    margin-top: 52px;
-}
-th.nrows2 img {
-    margin-top: 34px;
-}
-
-th.nrows3 .racer_label {
-    margin-top: 86px;
-}
-th.nrows3 img {
-    margin-top: 68px;
-}
-
-th.nrows4 .racer_label {
-    margin-top: 120px;
-}
-th.nrows4 img {
-    margin-top: 102px;
-}
-
-/* Suppress the underline and coloring for these links. */
+/* Suppress underline / coloring for these links. */
 .racer_link {
-   color: inherit;
-   text-decoration: none;
+  color: inherit;
+  text-decoration: none;
 }
 
+/* ---- On-deck photos --------------------------------------------------- */
 .ondeck_photo {
-    display: none;
+  display: none;
 }
-
 .curheat.populated .ondeck_photo,
 .nextheat.populated .ondeck_photo,
 .exposed.populated .ondeck_photo {
@@ -115,74 +93,32 @@ th.nrows4 img {
   margin-left: auto;
   margin-right: auto;
 }
-
-.heat_row {
-  cursor: pointer;
+.ondeck_photo img {
+  width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
+
+.heat_row { cursor: pointer; }
 
 #photo_view_modal {
   width: 650px;
   text-align: center;
 }
-
 #photo_view_modal img {
   max-width: 600px;
   max-height: 600px;
 }
 
-/* // UPDATE: As on 04-04-2025  // For Excluding Finished heats and extending On-deck display to show Next Five heats and Staged heats */
+/* ---- Excluding finished heats / extending on-deck (2025) ------------- */
+.finished-heat.hidden-heat { display: none; }
 
-.finished-heat.hidden-heat {
-  display: none;
-}
-
-/* Revision-UPDATE: As on 07-04-2025  // For Excluding Finished heats and extending On-deck display to show Next Five heats and Staged heats */ */
-
-#schedule tr.heat_row {
-  display: flex;
-  flex: 1;
-  justify-content: stretch;
-  align-items: center;
-}
-
-#schedule td.chart, #schedule th {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-align: center;
-  padding: 5px;
-}
-
-.ondeck_photo img {
-  width: 100%;
-  max-height: 100px;
-  object-fit: contain;
-}
-
-#schedule td.chart .racer,
-#schedule td.chart .car {
-  font-size: 1.5vw;
-}
-
-#schedule td.chart .time {
-  font-size: 1.2vw;
-}
-
-
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  /* display: flex; */
-  justify-content: center;
-  align-items: center;
-}
-
+/* ---- Schedule (kiosk) layout ----------------------------------------- */
+/* Wrapper sits below the banner. body.kiosk handles the no-scroll outer
+   shell; we just compute available height for this stage. */
 .schedule-wrapper {
-  height: 100vh;
-  overflow-y: auto;
+  height: calc(100vh - var(--banner-h));
+  overflow: hidden;
 }
 
 #schedule {
@@ -198,30 +134,36 @@ html, body {
 #schedule tr.heat_row {
   display: flex;
   flex-direction: row;
+  flex: 1 1 auto;
   justify-content: center;
   align-items: center;
-  flex: 1 1 auto;
 }
 
-#schedule td.chart {
-  border: 1px solid black;
-  padding: 4px;
+#schedule td.chart,
+#schedule th {
+  flex: 1 1 auto;
+  min-width: 50px;
+  overflow: hidden;
+  text-align: center;
+  padding: 5px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 50px;
-  flex: 1;
   height: 100%;
 }
-
-.ondeck_photo img {
-  width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+#schedule td.chart {
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.12));
+  padding: 4px;
 }
 
-.racer, .car, .time {
+#schedule td.chart .racer,
+#schedule td.chart .car {
+  font-size: 1.5vw;
+  text-align: center;
+  line-height: 1.2;
+}
+#schedule td.chart .time {
   font-size: 1.2vw;
   text-align: center;
   line-height: 1.2;

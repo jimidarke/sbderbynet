@@ -1,22 +1,19 @@
 /* results-by-racer kiosk — paginated card layout.
-   The legacy server-rendered table styles below the kiosk block are kept
-   intact so the admin (non-kiosk) view continues to render identically. */
+   Body shell, font stack, and ellipsis guardrails come from css/kiosks.css.
+   This file only defines the card grid and pagination visuals.
+   The legacy server-rendered admin styles below (body.rr-admin) are kept
+   intact so the non-kiosk admin view continues to render identically. */
 
 /* ===== Kiosk view ======================================================== */
 
-body.rr-kiosk {
-  background: var(--surface-alt, #f4f6fa);
-  color: var(--ink, #0f1c2e);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-               "Helvetica Neue", Arial, sans-serif;
-  margin: 0;
-  overflow: hidden;
-}
+/* Background tint specific to the paginator (slightly cooler than the
+   default kiosk surface) — body.kiosk supplies the rest of the shell. */
+body.kiosk.rr-kiosk { background: var(--surface-alt); }
 
 .rr-stage {
   position: relative;
   padding: 1.6vh 2vw;
-  height: calc(100vh - 64px);   /* below banner */
+  height: calc(100vh - var(--banner-h));
   box-sizing: border-box;
   overflow: hidden;
 }

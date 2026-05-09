@@ -71,7 +71,7 @@ span.calc {
 }
 </style>
 </head>
-<body>
+<body class="kiosk">
 <?php
 require_once('inc/banner.inc');
 make_banner('Scale Kilometers Per Hour', /* back_button */ false);
