@@ -52,20 +52,71 @@ TIMER_STATE_NOT_CONNECTED   = "NOT_CONNECTED"
 TIMER_RECENT_THRESHOLD      = 3.0   # seconds - max age for timer to be considered "recent"
 HEARTBEAT_INTERVAL          = 2     # seconds - how often to send heartbeats to DerbyNet
 
+
+class LoginError(Exception):
+    """Raised when the DerbyNet API client cannot establish a Timer session.
+    Replaces the previous behavior of calling exit(1) from inside login(),
+    which was killing the whole multi-tenant race-server process whenever
+    one tenant's API was unreachable. Callers (RaceServer.tick) catch this
+    and skip-with-backoff instead of crashing the dispatcher."""
+
+
+# Action-response failure codes that indicate an auth/session problem and
+# may benefit from a single re-login retry. Anything outside this set is a
+# domain failure (wrong-heat, wrong-state, validation) where re-login won't
+# help and would only burn the stack — see the historical 21:18 May 4 outage.
+_AUTH_FAILURE_CODES = frozenset(['', 'auth', 'not-logged-in', 'no-permission'])
+
+
 class DerbyNetClient:
     """Handles authentication and communication with the DerbyNet server."""
 
-    def __init__(self, server_ip = None):
+    def __init__(self, server_ip=None, tenant_slug=None):
         if not server_ip:
             # Support environment variable for Docker deployment
             server_ip = os.getenv('DERBYNET_API_HOST', '192.168.100.10')
-        self.url = f"http://{server_ip}/derbynet/action.php"
-        self.rooturl = f"http://{server_ip}/derbynet/"
+        # Path defaults to /derbynet/ (matches the Pi's nginx config) but the
+        # cloud-twin nginx serves at /, so DERBYNET_API_PATH lets the cloud
+        # override without touching this file.
+        path = os.getenv('DERBYNET_API_PATH', '/derbynet/')
+        if not path.startswith('/'): path = '/' + path
+        if not path.endswith('/'):   path = path + '/'
+        self.url = f"http://{server_ip}{path}action.php"
+        self.rooturl = f"http://{server_ip}{path}"
         self.server_ip = server_ip
         self.authcode = None
         self.timer_state = TIMER_STATE_NOT_CONNECTED
         self.last_heartbeat_time = 0
         self.last_connection_attempt = 0
+        # Cloud per-session tenant routing: when DerbyNet runs in cloud mode
+        # the active SQLite is bound to $_SESSION['tenant_slug']. This server
+        # process has no session, so without an override every request 302's
+        # to tenant-picker.php. We send a shared-secret-gated header pair on
+        # every request; PHP honors it only when X-DerbyNet-Internal-Token
+        # matches and Caddy strips both headers from external traffic.
+        #
+        # Caller (derbyRace.RaceContext / RaceServer) passes the slug
+        # explicitly in multi-tenant mode so each context targets its own
+        # sandbox DB. Pi/single-tenant calls pass nothing and we fall back to
+        # DERBYNET_TENANT for backwards compatibility.
+        if tenant_slug is None:
+            tenant_slug = os.getenv('DERBYNET_TENANT', '')
+        self._tenant_slug = tenant_slug or ''
+        self._internal_token = os.getenv('DERBYNET_INTERNAL_TOKEN', '')
+        self._tenant_headers = {}
+        if self._tenant_slug and self._internal_token:
+            self._tenant_headers = {
+                'X-DerbyNet-Tenant': self._tenant_slug,
+                'X-DerbyNet-Internal-Token': self._internal_token,
+            }
+            logger.info(f"Tenant-bound API client: tenant={self._tenant_slug}")
+
+    def _hdr(self, base):
+        # Merges the tenant/internal-token headers into a per-call headers dict.
+        # No-op when env vars unset (e.g. Pi deployments).
+        if self._tenant_headers:
+            base.update(self._tenant_headers)
+        return base
 
     def login(self):
         """Logs in to the DerbyNet server and retrieves an auth cookie."""
@@ -82,7 +133,7 @@ class DerbyNetClient:
         
         while attempt < 5:
             try: 
-                response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+                response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
                 if response.status_code == 200:
                     break
             except Exception as e:
@@ -92,8 +143,7 @@ class DerbyNetClient:
         if attempt >= 5:
             logger.critical("Failed to login after multiple attempts.")
             self.timer_state = TIMER_STATE_NOT_CONNECTED
-            exit(1)
-            return None
+            raise LoginError("Failed to login after multiple attempts")
         try:
             response_json = response.json()
         except Exception as e:
@@ -111,11 +161,19 @@ class DerbyNetClient:
             self.timer_state = TIMER_STATE_NOT_CONNECTED
             return None    
     
-    def send_timer_heartbeat(self, timer_heartbeats):  # sends heartbeat messages
+    def send_timer_heartbeat(self, timer_heartbeats, starter_heartbeat=None):  # sends heartbeat messages
         """
         Send heartbeat message to DerbyNet with active timer information
-        
+
         timer_heartbeats = {2: {'time': 1747607679.600188, 'isReady': True}, 1: {'time': 1747607678.8986795, 'isReady': False}, 3: {'time': 1747607681.1048107, 'isReady': True}}
+
+        starter_heartbeat (optional) tracks the start-timer (latched switch).
+        Shape: {'time': float, 'isReady': bool, 'timerID': str}.
+        Forwarded as `starter=1&starter_id=...&starter_ready=0|1` so PHP's
+        action.timer-message HEARTBEAT branch records it under lane=0,
+        is_starter=1 in TimerStatus. Absence of the starter does NOT affect
+        the lane-1/2/3 confirmed-flag calculation: the start switch is
+        latched, not an arming signal, so it shouldn't gate race readiness.
         """
         current_time = time.time()
         
@@ -181,37 +239,50 @@ class DerbyNetClient:
                 payload += f"&ready{lane}=1"
             else:
                 payload += f"&ready{lane}=0"
+
+        # Append the start timer if present and recent. The PHP handler
+        # writes a row with lane=0, is_starter=1 keyed off the `starter`
+        # field — see website/ajax/action.timer-message.inc:285.
+        if starter_heartbeat:
+            starter_age = current_time - starter_heartbeat.get('time', 0)
+            if starter_age <= TIMER_RECENT_THRESHOLD * 5:  # be lenient: starter telemetry is ~10s
+                starter_id = starter_heartbeat.get('timerID') or 'STARTER_001'
+                starter_ready = 1 if starter_heartbeat.get('isReady', False) else 0
+                payload += f"&starter=1&starter_id={starter_id}&starter_ready={starter_ready}"
         
         headers = {
             'Content-Type': "application/x-www-form-urlencoded",
             'Cookie': self.authcode
         }
         logger.debug("Sending heartbeat message: %s", payload)
-        try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
-            if response.status_code == 401: # unauthed, send for login
-                logger.warning("Heartbeat authentication failed, retrying login")
-                self.authcode = self.login()
-                if self.authcode:
-                    return self.send_timer_heartbeat(timer_heartbeats)
-                else:
-                    logger.error("Failed to re-authenticate for heartbeat")
-                    return False
-                
-            response.raise_for_status()
-            # Update last heartbeat time only on successful response
-            self.last_heartbeat_time = current_time
-            logger.debug(f"Heartbeat sent successfully for {len(timer_heartbeats)} timers")
-            return True
-        except requests.RequestException as e:
-            logger.error(f"Failed to send heartbeat message: {e}")
-            # Set timer state to UNHEALTHY if connection failed
-            if self.timer_state != TIMER_STATE_NOT_CONNECTED:
-                self.timer_state = TIMER_STATE_UNHEALTHY
-            return False
-        except Exception as e:
-            logger.error(f"Unexpected error sending heartbeat: {e}")
-            return False
+        # Bounded retry: at most one re-login on 401. Recursion would happen
+        # if login succeeds but the next request also returns 401 (cookie /
+        # session race), which is unbounded in time.
+        for attempt in range(2):
+            try:
+                response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
+                if response.status_code == 401 and attempt == 0:
+                    logger.warning("Heartbeat authentication failed, retrying login")
+                    self.authcode = self.login()
+                    if not self.authcode:
+                        logger.error("Failed to re-authenticate for heartbeat")
+                        return False
+                    headers['Cookie'] = self.authcode
+                    continue
+                response.raise_for_status()
+                self.last_heartbeat_time = current_time
+                logger.debug(f"Heartbeat sent successfully for {len(timer_heartbeats)} timers")
+                return True
+            except requests.RequestException as e:
+                logger.error(f"Failed to send heartbeat message: {e}")
+                if self.timer_state != TIMER_STATE_NOT_CONNECTED:
+                    self.timer_state = TIMER_STATE_UNHEALTHY
+                return False
+            except Exception as e:
+                logger.error(f"Unexpected error sending heartbeat: {e}")
+                return False
+        logger.error("Heartbeat still 401 after re-login; giving up this tick")
+        return False
     
     def set_timer_state(self, new_state):
         """
@@ -254,35 +325,41 @@ class DerbyNetClient:
             'Cookie': self.authcode
         }
 
-        try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
-            if response.status_code == 401: # unauthed, send for login
-                self.authcode = self.login()
-                return self.send_start()
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Failed to send start message: {e}")
-            self.set_timer_state(TIMER_STATE_UNHEALTHY)
-            return False
-
-        response_xml = ET.fromstring(response.text)
-
-        if response_xml.find('failure') is not None:
-            logger.warning("Authentication failed, retrying login...")
-            self.authcode = self.login()
-            if self.authcode:
-                return self.send_start()
-            else:
-                logger.critical("Failed to re-authenticate after failure.")
-                self.set_timer_state(TIMER_STATE_NOT_CONNECTED)
+        # Bounded retry: at most one re-login on 401 or auth-class <failure>.
+        # Domain <failure> codes (wrong-state etc.) are returned to caller.
+        for attempt in range(2):
+            try:
+                response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
+                if response.status_code == 401 and attempt == 0:
+                    self.authcode = self.login()
+                    headers['Cookie'] = self.authcode or ''
+                    continue
+                response.raise_for_status()
+            except requests.RequestException as e:
+                logger.error(f"Failed to send start message: {e}")
+                self.set_timer_state(TIMER_STATE_UNHEALTHY)
                 return False
 
-        if response_xml.find('success') is not None:
-            logger.debug("Start message successfully sent.")
-            return True
-        else:
+            response_xml = ET.fromstring(response.text)
+            fail = response_xml.find('failure')
+            if fail is not None:
+                code = (fail.get('code') or '').lower()
+                msg = (fail.text or '').strip()
+                if code in _AUTH_FAILURE_CODES and attempt == 0:
+                    logger.warning(f"send_start auth-class failure (code={code!r}); re-login and retry once")
+                    self.authcode = self.login()
+                    headers['Cookie'] = self.authcode or ''
+                    continue
+                logger.warning(f"send_start rejected by server: code={code!r} msg={msg!r}")
+                return False
+
+            if response_xml.find('success') is not None:
+                logger.debug("Start message successfully sent.")
+                return True
             logger.error("Failed to confirm start message reception.")
             return False
+        logger.error("send_start still failing after re-login; giving up")
+        return False
 
     def send_finish(self, roundid, heatid, lane_times):
         """Sends the finish signal to the DerbyNet server."""
@@ -292,7 +369,7 @@ class DerbyNetClient:
                 logger.critical("Failed to authenticate with DerbyNet.")
                 return False
                 
-        payload =f"message=FINISHED&action=timer-message&roundid={roundid}&heat={heatid}" 
+        payload =f"message=FINISHED&action=timer-message&roundid={roundid}&heat={heatid}"
         #&lane1=10&lane2=12&lane3=13&place1=1&place2=2&place3=3"
         for lane, time in lane_times.items():
             payload += f"&lane{lane}={time}"
@@ -300,35 +377,47 @@ class DerbyNetClient:
             'Content-Type': "application/x-www-form-urlencoded",
             'Cookie': self.authcode
         }
-        try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
-            if response.status_code == 401: # unauthed, send for login
-                self.authcode = self.login()
-                return self.send_finish(roundid, heatid, lane_times)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Failed to send finish message: {e}")
-            self.set_timer_state(TIMER_STATE_UNHEALTHY)
-            return False
-
-        response_xml = ET.fromstring(response.text)
-
-        if response_xml.find('failure') is not None:
-            logger.warning("Authentication failed, retrying login...")
-            self.authcode = self.login()
-            if self.authcode:
-                return self.send_finish(roundid, heatid, lane_times)
-            else:
-                logger.critical("Failed to re-authenticate after failure.")
-                self.set_timer_state(TIMER_STATE_NOT_CONNECTED)
+        # Bounded retry: at most one re-login on 401 or auth-class <failure>.
+        # Critical: <failure code='wrong-heat'> is the server saying "stale
+        # data, your roundid/heat doesn't match what I expect" — re-login
+        # would not help and the previous unbounded recursion here is what
+        # took down the cloud race-server on 2026-05-04 21:18 UTC.
+        for attempt in range(2):
+            try:
+                response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
+                if response.status_code == 401 and attempt == 0:
+                    self.authcode = self.login()
+                    headers['Cookie'] = self.authcode or ''
+                    continue
+                response.raise_for_status()
+            except requests.RequestException as e:
+                logger.error(f"Failed to send finish message: {e}")
+                self.set_timer_state(TIMER_STATE_UNHEALTHY)
                 return False
 
-        if response_xml.find('success') is not None:
-            logger.info("Finish message successfully sent.")
-            return True
-        else:
+            response_xml = ET.fromstring(response.text)
+            fail = response_xml.find('failure')
+            if fail is not None:
+                code = (fail.get('code') or '').lower()
+                msg = (fail.text or '').strip()
+                if code in _AUTH_FAILURE_CODES and attempt == 0:
+                    logger.warning(f"send_finish auth-class failure (code={code!r}); re-login and retry once")
+                    self.authcode = self.login()
+                    headers['Cookie'] = self.authcode or ''
+                    continue
+                logger.warning(
+                    f"send_finish rejected by server: code={code!r} msg={msg!r} "
+                    f"(roundid={roundid}, heat={heatid}) — caller should resync from poll.coordinator"
+                )
+                return False
+
+            if response_xml.find('success') is not None:
+                logger.info("Finish message successfully sent.")
+                return True
             logger.error("Failed to confirm finish message reception.")
             return False
+        logger.error("send_finish still failing after re-login; giving up")
+        return False
     
     def set_staging(self):
         """Sets the timer state to STAGING and notifies DerbyNet."""
@@ -351,7 +440,7 @@ class DerbyNetClient:
         }
         
         try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
+            response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
             if response.status_code == 401: # unauthed, send for login
                 self.authcode = self.login()
                 return self.set_staging()
@@ -375,17 +464,20 @@ class DerbyNetClient:
             'Content-Type': "application/x-www-form-urlencoded",
             'Cookie': self.authcode
         }
-        try:
-            response = requests.post(self.url, headers=headers, data=payload, timeout=5)
-            if response.status_code == 401: # unauthed, send for login
-                self.authcode = self.login()
-                return self.simulate_heartbeat()
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Failed to send simulated heartbeat: {e}")
-            self.set_timer_state(TIMER_STATE_UNHEALTHY)
-            return False
-        return True
+        for attempt in range(2):
+            try:
+                response = requests.post(self.url, headers=self._hdr(headers), data=payload, timeout=5)
+                if response.status_code == 401 and attempt == 0:
+                    self.authcode = self.login()
+                    headers['Cookie'] = self.authcode or ''
+                    continue
+                response.raise_for_status()
+                return True
+            except requests.RequestException as e:
+                logger.error(f"Failed to send simulated heartbeat: {e}")
+                self.set_timer_state(TIMER_STATE_UNHEALTHY)
+                return False
+        return False
 
     def get_race_status(self):
         # gets the race status and updates mqtt 
@@ -400,15 +492,22 @@ class DerbyNetClient:
         }
         payload = ''
         url = self.url + '?query=poll.coordinator'
-        try:
-            response = requests.get(url, headers=headers, data=payload, timeout=5)
-            if response.status_code == 401:
-                self.authcode = self.login()
-                return self.get_race_status()
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Failed to get race status: {e}")
-            self.set_timer_state(TIMER_STATE_UNHEALTHY)
+        response = None
+        for attempt in range(2):
+            try:
+                response = requests.get(url, headers=self._hdr(headers), data=payload, timeout=5)
+                if response.status_code == 401 and attempt == 0:
+                    self.authcode = self.login()
+                    headers['Cookie'] = self.authcode or ''
+                    continue
+                response.raise_for_status()
+                break
+            except requests.RequestException as e:
+                logger.error(f"Failed to get race status: {e}")
+                self.set_timer_state(TIMER_STATE_UNHEALTHY)
+                return False
+        if response is None or response.status_code == 401:
+            logger.error("get_race_status still 401 after re-login; giving up this tick")
             return False
         response_json = response.json()
         out = {}
@@ -474,14 +573,21 @@ class DerbyNetClient:
             ]
         }
         url = self.rooturl + 'device-status-api.php'
-        try:
-            response = requests.post(url, headers=headers, json=APIpayload, timeout=5)
-            if response.status_code == 401:
-                self.authcode = self.login()
-                return self.send_device_status(payload)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Failed to send device telemetry: {e}")
+        response = None
+        for attempt in range(2):
+            try:
+                response = requests.post(url, headers=self._hdr(headers), json=APIpayload, timeout=5)
+                if response.status_code == 401 and attempt == 0:
+                    self.authcode = self.login()
+                    headers['Cookie'] = self.authcode or ''
+                    continue
+                response.raise_for_status()
+                break
+            except requests.RequestException as e:
+                logger.error(f"Failed to send device telemetry: {e}")
+                return False
+        if response is None or response.status_code == 401:
+            logger.error("send_device_status still 401 after re-login; giving up")
             return False
         logger.debug("Device telemetry successfully sent.")
         logger.debug("Device telemetry response: %s", response.text)

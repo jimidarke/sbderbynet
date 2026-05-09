@@ -1,27 +1,72 @@
 version: '3.8'
 
-# DerbyNet Cloud Deployment with nginx-proxy integration
-# Domain: derbynet.d-t.pw
+# DerbyNet Cloud Development Stack
+# Caddy handles reverse proxy + automatic HTTPS (when domain configured)
+# MQTT is internal only — no external device connections (Pi is race-day master)
 
 services:
-  # MQTT Broker - Message coordination for race events
+  # Caddy - Reverse proxy with automatic HTTPS
+  caddy:
+    image: caddy:2-alpine
+    container_name: derbynet-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Caddyfile uses {$CADDY_HOST}. Defaults to uisp.darketech.ca; override
+      # in installer/docker-cloud/.env when deploying to a different host.
+      - CADDY_HOST=${CADDY_HOST:-uisp.darketech.ca}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - derbynet_net
+    depends_on:
+      derbynet-web:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # MQTT Broker - Internal message coordination (dev/test only)
   mqtt:
     image: eclipse-mosquitto:2
     container_name: derbynet-mqtt
-    ports:
-      - "1883:1883"
+    expose:
+      - "1883"
+    environment:
+      # Used by the healthcheck below; the broker itself reads passwd/acl files.
+      - MQTT_USER=${MQTT_USER:-derbynet}
+      - MQTT_PASS=${MQTT_PASS:-}
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/passwd:/mosquitto/config/passwd:ro
+      - ./mosquitto/acl:/mosquitto/config/acl:ro
       - mqtt_data:/mosquitto/data
       - mqtt_log:/mosquitto/log
     networks:
       - derbynet_net
     healthcheck:
-      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      # Authenticate as the service user. Publishing to _healthcheck succeeds
+      # because the derbynet user's ACL is `topic readwrite #`. $SYS/# isn't
+      # reachable through that ACL pattern with mosquitto 2.x defaults, so
+      # the previous unauth subscribe was always going to fail once the
+      # passwd/acl pair was active.
+      test: ["CMD-SHELL", "mosquitto_pub -h localhost -p 1883 -u \"$$MQTT_USER\" -P \"$$MQTT_PASS\" -t _healthcheck -m ok -q 0"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 5s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # PHP Web Application - Main DerbyNet server
   derbynet-web:
@@ -29,29 +74,42 @@ services:
       context: ../..
       dockerfile: installer/docker-cloud/Dockerfile.web
     container_name: derbynet-web
-    # NO ports exposed - nginx-proxy handles external access via VIRTUAL_HOST
     expose:
       - "80"
     environment:
       - TZ=${TZ:-America/New_York}
       - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-16M}
       - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - MQTT_USER=${MQTT_USER:-}
+      - MQTT_PASS=${MQTT_PASS:-}
       - DERBYNET_CONFIG_DIR=/var/lib/derbynet
       - DERBYNET_DATA_DIR=/var/lib/derbynet
-      # nginx-proxy integration
-      - VIRTUAL_HOST=${DOMAIN}
-      - VIRTUAL_PORT=80
-      - LETSENCRYPT_HOST=${DOMAIN}
-      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+      - DERBYNET_CLOUD_MODE=${DERBYNET_CLOUD_MODE:-}
+      - DERBYNET_TENANTS_DIR=${DERBYNET_TENANTS_DIR:-/var/lib/derbynet/tenants}
+      - VIRTUAL_MQTT_USER=${VIRTUAL_MQTT_USER:-virtual-device}
+      - VIRTUAL_MQTT_PASS=${VIRTUAL_MQTT_PASS:-}
+      # Shared secret that gates the X-DerbyNet-Tenant header override used
+      # by internal services (the race-server) to bypass session-based tenant
+      # routing. Caddy strips the X-DerbyNet-* headers from external traffic.
+      - DERBYNET_INTERNAL_TOKEN=${DERBYNET_INTERNAL_TOKEN:-}
     volumes:
       - derbynet_data:/var/lib/derbynet
+      # Persist nginx + php-fpm logs across container recreates so a deploy
+      # doesn't erase the evidence right when you need it.
+      - derbynet_web_nginx_logs:/var/log/nginx
+      - derbynet_web_php_logs:/var/log/php83
     networks:
-      - nginx-proxy    # Join existing nginx-proxy network for reverse proxy
-      - derbynet_net   # Internal network for inter-container communication
+      - derbynet_net
     depends_on:
       mqtt:
         condition: service_healthy
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Python Race Server - Race orchestration and timer management
   race-server:
@@ -62,13 +120,35 @@ services:
     environment:
       - MQTT_BROKER=mqtt
       - MQTT_PORT=1883
+      - MQTT_USER=${MQTT_USER:-}
+      - MQTT_PASS=${MQTT_PASS:-}
       - DERBYNET_API_HOST=derbynet-web
-      - DERBYNET_API_URL=http://derbynet-web/derbynet/action.php
+      # nginx serves the PHP app at /, NOT /derbynet/ (Caddy strips that
+      # prefix for external traffic only). Internal API calls need the
+      # bare path here. derbyapi.py also reads DERBYNET_API_PATH for its
+      # own URL construction.
+      - DERBYNET_API_URL=http://derbynet-web/action.php
+      - DERBYNET_API_PATH=/
+      - DERBYNET_DB_PATH=/var/lib/derbynet
+      # Tenant routing mode (cloud only).
+      #   multi  → one race-server process holds a per-tenant state map,
+      #            subscribes derbynet/t/+/... and routes every message by
+      #            the slug parsed from the topic. Multiple sandboxes can
+      #            be live at once without colliding on the broker.
+      #   unset  → legacy single-tenant flow (Pi behaviour). DERBYNET_TENANT
+      #            below names the one bound DB.
+      - DERBYNET_TENANT_MODE=${DERBYNET_TENANT_MODE:-multi}
+      # Single-tenant fallback (kept so an operator can pin the cloud
+      # race-server to one sandbox by setting DERBYNET_TENANT_MODE='' for
+      # debugging). Ignored when DERBYNET_TENANT_MODE=multi.
+      - DERBYNET_TENANT=${DERBYNET_TENANT:-}
+      - DERBYNET_INTERNAL_TOKEN=${DERBYNET_INTERNAL_TOKEN:-}
       - LANE_COUNT=${LANE_COUNT:-3}
       - DERBY_CONSOLE_LOG=true
       - DERBY_DEBUG=${DERBY_DEBUG:-false}
       - TZ=${TZ:-America/New_York}
     volumes:
+      - derbynet_data:/var/lib/derbynet
       - derbynet_logs:/var/log
     networks:
       - derbynet_net
@@ -78,19 +158,30 @@ services:
       derbynet-web:
         condition: service_started
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
-  nginx-proxy:
-    external: true    # Use existing nginx-proxy network
   derbynet_net:
-    driver: bridge    # Internal network for container communication
+    driver: bridge
 
 volumes:
   derbynet_data:
     name: derbynet_data
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
   mqtt_data:
     name: mqtt_data
   mqtt_log:
     name: mqtt_log
   derbynet_logs:
     name: derbynet_logs
+  derbynet_web_nginx_logs:
+    name: derbynet_web_nginx_logs
+  derbynet_web_php_logs:
+    name: derbynet_web_php_logs

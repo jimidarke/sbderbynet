@@ -1,0 +1,59 @@
+# DerbyNet Cloud Reverse Proxy Configuration
+#
+# Domain mode: Caddy auto-acquires a Let's Encrypt cert for the host below
+# and serves HTTPS on 443 (with HTTP→HTTPS redirect on 80). Requires both
+# 80 and 443 to be reachable from the public internet.
+#
+# Override the hostname via the CADDY_HOST env var if you ever move this
+# stack to a different domain (e.g. when the feature branch lands on master
+# and CI takes over).
+
+{$CADDY_HOST:uisp.darketech.ca} {
+	encode gzip
+
+	# Strip internal-only headers from any inbound external request. These
+	# headers are how the race-server overrides the per-session tenant
+	# binding when calling /action.php container-to-container; allowing a
+	# public client to set them would let anyone target any tenant DB.
+	# Internal services bypass Caddy by talking to derbynet-web:80 directly.
+	request_header -X-DerbyNet-Tenant
+	request_header -X-DerbyNet-Internal-Token
+
+	# Longer timeouts for file uploads (racer photos)
+	request_body {
+		max_size 16MB
+	}
+
+	# Health check endpoint
+	handle /health {
+		respond "OK" 200
+	}
+
+	# WebSocket -> MQTT for browser virtual devices (cloud-only).
+	# Browser code connects to wss://<host>/mqtt using MQTT.js.
+	# Auth is enforced by Mosquitto via the virtual-device user + ACL.
+	handle /mqtt {
+		reverse_proxy mqtt:9001
+	}
+
+	# /derbynet/* — strip the prefix and proxy to nginx.
+	# The PHP app's nginx config serves at /, but the website's hard-coded
+	# URLs (and external bookmarks) use /derbynet/ as the path. handle_path
+	# matches the prefix AND strips it before forwarding.
+	handle_path /derbynet/* {
+		reverse_proxy derbynet-web:80
+	}
+
+	# Bare-host requests redirect into the canonical path.
+	redir / /derbynet/ permanent
+
+	# Default route: anything else goes to nginx as-is.
+	handle {
+		reverse_proxy derbynet-web:80
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -1,0 +1,243 @@
+/* Pull-Forward dedicated page — tablet portrait optimised.
+   Uses the app-wide --fs-* / --space-* tokens defined in global.css. */
+
+#pf-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-3) 140px; /* bottom clears sticky bar */
+  font-family: var(--font-stack, sans-serif);
+  color: #1c1f24;
+}
+
+.pf-empty-state {
+  text-align: center;
+  padding: var(--space-5) var(--space-3);
+}
+.pf-empty-state h2 { font-size: var(--fs-display); margin-bottom: var(--space-3); }
+.pf-empty-state p  { font-size: var(--fs-body); line-height: 1.5; color: #555; }
+
+#pf-round-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: #f4f6f9;
+  border-left: 4px solid #1670c1;
+  border-radius: var(--radius-md);
+}
+.pf-round-label { font-size: var(--fs-display); font-weight: 700; }
+.pf-round-hint  { font-size: var(--fs-body); color: #555; }
+
+/* --- Roster list ------------------------------------------------------- */
+
+#pf-roster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.pf-racer-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  background: #fff;
+  border: 2px solid #cdd3da;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-body);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.05s;
+  user-select: none;
+}
+.pf-racer-row:hover  { background: #eef4fb; border-color: #8aa9c8; }
+.pf-racer-row:active { transform: translateY(1px); }
+.pf-racer-row.pf-selected {
+  border-color: #1670c1;
+  border-width: 3px;
+  background: #e3eef9;
+  box-shadow: 0 0 0 2px rgba(22, 112, 193, 0.18);
+}
+
+.pf-racer-row .pf-car   { font-weight: 700; font-variant-numeric: tabular-nums; }
+.pf-racer-row .pf-name  { font-weight: 500; }
+.pf-racer-row .pf-badge {
+  background: #1670c1;
+  color: #fff;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* --- Preview / simulation --------------------------------------------- */
+
+#pf-preview {
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  background: #fafbfc;
+  border: 2px solid #cdd3da;
+  border-radius: var(--radius-md);
+}
+#pf-preview.hidden { display: none; }
+
+.pf-loading { font-size: var(--fs-body); color: #555; }
+.pf-info {
+  font-size: var(--fs-body);
+  padding: var(--space-3);
+  background: #fff8e1;
+  border-left: 4px solid #d39e00;
+  border-radius: var(--radius-sm);
+}
+.pf-error-inline {
+  font-size: var(--fs-body);
+  padding: var(--space-3);
+  background: #fdecea;
+  border-left: 4px solid #c0392b;
+  border-radius: var(--radius-sm);
+}
+
+.pf-dropout-line {
+  font-size: var(--fs-display);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid #cdd3da;
+}
+.pf-dropout-label { color: #555; font-weight: 500; }
+.pf-dropout-gaps  { color: #555; font-size: var(--fs-body); font-weight: 500; }
+
+#pf-preview .pf-section { margin-top: var(--space-4); }
+#pf-preview .pf-section h3 {
+  font-size: var(--fs-title);
+  font-weight: 800;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  margin: 0 0 var(--space-2);
+  color: #2a3038;
+}
+
+.pf-moves-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+}
+.pf-moves-table th,
+.pf-moves-table td {
+  padding: var(--space-2);
+  text-align: left;
+  border-bottom: 1px solid #e4e7eb;
+}
+.pf-moves-table th {
+  background: #eef1f5;
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.pf-moves-table td.pf-empty {
+  text-align: center;
+  font-style: italic;
+  color: #555;
+}
+
+.pf-byes p     { font-size: var(--fs-body); margin: 0; }
+.pf-warnings ul { padding-left: var(--space-4); margin: 0; }
+.pf-warnings li {
+  font-size: var(--fs-body);
+  margin-bottom: var(--space-1);
+  color: #6b4500;
+}
+
+.pf-side-effect-note {
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  background: #fff8e1;
+  border-left: 4px solid #d39e00;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+  color: #5b4500;
+}
+
+/* --- Error banner above sticky action bar ----------------------------- */
+
+#pf-error {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: #fdecea;
+  border: 2px solid #c0392b;
+  color: #7a1d12;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-body);
+}
+#pf-error.hidden { display: none; }
+
+/* --- Sticky action bar ------------------------------------------------- */
+
+.pf-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  padding: var(--space-3) var(--space-3) env(safe-area-inset-bottom, var(--space-3));
+  background: rgba(255, 255, 255, 0.97);
+  border-top: 1px solid #cdd3da;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+}
+.pf-actions.hidden { display: none; }
+
+.pf-btn {
+  flex: 1 1 0;
+  max-width: 240px;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: 1px solid #b6bdc6;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.05s;
+}
+.pf-btn:disabled { opacity: 0.5; cursor: default; }
+.pf-btn:active   { transform: translateY(1px); }
+
+.pf-btn-apply    { background: #1c8a3a; color: #fff; border-color: #156c2c; }
+.pf-btn-apply:hover:not(:disabled)    { background: #167030; }
+.pf-btn-announce { background: #1670c1; color: #fff; border-color: #115a9a; }
+.pf-btn-announce:hover:not(:disabled) { background: #115a9a; }
+.pf-btn-discard  { background: #f1f3f5; color: #2a3038; border-color: #b6bdc6; }
+.pf-btn-discard:hover:not(:disabled)  { background: #e1e5ea; }
+
+/* --- Portrait tablet breakpoint --------------------------------------- */
+
+@media (max-width: 834px) {
+  #pf-page { padding: var(--space-3) var(--space-2) 160px; }
+
+  .pf-racer-row {
+    grid-template-columns: 80px 1fr auto;
+    min-height: 64px;
+  }
+
+  .pf-actions {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .pf-btn {
+    max-width: none;
+    min-height: 56px;
+  }
+
+  .pf-moves-table th,
+  .pf-moves-table td { padding: var(--space-2) var(--space-1); }
+}

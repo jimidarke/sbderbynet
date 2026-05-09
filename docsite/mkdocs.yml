@@ -1,0 +1,99 @@
+site_name: SBDerbyNet Docs
+site_description: Soapbox derby race-management system — operations, architecture, and component reference.
+site_author: SBDerbyNet
+site_url: ""
+docs_dir: docs
+site_dir: ../website/docs/site
+use_directory_urls: false
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.keys
+
+extra:
+  generator: false
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Race State Engine: architecture/race-state-engine.md
+      - Network: architecture/network.md
+      - Hardware IDs: architecture/hardware-ids.md
+  - Operations:
+      - Dress Rehearsal: operations/dress-rehearsal.md
+      - VPS Procedures: operations/vps-procedures.md
+      - Logging: operations/logging.md
+      - Production Access: operations/production-access.md
+      - Phone Usage: operations/phone-usage.md
+  - Features:
+      - Pull-Forward: features/pull-forward.md
+      - Elimination Tournaments: features/elimination-tournaments.md
+      - Round Setup: features/round-setup.md
+  - Components:
+      - Web App: components/web-app.md
+      - Race Server: components/race-server.md
+      - Finish Timer: components/finish-timer.md
+      - Start Timer: components/start-timer.md
+      - Derby Display: components/derby-display.md
+      - LED Signs: components/led-signs.md
+      - HLS Feed: components/hls-feed.md
+      - DerbyPi: components/derbypi.md
+      - Flutter App: components/flutter-app.md
+      - SaaS Backend: components/saas-backend.md
+  - Reference:
+      - Coordinator Poll API: reference/coordinator-poll-api.md
+      - MQTT API: reference/mqtt-api.md
+      - BetaBrite Protocol: reference/betabrite-protocol.md
+      - CI/CD: reference/cicd.md
+  - Development:
+      - Testing: development/testing.md
+      - LED Sign Firmware Audit: development/ledsign-firmware-audit.md

@@ -1,9 +1,11 @@
 # LED Sign Integration Plan for SBDerbyNet
 
-**Version**: 1.3.0
-**Date**: 2026-01-16
-**Status**: Phase 1-3 Implemented - HTTP Discovery + MQTT Content Delivery
+**Version**: 1.4.0
+**Date**: 2026-03-31
+**Status**: Phase 1-4 Implemented - Race Server Content Publishing Active
 
+> **Changelog v1.4.0**: Implemented Phase 4 race server integration. New `ledsign_content.py` module generates zone-specific display messages. `derbyRace.py` now publishes to LED sign MQTT topics on all race state transitions (STOPPED/STAGING/RACING/FINISHED) and pinny changes. Starter sign shows READY→SET→GO!→FINISHED. Usher lane signs show current racer pinny number.
+>
 > **Changelog v1.3.0**: Implemented HTTP-based device discovery and configuration (mirrors kiosk pattern), MQTT now used only for content delivery after zone assignment. Added PHP admin dashboard, database schema, and updated ESP32 firmware.
 >
 > **Changelog v1.2.0**: Added single agnostic firmware architecture with MAC-based device discovery, server-side zone configuration via MQTT, and kiosk-like device mapping pattern.
@@ -1091,20 +1093,40 @@ class AlertHandler:
 | 3.5 | Add navigation link from index.php | ✅ "LED Signs" button |
 | 3.6 | Backend test script | ✅ `website/tests/test-ledsign-backend.sh` |
 
-### Phase 4: Race Server Integration (NEXT)
+### Phase 4: Race Server Integration ✅ COMPLETE
 
 **Objective**: Integrate LED signs into race event flow
 
 | Task | Description | Status |
 |------|-------------|--------|
-| 4.1 | Add LED pathway to `derbyRace.py` | ⏳ Pending |
-| 4.2 | Implement starter sign race state updates | ⏳ Pending |
-| 4.3 | Implement usher sign lane assignments | ⏳ Pending |
-| 4.4 | Implement finish sign race results | ⏳ Pending |
-| 4.5 | Integrate with AlertHandler for errors | ⏳ Pending |
-| 4.6 | Add telemetry/heartbeat monitoring | ⏳ Pending |
+| 4.1 | Add LED content generator module | ✅ `ledsign_content.py` in race server |
+| 4.2 | Integrate publishing into `derbyRace.py` | ✅ `updateLedSigns()` method |
+| 4.3 | Implement starter sign race state updates | ✅ READY→SET→GO!→FINISHED |
+| 4.4 | Implement usher sign lane assignments | ✅ Pinny number on state change |
+| 4.5 | Implement finish sign race results | ⏳ Pending (needs time formatting) |
+| 4.6 | Integrate with AlertHandler for errors | ⏳ Pending |
+| 4.7 | Add next-up racer display on usher signs | ⏳ Pending (needs ondeck API) |
 
-**Success Criteria**: Signs update automatically during race flow
+**Implementation Details**:
+
+Race server content publishing is triggered from four integration points:
+- `setLanePinny()` — publishes lane signs when pinny assignments change
+- `setLEDFromRaceStat()` — publishes all signs on race state transitions
+- `startRace()` — publishes GO! to starter sign
+- `stopRace()` — publishes FINISHED to all signs
+
+Content matrix (what each sign shows per race state):
+
+| Zone | STOPPED | STAGING | RACING | FINISHED |
+|------|---------|---------|--------|----------|
+| starter | "READY" amber | "SET" amber | "GO!" green flash | "FINISHED" red |
+| usher-lane{N} | blank | "#0042" green | "#0042" green | "DONE" amber |
+
+Key files:
+- `extras/soapbox/infra/server/ledsign_content.py` — pure-function content generator
+- `extras/soapbox/infra/server/derbyRace.py` — `updateLedSigns()` integration
+
+**Success Criteria**: Signs update automatically during race flow ✅
 
 ### Phase 5: Content Management
 
@@ -1324,5 +1346,5 @@ def format_race_time(seconds: float) -> str:
 
 ---
 
-**Document Status**: Phases 1-3 Complete - HTTP Discovery + Admin Dashboard Implemented
-**Next Steps**: Phase 4 - Race Server Integration (connect LED signs to race event flow)
+**Document Status**: Phases 1-4 Complete - Race Server Content Publishing Active
+**Next Steps**: Phase 5 - Content Management (sponsor rotation, finish line times)

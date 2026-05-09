@@ -3,7 +3,7 @@
 **Version:** 1.2.0
 **Date:** 2026-01-16
 **Status:** Phases 1, 2, 3 Complete - Ready for Flutter Integration (Phase 4)
-**Parent Document:** [ENTERPRISE_ROADMAP.md](/ENTERPRISE_ROADMAP.md)
+**Parent Document:** [ENTERPRISE_ROADMAP.md](/docs/business/ENTERPRISE_ROADMAP.md)
 
 ---
 
@@ -1921,7 +1921,7 @@ async def test_emergency_broadcast_reaches_all_users():
 
 ### Related SBDerbyNet Documents
 
-- [ENTERPRISE_ROADMAP.md](/ENTERPRISE_ROADMAP.md) - Master roadmap
+- [ENTERPRISE_ROADMAP.md](/docs/business/ENTERPRISE_ROADMAP.md) - Master roadmap
 - [LED_SIGN_INTEGRATION_PLAN.md](/extras/ledsign/LED_SIGN_INTEGRATION_PLAN.md) - Emergency broadcast alignment
 
 ---

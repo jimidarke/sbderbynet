@@ -32,7 +32,10 @@ function json_timer_state() {
           if ($stmt) {
               while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                   $seconds_since_heartbeat = $current_time - (int)$row['last_heartbeat'];
-                  $is_online = $seconds_since_heartbeat <= FRONTEND_OFFLINE_THRESHOLD;
+                  $offline_threshold = $row['is_starter']
+                      ? STARTER_FRONTEND_OFFLINE_THRESHOLD
+                      : FRONTEND_OFFLINE_THRESHOLD;
+                  $is_online = $seconds_since_heartbeat <= $offline_threshold;
 
                   // Build timer status array with proper column mapping
                   $timers[] = array(
@@ -82,7 +85,10 @@ function json_timer_state() {
       }
   }
 
-  // Virtual timer display for testing mode
+  // Virtual timer display for testing mode — DISABLED: superseded by
+  // /virtual/ cloud virtual-hardware pages. Re-enable alongside the
+  // settings.php Testing Mode UI and coordinator.php virtual-timer-panel.
+  /*
   $testing_mode = testing_mode_enabled();
   $virtual_display = array();
   if ($testing_mode) {
@@ -95,6 +101,7 @@ function json_timer_state() {
           );
       }
   }
+  */
 
   return array(
       'lanes' => get_lane_count(),
@@ -111,9 +118,9 @@ function json_timer_state() {
       'timers_required' => $required_timers,
       'health_status' => $health_status,
       'health_message' => $health_message,
-      // Testing mode virtual display
-      'testing_mode' => $testing_mode,
-      'virtual_display' => $virtual_display,
+      // Testing mode virtual display — DISABLED (see commented block above).
+      // 'testing_mode' => $testing_mode,
+      // 'virtual_display' => $virtual_display,
   );
 }
 

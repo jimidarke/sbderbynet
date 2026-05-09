@@ -1,0 +1,85 @@
+<?php
+//
+// Shared guard for all website/virtual/* pages.
+//
+// Responsibilities:
+//   - Refuse to render unless the stack is running in cloud mode. The local
+//     Pi never serves these pages because installer/docker-cloud/Dockerfile.web
+//     is the only image that copies website/virtual/* (defense in depth here
+//     in case the file ever leaks into a Pi build).
+//   - Require coordinator-level permission before showing any page that can
+//     publish to the broker.
+//
+// Pages start with: require_once(__DIR__ . '/_guard.inc'); virtual_page_guard();
+
+// PHP-FPM's CWD for /var/www/html/virtual/*.php is the virtual/ subdir,
+// but inc/authorize.inc uses a CWD-relative `require_once('inc/...')`.
+// chdir to the docroot first so those nested requires resolve.
+chdir(__DIR__ . '/..');
+
+// Every other entry-point PHP file (action.php, coordinator.php, etc.)
+// starts with session_start() as line 1. Virtual pages need it too so
+// have_permission() can read $_SESSION['permissions'] populated by the
+// role.login flow. @ suppresses the harmless "session already active"
+// warning if a caller has already started one.
+@session_start();
+
+require_once(__DIR__ . '/../inc/data.inc');
+require_once(__DIR__ . '/../inc/authorize.inc');
+require_once(__DIR__ . '/../inc/permissions.inc');
+require_once(__DIR__ . '/../inc/cloud-tenant.inc');
+
+function virtual_page_guard() {
+  if (!is_cloud_mode()) {
+    http_response_code(404);
+    echo "<!doctype html><meta charset=utf-8><title>Not Found</title>";
+    echo "<h1>404 Not Found</h1>";
+    echo "<p>Virtual hardware pages are only available on the cloud twin "
+       . "(DERBYNET_CLOUD_MODE).</p>";
+    exit;
+  }
+  if (!have_permission(CONTROL_RACE_PERMISSION)) {
+    http_response_code(403);
+    echo "<!doctype html><meta charset=utf-8><title>Forbidden</title>";
+    echo "<h1>403 Forbidden</h1>";
+    echo "<p>Sign in as a race coordinator to access virtual hardware.</p>";
+    echo "<p><a href=\"" . htmlspecialchars($_SERVER['HTTP_REFERER'] ?? '/derbynet/')
+       . "\">Back</a></p>";
+    exit;
+  }
+}
+
+// Cache-busting query string for virtual/* assets. Returns "?v=<mtime>"
+// so any change to the file forces browsers to re-download it. Without
+// this, an aggressive proxy or browser cache holds onto stale JS even
+// after a deploy — exactly how the v0.9.11 fetch-creds fix kept showing
+// the old "Unrecognized query" error after the wrapper had shipped the
+// new JS.
+function virtual_asset_v($filename) {
+  $path = __DIR__ . '/' . ltrim($filename, '/');
+  $mtime = @filemtime($path);
+  return $mtime ? "?v={$mtime}" : '';
+}
+
+// Returns the validated session tenant slug bound to this request, or
+// '' if none. Safe to call only after virtual_page_guard() has run
+// (the guard is what enforces is_cloud_mode + session_start). Pages use
+// it to render the sandbox-name badge and to seed window.DERBYNET_TENANT
+// for the JS topic builder in virtual-common.js.
+function virtual_active_tenant() {
+  $slug = function_exists('current_tenant_slug') ? current_tenant_slug() : null;
+  return is_string($slug) ? $slug : '';
+}
+
+// DIP-switch -> lane mapping mirrors derbyRace.py:getDIPName().
+// The race server reads this from the JSON payload, not the topic.
+function virtual_dip_for_lane($lane) {
+  switch ((int)$lane) {
+    case 1: return '1000';
+    case 2: return '1001';
+    case 3: return '1010';
+    case 4: return '1011';
+    default: return null;
+  }
+}
+?>

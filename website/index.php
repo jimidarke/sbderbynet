@@ -28,11 +28,28 @@ $show_voting_button =
   $schema_version >= BALLOTING_SCHEMA &&
   read_single_value('SELECT COUNT(*) FROM BallotAwards') > 0;
 
+// Pending heading is printed lazily just before the first visible button
+// in its section, so empty sections (all permissions gated off) collapse.
+$pending_section_heading = null;
+
+function set_section_heading($title) {
+  global $pending_section_heading;
+  $pending_section_heading = $title;
+}
+
+function flush_section_heading() {
+  global $pending_section_heading;
+  if ($pending_section_heading !== null) {
+    echo "<h2 class='menu_section_heading'>".htmlspecialchars($pending_section_heading)."</h2>\n";
+    $pending_section_heading = null;
+  }
+}
+
 // Returns true if we actually showed a button
 function make_link_button($label, $link, $permission, $button_class) {
   if (have_permission($permission)) {
+    flush_section_heading();
     echo "<a class='button_link ".$button_class."' href='".$link."'>".$label."</a>\n";
-    echo "<br/>\n";
     return true;
   } else {
     return false;
@@ -55,39 +72,44 @@ function make_spacer_if($cond) {
 <script type="text/javascript" src="js/modal.js"></script>
 <style type="text/css">
 div.index_spacer {
-  height: 40px;
+  height: 24px;
 }
 
 div.index_background {
   width: 100%;
 }
 
-div.index_column {
+div.index_background.cols-2 div.index_column {
   width: 50%;
   display: inline-block;
   float: left;
 }
 
-.block_buttons a.button_link {
-  width: 238px;
-  height: 30px;
+div.index_background.cols-3 div.index_column {
+  width: 33.333%;
+  display: inline-block;
+  float: left;
 }
 
-.block_buttons a.button_link.before_button,
-.block_buttons input.before_button[type='submit'] {
-  color: #ffffcc;
+div.index_background.cols-4 div.index_column {
+  width: 25%;
+  display: inline-block;
+  float: left;
 }
-.block_buttons a.button_link.during_button,
-.block_buttons input.during_button[type='submit'] {
-  color: #ddffdd;
+
+@media (max-width: 1280px) {
+  div.index_background.cols-4 div.index_column {
+    width: 50%;
+  }
 }
-.block_buttons a.button_link.after_button,
-.block_buttons input.after_button[type='submit'] {
-  color: #ddddff;
-}
-.block_buttons a.button_link.other_button,
-.block_buttons input.other_button[type='submit'] {
-  color: #ffddff;
+
+@media (max-width: 1080px) {
+  div.index_background.cols-3 div.index_column {
+    width: 50%;
+  }
+  div.index_background.cols-3 div.index_column:nth-child(3) {
+    width: 100%;
+  }
 }
 </style>
 </head>
@@ -97,38 +119,59 @@ div.index_column {
 
  $need_spacer = false;
 
- // This is a heuristic more than a hard rule -- when are there so many buttons that we need a second column?
- $two_columns = have_permission(SET_UP_PERMISSION);
+ // Multi-column layout: Race Coordinator (SET_UP_PERMISSION) gets a 4-column
+ // layout (Before / During / After / Other). Anyone else stays single-column.
+ $num_columns = have_permission(SET_UP_PERMISSION) ? 4 : 1;
+ $multi_column = $num_columns > 1;
 
-echo "<div class='index_background'>\n";
+echo "<div class='index_background cols-".$num_columns."'>\n";
 
-if ($two_columns) {
+if ($multi_column) {
   echo "<div class='index_column'>\n";
 }
 
 echo "<div class='block_buttons'>\n";
 
 // *********** Before ***************
+set_section_heading('Before the Race');
 $need_spacer = make_link_button('Set-Up', 'setup.php', SET_UP_PERMISSION, 'before_button');
 $need_spacer = make_link_button('Racing Groups', 'racing-groups.php', SET_UP_PERMISSION, 'before_button') || $need_spacer;
+$need_spacer = make_link_button('Tournament', 'elimination-tournament.php', SET_UP_PERMISSION, 'before_button') || $need_spacer;
 $need_spacer = make_link_button('Race Check-In', 'checkin.php', CHECK_IN_RACERS_PERMISSION, 'before_button') || $need_spacer;
-if (have_permission(ASSIGN_RACER_IMAGE_PERMISSION)) {
-  if ($schema_version > 1) {
-    echo "<div class='double'>";
-    echo "<a class='button_link left before_button' href='photo-thumbs.php?repo=head'><b>Racer</b><br/>Photos</a>\n";
-    echo "<a class='button_link right before_button' href='photo-thumbs.php?repo=car'><b>Car</b><br/>Photos</a>\n";
-    echo "</div>";
-  } else {
-    $need_spacer = make_link_button('Edit Racer Photos', 'photo-thumbs.php?repo=head', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;
-  }
+if ($schema_version > 1) {
+  $need_spacer = make_link_button('Racer Photos', 'photo-thumbs.php?repo=head', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;
+  $need_spacer = make_link_button('Car Photos', 'photo-thumbs.php?repo=car', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;
+} else {
+  $need_spacer = make_link_button('Edit Racer Photos', 'photo-thumbs.php?repo=head', ASSIGN_RACER_IMAGE_PERMISSION, 'before_button') || $need_spacer;
 }
 
-make_spacer_if($need_spacer);
+make_spacer_if($need_spacer && $num_columns < 3);
+
+// Column break before "During"
+if ($multi_column) {
+  echo "</div>\n";  // block_buttons
+  echo "</div>\n";  // index_column
+  echo "<div class='index_column'>\n";
+  echo "<div class='block_buttons'>\n";
+}
 
 // *********** During ***************
+set_section_heading('During the Race');
 $need_spacer = make_link_button('Race Dashboard', 'coordinator.php', SET_UP_PERMISSION, 'during_button');
 $need_spacer = make_link_button('Kiosk Dashboard', 'kiosk-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
 $need_spacer = make_link_button('LED Signs', 'ledsign-dashboard.php', SET_UP_PERMISSION, 'during_button') || $need_spacer;
+// Virtual Hardware control panel — cloud twin only. Coordinator-gated.
+// Opens in a popup window (not a new tab) so the test instruments stay
+// visually separate from the main dashboard. The Pi build never sets
+// DERBYNET_CLOUD_MODE so this link is hidden there.
+if (function_exists('is_cloud_mode') && is_cloud_mode() && have_permission(CONTROL_RACE_PERMISSION)) {
+  flush_section_heading();
+  echo "<a class='button_link during_button' href='virtual/index.php'"
+       . " onclick=\"window.open(this.href, 'derbynet_virtual_hw',"
+       . " 'width=1400,height=900,toolbar=no,menubar=no,location=no,resizable=yes,scrollbars=yes');"
+       . " return false;\">Virtual Hardware</a>\n";
+  $need_spacer = true;
+}
 // TEMPORARILY HIDDEN: $need_spacer = make_link_button('Judging', 'judging.php', JUDGING_PERMISSION, 'during_button') || $need_spacer;
 if (!have_permission(SET_UP_PERMISSION)) {
   $need_spacer = make_link_button('Slideshow', 'slideshow.php', VIEW_RACE_RESULTS_PERMISSION, 'during_button') || $need_spacer;
@@ -142,9 +185,8 @@ $need_spacer = make_link_button('Racers On Deck', 'ondeck.php', -1, 'during_butt
 $need_spacer = make_link_button('Results By Racer', 'racer-results.php', VIEW_RACE_RESULTS_PERMISSION, 'during_button')
     || $need_spacer;
 
-// end first column default set-up
-
-if ($two_columns) {
+// Column break before "After"
+if ($multi_column) {
   echo "</div>\n";  // block_buttons
   echo "</div>\n";  // index_column
 
@@ -153,6 +195,7 @@ if ($two_columns) {
 }
 
 // *********** After ***************
+set_section_heading('After the Race');
 $need_spacer = make_link_button('Device status', 'device-status.php', VIEW_DEVICE_STATUS, 'after_button');
 
 // TEMPORARILY HIDDEN: $need_spacer = make_link_button('Present Awards', 'awards-presentation.php', PRESENT_AWARDS_PERMISSION, 'after_button');
@@ -161,9 +204,19 @@ $need_spacer = make_link_button('Export Results', 'export.php', VIEW_RACE_RESULT
 
 // TEMPORARILY HIDDEN: $need_spacer = make_link_button('Retrospective', 'history.php', SET_UP_PERMISSION, 'after_button') || $need_spacer;
 
-make_spacer_if($need_spacer);
+make_spacer_if($need_spacer && $num_columns < 4);
+
+// Column break before "Other" when using 4-column layout
+if ($num_columns >= 4) {
+  echo "</div>\n";  // block_buttons
+  echo "</div>\n";  // index_column
+  echo "<div class='index_column'>\n";
+  echo "<div class='block_buttons'>\n";
+}
 
 // *********** Other ***************
+set_section_heading('Other');
+make_link_button('Documentation', 'docs/site/index.html', -1, 'other_button');
 make_link_button('Schedule', 'render-document.php/summary/ScheduleDocument?options=%7B%7D&ids=0', VIEW_RACE_RESULTS_PERMISSION, 'other_button');
 make_link_button('Printables', 'print.php', ASSIGN_RACER_IMAGE_PERMISSION, 'other_button');
 // TEMPORARILY HIDDEN: make_link_button('About', 'about.php', -1, 'other_button');
@@ -173,9 +226,12 @@ if (@$_SESSION['role']) {
 } else {
   make_link_button('Log in', 'login.php', -1, 'other_button');
 }
+if (is_cloud_mode() && !empty($_SESSION['tenant_slug'])) {
+  make_link_button('Quit (switch sandbox)', 'tenant-picker.php?switch=1', -1, 'other_button');
+}
 
 echo "</div>\n";  // block_buttons
-if ($two_columns) {
+if ($multi_column) {
   echo "</div>\n";  // index_column
 }
 

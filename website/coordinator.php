@@ -15,6 +15,7 @@ $warn_no_timer = warn_no_timer();
 <html>
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Race Coordinator Page</title>
   <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css" />
   <?php require('inc/stylesheet.inc'); ?>
@@ -39,6 +40,23 @@ $warn_no_timer = warn_no_timer();
                                               JSON_HEX_TAG | JSON_HEX_AMP | JSON_PRETTY_PRINT); ?>;
     var g_current_scene = <?php echo json_encode(read_raceinfo('current_scene', ''),
                                                  JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+
+    // If we just came back from pull-forward.php with a successful Apply,
+    // briefly highlight the Undo Pull Forward button (rendered by poll) so the
+    // operator notices undo is available.
+    var g_pf_pulse_until = 0;
+    (function () {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('pf_committed') === '1') {
+          g_pf_pulse_until = Date.now() + 8000;
+          params.delete('pf_committed');
+          var qs = params.toString();
+          history.replaceState({}, '',
+            window.location.pathname + (qs ? ('?' + qs) : ''));
+        }
+      } catch (e) { /* older browsers — no-op */ }
+    })();
 
     $(function () {
       $("#replay-skipback option[value='<?php
@@ -86,62 +104,62 @@ $warn_no_timer = warn_no_timer();
 
     <div class="control_column">
 
-      <div class="control_group heat_control_group">
+      <section class="cc-card cc-card--heat control_group heat_control_group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#heat"/></svg>
+          <h3 class="cc-card__title">Heat Control</h3>
+        </header>
+        <div class="cc-card__body">
         <div id="start_race_button_div" class="block_buttons hidden">
           <input type="button" value="Start Race" onclick="handle_start_race_button()" />
         </div>
-        
+
         <?php if (read_raceinfo('show-simulate-results', 0)) { ?>
           <!-- <div class="block_buttons">
             <input type="button" value="Simulate Results" onclick="simulateRaceResults();" id="simulate-results-btn" />
           </div> -->
         <?php } ?>
 
-        <div class="centered_flipswitch">
-          <input type="checkbox" class="flipswitch" name="is-currently-racing" id="is-currently-racing"
-            checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
+        <div class="cc-heat-nav-row">
+          <div id="prev_heat_button" class="button_link cc-arrow-btn" onclick="handle_previous_heat_button()" aria-label="Previous heat">
+            <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#prev"/></svg>
+          </div>
+          <div class="centered_flipswitch cc-racing-toggle">
+            <input type="checkbox" class="flipswitch" name="is-currently-racing" id="is-currently-racing"
+              checked="checked" data-on-text="Racing" data-off-text="Not Racing" />
+          </div>
+          <div id="skip_heat_button" class="button_link cc-arrow-btn" onclick="handle_skip_heat_button()" aria-label="Skip to next heat">
+            <svg class="cc-icon cc-icon--lg" aria-hidden="true"><use href="img/coord-icons.svg#next"/></svg>
+          </div>
         </div>
 
-        <div class="block_buttons">
-
-          <div id="prev_heat_button" class="button_link" onclick="handle_previous_heat_button()">
-            <img src="img/left-white-60.png" />
-          </div>
-
+        <div class="block_buttons cc-heat-actions">
           <input type="button" id="manual_results_button" value="Manual Results"
             onclick="on_manual_results_button_click(<?php echo !$warn_no_timer ? "true" : "false"; ?>)" />
-
-          <div id="skip_heat_button" class="button_link" onclick="handle_skip_heat_button()">
-            <img src="img/right-white-60.png" />
-          </div>
-
           <input type="button" id="rerun-button" value="Re-Run" data-rerun="none" onclick="handle_rerun(this);" />
+          <div id="now-racing-group-buttons"></div>
         </div>
+        </div>
+      </section>
+
+      <div id="add-new-rounds-button" class="cc-add-new-rounds hidden">
+        <input type="button" value="Add New Rounds" onclick="show_choose_new_round_modal()" />
       </div>
 
-      <div id="supplemental-control-group" class="control_group block_buttons new_round_control hidden">
-        <div id="now-racing-group-buttons"></div>
-        <div id="add-new-rounds-button" class="hidden">
-          <input type="button" value="Add New Rounds" onclick="show_choose_new_round_modal()" />
-        </div>
-      </div>
-
-      <div class="control_group timer_control_group">
+      <section class="cc-card cc-card--timer control_group timer_control_group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#timer"/></svg>
+          <h3 class="cc-card__title">Timer Status</h3>
+          <span id="timer_status_icon_wrap" class="cc-card__badge cc-badge--neutral">
+            <img id="timer_status_icon" src="img/status/unknown.png" alt="" />
+          </span>
+        </header>
+        <div class="cc-card__body">
         <?php if (!$warn_no_timer) { ?>
           <p>Not monitoring timer state</p>
         <?php } else { ?>
-          <div class="status_icon">
-            <img id="timer_status_icon" src="img/status/unknown.png" />
-          </div>
-
-          <div id='timer-test' class="block_buttons">
-            <a class="button_link" onclick="open_timer_window();">Timer</a>
-            <a class='button_link' href='timer-test.php'>Test</a>
-          </div>
-
-          <h3>Timer Status</h3>
-          <p><b id="timer_status_text">Timer status not yet updated</b></p>
-          <p>The track has <span id="lane_count">an unknown number of</span> lane(s).</p>
+          <p class="cc-status-line"><b id="timer_status_text">Timer status not yet updated</b></p>
+          <p class="cc-status-meta">The track has <span id="lane_count">an unknown number of</span> lane(s).</p>
 
           <div id='lane-timers' class="lane-timers">
             <!-- <table border="1" cellpadding="10" style="width:fit-content">
@@ -203,16 +221,20 @@ $warn_no_timer = warn_no_timer();
 
           </div>
         <?php } ?>
-      </div>
+        </div>
+      </section>
 
-      <!-- Virtual Timer Display (Testing Mode) -->
+      <!-- Virtual Timer Display (Testing Mode) — DISABLED: superseded by
+           /virtual/ cloud virtual-hardware pages. Re-enable alongside the
+           settings.php Testing Mode block and json-timer-state virtual_display
+           if we want the on-coordinator Pi simulator back.
       <div id="virtual-timer-panel" class="control_group hidden">
         <div class="testing-mode-banner">
           &#9888; TESTING MODE - Race results are simulated
         </div>
         <h3>Virtual Timer Display</h3>
         <div id="virtual-lanes">
-          <!-- Populated dynamically by JavaScript -->
+          Populated dynamically by JavaScript
         </div>
         <div class="block_buttons" style="margin-top: 15px;">
           <input type="button" id="simulate-race-btn" value="Simulate Race"
@@ -220,68 +242,89 @@ $warn_no_timer = warn_no_timer();
           <span id="simulation-status" style="margin-left: 10px; color: #ff9800;"></span>
         </div>
       </div>
+      -->
 
-      <div class="control_group replay_control_group">
-        <div class="status_icon">
-          <img id="replay_status_icon" src="img/status/unknown.png" />
+      <section class="cc-card cc-card--replay control_group replay_control_group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#replay"/></svg>
+          <h3 class="cc-card__title">Replay Status</h3>
+          <span class="cc-card__badge cc-badge--neutral">
+            <img id="replay_status_icon" src="img/status/unknown.png" alt="" />
+          </span>
+        </header>
+        <div class="cc-card__body">
+          <p class="cc-status-line"><b id="replay_status">Remote replay status not yet updated</b></p>
+          <div class="block_buttons cc-row-2">
+            <input type="button" id="test_replay" value="Trigger Replay" onclick="handle_test_replay();" />
+            <input type="button" value="Replay Settings" onclick="show_replay_settings_modal();" />
+          </div>
         </div>
-        <h3>Replay Status</h3>
-        <p><b id="replay_status">Remote replay status not yet updated</b></p>
-        <div id="test_replay" class="block_buttons">
-          <input type="button" value="Trigger Replay" onclick="handle_test_replay();" />
-        </div>
-        <div class="block_buttons">
-          <input type="button" value="Replay Settings" onclick="show_replay_settings_modal();" />
-        </div>
-      </div>
+      </section>
 
     </div>
 
     <div class="control_column">
 
-      <div class="coordinator-control-group">
-        <div id="scenes-control-coordinator">
-          <label for="scenes-select-coordinator">Current scene:</label>
-          <div id="select-wrap-coordinator">
-            <select id="scenes-select-coordinator"></select>
-          </div>
-          <div id="scenes-status-message-coordinator"></div>
-        </div>
-
-        <hr class="coordinator-control-divider" />
-
-        <div id="emergency-control-coordinator">
-          <div id="emergency-status-banner" class="emergency-status-inactive">
-            <span class="emergency-icon">⚠️</span>
-            <span id="emergency-status-text">No Active Emergency</span>
-          </div>
-          <label for="emergency-message-coordinator">
-            <span class="emergency-label-icon">🚨</span> Emergency Broadcast:
-          </label>
-          <div class="emergency-char-counter">
-            <span id="emergency-char-count">0</span>/255 characters
-          </div>
-          <div id="emergency-input-wrap-coordinator">
-            <input type="text" id="emergency-message-coordinator"
-                   maxlength="255"
-                   placeholder="Enter EMERGENCY message for all kiosks and LED signs..."
-                   oninput="update_emergency_char_count()" />
-          </div>
-          <div id="emergency-button-wrap">
-            <input type="button" id="emergency-broadcast-btn" value="🚨 BROADCAST EMERGENCY"
-                   onclick="handle_emergency_broadcast()" />
-            <input type="button" id="emergency-clear-btn" value="✓ Clear Emergency"
-                   onclick="handle_emergency_clear()" class="hidden" />
+      <section class="cc-card cc-card--scene coordinator-control-group">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#scene"/></svg>
+          <h3 class="cc-card__title">Current Scene</h3>
+        </header>
+        <div class="cc-card__body">
+          <div id="scenes-control-coordinator">
+            <div id="select-wrap-coordinator">
+              <select id="scenes-select-coordinator"></select>
+            </div>
+            <div id="scenes-status-message-coordinator"></div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div id="playlist-group" class="block_buttons">
-        <a class='button_link' href='playlist.php'>Rounds Playlist</a>
-        <div id="playlist-start">
-          <input type="button" value="Start Playlist" onclick="handle_start_playlist();" />
+      <section class="cc-card cc-card--emergency" id="emergency-card">
+        <details id="emergency-broadcast-details" class="emergency-broadcast-details">
+          <summary class="cc-emergency-strip" aria-label="Compose emergency broadcast">
+            <svg class="cc-icon cc-emergency-strip__icon" aria-hidden="true"><use href="img/coord-icons.svg#emergency"/></svg>
+            <div id="emergency-status-banner" class="emergency-status-inactive cc-emergency-strip__status">
+              <span id="emergency-status-text">No Active Emergency</span>
+            </div>
+            <input type="button" id="emergency-clear-btn" value="Clear"
+                   onclick="event.stopPropagation(); handle_emergency_clear();"
+                   class="hidden cc-btn cc-btn--danger" />
+            <span class="cc-emergency-strip__toggle" aria-hidden="true">
+              <svg class="cc-icon"><use href="img/coord-icons.svg#dots"/></svg>
+            </span>
+          </summary>
+          <div class="emergency-broadcast-body">
+            <label for="emergency-message-coordinator">Emergency Broadcast:</label>
+            <div class="emergency-char-counter">
+              <span id="emergency-char-count">0</span>/255 characters
+            </div>
+            <div id="emergency-input-wrap-coordinator">
+              <input type="text" id="emergency-message-coordinator"
+                     maxlength="255"
+                     placeholder="Enter EMERGENCY message for all kiosks and LED signs..."
+                     oninput="update_emergency_char_count()" />
+            </div>
+            <div id="emergency-button-wrap">
+              <input type="button" id="emergency-broadcast-btn" value="BROADCAST EMERGENCY"
+                     onclick="event.stopPropagation(); handle_emergency_broadcast();" />
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section id="playlist-group" class="cc-card cc-card--playlist block_buttons">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#playlist"/></svg>
+          <h3 class="cc-card__title">Rounds Playlist</h3>
+        </header>
+        <div class="cc-card__body cc-row-2">
+          <a class='button_link' href='playlist.php'>Open Playlist</a>
+          <div id="playlist-start">
+            <input type="button" value="Start Playlist" onclick="handle_start_playlist();" />
+          </div>
         </div>
-      </div>
+      </section>
 
       <div id="master-schedule-group" class="master_schedule_group"></div>
       <div id="ready-to-race-group" class="scheduling_control_group"></div>
@@ -494,6 +537,47 @@ $warn_no_timer = warn_no_timer();
              onclick="confirm_emergency_clear()" />
       <input type="button" value="Cancel"
              onclick='close_modal("#emergency_clear_confirm_modal");' />
+    </div>
+  </div>
+
+  <!-- DEPRECATED: replaced by pull-forward.php (a dedicated tablet-friendly
+       page reached via the "Pull Forward…" button on the running round).
+       Retained for one release as a console-callable fallback in case the
+       page hits a bug on race day (call showPullForwardModal(racerid, roundid)
+       from devtools). Slated for removal next release. -->
+  <div id='pull_forward_modal' class="modal_dialog wide_modal hidden block_buttons">
+    <h3>Pull Forward — Fill Schedule Gaps</h3>
+    <div id="pf-dropout-info" class="pf-section">
+      <p><strong>Dropout:</strong> <span id="pf-dropout-name"></span>
+        (<span id="pf-dropout-carnumber"></span>)
+        — <span id="pf-gaps-count"></span> gap(s) to fill</p>
+    </div>
+    <div id="pf-cascade-preview" class="pf-section">
+      <h4>Schedule Changes</h4>
+      <table id="pf-moves-table" class="pf-table">
+        <thead>
+          <tr>
+            <th>Fill Heat</th>
+            <th>Lane</th>
+            <th>Racer Moved</th>
+            <th>From Heat</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="pf-trailing-byes" class="pf-section hidden">
+      <h4>Remaining Empty Lanes</h4>
+      <p id="pf-byes-list"></p>
+    </div>
+    <div id="pf-warnings" class="pf-section hidden">
+      <h4>Fairness Warnings</h4>
+      <ul id="pf-warnings-list"></ul>
+    </div>
+    <div class="block_buttons">
+      <input type="button" value="Accept" onclick="executePullForward(false);" />
+      <input type="button" value="Accept + Announce" onclick="executePullForward(true);" />
+      <input type="button" value="Cancel" onclick='close_modal("#pull_forward_modal");' />
     </div>
   </div>
 </body>

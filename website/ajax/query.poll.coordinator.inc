@@ -34,6 +34,19 @@ json_out('heat-results',
 json_out('classes', json_all_classes());
 json_out('rounds', json_all_rounds($now_running));
 
+// Pull-forward undo availability
+$pf_undo_json = read_raceinfo('pull_forward_undo');
+if ($pf_undo_json !== false) {
+  $pf_undo = json_decode($pf_undo_json, true);
+  if ($pf_undo) {
+    json_out('pull-forward-undo', array(
+      'roundid' => $pf_undo['roundid'],
+      'dropout_racerid' => $pf_undo['dropout_racerid'],
+      'timestamp' => $pf_undo['timestamp']
+    ));
+  }
+}
+
 // Pre-defined aggregate classes that could be scheduled for racing.  Each
 // constituent must have raced, or, if an aggregate, itself be available for
 // scheduling.

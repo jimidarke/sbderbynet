@@ -4,6 +4,9 @@ define('FULL_NAME', 0);
 define('FIRST_NAME_LAST_INITIAL', 1);
 
 function read_name_style() {
+  if (function_exists('is_cloud_public_mode') && is_cloud_public_mode()) {
+    return FIRST_NAME_LAST_INITIAL;
+  }
   return read_raceinfo('name-style', FULL_NAME);
 }
 

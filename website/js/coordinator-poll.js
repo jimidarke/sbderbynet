@@ -97,6 +97,9 @@ g_completed_rounds = [];
 // Roundids of an aggregate rounds
 g_aggregate_rounds = [];
 
+// Pull-forward undo state (set from poll data)
+var g_pull_forward_undo = null;
+
 function find_by_classid(classes, classid) {
   for (var i = 0; i < classes.length; ++i) {
     if (classes[i].classid == classid) {
@@ -473,6 +476,31 @@ function inject_into_scheduling_control_group(round, current, timer_state) {
         .addClass("adjustment-needed");
     }
 
+    // Pull-Forward entry button — only the running round, only while there
+    // are unraced heats. Sends the operator to the dedicated pull-forward.php
+    // page where they pick a racer, see the simulated cascade, and Apply.
+    if (round.roundid == current.roundid &&
+        round.heats_scheduled > round.heats_run) {
+      buttons.append(
+        '<input type="button" class="pull-forward-button"' +
+        ' onclick="window.location=\'pull-forward.php\'"' +
+        ' title="Drop a racer from the schedule and pull replacements forward from later heats."' +
+        ' value="Pull Forward…"/>'
+      );
+    }
+
+    // Pull-forward undo button
+    if (g_pull_forward_undo && g_pull_forward_undo.roundid == round.roundid) {
+      var pulse = (typeof g_pf_pulse_until !== 'undefined' &&
+                   Date.now() < g_pf_pulse_until) ? ' pull-forward-undo-pulse' : '';
+      buttons.append(
+        '<input type="button" class="pull-forward-undo-button' + pulse + '"' +
+        ' onclick="undoPullForward(' + round.roundid + ')"' +
+        ' title="Available until any moved heat is raced. Once a moved heat records a result, this button disappears."' +
+        ' value="Undo Pull Forward"/>'
+      );
+    }
+
     if (
       round.heats_scheduled == 0 &&
       round.heats_run == 0 &&
@@ -802,6 +830,9 @@ function process_coordinator_poll_json(json) {
     check_emergency_state(json);
   }
 
+  // Pull-forward undo state
+  g_pull_forward_undo = json['pull-forward-undo'] || null;
+
   $("#start_race_button_div").toggleClass(
     "hidden",
     !json["timer-state"]["remote-start"]
@@ -1000,9 +1031,13 @@ function process_coordinator_poll_json(json) {
       : currentTime / 1000 - timer.last_heartbeat;
     const isReady = timer.ready || false;
 
-    // Assign lane status based on its online state and the global race status
+    // Assign lane status based on its online state and the global race status.
+    // The start timer is a latched switch (HIGH = Active, LOW = Standby), not
+    // an arming signal, so it gets distinct labels from the finish timers.
     let laneStatus = "NOT READY";
-    if (isOnline) {
+    if (timer.is_starter) {
+      laneStatus = isOnline ? (isReady ? "Active" : "Standby") : "OFFLINE";
+    } else if (isOnline) {
       if (nowRacing && status === "Race") {
         laneStatus = "Running";
       } else if (status === "Staging") {
@@ -1091,7 +1126,7 @@ function process_coordinator_poll_json(json) {
           statusCell.className = "timer-staging";
         } else if (timer.status === "Running") {
           statusCell.className = "timer-running";
-        } else if (timer.status === "Ready") {
+        } else if (timer.status === "Ready" || timer.status === "Active") {
           statusCell.className = "timer-ready";
         } else {
           statusCell.className = "timer-not-ready";
@@ -1190,12 +1225,9 @@ function process_coordinator_poll_json(json) {
     )
   );
 
-  // Hide the control group if there's nothing to show
-  $("#supplemental-control-group").toggleClass(
-    "hidden",
-    $("#add-new-rounds-button").hasClass("hidden") &&
-    $("#now-racing-group-buttons").is(":empty")
-  );
+  // (now-racing-group-buttons was relocated into .cc-heat-actions; the
+  // former #supplemental-control-group wrapper was removed. #add-new-rounds-button
+  // now manages its own visibility directly.)
 
   // Process device statuses
   if (json["device-status"]) {
@@ -1329,27 +1361,6 @@ $(document).ajaxSuccess(function (event, xhr, options, data) {
   }
 });
 */
-
-function handleRacerDropout(racerid, roundid) {
-  if (confirm('Are you sure you want to remove this racer from the current round?')) {
-    $.ajax('action.php', {
-      type: 'POST',
-      data: {
-        action: 'racer.dropout',
-        racerid: racerid,
-        roundid: roundid
-      },
-      success: function (data) {
-        if (data.outcome.code == 'success') {
-          // Reload current round display
-          location.reload();
-        } else {
-          alert('Failed to remove racer: ' + data.outcome.description);
-        }
-      }
-    });
-  }
-}
 
 function handleRacerDNF(racerid, roundid, heat) {
   if (confirm('Mark this racer as DNF (Did Not Finish)? This will give them a time of 99.999 seconds.')) {

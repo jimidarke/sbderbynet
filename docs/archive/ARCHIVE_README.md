@@ -24,8 +24,8 @@ This directory contains historical documentation from earlier development phases
 For up-to-date information, refer to:
 
 - **Project Overview:** `/README.md`
-- **Database Schema:** `/DATABASE_SCHEMA_VALIDATION.md`, `/ROUNDSETUP.md`
-- **Race State Machine:** `/RACINGSTATEENGINE.md`
+- **Database Schema:** `/docs/DATABASE_SCHEMA_VALIDATION.md`, `/docs/ROUNDSETUP.md`
+- **Race State Machine:** `/docs/RACINGSTATEENGINE.md`
 - **API Reference:** `/docs/COORDINATOR_POLL_API.md`
 - **MQTT Protocol:** `/extras/soapbox/doc/MQTT_API.md`
 - **Tournament Config:** `/website/inc/elimination-configs/README.md`

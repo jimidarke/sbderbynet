@@ -8,6 +8,16 @@ function create_kiosk_table() {
   run_sql_script('kiosk-table');
 }
 
+// Add public column to existing Kiosks table if missing
+function ensure_kiosk_public_column() {
+  global $db;
+  try {
+    $db->exec('ALTER TABLE Kiosks ADD COLUMN public INTEGER DEFAULT 0');
+  } catch (PDOException $p) {
+    // Column already exists — ignore
+  }
+}
+
 // Compute a string that acts as the "address" for the kiosk that invoked the
 // current page.
 function address_for_current_kiosk() {
@@ -193,7 +203,7 @@ function all_kiosks() {
     drop_old_kiosks();
     // Information for "old" kiosks remains in the database but we filter out
     // those we haven't heard from in 60 seconds.
-    $stmt = $db->query('SELECT address, name, page, last_contact'
+    $stmt = $db->query('SELECT address, name, page, last_contact, public'
                        .' FROM Kiosks'
                        .' WHERE '.time().' - last_contact < 60'
                        .' ORDER BY '
@@ -214,11 +224,15 @@ function all_kiosks() {
                         'page' => $row['page'],
                         'reload' => $row['reload'],
                         'age' => time() - $row['last_contact'],
-                        'parameters' => $row['params']);
+                        'parameters' => $row['params'],
+                        'public' => isset($row['public']) ? (int)$row['public'] : 0);
     }
   } catch (PDOException $p) {
-    // Most likely: no kiosks table.
-    // One will be created if a kiosk actually connects.
+    if (strpos($p->getMessage(), 'public') !== false) {
+      // Column missing — add it and retry
+      ensure_kiosk_public_column();
+    }
+    // Otherwise: no kiosks table — one will be created if a kiosk connects.
   }
   return $kiosks;
 }

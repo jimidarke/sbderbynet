@@ -2,9 +2,33 @@
 
 This document describes the MQTT topic structure and message formats used throughout the Soapbox Derby race management system.
 
+## Two topic shapes: Pi (legacy) vs cloud (tenant-prefixed)
+
+The topic shape depends on where the broker runs:
+
+- **Pi / race-day stack** — topics are unprefixed: `derbynet/<category>/...`. Real
+  timer firmware, the Pi race-server, and every existing kiosk talk on this
+  shape. Nothing in this document changes for Pi deployments.
+- **Cloud twin (uisp.darketech.ca)** — topics are tenant-prefixed:
+  `derbynet/t/<slug>/<category>/...`. The `<slug>` is the per-session sandbox
+  identifier (`$_SESSION['tenant_slug']`), validated against
+  `^[a-z0-9][a-z0-9-]{0,31}$`. The cloud broker is shared by every sandbox;
+  the prefix is what keeps one sandbox's race state from leaking into
+  another's.
+
+The body of this document describes the **legacy / Pi** shape. To translate to
+the cloud shape, prepend `t/<slug>/` after the leading `derbynet/`. The race-server
+selects shape at boot via `DERBYNET_TENANT_MODE` — `multi` for cloud,
+unset/`single` for Pi.
+
+For the design rationale (why three components must agree: browser bridge,
+broker ACL, race-server router), see
+[`docs/CLOUD_MULTI_TENANT.md`](../../../docs/CLOUD_MULTI_TENANT.md).
+
 ## Topic Structure
 
-All topics use the prefix `derbynet/` followed by a category and specific identifiers.
+All topics use the prefix `derbynet/` (Pi) or `derbynet/t/<slug>/` (cloud)
+followed by a category and specific identifiers.
 
 ### Core Categories
 
@@ -185,6 +209,41 @@ derbynet/lane/1/pinny 0042
   "message": "HLS stream issue detected: error_no_new_segments"
 }
 ```
+
+## Cloud worked example
+
+Pi publish on the legacy topic:
+
+```
+derbynet/device/B_FINISH_1/state
+{"toggle": false, "timestamp": 1715432589, "hwid": "B_FINISH_1", "dip": "1000", "lane": 1}
+```
+
+Same publish from a browser virtual finish-timer in the `acme` sandbox:
+
+```
+derbynet/t/acme/device/B_FINISH_1/state
+{"toggle": false, "timestamp": 1715432589, "hwid": "B_FINISH_1", "dip": "1000", "lane": 1}
+```
+
+The **payload** is unchanged across shapes. Only the topic carries tenancy.
+That keeps the race-server's per-message logic identical: in cloud mode the
+router strips `derbynet/t/<slug>/` before dispatching to a per-tenant
+`derbyRace` context; in Pi mode the legacy topic falls through directly.
+
+## Cloud-specific topics
+
+| Topic                                     | Direction | Notes                                              |
+| ----------------------------------------- | --------- | -------------------------------------------------- |
+| `derbynet/t/<slug>/race/state`            | server→all | Same payload as Pi `derbynet/race/state`           |
+| `derbynet/t/<slug>/race/time`             | derbyTime→all | Fanned out per-tenant in multi mode             |
+| `derbynet/t/<slug>/status`                | server | Per-tenant online/offline (server-level LWT remains on unscoped `derbynet/status`) |
+| `derbynet/t/<slug>/alerts/<category>`     | server | Tenant-scoped alerts; payload identical to Pi     |
+| `derbynet/t/<slug>/device/B_*/...`        | browser→server | Browser virtual hardware. ACL constrains the `virtual-device` user to the `B_`-prefixed hwid namespace under any slug. |
+
+Real-hardware hwids (no `B_` prefix) are not permitted on the cloud broker —
+the ACL rejects the publish, defending against a leaked browser cred
+impersonating a Pi-side timer.
 
 ## Message Format Standards
 

@@ -212,6 +212,7 @@ function process_polled_data(data) {
     hash = hash_string(hash, kiosk.last_contact);
     hash = hash_string(hash, kiosk.page);
     hash = hash_string(hash, JSON.stringify(kiosk.parameters));
+    hash = hash_string(hash, '' + (kiosk.public || 0));
 
     $("#kiosk_control_group .kiosk_control .reload p.reloading").eq(i)
       .toggleClass('hidden', !kiosk.reload);
@@ -333,6 +334,27 @@ function generate_kiosk_control(index, kiosk, pages) {
     })
     .appendTo(kiosk_select);
   $('<label for="' + video_replay_id + '">Video Replay Enabled</label>').appendTo(kiosk_select);
+
+  // Add the "Public Display" toggle (permits viewing via cloud URL)
+  var public_id = 'public-display-' + kiosk.address.replace(/[:+]/g, '_');
+  $("<input type='checkbox' class='flipswitch'/>")
+    .attr('id', public_id)
+    .prop('checked', kiosk.public == 1)
+    .on("change", null, kiosk, function(event) {
+      var checked = $(event.target).is(':checked');
+      var kiosk = event.data;
+      $.ajax(g_action_url,
+             {type: 'POST',
+              data: {action: 'kiosk.public',
+                     address: kiosk.address,
+                     'public': checked ? 1 : 0},
+              success: function(data) {
+                process_polled_data(data);
+              }
+             });
+    })
+    .appendTo(kiosk_select);
+  $('<label for="' + public_id + '">Public Display</label>').appendTo(kiosk_select);
 
   kiosk_control.appendTo("#kiosk_control_group");
 }

@@ -1,86 +1,62 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-This is a comprehensive soapbox derby race management system built by extensively modifying the DerbyNet software. DerbyNet was originally created for Pinewood Derby racing events (small wooden cars racing down a gravity track), but has been extensively modified to support children's Soapbox Derby events (larger gravity-powered cars with children riding in them).
+SBDerbyNet is a soapbox derby race management system built by extensively modifying DerbyNet (originally for Pinewood Derby). It adds hardware infrastructure (MQTT-coordinated timers, displays, LED signs), elimination tournaments, broadcast messaging, and professional kiosk displays while maintaining full backward compatibility with the original DerbyNet.
 
-**Current Version: 1.0.0**
+**Version**: 1.0.0 | **License**: MIT | **Original**: [DerbyNet](https://derbynet.org)
 
-## Complete Documentation
+## Component Map
 
-For comprehensive documentation including:
-- Pull request summary and technical contributions
-- System architecture and requirements
-- Installation and setup instructions
-- Feature documentation and usage guides
-- Hardware integration details
-- Testing and quality assurance information
+| Component | Directory | Tech | CLAUDE.md |
+|-----------|-----------|------|-----------|
+| Web Application | `website/` | PHP, SQLite, jQuery | [website/CLAUDE.md](website/CLAUDE.md) |
+| Soapbox Infrastructure | `extras/soapbox/` | Python, MQTT | [extras/soapbox/CLAUDE.md](extras/soapbox/CLAUDE.md) |
+| Race Server | `extras/soapbox/infra/server/` | Python, MQTT | [extras/soapbox/infra/server/CLAUDE.md](extras/soapbox/infra/server/CLAUDE.md) |
+| Finish Timer | `extras/soapbox/infra/finishtimer/` | Python, GPIO | [extras/soapbox/infra/finishtimer/CLAUDE.md](extras/soapbox/infra/finishtimer/CLAUDE.md) |
+| Start Timer | `extras/soapbox/infra/starttimer/` | MicroPython, ESP32 | [extras/soapbox/infra/starttimer/CLAUDE.md](extras/soapbox/infra/starttimer/CLAUDE.md) |
+| Derby Display | `extras/soapbox/infra/derbydisplay/` | Python, Chromium | [extras/soapbox/infra/derbydisplay/CLAUDE.md](extras/soapbox/infra/derbydisplay/CLAUDE.md) |
+| HLS Video Feed | `extras/soapbox/hlsfeed/` | FFmpeg, Nginx | [extras/soapbox/hlsfeed/CLAUDE.md](extras/soapbox/hlsfeed/CLAUDE.md) |
+| LED Signs | `extras/ledsign/` | MicroPython, ESP32 | [extras/ledsign/CLAUDE.md](extras/ledsign/CLAUDE.md) |
+| Flutter App | `extras/flutterapp/` | Flutter/Dart | [extras/flutterapp/CLAUDE.md](extras/flutterapp/CLAUDE.md) |
+| SaaS Backend | `extras/saasbox/` | FastAPI, Docker | [extras/saasbox/CLAUDE.md](extras/saasbox/CLAUDE.md) |
+| Pi Deployment | `extras/derbypi/` | Ansible, Bash | [extras/derbypi/CLAUDE.md](extras/derbypi/CLAUDE.md) |
+| Test Suite | `testing/` | Bash, Puppeteer | [testing/CLAUDE.md](testing/CLAUDE.md) |
+| Timer (Legacy Java) | `timer/` | Java, Ant | [timer/CLAUDE.md](timer/CLAUDE.md) |
 
-**Please refer to the main [README.md](README.md) file which contains all consolidated documentation for this project.**
+## Architecture
 
-## Quick Technical Reference
+- **Database**: SQLite (single source of truth, WAL mode in production)
+- **Messaging**: MQTT via Mosquitto broker (`192.168.100.10:1883`) for all device coordination
+- **State Engine**: Race state spans PHP (NowRacingState), Python (Race Server states), and hardware (timer states). See [docs/RACINGSTATEENGINE.md](docs/RACINGSTATEENGINE.md)
+- **Network**: Isolated `192.168.100.x` subnet for race-day operations
 
-### Key System Components
+## Global Conventions
 
-1. **DerbyNet PHP Core** (`/website/`): Web-based race management system
-2. **Race Server** (`/extras/soapbox/infra/server/`): Central coordination server with MQTT messaging
-3. **Finish Timer** (`/extras/soapbox/infra/finishtimer/`): Hardware-based finish line detection
-4. **Start Timer** (`/extras/soapbox/infra/starttimer/`): ESP32-based race start detection
-5. **Derby Display** (`/extras/soapbox/infra/derbydisplay/`): Display screens for race information
-6. **HLS Feed** (`/extras/soapbox/hlsfeed/`): Camera streaming service for race viewing
+- Round names must start with a number for proper sequencing
+- Tournament configurations use JSON files in `website/inc/elimination-configs/`
+- All hardware devices use MAC-derived hardware IDs
+- MQTT topics follow `derbynet/{category}/{id}/{type}` pattern
 
-### Major Enhancements Made
+## Development
 
-- **~40 new files** in complete hardware infrastructure
-- **Critical scheduling engine fixes** resolving parameter interpretation bugs
-- **JSON-based elimination tournament system** with 3 new database tables
-- **Professional kiosk displays** with modern UI/UX
-- **MQTT messaging architecture** for hardware coordination
-- **Broadcast messaging system** for real-time announcements
-- **Complete backward compatibility** with existing DerbyNet functionality
+- **Build**: `ant generated` (generates version info)
+- **Test**: `cd testing/ && ./test-basic-racing.sh`
+- **Docker**: `docker run -p 80:80 -v /data:/var/lib/derbynet jeffpiazza/derbynet_server`
+- **Production DB access**: See [docs/PRODUCTION_ACCESS.md](docs/PRODUCTION_ACCESS.md)
 
-### Memory Guidance
+## Key Cross-Cutting Docs
 
-- All names of racing rounds must start with a number to allow proper sequencing
-- The database file is a cached copy of production - changes will be discarded when refreshed
-- Tournament configurations use JSON files in `/inc/elimination-configs/`
-- Heat generation uses weighted parameters: avoid_consecutive=5000, group_weighted_cars=100, avoid_same_lane=200, heat_counts=10
-
-### Production Data Access
-
-For troubleshooting, the live database can be accessed via SFTP. See [SECURE/SFTP_ACCESS.md](SECURE/SFTP_ACCESS.md) for connection details and usage instructions.
-
-Quick reference:
-```bash
-# Setup (once): copy key to Linux filesystem for proper permissions
-mkdir -p ~/.ssh/derbynet && cp SECURE/keys/derby/id_rsa ~/.ssh/derbynet/ && chmod 600 ~/.ssh/derbynet/id_rsa
-
-# Download current database
-sftp -i ~/.ssh/derbynet/id_rsa -P 22 derbynet@192.168.100.10:/var/lib/derbynet/2025/test1/derbynet.sqlite3 /tmp/derbynet/
-```
-
-### Critical Bug Fixes Applied
-
-**Heat Generation Parameter Fix (2025-06-12)**:
-- Fixed `n_times_per_lane` parameter interpretation in scheduling engine
-- JSON `races_per_racer: 3` → `n_times_per_lane = 1` (3 total races: 1 per lane)
-- JSON `races_per_racer: 1` → Custom sequential scheduling function
-- Removed conflicting legacy triple elimination logic
-
-**Key Files Modified**:
-- `website/ajax/action.schedule.generate.inc` - Fixed elimination tournament detection
-- `website/inc/schedule_one_round.inc` - Added custom single-race scheduling
-- `website/inc/elimination-config.inc` - Tournament configuration management
-- `website/sql/sqlite/elimination-tables.inc` - New database schema
-
-## Development Notes
-
-- This system maintains full backward compatibility with original DerbyNet
-- The `extras/soapbox/` directory contains completely new infrastructure
-- Core scheduling engine fixes benefit all DerbyNet users
-- Elimination tournament system is designed as reusable framework
-- Professional display enhancements work with any derby type
-
-For detailed technical information, architecture diagrams, installation guides, and complete feature documentation, see the main [README.md](README.md).
+- [docs/RACINGSTATEENGINE.md](docs/RACINGSTATEENGINE.md) — State machine across PHP, Python, and hardware
+- [docs/COORDINATOR_POLL_API.md](docs/COORDINATOR_POLL_API.md) — Coordinator polling API specification
+- [docs/ROUNDSETUP.md](docs/ROUNDSETUP.md) — Round system and database schema
+- [docs/CICD.md](docs/CICD.md) — CI/CD pipeline and deployment strategy
+- [docs/PULL_FORWARD.md](docs/PULL_FORWARD.md) — Mid-event schedule adjustment system
+- [docs/PULL_FORWARD_OPERATOR.md](docs/PULL_FORWARD_OPERATOR.md) — Race-day operator card for pull-forward
+- [docs/DRESS_REHEARSAL.md](docs/DRESS_REHEARSAL.md) — Cloud + Pi rehearsal runbook and race-day go/no-go
+- [docs/PHONE_USAGE.md](docs/PHONE_USAGE.md) — Phone scope: standard pages only, never a control surface
+- [docs/VPS_OPERATIONS.md](docs/VPS_OPERATIONS.md) — Cloud VPS interaction protocol via `scripts/derbyvps.sh`
+- [docs/LOGGING.md](docs/LOGGING.md) — Where every server-side log lands; `derbyvps.sh logs --where` prints the live map
+- [docs/TESTING.md](docs/TESTING.md) — Test-case proposal: priorities, what each one would catch, where to start

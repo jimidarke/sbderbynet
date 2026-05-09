@@ -14,13 +14,11 @@ require_once('inc/photo-config.inc');
 define('FAKE_RACER_IMAGES', 'fake-racer-images/racers');
 define('FAKE_CAR_IMAGES', 'fake-racer-images/cars');
 
+// SBDerbyNet age-band scheme: 3-year bands starting at age 6.
+// Group 1 → Ages 6-8, Group 2 → Ages 9-11, Group 3 → Ages 12-14, ...
 function fake_partition_name($g) {
-  if ($g == 1) return 'Fake Lions';
-  if ($g == 2) return 'Fake Tigers';
-  if ($g == 3) return 'Fake Wolves';
-  if ($g == 4) return 'Fake Bears';
-  if ($g == 5) return 'Fake Webelos';
-  return 'Fake Group '.$g;
+  $start = 6 + ($g - 1) * 3;
+  return 'Ages ' . $start . '-' . ($start + 2);
 }
 
 if (have_permission(SET_UP_PERMISSION)) {

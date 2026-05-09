@@ -460,7 +460,12 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                     </div>
                 </div>
             </div>
-            <!-- Testing Mode Settings -->
+            <!-- Testing Mode Settings — DISABLED: superseded by /virtual/ cloud
+                 virtual-hardware pages, which exercise the full MQTT/race-server
+                 stack end-to-end. Pi-side ad-hoc sims are done via curl scripts.
+                 Re-enable this block (and the matching coordinator panel,
+                 json-timer-state virtual_display, and settings.write writer)
+                 if we ever want the in-UI Pi simulator back.
             <div class="settings_group">
                 <div class="settings_group_image">
                     <img src="img/miscellaneous.png" />
@@ -481,6 +486,11 @@ $schedules_exist = read_single_value('SELECT COUNT(*) FROM RaceChart'
                     </p>
                 </div>
             </div>
+            -->
+
+            <?php /* Settings.write writer for the testing-mode setting:
+                 see ajax/action.settings.write.inc — entry currently commented
+                 out alongside this UI block. */ ?>
         </form>
     </div>
     <?php require('inc/chooser.inc'); ?>

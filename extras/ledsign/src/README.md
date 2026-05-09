@@ -297,6 +297,30 @@ If you see `MemoryError`:
 
 Consider removing `test_betabrite.py` from production devices.
 
+## Race Server Integration
+
+The race server (`extras/soapbox/infra/server/derbyRace.py`) publishes content to LED signs automatically during race events via the `ledsign_content.py` module.
+
+### What each sign shows during a race
+
+| Race State | Starter Sign | Usher Lane Signs |
+|------------|-------------|------------------|
+| STOPPED | "READY" (amber) | blank |
+| STAGING | "SET" (amber) | "#0042" (green, current racer pinny) |
+| RACING | "GO!" (green, flashing) | "#0042" (green) |
+| FINISHED | "FINISHED" (red) | "DONE" (amber, 5s) |
+
+### MQTT topics published by race server
+
+```
+derbynet/ledsign/starter/message        # Starter sign content
+derbynet/ledsign/usher-lane1/message    # Lane 1 usher sign
+derbynet/ledsign/usher-lane2/message    # Lane 2 usher sign
+derbynet/ledsign/usher-lane3/message    # Lane 3 usher sign
+```
+
+Signs subscribe to these automatically once assigned to a zone via the admin dashboard.
+
 ## Version History
 
 - **1.1.0** - HTTP-based discovery and configuration (mirrors kiosk pattern)

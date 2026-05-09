@@ -1,0 +1,518 @@
+#!/usr/bin/env bash
+# derbyvps.sh — SBDerbyNet cloud VPS operations wrapper.
+#
+# One command for every routine VPS interaction: audit, bootstrap, deploy,
+# status, logs, backup, rollback, shutdown, restore-uisp.
+#
+# Design notes:
+#  * Backup-first on every deploy. Last 10 snapshots retained.
+#  * Pre/post validation gates abort on disk pressure, port collision,
+#    UISP not siloed, compose config errors, /health failures.
+#  * Dry-run on every destructive command.
+#  * No external deps beyond ssh, rsync, jq (optional), openssl, tar, curl.
+#
+# See docs/VPS_OPERATIONS.md and .claude/skills/derbyVPS/SKILL.md.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIG="$SCRIPT_DIR/derbyvps.config"
+LOG="$SCRIPT_DIR/.derbyvps-deploy.log"
+
+# ---------- Defaults (override in $CONFIG) ----------
+VPS_HOST="uisp.darketech.ca"
+VPS_PORT=22
+VPS_USER="claude"
+VPS_KEY="$HOME/.ssh/sbderby_vps_ed25519"
+VPS_REPO_DIR="/opt/sbderbynet"
+VPS_DATA_DIR="/opt/derbynet/production/data"
+VPS_BACKUP_DIR="/opt/sbderbynet-backups"
+VPS_LOG_FILE="/var/log/sbderbynet-deploy.log"
+BACKUP_RETENTION=10
+COMPOSE_DIR_REL="installer/docker-cloud"
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.production.yml"
+HEALTH_URL="http://localhost/health"
+EXPECTED_SERVICES_MIN=4
+DERBYNET_CLOUD_MODE="public"
+
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+
+# ---------- Flags ----------
+DRY_RUN=0
+YES=0
+QUIET=0
+VERBOSE=0
+
+# ---------- Color/log helpers ----------
+if [[ -t 1 ]]; then
+  RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; BLUE=$'\033[34m'; RESET=$'\033[0m'
+else
+  RED=; GREEN=; YELLOW=; BLUE=; RESET=
+fi
+
+mkdir -p "$(dirname "$LOG")"
+say()  { [[ $QUIET -eq 1 ]] || printf '%s\n' "$*"; }
+log()  { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$LOG"; }
+info() { say "$*"; log "$*"; }
+ok()   { say "${GREEN}✓${RESET} $*"; log "OK: $*"; }
+warn() { say "${YELLOW}!${RESET} $*"; log "WARN: $*"; }
+die()  { say "${RED}ERROR:${RESET} $*"; log "ERROR: $*"; exit 1; }
+section() { say ""; say "${BLUE}== $* ==${RESET}"; log "== $* =="; }
+
+confirm() {
+  [[ $YES -eq 1 ]] && return 0
+  local prompt="${1:-Proceed?} [y/N] "
+  read -r -p "$prompt" reply
+  [[ "$reply" =~ ^[Yy]$ ]]
+}
+
+# ---------- SSH wrapper ----------
+ssh_opts=(-i "$VPS_KEY" -p "$VPS_PORT" -o ConnectTimeout=15
+          -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30)
+
+SSH() { ssh "${ssh_opts[@]}" "$VPS_USER@$VPS_HOST" "$@"; }
+
+# Run a multi-line script on the VPS via stdin. Local log captures the full
+# script body; remote /var/log/sbderbynet-deploy.log gets a timestamped
+# command marker plus the combined stdout/stderr.
+ssh_logged() {
+  local cmd="$*"
+  log "remote: $cmd"
+  SSH "bash -s" <<EOF
+set -e
+if [ -w "$VPS_LOG_FILE" ] || sudo -n true 2>/dev/null; then
+  echo "\$(date -u +%Y-%m-%dT%H:%M:%SZ) ${VPS_USER} cmd: derbyvps.sh" | sudo tee -a $VPS_LOG_FILE >/dev/null 2>&1 || true
+fi
+$cmd
+EOF
+}
+
+# Run a one-shot command on the VPS and return its stdout.
+ssh_capture() {
+  local cmd="$*"
+  log "remote (capture): $cmd"
+  SSH "bash -s" <<< "$cmd"
+}
+
+# ---------- Validation gates ----------
+preflight() {
+  section "Preflight"
+
+  SSH 'true' >/dev/null 2>&1 || die "SSH to $VPS_USER@$VPS_HOST:$VPS_PORT failed"
+  ok "ssh reachable ($VPS_USER@$VPS_HOST:$VPS_PORT)"
+
+  local free_kb
+  free_kb=$(ssh_capture "df --output=avail / | tail -1") || die "df failed"
+  local free_gb=$((free_kb / 1024 / 1024))
+  [[ $free_gb -ge 4 ]] || die "free disk < 4 GB ($free_gb GB) — refusing to deploy"
+  ok "disk free ${free_gb} GB"
+
+  local foreign_ports
+  foreign_ports=$(ssh_capture "sudo ss -tlnp 2>/dev/null | awk '/:80 |:443 |:1883 / && \$0 !~ /docker-proxy/ {print \$NF}'" || true)
+  if [[ -n "${foreign_ports// /}" ]]; then
+    die "non-docker process bound to 80/443/1883: $foreign_ports"
+  fi
+  ok "ports 80/443/1883 free or held by docker only"
+
+  local uisp_running
+  uisp_running=$(ssh_capture "sudo docker ps --filter label=com.docker.compose.project=unms -q 2>/dev/null | wc -l" || echo 0)
+  [[ "$uisp_running" -eq 0 ]] || die "UISP has $uisp_running running container(s) — run 'derbyvps shutdown' on UISP first"
+  ok "UISP siloed (no running containers)"
+}
+
+postflight() {
+  section "Postflight"
+
+  local i running=0
+  for i in 1 2 3 4 5 6; do
+    running=$(ssh_capture "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES ps --status=running -q 2>/dev/null | wc -l" || echo 0)
+    [[ "$running" -ge $EXPECTED_SERVICES_MIN ]] && break
+    sleep 10
+  done
+  [[ "$running" -ge $EXPECTED_SERVICES_MIN ]] || die "only $running/$EXPECTED_SERVICES_MIN containers running after 60s"
+  ok "$running containers running"
+
+  for i in 1 2 3 4 5; do
+    if ssh_capture "curl -fsS --max-time 5 $HEALTH_URL >/dev/null 2>&1"; then
+      ok "/health returns 200"
+      break
+    fi
+    sleep 3
+    [[ $i -eq 5 ]] && die "/health did not return 200 in ~15s"
+  done
+
+  local err_lines
+  err_lines=$(ssh_capture "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES logs --since 60s 2>&1 | grep -c 'ERROR ' || true")
+  if [[ "$err_lines" -gt 1 ]]; then
+    warn "$err_lines ERROR lines in last 60s — review with: $0 logs"
+  else
+    ok "no recent ERRORs in logs"
+  fi
+}
+
+# ---------- Backup ----------
+do_backup() {
+  local tag="${1:-deploy-$(date +%Y%m%d-%H%M%S)}"
+  section "Backup ($tag)"
+  local rev=unknown
+  rev=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)
+  local who="$(whoami)@$(hostname)"
+
+  ssh_logged "
+    sudo mkdir -p $VPS_BACKUP_DIR/$tag
+    sudo cp -a $VPS_REPO_DIR/$COMPOSE_DIR_REL/.env                  $VPS_BACKUP_DIR/$tag/env.bak              2>/dev/null || true
+    sudo cp -a $VPS_REPO_DIR/$COMPOSE_DIR_REL/mosquitto/passwd      $VPS_BACKUP_DIR/$tag/mosquitto-passwd.bak 2>/dev/null || true
+    sudo cp -a $VPS_REPO_DIR/$COMPOSE_DIR_REL/mosquitto/acl         $VPS_BACKUP_DIR/$tag/mosquitto-acl.bak    2>/dev/null || true
+    if [ -d $VPS_REPO_DIR/$COMPOSE_DIR_REL ]; then
+      sudo bash -c 'cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && docker compose $COMPOSE_FILES ps -a' \
+        > /tmp/compose.state.txt 2>&1 || true
+      sudo mv /tmp/compose.state.txt $VPS_BACKUP_DIR/$tag/
+    fi
+    if [ -d $VPS_DATA_DIR ]; then
+      sudo tar -czf $VPS_BACKUP_DIR/$tag/data.tgz -C \"\$(dirname $VPS_DATA_DIR)\" \"\$(basename $VPS_DATA_DIR)\"
+    fi
+    sudo tee $VPS_BACKUP_DIR/$tag/meta.json >/dev/null <<META
+{\"timestamp\":\"\$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"git_rev\":\"$rev\",\"deployer\":\"$who\",\"tag\":\"$tag\"}
+META
+    sudo bash -c 'cd $VPS_BACKUP_DIR && ls -1t | tail -n +$((BACKUP_RETENTION + 1)) | xargs -r -I {} rm -rf {}'
+  "
+  ok "backup written: $VPS_BACKUP_DIR/$tag"
+  echo "$tag"
+}
+
+# ---------- Subcommands ----------
+
+cmd_audit() {
+  section "Audit ($VPS_HOST)"
+  SSH 'set +e
+echo "--- HOST ---"; hostname; uptime; uname -srm
+echo; echo "--- RESOURCES ---"; free -h; df -h /
+echo; echo "--- LISTENING TCP ---"; sudo ss -tlnp 2>/dev/null
+echo; echo "--- DOCKER (running) ---"; sudo docker ps --format "table {{.Names}}\t{{.Status}}"
+echo; echo "--- DOCKER (all) ---"; sudo docker ps -a --format "table {{.Names}}\t{{.Status}}"
+echo; echo "--- UISP STATE ---"
+sudo docker inspect $(sudo docker ps -aq --filter label=com.docker.compose.project=unms) \
+  --format "{{.Name}}: state={{.State.Status}} restart={{.HostConfig.RestartPolicy.Name}}" 2>/dev/null
+echo; echo "--- SBDERBYNET PATHS ---"
+ls -la /opt 2>/dev/null | grep -E "sbderbynet|derbynet" || echo "(no sbderbynet paths yet)"
+echo "Backups:"
+sudo ls -1t '"$VPS_BACKUP_DIR"' 2>/dev/null | head
+echo; echo "--- LAST CLOUD-SYNC ---"
+sudo cat '"$VPS_DATA_DIR"'/.cloud_readonly 2>/dev/null || echo "(no sync sentinel)"
+'
+}
+
+cmd_bootstrap() {
+  local force=0
+  for a in "$@"; do [[ "$a" == "--force" ]] && force=1; done
+
+  section "Bootstrap"
+  if SSH "test -f $VPS_REPO_DIR/$COMPOSE_DIR_REL/.env" 2>/dev/null && [[ $force -eq 0 ]]; then
+    die "$VPS_REPO_DIR/$COMPOSE_DIR_REL/.env already exists. Use 'deploy' to update or pass --force."
+  fi
+  preflight
+
+  info "creating directories"
+  ssh_logged "
+    sudo mkdir -p $VPS_REPO_DIR && sudo chown $VPS_USER:$VPS_USER $VPS_REPO_DIR
+    # Data dir must be writable by PHP-FPM, which on Alpine runs as the
+    # 'nobody' user (uid 65534). chmod 777 is the path of least resistance
+    # for a test cloud twin; tighten if you ever expose this stack publicly.
+    sudo mkdir -p $VPS_DATA_DIR && sudo chmod 777 $VPS_DATA_DIR
+    sudo mkdir -p $VPS_BACKUP_DIR
+    sudo touch $VPS_LOG_FILE && sudo chmod 664 $VPS_LOG_FILE
+  "
+
+  info "rsync working tree"
+  do_rsync
+
+  install_logrotate
+
+  info "generating broker passwords + .env"
+  local mqtt_pass virtual_pass
+  mqtt_pass=$(openssl rand -hex 16)
+  virtual_pass=$(openssl rand -hex 16)
+  ssh_logged "
+    cd $VPS_REPO_DIR/$COMPOSE_DIR_REL
+    cp .env.example .env
+    sed -i 's|^MQTT_PASS=.*|MQTT_PASS=$mqtt_pass|' .env
+    sed -i 's|^VIRTUAL_MQTT_PASS=.*|VIRTUAL_MQTT_PASS=$virtual_pass|' .env
+    sed -i 's|^# DERBYNET_CLOUD_MODE=.*|DERBYNET_CLOUD_MODE=$DERBYNET_CLOUD_MODE|' .env
+    grep -q '^DERBYNET_CLOUD_MODE=' .env || echo 'DERBYNET_CLOUD_MODE=$DERBYNET_CLOUD_MODE' >> .env
+    chmod 600 .env
+  "
+
+  info "provisioning broker users"
+  # setup-mqtt-auth.sh uses mosquitto_passwd -c which refuses if passwd exists.
+  # On --force re-bootstrap, clear stale passwd first so the create proceeds.
+  ssh_logged "sudo rm -f $VPS_REPO_DIR/$COMPOSE_DIR_REL/mosquitto/passwd"
+  # sudo prefix keeps the script callable from any sudoers user, regardless of
+  # docker group membership. sudo's VAR=val syntax sets env for the invoked cmd.
+  ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo VIRTUAL_MQTT_PASS=$virtual_pass ./scripts/setup-mqtt-auth.sh derbynet $mqtt_pass"
+
+  info "validating compose"
+  ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES config -q"
+
+  info "building + bringing stack up"
+  ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES up -d --build"
+
+  postflight
+
+  ok "bootstrap complete"
+  say "  control panel: http://$VPS_HOST/derbynet/virtual/index.php"
+  say "  health:        http://$VPS_HOST/health"
+}
+
+install_logrotate() {
+  info "installing logrotate policy"
+  ssh_logged "
+    if [ -f $VPS_REPO_DIR/$COMPOSE_DIR_REL/sbderbynet.logrotate ]; then
+      sudo install -m 644 -o root -g root \
+        $VPS_REPO_DIR/$COMPOSE_DIR_REL/sbderbynet.logrotate \
+        /etc/logrotate.d/sbderbynet
+    fi
+  "
+}
+
+do_rsync() {
+  # --inplace preserves inodes so docker bind-mounts (which track inode, not
+  # path) see updated content immediately. Without it, rsync's default
+  # write-new-then-rename gives the file a new inode and the container keeps
+  # serving the old content until the service is recreated.
+  local rsync_opts=(-az --delete --inplace
+    --exclude='.git'
+    --exclude='timer/build' --exclude='timer/out' --exclude='timer/dist'
+    --exclude='replay/build' --exclude='node_modules' --exclude='.DS_Store'
+    --exclude='scripts/.derbyvps-deploy.log' --exclude='scripts/derbyvps.config'
+    --exclude="$COMPOSE_DIR_REL/.env"
+    --exclude="$COMPOSE_DIR_REL/mosquitto/passwd"
+  )
+  [[ $DRY_RUN -eq 1 ]] && rsync_opts+=(--dry-run -i)
+  [[ $VERBOSE -eq 1 ]] && rsync_opts+=(-v)
+  rsync "${rsync_opts[@]}" \
+    -e "ssh ${ssh_opts[*]}" \
+    "$REPO_ROOT/" "$VPS_USER@$VPS_HOST:$VPS_REPO_DIR/"
+}
+
+cmd_deploy() {
+  section "Deploy"
+
+  if [[ $DRY_RUN -eq 1 ]]; then
+    info "DRY RUN — rsync diff only, no remote changes"
+    do_rsync
+    return 0
+  fi
+
+  if ! git -C "$REPO_ROOT" diff --quiet || ! git -C "$REPO_ROOT" diff --cached --quiet; then
+    warn "local working tree has uncommitted changes"
+    confirm "Deploy anyway?" || die "aborted (commit or stash first, or pass --yes)"
+  fi
+
+  preflight
+
+  local tag
+  tag=$(do_backup)
+
+  info "rsync working tree"
+  do_rsync
+
+  install_logrotate
+
+  info "validating compose"
+  ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES config -q" || {
+    warn "compose config invalid — rolling back"
+    cmd_rollback "$tag"
+    die "deploy aborted on compose config failure"
+  }
+
+  info "building + bringing stack up"
+  ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES up -d --build" || {
+    warn "compose up failed — rolling back"
+    cmd_rollback "$tag"
+    die "deploy aborted on compose up failure"
+  }
+
+  if ! postflight; then
+    warn "postflight failed — rolling back"
+    cmd_rollback "$tag"
+    die "deploy aborted on postflight failure"
+  fi
+
+  ok "deploy complete (backup tag: $tag)"
+}
+
+cmd_status() {
+  section "Status"
+  SSH "set +e
+cd $VPS_REPO_DIR/$COMPOSE_DIR_REL 2>/dev/null && sudo docker compose $COMPOSE_FILES ps
+echo
+echo --- /health ---
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 $HEALTH_URL || true
+echo --- recent ERRORs ---
+cd $VPS_REPO_DIR/$COMPOSE_DIR_REL 2>/dev/null && sudo docker compose $COMPOSE_FILES logs --since 5m 2>&1 | grep -i 'error' | tail -10 || true
+echo --- last sync ---
+sudo cat $VPS_DATA_DIR/.cloud_readonly 2>/dev/null || echo '(no sentinel)'
+"
+}
+
+cmd_logs() {
+  local arg="${1:-}"
+  if [[ "$arg" == "--where" || "$arg" == "-w" ]]; then
+    cat <<MAP
+== Where logs go ==
+
+Container stdout (rotated; 10 MB x 3 files per service):
+  Caddy           docker logs derbynet-caddy
+                  derbyvps.sh logs caddy
+  Mosquitto       docker logs derbynet-mqtt + /mosquitto/log/mosquitto.log
+                  (mqtt_log volume; survives recreates)
+  derbynet-web    docker logs derbynet-web
+                  (PHP application errors stream here too — see Persistent below)
+  race-server     docker logs derbynet-race-server
+                  (DERBY_CONSOLE_LOG=true diverts derbylogger.py to stdout)
+
+Persistent files (volumes; survive container recreates):
+  /var/log/nginx/{access,error}.log    (derbynet_web_nginx_logs volume)
+  /var/log/php83/error.log             (derbynet_web_php_logs volume)
+  /var/log/derbynet.log + .jsonl       (derbynet_logs volume; written when
+                                        DERBY_CONSOLE_LOG=false)
+  /mosquitto/log/mosquitto.log         (mqtt_log volume)
+
+Wrapper trail (host /etc/logrotate.d/sbderbynet — weekly, keep 4):
+  Local:    scripts/.derbyvps-deploy.log
+  VPS:      /var/log/sbderbynet-deploy.log
+
+Quick recipes:
+  derbyvps.sh logs                      # tail all services live
+  derbyvps.sh logs derbynet-web         # one service
+  ssh ... 'sudo docker run --rm -v derbynet_web_nginx_logs:/v alpine cat /v/access.log'
+                                        # peek a volume without entering the web container
+
+For the full map and troubleshooting recipes, see docs/LOGGING.md.
+MAP
+    return 0
+  fi
+  section "Logs $arg"
+  SSH "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES logs -f --tail=100 $arg"
+}
+
+cmd_backup() {
+  local tag="${1:-manual-$(date +%Y%m%d-%H%M%S)}"
+  do_backup "$tag"
+}
+
+cmd_rollback() {
+  local tag="${1:-}"
+  [[ -n "$tag" ]] || die "rollback requires a tag (see: ssh && ls $VPS_BACKUP_DIR)"
+  section "Rollback to $tag"
+
+  SSH "test -d $VPS_BACKUP_DIR/$tag" || die "backup tag not found: $tag"
+  confirm "Restore from $tag and restart the stack?" || die "aborted"
+
+  ssh_logged "
+    cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES down || true
+    sudo cp -a $VPS_BACKUP_DIR/$tag/env.bak              $VPS_REPO_DIR/$COMPOSE_DIR_REL/.env              2>/dev/null || true
+    sudo cp -a $VPS_BACKUP_DIR/$tag/mosquitto-passwd.bak $VPS_REPO_DIR/$COMPOSE_DIR_REL/mosquitto/passwd 2>/dev/null || true
+    sudo cp -a $VPS_BACKUP_DIR/$tag/mosquitto-acl.bak    $VPS_REPO_DIR/$COMPOSE_DIR_REL/mosquitto/acl    2>/dev/null || true
+    if [ -f $VPS_BACKUP_DIR/$tag/data.tgz ]; then
+      sudo rm -rf $VPS_DATA_DIR
+      sudo mkdir -p \"\$(dirname $VPS_DATA_DIR)\"
+      sudo tar -xzf $VPS_BACKUP_DIR/$tag/data.tgz -C \"\$(dirname $VPS_DATA_DIR)\"
+    fi
+    cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES up -d
+  "
+  postflight
+  ok "rolled back to $tag"
+}
+
+cmd_shutdown() {
+  section "Shutdown SBDerbyNet"
+  confirm "Stop SBDerbyNet stack? (volumes preserved)" || die "aborted"
+  ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES down"
+  ok "stack stopped (data preserved)"
+}
+
+cmd_restore_uisp() {
+  section "Restore UISP"
+  confirm "Stop SBDerbyNet and restart UISP?" || die "aborted"
+  ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES down 2>/dev/null || true"
+  ssh_logged '
+    DISABLED=$(ls /etc/cron.d/unms-update.disabled-by-claude-* 2>/dev/null | head -1)
+    if [ -n "$DISABLED" ]; then
+      sudo mv "$DISABLED" /etc/cron.d/unms-update
+    fi
+    for c in unms-postgres unms-rabbitmq unms-fluentd unms-siridb \
+             unms-api unms-nginx unms-netflow unms-device-ws-1 ucrm; do
+      sudo docker update --restart=always "$c" >/dev/null 2>&1 || true
+    done
+    sudo docker start unms-postgres unms-rabbitmq unms-fluentd 2>/dev/null
+    sleep 5
+    sudo docker start unms-siridb unms-api unms-nginx unms-netflow ucrm unms-device-ws-1 2>/dev/null
+    sudo docker ps --filter label=com.docker.compose.project=unms --format "table {{.Names}}\t{{.Status}}"
+  '
+  ok "UISP restored"
+}
+
+# ---------- Argument parsing ----------
+usage() {
+  cat <<USAGE
+Usage: derbyvps.sh <command> [options]
+
+Commands:
+  audit                 Read-only host + docker + UISP + sync state.
+  bootstrap [--force]   First-time setup: dirs, .env, broker users, build, up.
+  deploy                Backup → rsync → up → validate. With --dry-run, preview rsync.
+  status                Container state, /health, recent errors.
+  logs [service]        Tail compose logs (use --where to print log map).
+  backup [tag]          Manual snapshot (default tag: manual-<timestamp>).
+  rollback <tag>        Restore from a backup tag.
+  shutdown              Clean down (volumes preserved).
+  restore-uisp          Tear down SBDerbyNet, bring UISP back up.
+
+Options:
+  --dry-run             Preview destructive ops; no remote changes.
+  --yes                 Skip confirmation prompts.
+  --quiet               Suppress info output (errors still print).
+  --verbose             Include rsync details.
+  -h, --help            This help.
+
+Configuration:
+  Edit $CONFIG (gitignored). See $SCRIPT_DIR/derbyvps.config.example.
+  Defaults target uisp.darketech.ca / claude user / standard layout.
+
+Logs:
+  Local:  $LOG
+  Remote: $VPS_LOG_FILE
+USAGE
+}
+
+cmd=""
+positional=()
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    --yes|-y)  YES=1 ;;
+    --quiet|-q) QUIET=1 ;;
+    --verbose|-v) VERBOSE=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) positional+=("$arg") ;;
+  esac
+done
+
+[[ ${#positional[@]} -ge 1 ]] || { usage; exit 1; }
+cmd="${positional[0]}"
+args=("${positional[@]:1}")
+
+case "$cmd" in
+  audit)        cmd_audit "${args[@]:-}" ;;
+  bootstrap)    cmd_bootstrap "${args[@]:-}" ;;
+  deploy)       cmd_deploy "${args[@]:-}" ;;
+  status)       cmd_status "${args[@]:-}" ;;
+  logs)         cmd_logs "${args[@]:-}" ;;
+  backup)       cmd_backup "${args[@]:-}" ;;
+  rollback)     cmd_rollback "${args[@]:-}" ;;
+  shutdown)     cmd_shutdown "${args[@]:-}" ;;
+  restore-uisp) cmd_restore_uisp "${args[@]:-}" ;;
+  *) usage; die "unknown command: $cmd" ;;
+esac

@@ -1,14 +1,73 @@
 <?php
 $configdir = isset($_SERVER['DERBYNET_CONFIG_DIR']) ? $_SERVER['DERBYNET_CONFIG_DIR'] : 'local';
-try {
-    @include($configdir.DIRECTORY_SEPARATOR."config-database.inc");
-} catch (PDOException $p) {
-}
 
-if (!isset($db)) {
-  $_SESSION['setting_up'] = 1;
-  header('Location: setup.php');
-  exit();
+// On the cloud VPS, the active database is per-browser-session ("tenant
+// sandbox"), not server-global. The slug lives in $_SESSION['tenant_slug']
+// and is set by tenant-picker.php / action.tenant-select.nodata.inc.
+// Pi deployments fall through to the legacy single-DB include path below.
+$_dn_cloud_mode = isset($_SERVER['DERBYNET_CLOUD_MODE']) ? $_SERVER['DERBYNET_CLOUD_MODE'] : '';
+if ($_dn_cloud_mode !== '') {
+  require_once(dirname(__FILE__) . DIRECTORY_SEPARATOR . 'cloud-tenant.inc');
+  // Internal-service override: the race-server (and other backend services
+  // that run without a browser session) cannot pick a tenant via the picker.
+  // They send X-DerbyNet-Tenant + X-DerbyNet-Internal-Token; the token is a
+  // shared secret known only to internal services. Caddy strips both headers
+  // from external traffic so a public client cannot spoof them.
+  $_dn_internal_token = getenv('DERBYNET_INTERNAL_TOKEN') ?: '';
+  $_dn_hdr_token  = isset($_SERVER['HTTP_X_DERBYNET_INTERNAL_TOKEN'])
+                    ? $_SERVER['HTTP_X_DERBYNET_INTERNAL_TOKEN'] : '';
+  $_dn_hdr_tenant = isset($_SERVER['HTTP_X_DERBYNET_TENANT'])
+                    ? $_SERVER['HTTP_X_DERBYNET_TENANT'] : '';
+  $_dn_internal_tenant = '';
+  if ($_dn_internal_token !== ''
+      && hash_equals($_dn_internal_token, $_dn_hdr_token)
+      && valid_tenant_slug($_dn_hdr_tenant)
+      && tenant_exists($_dn_hdr_tenant)) {
+    $_dn_internal_tenant = $_dn_hdr_tenant;
+  }
+  $_dn_active_tenant = $_dn_internal_tenant !== ''
+    ? $_dn_internal_tenant
+    : (isset($_SESSION['tenant_slug']) && tenant_exists($_SESSION['tenant_slug'])
+       ? $_SESSION['tenant_slug'] : '');
+  if ($_dn_active_tenant !== '') {
+    $db_connection_string = 'sqlite:' . tenant_db_path($_dn_active_tenant);
+    try {
+      $db = new PDO($db_connection_string, '', '', array());
+      $db->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
+    } catch (PDOException $p) {
+    }
+  }
+  if (!isset($db)) {
+    // Internal callers should never see a redirect — return 503 so they can
+    // log/retry instead of following a browser-flow redirect.
+    if ($_dn_internal_token !== ''
+        && isset($_SERVER['HTTP_X_DERBYNET_INTERNAL_TOKEN'])) {
+      http_response_code(503);
+      header('Content-Type: application/json');
+      echo json_encode(array('error' => 'tenant-not-bound',
+                             'message' => 'Internal request did not match a known tenant'));
+      exit();
+    }
+    // No tenant chosen yet — kick the browser to the picker. AJAX endpoints
+    // that need a DB will receive HTML here, but those callers should already
+    // be inside a session that has a tenant; no-tenant AJAX is a programming
+    // error, not an end-user path.
+    if (basename($_SERVER['SCRIPT_NAME']) !== 'tenant-picker.php') {
+      header('Location: tenant-picker.php');
+      exit();
+    }
+  }
+} else {
+  try {
+      @include($configdir.DIRECTORY_SEPARATOR."config-database.inc");
+  } catch (PDOException $p) {
+  }
+
+  if (!isset($db)) {
+    $_SESSION['setting_up'] = 1;
+    header('Location: setup.php');
+    exit();
+  }
 }
 
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -22,6 +81,45 @@ if ($dbtype == 'sqlite') {
 }
 if ($dbtype == 'odbc') {
 	$dbtype = 'access';
+}
+
+// Cloud-mode detection. The cloud twin is a read-only replica used for dev,
+// CI, and dress rehearsals. Race-day production is the local Pi and never
+// runs in cloud mode.
+//
+// Allowed values:
+//   ''       (default)  - normal local operation
+//   'public' - cloud twin serving Pi-synced data; enforces name privacy and
+//              suppresses device-offline alerts (no real hardware connects)
+//
+// Set via DERBYNET_CLOUD_MODE env var in installer/docker-cloud/.env.
+if (!defined('DERBYNET_CLOUD_MODE')) {
+  define('DERBYNET_CLOUD_MODE',
+         isset($_SERVER['DERBYNET_CLOUD_MODE']) ? $_SERVER['DERBYNET_CLOUD_MODE'] : '');
+}
+
+function is_cloud_mode() {
+  return DERBYNET_CLOUD_MODE !== '';
+}
+
+function is_cloud_public_mode() {
+  return DERBYNET_CLOUD_MODE === 'public';
+}
+
+// Returns last cloud-sync timestamp (ISO 8601 UTC) if the .cloud_readonly
+// sentinel exists, otherwise null. Cloud-sync (extras/soapbox/infra/server/
+// cloud-sync.sh) writes this alongside the DB on every Pi -> cloud push.
+function cloud_last_sync_utc() {
+  $sentinel = '/var/lib/derbynet/.cloud_readonly';
+  if (!is_cloud_mode() || !is_readable($sentinel)) {
+    return null;
+  }
+  $contents = @file_get_contents($sentinel);
+  if ($contents === false) return null;
+  if (preg_match('/^last_sync_utc=(\S+)/m', $contents, $m)) {
+    return $m[1];
+  }
+  return null;
 }
 
 function dbnow_expr() {

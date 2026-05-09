@@ -191,4 +191,4 @@ Ages 6-8 Tournament (34 racers):
 **Roster:** Tracks which racers are in each round
 **RaceChart:** Stores race results with `finishtime`, `finishplace`, `lane`
 
-For complete validation details, see `/ELIMINATION_CONFIG_VALIDATION.md`
+For complete validation details, see `/docs/ELIMINATION_CONFIG_VALIDATION.md`

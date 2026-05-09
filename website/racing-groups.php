@@ -30,7 +30,6 @@ if (schema_version() < PARTITION_SCHEMA) {
 <script type="text/javascript" src="js/racing-groups.js"></script>
 <script type="text/javascript" src="js/racing-groups-add.js"></script>
 <script type="text/javascript" src="js/racing-groups-edit.js"></script>
-<script type="text/javascript" src="js/elimination-tournament.js"></script>
 <script type="text/javascript">
 $(function() {
     var rule = <?php echo json_encode(group_formation_rule()); ?>;
@@ -136,47 +135,6 @@ $(function() {
 <div class="block_buttons add_button">
   <input id="add-aggregate-button" class="modest-button" type="button"
          value="Add Aggregate"/>
-</div>
-
-<!-- Elimination Tournament Setup -->
-<div id="tournament-setup-section">
-  <h3>Elimination Tournament</h3>
-
-  <div id="tournament-config-selector">
-    <label for="global-tournament-config">Format:</label>
-    <select id="global-tournament-config">
-      <option value="">-- Select Format --</option>
-    </select>
-    <input id="config-editor-button" class="modest-button" type="button"
-           value="Edit"
-           onclick="window.location.href='elimination-config-editor.php'"/>
-  </div>
-
-  <div id="tournament-config-details" class="hidden">
-    <small><span id="config-age-groups-count">0</span> age groups defined</small>
-  </div>
-
-  <div id="tournament-class-assignments" class="hidden">
-    <p class="warning-text">
-      <strong>Warning:</strong> Once initialized, tournament cannot be changed.
-    </p>
-    <table id="class-tournament-table">
-      <thead>
-        <tr>
-          <th>Class</th>
-          <th>Age Group</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="class-tournament-tbody">
-      </tbody>
-    </table>
-  </div>
-
-  <div id="no-config-message">
-    <small>Select a format to assign classes.</small>
-  </div>
 </div>
 
 </div><!-- race-structure -->

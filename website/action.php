@@ -48,7 +48,7 @@ function json_failure($code, $description, $context = null)
   }
 
   // Get error details for logging
-  $error_details = derby_get_error_details($std_code ?? 'ERR-SYS-201');
+  $error_details = get_error_details($std_code ?? 'ERR-SYS-201');
   $log_level = $error_details['level'] ?? 'ERROR';
 
   // Log the error with standardized code

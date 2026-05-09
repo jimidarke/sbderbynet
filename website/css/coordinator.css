@@ -831,16 +831,9 @@ div#broadcast-input-wrap-coordinator {
   font-weight: bold;
 }
 
-/* Responsive styles for narrow screens (upstream c3a9df71) */
-@media(max-width: 900px) {
-    .double_control_column,
-    .control_column_container {
-      width: 490px;
-    }
-    #not-racing-warning {
-        width: 480px;
-    }
-}
+/* (Removed: legacy @media(max-width:900px) block that hard-pinned widths
+   to 490px. Replaced by the consolidated @media(max-width:834px) block
+   below, which uses 100% widths for true portrait flow.) */
 
 /* =============================================================================
    EMERGENCY BROADCAST CONTROLS
@@ -1129,4 +1122,1120 @@ div#emergency-input-wrap-coordinator {
 /* Clear emergency confirmation modal */
 #emergency_clear_confirm_modal h3 {
   color: #388e3c;
+}
+
+/* Pull-Forward Modal */
+#pull_forward_modal h3 {
+  margin-top: 0;
+  color: #1565c0;
+}
+
+#pull_forward_modal h4 {
+  margin: 10px 0 5px 0;
+  color: #333;
+  font-size: 14px;
+}
+
+.pf-section {
+  margin-bottom: 10px;
+}
+
+.pf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.pf-table th {
+  background: #e3f2fd;
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 2px solid #1565c0;
+}
+
+.pf-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.pf-table tr:nth-child(even) {
+  background: #f5f5f5;
+}
+
+#pf-warnings-list {
+  color: #e65100;
+  background: #fff3e0;
+  border: 1px solid #ff9800;
+  border-radius: 4px;
+  padding: 8px 8px 8px 28px;
+  margin: 5px 0;
+  font-size: 13px;
+}
+
+#pf-trailing-byes p {
+  color: #666;
+  font-style: italic;
+  font-size: 13px;
+}
+
+.pull-forward-undo-button {
+  background: #fff3e0;
+  border: 2px solid #ff9800;
+  color: #e65100;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.pull-forward-button {
+  background: #e3eef9;
+  border: 2px solid #1670c1;
+  color: #0d4e87;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+@keyframes pull-forward-undo-pulse-anim {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.55); }
+  50%      { box-shadow: 0 0 0 10px rgba(255, 152, 0, 0); }
+}
+.pull-forward-undo-pulse {
+  animation: pull-forward-undo-pulse-anim 1.4s ease-out 4;
+}
+
+/* =============================================================================
+   COMPACT REFRESH + TABLET PORTRAIT (2026)
+   Tightens spacing, softens borders, reduces title sizes, and adds a real
+   portrait-tablet breakpoint. Layout flow / button positions are NOT changed.
+   ============================================================================= */
+
+/* --- Lighter, softer control-group framing --- */
+.control_group,
+.coordinator-control-group {
+  border: 1px solid #d6dbe3;
+  border-left: 3px solid var(--color-brand, #023882);
+  border-radius: var(--radius-md, 8px);
+  margin: 6px 5px;
+  padding: 10px 12px;
+  background: var(--color-surface, #ffffff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Keep the status pulse on .current — but use a softer warm yellow */
+.current {
+  background-color: #fff4c2;
+}
+
+/* Compact section headings inside groups */
+.control_group h3,
+.coordinator-control-group h3,
+.scheduling_control_group h3,
+.master_schedule_group h3,
+.new_round_control h3 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #1f2937;
+}
+.current.control_group h3 {
+  font-size: 18px;
+}
+#master-schedule-group h3 {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 4px;
+  color: #be2525;
+}
+
+/* Tighter inline metadata */
+p.last_contact {
+  font-size: 13px;
+  margin: 3px 0;
+}
+
+/* Coordinator control group (right column scene+broadcast) -- tighter */
+.coordinator-control-group {
+  width: auto;
+  max-width: 540px;
+}
+.coordinator-control-divider {
+  margin: 10px 0;
+}
+div#scenes-control-coordinator { font-size: 14px; margin-bottom: 4px; }
+div#scenes-control-coordinator label { font-size: 14px; }
+#scenes-status-message-coordinator { font-size: 12px; }
+
+/* --- Heat-control buttons: keep horizontal layout, tighten metrics --- */
+.heat_control_group .block_buttons {
+  margin: 0;
+  padding: 0;
+}
+
+/* Don't let the global menu-button rules override the per-page heat-button overrides:
+   prev/skip use the dark gradient look and are 75x41 image buttons */
+.heat_control_group #prev_heat_button,
+.heat_control_group #skip_heat_button {
+  width: 64px;
+  height: 36px;
+  padding-top: 6px;
+  margin: 0 6px;
+}
+.heat_control_group #prev_heat_button img,
+.heat_control_group #skip_heat_button img {
+  width: 26px;
+  height: 26px;
+}
+
+#manual_results_button {
+  margin: 0 6px;
+}
+
+/* Centered flipswitch — keep but slim */
+.centered_flipswitch {
+  font-size: var(--fs-title);
+  margin-bottom: var(--space-1);
+}
+
+/* --- Now-racing group: tighter padding, headline at display size --- */
+div#now-racing-group {
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+#now-racing-group div.heat-text {
+  width: auto;
+  font-size: var(--fs-body);
+}
+#now-racing-group .heat_number,
+#now-racing-group h3 {
+  font-size: var(--fs-display);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Heat lineup table — body size cells, title size headers */
+.heat-lineup {
+  width: auto;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.heat-lineup td {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-body);
+}
+.heat-lineup th {
+  font-size: var(--fs-title);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* --- Not-racing warning: span the page, smaller padding --- */
+#not-racing-warning {
+  width: auto;
+  max-width: 1080px;
+  font-size: var(--fs-title);
+  padding: var(--space-1) var(--space-2);
+  border: 2px solid #b71c1c;
+  border-radius: var(--radius-md, 8px);
+  text-shadow: none;
+}
+#timer-testing-herald {
+  font-size: 18px;
+  padding: 6px 10px;
+  border: 2px solid #1f2937;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* --- Playlist group: shrink the giant 500px buttons, sensible widths --- */
+#playlist-group {
+  margin-top: 6px;
+}
+#playlist-group a.button_link,
+#playlist-group input[type='button'] {
+  height: auto;
+  width: 100%;
+  max-width: 480px;
+  font-size: 16px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+}
+#playlist-group input[type='button'] {
+  background: #006000;
+  height: auto;
+}
+
+/* Adjustment-needed warning: less shouty, still orange */
+div.adjustment-needed div.late-arrival-prompt,
+div.adjustment-needed div.adjustment-in-progress-message {
+  font-size: 15px;
+  padding: 8px 10px;
+}
+div.adjustment-needed div.adjustment-in-progress-message { font-size: 16px; }
+div.adjustment-needed div.late-arrival-prompt p,
+div.adjustment-needed div.late-arrival-prompt span { font-size: 15px; }
+
+/* --- Collapsible Emergency Broadcast (NEW) --- */
+div#emergency-control-coordinator { margin-top: 6px; }
+
+#emergency-status-banner {
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  border-radius: var(--radius-sm, 4px);
+}
+.emergency-icon { font-size: 16px; }
+
+/* Clear button when an emergency is active — sits above the (collapsed) compose section */
+#emergency-clear-btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  background-color: #388e3c;
+  color: #fff;
+  border: 1px solid #2e7d32;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+}
+#emergency-clear-btn:hover { background-color: #2e7d32; }
+
+/* The <details> wrapper. Closed by default — operator clicks summary to type. */
+.emergency-broadcast-details {
+  border: 1px solid #f1c0c0;
+  border-radius: var(--radius-md, 8px);
+  background: #fdf6f6;
+}
+.emergency-broadcast-details > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #b71c1c;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.emergency-broadcast-details > summary::-webkit-details-marker { display: none; }
+.emergency-broadcast-details > summary::after {
+  content: "▾";
+  margin-left: auto;
+  font-size: 12px;
+  color: #b71c1c;
+  transition: transform 120ms ease;
+}
+.emergency-broadcast-details[open] > summary::after { transform: rotate(180deg); }
+.emergency-broadcast-details > summary:hover { background: #fbeaea; border-radius: var(--radius-md, 8px) var(--radius-md, 8px) 0 0; }
+
+.emergency-broadcast-body {
+  padding: 8px 12px 12px;
+  border-top: 1px solid #f1c0c0;
+}
+
+/* Compact emergency input + button inside the collapsed section */
+div#emergency-control-coordinator label {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.emergency-char-counter {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+#emergency-message-coordinator {
+  padding: 8px 10px;
+  font-size: 14px;
+}
+#emergency-broadcast-btn {
+  padding: 9px 14px;
+  font-size: 14px;
+  border-radius: var(--radius-md, 8px);
+}
+
+/* =============================================================================
+   TABLET PORTRAIT (≤ 834px) — stack columns, 100% widths
+   Operators run from a tablet held vertically; this is the primary breakpoint.
+   ============================================================================= */
+@media (max-width: 834px) {
+  /* Stack the two main columns */
+  .control_column_container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    margin: 0;
+  }
+  .control_column,
+  .double_control_column {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Banner title shrinks so it doesn't overflow */
+  .banner .banner_title { font-size: 32px; }
+
+  /* Now-racing block goes full width */
+  div#now-racing-group { width: 100%; max-width: 100%; padding: 8px; }
+  .heat-lineup { width: 100%; max-width: 100%; }
+  .heat-lineup div.racing,
+  .heat-lineup div.staging { display: block; width: 100%; }
+  .heat-lineup div.now-racing-spacer { display: block; height: 12px; width: auto; }
+  .heat-lineup td { padding: 6px 8px; font-size: 14px; }
+  .heat-lineup th { font-size: 14px; }
+  .heat-lineup td.racer-name { max-width: none; }
+
+  /* Coordinator control group spans full width */
+  .coordinator-control-group { max-width: 100%; }
+  div#select-wrap-coordinator { width: 100%; }
+
+  /* Warning banners scale */
+  #not-racing-warning,
+  #timer-testing-herald { width: 100%; max-width: 100%; }
+
+  /* Modals */
+  .modal_dialog,
+  .modal_dialog.wide_modal { max-width: 92vw; width: auto; }
+  #manual_results_modal { width: auto; max-width: 92vw; }
+  #constituent-clip { width: 100%; }
+  #constituent-div { width: 200%; }
+  #constituent-rounds,
+  #constituent-subgroups { width: 50%; }
+
+  /* Playlist buttons full width on portrait */
+  #playlist-group a.button_link,
+  #playlist-group input[type='button'] { max-width: 100%; }
+}
+
+/* (Removed: 835–900px undo block — the legacy 900px rule it was correcting
+   no longer exists, so this band is now governed by the desktop styles
+   above and the 834px portrait block below.) */
+
+/* =============================================================================
+   COORDINATOR CARD SYSTEM (cc-*)
+   Visual refresh: design tokens, card chrome, icon language, button system,
+   timer status pills, compact emergency strip, portrait tightening.
+   ============================================================================= */
+
+:root {
+  --cc-bg:            #ffffff;
+  --cc-card:          #ffffff;
+  --cc-ink:           #000000;          /* pure black for max contrast */
+  --cc-ink-soft:      #1f2937;          /* near-black, readable in shade */
+  --cc-line:          #111111;          /* heavy black separators */
+  --cc-line-soft:     #d1d5db;          /* faint internal divider only */
+  --cc-line-strong:   #000000;
+  --cc-accent:        #1e40af;          /* deep blue for secondary actions */
+  --cc-accent-soft:   #dbeafe;
+  --cc-amber:         #d97706;          /* primary CTA: outdoor-readable amber */
+  --cc-amber-bright:  #f59e0b;
+  --cc-amber-soft:    #fef3c7;
+  --cc-good:          #15803d;
+  --cc-good-soft:     #d1fae5;
+  --cc-warn:          #92400e;
+  --cc-warn-soft:     #fef3c7;
+  --cc-bad:           #991b1b;
+  --cc-bad-soft:      #fecaca;
+  --cc-radius:        10px;
+  --cc-radius-sm:     6px;
+  --cc-shadow:        0 2px 0 rgba(0,0,0,.10), 0 8px 16px rgba(0,0,0,.08);
+  --cc-gap:           18px;
+  --cc-pad:           16px;
+}
+
+.cc-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  fill: none;
+  stroke: currentColor;
+  vertical-align: middle;
+}
+.cc-icon--lg { width: 28px; height: 28px; flex-basis: 28px; }
+
+/* Card shell — stark black framing for high contrast in all lighting. */
+.cc-card {
+  position: relative;
+  background: var(--cc-card);
+  border: 2px solid var(--cc-line);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow);
+  margin: 0 0 var(--cc-gap) 0;
+  overflow: hidden;
+  padding: 0;
+}
+.cc-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+  background: var(--cc-accent);
+}
+.cc-card--heat::before     { background: var(--cc-amber); }
+.cc-card--timer::before    { background: var(--cc-good); }
+.cc-card--timer.cc-state-bad::before { background: var(--cc-bad); }
+.cc-card--replay::before   { background: var(--cc-accent); }
+.cc-card--scene::before    { background: #000; }
+.cc-card--emergency::before{ background: var(--cc-bad); }
+.cc-card--playlist::before { background: var(--cc-amber); }
+
+.cc-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--cc-pad) 10px calc(var(--cc-pad) + 6px);
+  border-bottom: 2px solid var(--cc-line);
+  background: #f5f5f5;
+}
+.cc-card__head .cc-icon { color: #000; stroke-width: 2.25; }
+
+.cc-card__title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 800;
+  letter-spacing: var(--tracking-caps);
+  color: #000;
+  text-transform: uppercase;
+}
+.cc-card__badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 4px;
+  border: 2px solid #000;
+  background: #fff;
+  color: #000;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.cc-card__badge img { width: 16px; height: 16px; }
+.cc-badge--good    { background: var(--cc-good); color: #fff; border-color: #000; }
+.cc-badge--bad     { background: var(--cc-bad);  color: #fff; border-color: #000; }
+.cc-badge--warn    { background: var(--cc-amber); color: #000; border-color: #000; }
+.cc-badge--neutral { background: #fff; color: #000; border-color: #000; }
+
+.cc-card__body {
+  padding: var(--cc-pad);
+}
+
+/* Reset legacy .control_group / .coordinator-control-group chrome on cards we wrapped. */
+.cc-card.control_group,
+.cc-card.coordinator-control-group {
+  border: 1px solid var(--cc-line);
+  border-left: 1px solid var(--cc-line);
+  background: var(--cc-card);
+  margin: 0 0 var(--cc-gap) 0;
+  padding: 0;
+  max-width: none;
+  width: auto;
+}
+
+/* Heat control specifics — three balanced rows: racing toggle / heat-nav / actions. */
+.cc-card--heat .cc-card__body { padding: 14px var(--cc-pad) 16px; }
+.cc-card--heat .cc-racing-toggle {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  min-width: 0;
+}
+.cc-heat-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 10px;
+  margin-bottom: 10px;
+  border-bottom: 2px solid #000;
+}
+/* Heat-action button row.
+   Grid layout, not flex: prevents the "UNSCHEDU LE" mid-word break that
+   flex+min-width:0+word-break:break-word produced. Each cell gets a
+   fair, predictable share of width; portrait collapses 4 columns to 2
+   so labels stay on one line at --fs-body. */
+.cc-heat-actions {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  align-items: stretch;
+}
+.cc-heat-actions > #now-racing-group-buttons { display: contents; }
+.cc-heat-actions input[type="button"] {
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  min-height: 56px !important;
+  font-size: var(--fs-body) !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+  word-break: normal;
+  hyphens: none;
+  padding: var(--space-2) !important;
+}
+.cc-arrow-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0,0,0,.4);
+  border: 2px solid #000;
+  transition: background 120ms, transform 80ms;
+  padding: 0;
+  flex: 0 0 auto;
+}
+.cc-arrow-btn:hover  { background: var(--cc-amber); color: #000; border-color: #000; }
+.cc-arrow-btn:active { transform: scale(.96); }
+.cc-arrow-btn .cc-icon { color: inherit; width: 22px; height: 22px; stroke-width: 3; }
+.cc-arrow-btn img { display: none; }
+
+/* Override the legacy heat_control_group rules at lines 1259/1266/1273
+   so the new round buttons take precedence in cards. */
+.cc-card--heat .heat_control_group { /* no-op selector to raise specificity in some flows */ }
+.cc-card--heat #prev_heat_button,
+.cc-card--heat #skip_heat_button {
+  width: 42px !important;
+  height: 42px !important;
+  background: #000 !important;
+  border-radius: 50% !important;
+  border: 2px solid #000 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.cc-card--heat #prev_heat_button:hover,
+.cc-card--heat #skip_heat_button:hover {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+}
+.cc-card--heat #prev_heat_button:hover .cc-icon,
+.cc-card--heat #skip_heat_button:hover .cc-icon { color: #000 !important; }
+.cc-card--heat #prev_heat_button img,
+.cc-card--heat #skip_heat_button img {
+  display: none !important;
+}
+.cc-card--heat .cc-heat-actions input[type="button"] {
+  min-height: 48px;
+}
+
+/* 2-button rows used by Replay, Playlist, Timer test links. */
+.cc-row-2 {
+  display: flex !important;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+.cc-row-2 > * { flex: 1 1 0; min-width: 140px; }
+.cc-row-2 input[type="button"],
+.cc-row-2 a.button_link {
+  width: 100% !important;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Status text rows in Timer / Replay cards. */
+.cc-status-line {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #000;
+}
+.cc-status-meta {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #000;
+}
+
+/* Timer status table — soften from solid red/green to soft pills. */
+.cc-card--timer .lane-timers table {
+  border: none !important;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+  width: 100% !important;
+}
+.cc-card--timer .lane-timers th {
+  border: none;
+  background: transparent;
+  font-size: var(--fs-meta);
+  font-weight: 800;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: #000;
+  text-align: left;
+  padding: var(--space-1) var(--space-3);
+}
+.cc-card--timer .lane-timers td {
+  background: #fff;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-body);
+  color: #000;
+  border: 2px solid #000;
+  font-weight: 700;
+}
+
+/* Pill recolor: keep original .timer-online etc class names so JS stays untouched.
+   Solid high-contrast fills for outdoor readability. */
+.cc-card--timer .timer-online,
+.cc-card--timer .timer-ready,
+.cc-card--timer .timer-running {
+  background-color: var(--cc-good) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-align: center;
+  border: 2px solid #000 !important;
+}
+.cc-card--timer .timer-offline,
+.cc-card--timer .timer-not-ready {
+  background-color: var(--cc-bad) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-align: center;
+  border: 2px solid #000 !important;
+}
+.cc-card--timer .timer-staging {
+  background-color: var(--cc-amber) !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-align: center;
+  border: 2px solid #000 !important;
+}
+.cc-card--timer .lane-timers td.timer-label {
+  background: #fff;
+  font-weight: 800;
+  color: #000;
+  border: 2px solid #000 !important;
+  font-size: 15px;
+}
+
+/* Scene card — tighter, no surrounding double border/legacy padding. */
+.cc-card--scene .cc-card__body { padding: 12px var(--cc-pad); }
+.cc-card--scene #scenes-control-coordinator label { display: none; }
+.cc-card--scene #select-wrap-coordinator {
+  width: 100% !important;
+  margin: 0 !important;
+}
+.cc-card--scene #scenes-select-coordinator {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 2px solid #000;
+  border-radius: var(--cc-radius-sm);
+  background: #fff;
+  color: #000;
+  font-size: 15px;
+  font-weight: 700;
+}
+.cc-card--scene #scenes-status-message-coordinator {
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+  margin-top: 6px;
+}
+
+/* Compact Emergency Strip — single line by default, expands when composing
+   or when an emergency is active. */
+.cc-card--emergency {
+  border-color: rgba(185,28,28,.2);
+}
+/* Emergency: the <details> element is the card's main content; its <summary>
+   is styled as a compact strip. Body renders naturally below as a block. */
+.cc-card--emergency .emergency-broadcast-details {
+  display: block;
+  border: none;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--cc-radius);
+  overflow: hidden;
+}
+.cc-emergency-strip {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px !important;
+  background: linear-gradient(180deg, #fff 0%, #fff7f7 100%) !important;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0;
+}
+.cc-emergency-strip::-webkit-details-marker { display: none; }
+.cc-emergency-strip::marker { content: ""; }
+/* Defeat the legacy summary::after chevron rule. */
+.cc-card--emergency .emergency-broadcast-details > summary::after {
+  content: "" !important;
+  display: none !important;
+}
+.cc-card--emergency .emergency-broadcast-details > summary:hover {
+  background: linear-gradient(180deg, #fff 0%, #ffeded 100%) !important;
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0 !important;
+}
+.cc-card--emergency .emergency-broadcast-details[open] > summary {
+  border-bottom: 1px solid rgba(185,28,28,.2);
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0;
+}
+.cc-emergency-strip__icon { color: var(--cc-bad); width: 24px; height: 24px; stroke-width: 2.5; }
+.cc-emergency-strip__status {
+  flex: 1 1 auto;
+  margin: 0 !important;
+  padding: 4px 0 !important;
+  background: transparent !important;
+  border: none !important;
+  text-align: left !important;
+  font-size: 14px;
+  font-weight: 800;
+  color: #000;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start !important;
+  animation: none !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cc-emergency-strip__status.emergency-status-inactive { color: #000; }
+.cc-emergency-strip__status.emergency-status-active   {
+  color: var(--cc-bad);
+  animation: emergency-pulse 1.5s infinite !important;
+}
+.cc-emergency-strip__toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: var(--cc-ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--cc-line);
+  flex: 0 0 auto;
+  transition: background 120ms, transform 200ms;
+}
+.cc-emergency-strip:hover .cc-emergency-strip__toggle {
+  background: var(--cc-bad-soft);
+  color: var(--cc-bad);
+}
+.emergency-broadcast-details[open] .cc-emergency-strip__toggle {
+  background: var(--cc-bad);
+  color: #fff;
+  transform: rotate(90deg);
+}
+
+/* When the strip's <details> opens, the body slides in below the strip. */
+.cc-card--emergency .emergency-broadcast-details {
+  border: none;
+  background: transparent;
+}
+.cc-card--emergency .emergency-broadcast-body {
+  display: block;
+  width: auto;
+  margin: 12px 14px 14px;
+  padding: 12px 14px;
+  background: var(--cc-bad-soft);
+  border: 1px solid rgba(185,28,28,.25);
+  border-radius: var(--cc-radius-sm);
+  border-top: 1px solid rgba(185,28,28,.25);
+}
+.cc-card--emergency .emergency-broadcast-body label {
+  display: block;
+  font-weight: 800;
+  font-size: 13px;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+}
+.cc-card--emergency .emergency-char-counter {
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  margin-bottom: 6px;
+  text-align: right;
+}
+.cc-card--emergency #emergency-input-wrap-coordinator {
+  margin-bottom: 10px;
+}
+.cc-card--emergency #emergency-message-coordinator {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+  border: 2px solid #000;
+  border-radius: var(--cc-radius-sm);
+  background: #fff;
+}
+.cc-card--emergency #emergency-message-coordinator {
+  width: 100%;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid rgba(185,28,28,.35);
+}
+.cc-card--emergency #emergency-broadcast-btn {
+  background: var(--cc-bad) !important;
+  color: #fff !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  width: 100% !important;
+  min-height: 48px !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+.cc-card--emergency #emergency-broadcast-btn:hover { background: #7f1d1d !important; }
+.cc-card--emergency #emergency-clear-btn {
+  background: var(--cc-bad) !important;
+  color: #fff !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  padding: 6px 14px !important;
+  min-height: 36px !important;
+  font-weight: 800 !important;
+  flex: 0 0 auto;
+  text-transform: uppercase;
+}
+.cc-card--emergency #emergency-clear-btn:hover { background: #7f1d1d !important; }
+
+/* When emergency is active, brighten the whole card. */
+.cc-card--emergency:has(.emergency-status-active) {
+  border-color: var(--cc-bad);
+  box-shadow: 0 0 0 2px rgba(185,28,28,.15), var(--cc-shadow);
+}
+.cc-card--emergency:has(.emergency-status-active)::before {
+  background: var(--cc-bad);
+  width: 6px;
+}
+
+/* Hide the legacy status_icon block inside cards — its glyph is already
+   surfaced as a header badge. (Originally floated outside the body.) */
+.cc-card .status_icon { display: none; }
+
+/* Demote legacy h3 inside card bodies (scene/timer/replay) — header already
+   carries the title. */
+.cc-card__body > h3 { display: none; }
+
+
+/* Playlist card — high-contrast buttons. */
+.cc-card--playlist a.button_link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #fff !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  text-decoration: none !important;
+  text-shadow: none !important;
+  padding: 10px 16px !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 48px !important;
+  box-shadow: none !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cc-card--playlist a.button_link:hover {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  transform: none !important;
+}
+.cc-card--playlist input[type="button"] {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 48px !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cc-card--playlist input[type="button"]:hover {
+  background: var(--cc-amber-bright) !important;
+}
+.cc-card--playlist #playlist-start { width: 100%; }
+/* Hide the playlist-start wrapper when its button is hidden, so the row
+   doesn't reserve empty 50% space for nothing. */
+.cc-card--playlist #playlist-start.hidden { display: none !important; }
+
+/* Replay card — Trigger primary (amber), Settings secondary (white). */
+.cc-card--replay #test_replay {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cc-card--replay #test_replay:hover { background: var(--cc-amber-bright) !important; }
+
+/* Generic secondary look for non-primary buttons inside cards. */
+.cc-card .block_buttons input[type="button"]:not(#test_replay):not(.cc-btn--danger):not(#rerun-button):not(#emergency-broadcast-btn):not(#emergency-clear-btn) {
+  border-radius: var(--cc-radius-sm) !important;
+  border: 2px solid #000 !important;
+  background: #fff !important;
+  color: #000 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  min-height: 48px;
+  font-size: 15px;
+}
+.cc-card .block_buttons input[type="button"]:not(#test_replay):not(.cc-btn--danger):not(#rerun-button):not(#emergency-broadcast-btn):not(#emergency-clear-btn):hover {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  transform: none !important;
+}
+
+/* Re-Run gets primary amber so it stands out as the recover action. */
+.cc-card--heat #rerun-button {
+  background: var(--cc-amber) !important;
+  color: #000 !important;
+  border: 2px solid #000 !important;
+  border-radius: var(--cc-radius-sm) !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  min-height: 48px;
+  font-size: 15px;
+}
+.cc-card--heat #rerun-button:hover { background: var(--cc-amber-bright) !important; }
+
+/* Manual Results stays secondary — already covered by the generic rule. */
+
+/* =============================================================================
+   HEAT-ACTION ROW — text-only buttons. Best practices applied:
+   - flex-wrap (not fixed grid) so the row redistributes naturally as buttons
+     are added/removed by poll. No more orphaned 5th tile in row 2.
+   - generous min-width per button so labels never truncate or hyphenate.
+   - 56px min height — Apple HIG/Material both call ~44–48px the floor for
+     touch; we go 56 because this is mouse + adrenaline race-day operation.
+   - primary (Re-Run amber) and destructive-recovery (Undo Pull Forward
+     red outline) carry visual weight; the rest are neutral peers.
+   ============================================================================= */
+.cc-card--heat .cc-heat-actions {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.cc-card--heat .cc-heat-actions > #now-racing-group-buttons { display: contents; }
+.cc-card--heat .cc-heat-actions input[type="button"] {
+  flex: 1 1 150px;
+  min-width: 150px;
+  min-height: 56px !important;
+  padding: 8px 14px !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+  background-image: none !important;
+}
+
+/* Undo Pull Forward — destructive recovery, red outline so it reads as
+   "use carefully" without screaming like an emergency. */
+.cc-card--heat .pull-forward-undo-button {
+  border-color: #c0392b !important;
+  color: #c0392b !important;
+}
+.cc-card--heat .pull-forward-undo-button:hover {
+  background: #c0392b !important;
+  color: #fff !important;
+}
+
+@media (max-width: 834px) {
+  .cc-card--heat .cc-heat-actions input[type="button"] {
+    min-height: 64px !important;
+    flex-basis: calc(50% - var(--space-2));
+    font-size: var(--fs-body) !important;
+  }
+}
+
+/* =============================================================================
+   PORTRAIT TIGHTENING — single source of truth for portrait-tablet overrides.
+   Anything that needs to differ at ≤834px goes here, not in a second @media.
+   ============================================================================= */
+@media (max-width: 834px) {
+  .cc-card        { margin-bottom: var(--space-3); }
+  .cc-card__head  { padding: var(--space-2) var(--space-3); }
+  .cc-card__body  { padding: var(--space-3); }
+  .cc-card__title { font-size: var(--fs-title); }
+
+  .cc-arrow-btn,
+  .cc-card--heat #prev_heat_button,
+  .cc-card--heat #skip_heat_button {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  /* Heat-action row: 2×2 grid in portrait so 4 buttons each get ~165px
+     instead of ~85px. Fixes the "UNSCHEDU LE" / "PULL FORWARD …" wrap. */
+  .cc-card--heat .cc-heat-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cc-card--heat .cc-heat-actions input[type="button"] {
+    min-height: 64px;
+    font-size: var(--fs-body);
+  }
+
+  /* Timer table: drop the column header row entirely on portrait — the row
+     itself is self-describing (lane label + colored pill + GO button +
+     timestamp). Bigger data text. */
+  .cc-card--timer .lane-timers thead { display: none; }
+  .cc-card--timer .lane-timers td    { padding: var(--space-2) var(--space-3); font-size: var(--fs-body); }
+
+  .cc-row-2 { flex-direction: column; }
+  .cc-row-2 > * { width: 100%; }
+
+  .cc-emergency-strip          { padding: var(--space-3) !important; }
+  .cc-emergency-strip__status  { font-size: var(--fs-meta); }
+}
+
+/* Timer health warning is JS-injected as the first child of .timer_control_group
+   (which is now also our .cc-card--timer). Make it fit cleanly inside the card
+   between the rounded edge and the header instead of breaking out as a banner. */
+.cc-card--timer > .health-warning {
+  margin: 0 !important;
+  border-radius: var(--cc-radius) var(--cc-radius) 0 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  font-size: 13px;
+  padding: 8px 14px;
+  text-align: left;
+}
+.cc-card--timer > .health-warning .warning-icon {
+  font-size: 14px;
+  margin-right: 6px;
+}
+.cc-card--timer > .health-warning + .cc-card__head {
+  border-top: 1px solid var(--cc-line);
 }

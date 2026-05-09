@@ -1,0 +1,418 @@
+/* virtual.css — shared styles for browser virtual hardware pages.
+ * Cloud-only. Desktop browsers; no mobile breakpoints. */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body.virtual-device {
+  font: 14px/1.4 -apple-system, system-ui, sans-serif;
+  background: #1a1a1a; color: #e8e8e8;
+  min-height: 100vh;
+}
+
+.vd-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px; background: #111; border-bottom: 2px solid #d33;
+}
+.vd-header h1 { margin: 0; font-size: 18px; flex: 1; }
+.vd-tag {
+  background: #d33; color: white; padding: 2px 8px;
+  font-weight: bold; font-size: 12px; letter-spacing: 1px;
+  border-radius: 3px;
+}
+.vd-conn { font-size: 12px; padding: 2px 8px; border-radius: 3px; }
+.vd-conn[data-state="connected"] { background: #283; color: white; }
+.vd-conn[data-state="reconnecting"] { background: #b80; color: white; }
+.vd-conn[data-state="disconnected"], .vd-conn[data-state="error"]
+  { background: #722; color: white; }
+
+/* Sandbox-name badge: identifies which tenant DB every MQTT publish on
+ * this page is scoped to. Sits to the left of #conn-status in the header.
+ * `info` is the normal slate look; `warn` paints red when no tenant is
+ * bound (the JS topic builder will throw on first publish anyway, but
+ * the badge makes the misconfiguration visually loud). */
+.vd-sandbox {
+  font-size: 12px; padding: 2px 8px; border-radius: 3px;
+  background: #2a2d33; color: #cdd; border: 1px solid #3a3e46;
+}
+.vd-sandbox b { color: #ffeb3b; font-weight: 600; }
+.vd-sandbox[data-state="warn"] {
+  background: #722; color: white; border-color: #944;
+}
+.vd-sandbox[data-state="warn"] b { color: #fff; }
+
+.vd-main {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  padding: 20px; max-width: 1100px; margin: 0 auto;
+}
+.vd-main > section {
+  background: #222; border: 1px solid #333; border-radius: 6px;
+  padding: 16px;
+}
+
+.vd-pinny-number {
+  font-family: ui-monospace, monospace; font-size: 96px;
+  text-align: center; color: #ffeb3b; letter-spacing: 4px;
+}
+.vd-pinny-label, .vd-led-label, .vd-state-label, .vd-log-label {
+  text-transform: uppercase; font-size: 11px; color: #888;
+  letter-spacing: 1px; margin-bottom: 8px;
+}
+
+.vd-led { text-align: center; }
+.vd-led-circle {
+  width: 80px; height: 80px; border-radius: 50%;
+  margin: 12px auto; background: #444;
+  box-shadow: inset 0 0 12px rgba(0,0,0,.6);
+  transition: background-color .15s, box-shadow .15s;
+}
+.vd-led[data-color="red"]    .vd-led-circle { background: #d33; box-shadow: 0 0 24px #d33; }
+.vd-led[data-color="green"]  .vd-led-circle { background: #2c2; box-shadow: 0 0 24px #2c2; }
+.vd-led[data-color="blue"]   .vd-led-circle { background: #29f; box-shadow: 0 0 24px #29f; }
+.vd-led[data-color="purple"] .vd-led-circle { background: #93c; box-shadow: 0 0 24px #93c; }
+.vd-led[data-color="yellow"] .vd-led-circle { background: #ec0; box-shadow: 0 0 24px #ec0; }
+.vd-led[data-color="white"]  .vd-led-circle { background: #eee; box-shadow: 0 0 24px #eee; }
+.vd-led-color { font-size: 12px; color: #aaa; }
+
+.vd-state-value {
+  font-family: ui-monospace, monospace; font-size: 28px;
+  text-align: center; color: #5cf;
+}
+
+.vd-controls { grid-column: 1 / -1; }
+.vd-toggle, .vd-auto { display: block; padding: 8px 0; cursor: pointer; }
+.vd-toggle input, .vd-auto input[type="checkbox"] { margin-right: 8px; }
+.vd-auto input[type="number"] { width: 60px; margin: 0 4px; }
+
+/* ───── Finish timer hardware mockup ─────
+ * Layout mimics the real PCB: RGB LED on top, 4-digit display below,
+ * physical toggle switch at the bottom — all centered. */
+.vd-finish-main { grid-template-columns: 1fr; max-width: 720px; }
+.vd-finish-device {
+  display: flex; justify-content: center;
+  background: #1d1f24; padding: 32px 24px;
+}
+.vd-device-chassis {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 22px;
+  background: linear-gradient(#2a2d33, #1f2127);
+  border: 1px solid #3a3e46;
+  border-radius: 14px;
+  padding: 28px 36px 32px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05),
+              0 6px 18px rgba(0,0,0,.45);
+  min-width: 320px;
+}
+.vd-finish-device .vd-led { text-align: center; margin: 0; }
+.vd-finish-device .vd-led-circle {
+  width: 56px; height: 56px; margin: 0;
+  border: 2px solid #0a0a0a;
+}
+.vd-7seg {
+  font-family: "DSEG7 Classic", ui-monospace, monospace;
+  font-size: 64px; letter-spacing: 8px;
+  color: #ff3a1a;
+  background: #0a0a0a;
+  border: 2px solid #000;
+  border-radius: 6px;
+  padding: 10px 18px;
+  min-width: 220px; text-align: center;
+  text-shadow: 0 0 6px rgba(255, 58, 26, .6);
+  box-shadow: inset 0 0 14px rgba(0,0,0,.9);
+}
+.vd-device-meta {
+  display: flex; gap: 16px;
+  font-family: ui-monospace, monospace; font-size: 11px;
+  color: #6a7079; letter-spacing: .04em;
+}
+.vd-device-meta #race-state { color: #5cf; }
+
+/* Vertical toggle switch — click anywhere on it to flip. */
+.vd-hw-toggle {
+  appearance: none; background: none; border: none; padding: 0; margin: 0;
+  cursor: pointer; outline: none;
+}
+.vd-hw-toggle:focus-visible .vd-hw-toggle-track {
+  box-shadow: 0 0 0 3px rgba(247, 209, 23, 0.55),
+              inset 0 2px 6px rgba(0,0,0,.7);
+}
+.vd-hw-toggle-track {
+  position: relative; display: block;
+  width: 64px; height: 140px;
+  background: linear-gradient(#15171b, #0c0d10);
+  border: 2px solid #000;
+  border-radius: 10px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,.7),
+              inset 0 -1px 0 rgba(255,255,255,.04);
+}
+.vd-hw-toggle-label {
+  position: absolute; left: 0; right: 0; text-align: center;
+  font-family: ui-monospace, monospace; font-size: 10px;
+  letter-spacing: .12em; color: #6a7079;
+  pointer-events: none;
+}
+.vd-hw-toggle-up   { top: 8px; }
+.vd-hw-toggle-down { bottom: 8px; }
+.vd-hw-toggle-lever {
+  position: absolute; left: 50%;
+  width: 44px; height: 56px;
+  margin-left: -22px;
+  background: linear-gradient(#dcdfe4 0%, #9aa0aa 50%, #6a7079 100%);
+  border: 1px solid #2a2d33;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,.55),
+              inset 0 1px 0 rgba(255,255,255,.4);
+  transition: top .18s cubic-bezier(.6,.05,.4,1.4);
+}
+.vd-hw-toggle[data-position="up"]   .vd-hw-toggle-lever { top: 22px; }
+.vd-hw-toggle[data-position="down"] .vd-hw-toggle-lever { top: 60px; }
+.vd-hw-toggle[data-position="up"]   .vd-hw-toggle-up   { color: #ffeb3b; }
+.vd-hw-toggle[data-position="down"] .vd-hw-toggle-down { color: #ffeb3b; }
+.vd-hw-toggle:hover .vd-hw-toggle-lever {
+  background: linear-gradient(#e8ebf0 0%, #a8aeb8 50%, #787e88 100%);
+}
+
+/* ───── Start timer hardware mockup ─────
+ * Single big latching arcade pushbutton. Press = GO (button down + lit).
+ * Press again = STOP (button up). */
+.vd-start-main { grid-template-columns: 1fr; max-width: 720px; }
+.vd-start-device {
+  display: flex; justify-content: center;
+  background: #1d1f24; padding: 32px 24px;
+}
+.vd-start-chassis { padding: 40px 56px 32px; }
+
+.vd-latch-button {
+  appearance: none; background: none; border: none; padding: 0; margin: 0;
+  cursor: pointer; outline: none;
+}
+.vd-latch-button:focus-visible .vd-latch-bezel {
+  box-shadow: 0 0 0 3px rgba(247, 209, 23, 0.55),
+              inset 0 0 0 4px #1a1c20;
+}
+.vd-latch-bezel {
+  position: relative; display: block;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #44484f, #1a1c20 70%);
+  box-shadow: inset 0 0 0 4px #1a1c20,
+              inset 0 6px 12px rgba(0,0,0,.6),
+              0 6px 14px rgba(0,0,0,.45);
+}
+.vd-latch-cap {
+  position: absolute; left: 50%; top: 50%;
+  width: 150px; height: 150px;
+  margin: -75px 0 0 -75px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ff6a55 0%, #d62a14 55%, #8a1808 100%);
+  box-shadow: 0 10px 0 #5a0e04,
+              0 14px 18px rgba(0,0,0,.55),
+              inset 0 -6px 10px rgba(0,0,0,.35),
+              inset 0 4px 6px rgba(255,255,255,.25);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .08s ease, box-shadow .08s ease, background .15s ease;
+}
+.vd-latch-label {
+  font-family: ui-monospace, monospace;
+  font-size: 22px; font-weight: 700; letter-spacing: .12em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  user-select: none;
+}
+.vd-latch-button:hover .vd-latch-cap {
+  background: radial-gradient(circle at 35% 30%, #ff7a65 0%, #e63320 55%, #971a09 100%);
+}
+.vd-latch-button[data-latched="true"] .vd-latch-cap {
+  background: radial-gradient(circle at 35% 30%, #6cff7c 0%, #1ec23c 55%, #0a6e1f 100%);
+  transform: translateY(8px);
+  box-shadow: 0 2px 0 #043d11,
+              0 4px 8px rgba(0,0,0,.55),
+              inset 0 -4px 8px rgba(0,0,0,.35),
+              inset 0 4px 6px rgba(255,255,255,.25),
+              0 0 28px rgba(46, 220, 80, .55);
+}
+.vd-latch-button[data-latched="true"]:hover .vd-latch-cap {
+  background: radial-gradient(circle at 35% 30%, #7cff8c 0%, #2ad24c 55%, #0d7d22 100%);
+}
+
+.vd-finish-button {
+  display: block; width: 100%; padding: 32px;
+  background: #d33; color: white; border: none; border-radius: 8px;
+  font-size: 28px; font-weight: bold; letter-spacing: 2px; cursor: pointer;
+  margin: 12px 0;
+}
+.vd-finish-button:disabled { background: #555; color: #888; cursor: not-allowed; }
+.vd-finish-button:not(:disabled):hover { background: #e44; }
+.vd-finish-button:not(:disabled):active { background: #b22; }
+
+.vd-go-button {
+  display: block; width: 100%; padding: 32px;
+  background: #2c2; color: white; border: none; border-radius: 8px;
+  font-size: 28px; font-weight: bold; letter-spacing: 2px; cursor: pointer;
+  margin: 12px 0;
+}
+.vd-go-button:disabled { background: #555; color: #888; cursor: not-allowed; }
+.vd-go-button:not(:disabled):hover { background: #3d3; }
+
+.vd-log { grid-column: 1 / -1; max-height: 320px; overflow: auto; }
+.vd-log ol {
+  list-style: none; margin: 0; padding: 0;
+  font-family: ui-monospace, monospace; font-size: 12px;
+}
+.vd-log li { padding: 2px 0; border-bottom: 1px solid #2a2a2a; }
+.vd-log .log-tx { color: #5cf; }
+.vd-log .log-rx { color: #cf5; }
+.vd-log .log-sys { color: #aaa; }
+
+.vd-sign-display {
+  background: #000; color: #f60; font-family: ui-monospace, monospace;
+  font-size: 32px; padding: 24px; text-align: center; letter-spacing: 4px;
+  min-height: 80px; border-radius: 4px;
+}
+.vd-section-heading {
+  margin: 28px auto 8px;
+  padding: 0 20px;
+  max-width: 1100px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a8f99;
+}
+
+.vd-index-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px; padding: 8px 20px 4px; max-width: 1100px; margin: 0 auto;
+}
+
+.vd-index-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--color-button-bg, #2a2d33);
+  color: var(--color-button-text, #fff);
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 4px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-button, 0 1px 2px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.10));
+  transition: background 120ms ease, box-shadow 120ms ease,
+              transform 120ms ease, border-color 120ms ease;
+}
+.vd-index-card:hover {
+  background: var(--color-button-bg-hover, #3a3e46);
+  box-shadow: var(--shadow-button-hover, 0 2px 4px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.14));
+  transform: translateY(-1px);
+}
+.vd-index-card:active {
+  background: var(--color-button-bg-active, #1f2127);
+  transform: translateY(0);
+}
+.vd-index-card:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-button-hover, 0 2px 4px rgba(0,0,0,.22), 0 4px 12px rgba(0,0,0,.14)),
+              var(--focus-ring, 0 0 0 3px rgba(247, 209, 23, 0.55));
+}
+
+.vd-index-card .vd-index-title {
+  font-size: 17px;
+  font-weight: 500;
+}
+.vd-index-card .vd-index-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
+/* ───── Combined single-pane mock-race rig ─────
+ * Hosts START + N finish timers in one window so a dual-monitor setup can
+ * put the coordinator on the primary screen and the full virtual rig on
+ * the secondary. Reuses the existing chassis components at compressed
+ * sizes so all four devices fit a 1080p secondary without scrolling. */
+.vd-combined {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(var(--lanes, 3), 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 14px;
+  padding: 12px;
+  max-width: none;
+  margin: 0;
+}
+.vd-combined-start { grid-row: 1; grid-column: 1; }
+.vd-combined-finishes {
+  grid-row: 1;
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: repeat(var(--lanes, 3), 1fr);
+  gap: 12px;
+}
+.vd-combined-start, .vd-combined-finish {
+  background: #1d1f24;
+  border: 1px solid #2a2d33;
+  border-radius: 8px;
+  padding: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.vd-combined-label {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #8a8f99;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  width: 100%;
+  text-align: center;
+}
+.vd-combined-label code { color: #cdd; }
+
+/* Compressed chassis sizing for the combined view. */
+.vd-combined .vd-device-chassis {
+  padding: 14px 18px;
+  gap: 14px;
+  min-width: 0;
+}
+.vd-combined .vd-led-circle { width: 42px; height: 42px; }
+.vd-combined .vd-7seg {
+  font-size: 40px;
+  letter-spacing: 6px;
+  min-width: 140px;
+  padding: 6px 12px;
+}
+.vd-combined .vd-hw-toggle-track { width: 48px; height: 108px; }
+.vd-combined .vd-hw-toggle-lever { width: 34px; height: 44px; margin-left: -17px; }
+.vd-combined .vd-hw-toggle[data-position="up"]   .vd-hw-toggle-lever { top: 14px; }
+.vd-combined .vd-hw-toggle[data-position="down"] .vd-hw-toggle-lever { top: 50px; }
+
+.vd-combined .vd-latch-bezel { width: 150px; height: 150px; }
+.vd-combined .vd-latch-cap   { width: 112px; height: 112px; margin: -56px 0 0 -56px; }
+.vd-combined .vd-latch-label { font-size: 18px; }
+.vd-combined .vd-start-chassis { padding: 16px 24px; }
+
+.vd-combined .vd-device-meta { font-size: 10px; gap: 10px; }
+
+.vd-combined .vd-log {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  max-height: 160px;
+  overflow: auto;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+@media (max-height: 900px) {
+  .vd-combined .vd-log { max-height: 100px; }
+  .vd-combined .vd-7seg { font-size: 34px; padding: 4px 10px; }
+  .vd-combined .vd-hw-toggle-track { height: 92px; }
+  .vd-combined .vd-hw-toggle[data-position="up"]   .vd-hw-toggle-lever { top: 10px; }
+  .vd-combined .vd-hw-toggle[data-position="down"] .vd-hw-toggle-lever { top: 42px; }
+  .vd-combined .vd-latch-bezel { width: 130px; height: 130px; }
+  .vd-combined .vd-latch-cap   { width: 96px;  height: 96px;  margin: -48px 0 0 -48px; }
+}
+
+/* Phase accent strips per category — matches index.php phase colors */
+.vd-index-grid.cat-before .vd-index-card { border-left-color: var(--color-phase-before, #F7D117); }
+.vd-index-grid.cat-during .vd-index-card { border-left-color: var(--color-phase-during, #4ade80); }
+.vd-index-grid.cat-after  .vd-index-card { border-left-color: var(--color-phase-after,  #60a5fa); }
+.vd-index-grid.cat-other  .vd-index-card { border-left-color: var(--color-phase-other,  #c084fc); }

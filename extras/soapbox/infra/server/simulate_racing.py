@@ -30,6 +30,7 @@ Version History:
 
 import argparse
 import json
+import os
 import random
 import time
 import logging
@@ -43,6 +44,20 @@ import paho.mqtt.client as mqtt
 import requests
 from derbyapi import DerbyNetClient
 from serverlogger import ServerLogger
+
+# Optional cloud-twin tenant prefix. When `--tenant <slug>` is passed (or
+# DERBYNET_TENANT is set), every topic this simulator publishes/subscribes
+# is wrapped under `derbynet/t/<slug>/...` so the cloud race-server's
+# multi-tenant router routes it correctly. Pi simulation leaves this empty
+# and topics stay legacy unprefixed.
+_TENANT_SLUG = ''
+
+
+def _t(*parts):
+    """Build an MQTT topic, tenant-prefixed when _TENANT_SLUG is set."""
+    if _TENANT_SLUG:
+        return '/'.join(('derbynet', 't', _TENANT_SLUG) + tuple(str(p) for p in parts))
+    return '/'.join(('derbynet',) + tuple(str(p) for p in parts))
 
 # Version information
 VERSION = "0.8.0"
@@ -159,7 +174,7 @@ class SimulatedFinishTimer:
             logger.debug(f"[DRY RUN] Lane {self.lane} telemetry: ready={self.is_ready}")
             return
 
-        topic = f"derbynet/device/{self.dip}/telemetry"
+        topic = _t('device', self.dip, 'telemetry')
         payload = {
             "hostname": self.hostname,
             "hwid": self.hwid,
@@ -193,7 +208,7 @@ class SimulatedFinishTimer:
             return
 
         # Send state message with toggle status
-        topic = f"derbynet/device/{self.dip}/state"
+        topic = _t('device', self.dip, 'state')
         payload = {
             "hwid": self.hwid,
             "dip": self.dip,
@@ -221,7 +236,7 @@ class SimulatedFinishTimer:
             return finish_time
 
         # Send state message with toggle=False (switch DOWN = car crossed)
-        topic = f"derbynet/device/{self.dip}/state"
+        topic = _t('device', self.dip, 'state')
         payload = {
             "hwid": self.hwid,
             "dip": self.dip,
@@ -268,7 +283,7 @@ class SimulatedStartTimer:
 
         # Send via the state topic that derbyRace.py listens to
         # Using lane 1's DIP with state=GO triggers startRace()
-        topic = f"derbynet/device/{DIP_SWITCH_MAP[1]}/state"
+        topic = _t('device', DIP_SWITCH_MAP[1], 'state')
         payload = {
             "hwid": self.hwid,
             "dip": self.dip,
@@ -280,6 +295,143 @@ class SimulatedStartTimer:
         logger.info(f"START GO sent at {datetime.fromtimestamp(start_time).strftime('%H:%M:%S.%f')[:-3]}")
 
         return start_time
+
+
+class SimulatedDisplay:
+    """
+    Simulates a derby display device at the MQTT layer.
+
+    Real displays (extras/soapbox/infra/derbydisplay/) are passive consumers:
+    they run a Chromium kiosk, poll the PHP kiosk page for content, and only
+    publish their own telemetry/status so the race server can show them as
+    online. We mirror that here so the cloud twin's device-presence checks
+    pass even when no browser virtual display is connected.
+    """
+
+    def __init__(self, display_id: int, mqtt_client: mqtt.Client, config: SimulationConfig):
+        self.display_id = display_id
+        self.client = mqtt_client
+        self.config = config
+        self.hwid = f"SIM_DISPLAY_{display_id}"
+        self.hostname = f"simdisplay{display_id}"
+        self.telemetry_thread: Optional[threading.Thread] = None
+        self.running = False
+
+        logger.info(f"SimulatedDisplay {display_id} initialized")
+
+    def start_telemetry(self):
+        self.running = True
+        self.telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
+        self.telemetry_thread.start()
+
+    def stop_telemetry(self):
+        self.running = False
+        if self.telemetry_thread:
+            self.telemetry_thread.join(timeout=2)
+
+    def _telemetry_loop(self):
+        # Real displays publish telemetry every 5 seconds; match that.
+        interval = max(self.config.telemetry_interval, 5)
+        while self.running:
+            self._send_telemetry()
+            time.sleep(interval)
+
+    def _send_telemetry(self):
+        if self.config.dry_run:
+            logger.debug(f"[DRY RUN] Display {self.display_id} telemetry")
+            return
+
+        topic = _t('device', self.hwid, 'telemetry')
+        payload = {
+            "hostname": self.hostname,
+            "hwid": self.hwid,
+            "uptime": int(time.time()) % 86400,
+            "ip": f"192.168.100.{200 + self.display_id}",
+            "mac": f"AA:BB:CC:EE:FF:{self.display_id:02X}",
+            "wifi_rssi": random.randint(-50, -35),
+            "cpu_temp": random.uniform(40, 55),
+            "memory_usage": random.uniform(30, 50),
+            "disk": random.uniform(15, 35),
+            "cpu_usage": random.uniform(5, 20),
+        }
+        self.client.publish(topic, json.dumps(payload), qos=MQTT_QOS_NORMAL)
+
+        status_topic = _t('device', self.hwid, 'status')
+        self.client.publish(status_topic, "online", qos=MQTT_QOS_NORMAL, retain=True)
+
+
+class SimulatedLEDSign:
+    """
+    Simulates an LED sign at the MQTT layer.
+
+    Real signs (extras/ledsign/) subscribe to derbynet/ledsign/{zone}/message
+    plus a broadcast topic, then translate JSON display configs into BetaBrite
+    serial frames. Here we just consume those messages to keep the sign
+    visible in logs and publish the matching telemetry/status so the race
+    server marks it online.
+    """
+
+    def __init__(self, zone: str, mqtt_client: mqtt.Client, config: SimulationConfig):
+        self.zone = zone
+        self.client = mqtt_client
+        self.config = config
+        self.hwid = f"SIM_LEDSIGN_{zone}"
+        self.hostname = f"simledsign-{zone}"
+        self.telemetry_thread: Optional[threading.Thread] = None
+        self.running = False
+        self.last_message: Optional[str] = None
+
+        logger.info(f"SimulatedLEDSign zone={zone} initialized")
+
+    def subscribe_topics(self):
+        # Best-effort subscription so received messages get logged. The race
+        # server doesn't depend on a sign's responses; this just gives us
+        # observability during simulator runs.
+        self.client.message_callback_add(
+            _t('ledsign', self.zone, 'message'), self._on_message)
+        self.client.message_callback_add(
+            _t('ledsign', 'broadcast'), self._on_message)
+        self.client.subscribe(_t('ledsign', self.zone, 'message'))
+        self.client.subscribe(_t('ledsign', 'broadcast'))
+
+    def _on_message(self, client, userdata, msg):
+        try:
+            self.last_message = msg.payload.decode('utf-8', errors='replace')
+            logger.info(f"LEDSign[{self.zone}] received {msg.topic}: {self.last_message[:80]}")
+        except Exception as e:
+            logger.warning(f"LEDSign[{self.zone}] message decode error: {e}")
+
+    def start_telemetry(self):
+        self.running = True
+        self.telemetry_thread = threading.Thread(target=self._telemetry_loop, daemon=True)
+        self.telemetry_thread.start()
+
+    def stop_telemetry(self):
+        self.running = False
+        if self.telemetry_thread:
+            self.telemetry_thread.join(timeout=2)
+
+    def _telemetry_loop(self):
+        while self.running:
+            self._send_telemetry()
+            time.sleep(self.config.telemetry_interval)
+
+    def _send_telemetry(self):
+        if self.config.dry_run:
+            return
+
+        topic = _t('device', self.hwid, 'telemetry')
+        payload = {
+            "hostname": self.hostname,
+            "hwid": self.hwid,
+            "zone": self.zone,
+            "uptime": int(time.time()) % 86400,
+            "wifi_rssi": random.randint(-55, -40),
+            "last_message_seen": self.last_message[:60] if self.last_message else None,
+        }
+        self.client.publish(topic, json.dumps(payload), qos=MQTT_QOS_NORMAL)
+        status_topic = _t('device', self.hwid, 'status')
+        self.client.publish(status_topic, "online", qos=MQTT_QOS_NORMAL, retain=True)
 
 
 class RaceSimulator:
@@ -311,6 +463,8 @@ class RaceSimulator:
         # Initialize simulated devices
         self.finish_timers: Dict[int, SimulatedFinishTimer] = {}
         self.start_timer: Optional[SimulatedStartTimer] = None
+        self.displays: Dict[int, SimulatedDisplay] = {}
+        self.led_signs: Dict[str, SimulatedLEDSign] = {}
 
         # Race tracking
         self.race_count = 0
@@ -404,6 +558,23 @@ class RaceSimulator:
             self.finish_timers[lane].start_telemetry()
 
         console_print(f"  - Created {len(self.finish_timers)} simulated finish timers", Colors.GREEN)
+
+        # Displays + LED signs: one display per lane plus a starter sign and
+        # one usher sign per lane. These mirror the typical track layout so
+        # the cloud twin's device-presence checks pass even with no browser
+        # virtual hardware connected.
+        for did in range(1, self.config.lane_count + 1):
+            self.displays[did] = SimulatedDisplay(did, self.mqtt_client, self.config)
+            self.displays[did].start_telemetry()
+        console_print(f"  - Created {len(self.displays)} simulated displays", Colors.GREEN)
+
+        ledsign_zones = ["starter"] + [f"usher-lane{i}" for i in range(1, self.config.lane_count + 1)]
+        for zone in ledsign_zones:
+            sign = SimulatedLEDSign(zone, self.mqtt_client, self.config)
+            sign.subscribe_topics()
+            sign.start_telemetry()
+            self.led_signs[zone] = sign
+        console_print(f"  - Created {len(self.led_signs)} simulated LED signs", Colors.GREEN)
 
         # Start background heartbeat thread to keep timers appearing online
         self.heartbeat_running = True
@@ -783,6 +954,10 @@ class RaceSimulator:
         # Stop telemetry threads
         for timer in self.finish_timers.values():
             timer.stop_telemetry()
+        for display in self.displays.values():
+            display.stop_telemetry()
+        for sign in self.led_signs.values():
+            sign.stop_telemetry()
 
         # Disconnect MQTT
         try:
@@ -840,6 +1015,11 @@ def parse_args():
                        help='Fast mode - inject times via API (~1s/race) instead of real-time MQTT')
     parser.add_argument('--verbose', '-v', action='store_true',
                        help='Verbose logging (DEBUG level)')
+    parser.add_argument('--tenant', default=os.getenv('DERBYNET_TENANT', ''),
+                       help='Cloud-twin sandbox slug. When set, every topic is '
+                            'prefixed derbynet/t/<slug>/... so the cloud '
+                            'race-server routes events into the right sandbox '
+                            'DB. Leave empty for Pi simulation.')
 
     return parser.parse_args()
 
@@ -851,6 +1031,12 @@ def main():
     # Adjust log level if verbose
     if args.verbose:
         logger.setLevel(logging.DEBUG)
+
+    # Wire tenant prefix before any MQTT object is built.
+    global _TENANT_SLUG
+    _TENANT_SLUG = args.tenant or ''
+    if _TENANT_SLUG:
+        logger.info(f"Tenant-prefixed simulation: derbynet/t/{_TENANT_SLUG}/...")
 
     # Print startup banner
     console_print(f"""

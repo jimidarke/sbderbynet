@@ -1,0 +1,32 @@
+# Production override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+#
+# On the VPS, images are pulled from ghcr.io (no local build).
+# The `image:` key overrides local build — `docker compose pull` fetches it.
+#
+# Volume override: production replaces the default named volume `derbynet_data`
+# with a bind mount at /opt/derbynet/production/data so that cloud-sync.sh
+# (running on the Pi over scp) writes the synced DB + .cloud_readonly sentinel
+# directly into the path the containers read from. This must be created on
+# the VPS before bringing the stack up:
+#
+#     sudo mkdir -p /opt/derbynet/production/data
+#     sudo chmod 777 /opt/derbynet/production/data
+#     # ('nobody' uid 65534 on Alpine PHP-FPM). chmod 777 is the simplest
+#     # cross-distro way to make the dir writable from inside the container.
+#
+# After this override is applied, the cloud-sync.sh defaults
+# (CLOUD_DB_PATH=/opt/derbynet/production/data/derbynet.sqlite3) line up with
+# what the PHP container reads at /var/lib/derbynet/derbynet.sqlite3 and
+# /var/lib/derbynet/.cloud_readonly.
+
+services:
+  derbynet-web:
+    image: ghcr.io/${GITHUB_OWNER:-sbderbynet}/sbderbynet-web:latest
+    volumes:
+      - /opt/derbynet/production/data:/var/lib/derbynet
+
+  race-server:
+    image: ghcr.io/${GITHUB_OWNER:-sbderbynet}/sbderbynet-server:latest
+    volumes:
+      - /opt/derbynet/production/data:/var/lib/derbynet

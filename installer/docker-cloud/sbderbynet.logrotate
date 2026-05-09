@@ -1,0 +1,16 @@
+# sbderbynet.logrotate — installed at /etc/logrotate.d/sbderbynet by
+# scripts/derbyvps.sh (bootstrap).
+#
+# Caps the wrapper's deploy-trail log so it doesn't grow unbounded. Docker
+# json-file rotation handles container stdouts; this is just the host-side
+# wrapper log written by ssh_logged() in derbyvps.sh.
+
+/var/log/sbderbynet-deploy.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0664 root root
+}
