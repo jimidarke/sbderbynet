@@ -60,3 +60,4 @@ SBDerbyNet is a soapbox derby race management system built by extensively modify
 - [docs/VPS_OPERATIONS.md](docs/VPS_OPERATIONS.md) — Cloud VPS interaction protocol via `scripts/derbyvps.sh`
 - [docs/LOGGING.md](docs/LOGGING.md) — Where every server-side log lands; `derbyvps.sh logs --where` prints the live map
 - [docs/TESTING.md](docs/TESTING.md) — Test-case proposal: priorities, what each one would catch, where to start
+- [docs/KIOSK_DESIGN.md](docs/KIOSK_DESIGN.md) — Kiosk display system: central stylesheet, viewport-discipline rules, per-kiosk file map, follow-ups
