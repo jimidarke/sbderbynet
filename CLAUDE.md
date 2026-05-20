@@ -61,3 +61,5 @@ SBDerbyNet is a soapbox derby race management system built by extensively modify
 - [docs/LOGGING.md](docs/LOGGING.md) — Where every server-side log lands; `derbyvps.sh logs --where` prints the live map
 - [docs/TESTING.md](docs/TESTING.md) — Test-case proposal: priorities, what each one would catch, where to start
 - [docs/KIOSK_DESIGN.md](docs/KIOSK_DESIGN.md) — Kiosk display system: central stylesheet, viewport-discipline rules, per-kiosk file map, follow-ups
+- [docs/RACE_SYSTEM_AUDIT_2026-05.md](docs/RACE_SYSTEM_AUDIT_2026-05.md) — Point-in-time health audit of the race-day Pi + core racing system (engine, finishtimers, kiosks, network). Prioritized cleanup plan + 2025–2026 appliance-hardening notes.
+- [docs/SD_CARD_RECOVERY.md](docs/SD_CARD_RECOVERY.md) — SD-card image pipeline + race-day operator recovery procedure. Index for `extras/imaging/` and the CI workflow that builds the 3 per-role `.img.xz` files.

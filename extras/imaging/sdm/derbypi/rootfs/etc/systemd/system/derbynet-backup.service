@@ -1,0 +1,9 @@
+[Unit]
+Description=Snapshot the active DerbyNet event DB
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/derbynet-backup.sh
+StandardOutput=journal
+StandardError=journal

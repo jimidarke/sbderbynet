@@ -55,9 +55,9 @@
       tags: [rtc, hardware]
 
     # Phase 3: Network services
-    - role: ntp
-      tags: [ntp, network]
-
+    # `ntp` role removed 2026-05: central Pi does not serve NTP per
+    # docs/SD_CARD_RECOVERY.md §Time-sync reality. Role files retained on disk
+    # for historical reference.
     - role: logging
       tags: [logging, network]
 

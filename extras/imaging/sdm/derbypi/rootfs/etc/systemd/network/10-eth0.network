@@ -1,0 +1,11 @@
+[Match]
+Name=eth0
+
+[Network]
+Address=192.168.100.10/24
+Gateway=192.168.100.1
+DNS=192.168.100.1
+IPForward=no
+LinkLocalAddressing=no
+LLMNR=no
+MulticastDNS=no

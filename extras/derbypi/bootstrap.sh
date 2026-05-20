@@ -1,17 +1,27 @@
 #!/bin/bash
-# DerbyPi Bootstrap Script
-# ========================
+# DerbyPi Bootstrap Script — EXPERT / DEVELOPMENT PATH
+# ====================================================
 #
-# One-time setup script for initializing a fresh Raspberry Pi as a DerbyNet server.
-# Run this script after flashing Raspberry Pi OS Lite 64-bit.
+# ┌──────────────────────────────────────────────────────────────────────┐
+# │  RACE-DAY RECOVERY: use the pre-built SD image and the USB stick,    │
+# │  NOT this script. See docs/SD_CARD_RECOVERY.md and                   │
+# │  extras/imaging/INSTRUCTIONS.md.                                     │
+# │                                                                      │
+# │  This script is the expert/development path. It installs Ansible,    │
+# │  clones the repo into /opt/derbynet-repo, and runs the playbook —    │
+# │  multi-step and internet-required. It exists for cases where you've  │
+# │  SSH'd into a stock Raspberry Pi OS image and want to bring it up    │
+# │  without flashing a custom SD card.                                  │
+# └──────────────────────────────────────────────────────────────────────┘
 #
-# Usage:
-#   curl -sSL https://raw.githubusercontent.com/jimidarke/sbderbynet/master/extras/derbypi/bootstrap.sh | sudo bash
-#
-# Or download and run:
-#   wget https://raw.githubusercontent.com/jimidarke/sbderbynet/master/extras/derbypi/bootstrap.sh
+# Usage (after reviewing the script first):
+#   wget https://raw.githubusercontent.com/jimidarke/sbderbynet/<pinned-sha>/extras/derbypi/bootstrap.sh
 #   chmod +x bootstrap.sh
 #   sudo ./bootstrap.sh
+#
+# DO NOT pipe `curl | sudo bash`. The script lives in a public repo and a
+# repo/DNS compromise would run arbitrary code on your Pi. Always download,
+# verify, then run.
 
 set -e
 

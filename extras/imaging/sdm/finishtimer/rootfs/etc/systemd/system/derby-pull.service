@@ -1,0 +1,18 @@
+[Unit]
+Description=Refresh /opt/derbynet from central race-server rsync daemon
+After=network-online.target
+Wants=network-online.target
+Before=finishtimer.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/mkdir -p /opt/derbynet
+# Rsync from central. If the server is unreachable (race-day before central
+# is up), exit 0 anyway — the image already contains a stale snapshot in
+# /opt/derbynet/ that finishtimer.py can use until the next pull.
+ExecStart=/bin/sh -c 'rsync -az --delete --timeout=10 rsync://192.168.100.10/derbynet/finishtimer/ /opt/derbynet/ || true'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

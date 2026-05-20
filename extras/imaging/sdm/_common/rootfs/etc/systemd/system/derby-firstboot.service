@@ -1,0 +1,16 @@
+[Unit]
+Description=DerbyNet first-boot configuration (single-shot)
+After=network-online.target
+Wants=network-online.target
+ConditionFirstBoot=no
+ConditionPathExists=/etc/derby-role
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/derby-firstboot.sh
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

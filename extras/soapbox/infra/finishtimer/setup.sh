@@ -35,20 +35,10 @@ TOREBOOT=0
 # Turn off the HDMI display
 sudo bash -c "echo 1 > /sys/class/graphics/fb0/blank"
 
-# Apply system time settings 
-# Ensure systemd-timesyncd is installed
-if ! command -v systemctl &> /dev/null; then
-    echo "systemd-timesyncd is not installed. Installing..."
-    sudo apt update && sudo apt install -y systemd-timesyncd
-fi
-
-if ! grep -q "$SERVER_IP" /etc/systemd/timesyncd.conf; then
-    echo "Time server not found in /etc/systemd/timesyncd.conf. Adding..."
-    sudo bash -c "echo 'NTP=$SERVER_IP' >> /etc/systemd/timesyncd.conf"
-    sudo systemctl restart systemd-timesyncd
-    TOREBOOT=1
-fi
-timedatectl show-timesync --all
+# Time-sync block removed 2026-05: central Pi does not serve NTP (see
+# docs/SD_CARD_RECOVERY.md §Time-sync reality). Finishtimers run
+# systemd-timesyncd in client-only mode; race timing is GPIO-based and does
+# not require wall-clock accuracy on the timer Pi.
 
 # Check if the current hostname matches the derby ID
 if [ "$CURRENT_HOSTNAME" != "$DERBY_ID" ]; then

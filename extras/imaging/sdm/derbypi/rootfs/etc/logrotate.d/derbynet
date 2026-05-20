@@ -1,0 +1,16 @@
+# DerbyNet log rotation — keeps both the text (.log) and JSONL (.jsonl)
+# canonical-timeline files bounded during long events. The .jsonl file is
+# what derby-chronology reads; the .log file is for humans + the rsyslog
+# remote-device sink.
+
+/var/log/derbynet.log /var/log/derbynet.jsonl
+{
+    daily
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    copytruncate
+}

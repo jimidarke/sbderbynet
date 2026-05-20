@@ -1,0 +1,22 @@
+[Unit]
+Description=Derby Time Service (MQTT race-clock fanout)
+After=network-online.target mosquitto.service
+Wants=mosquitto.service network-online.target
+
+# NOTE: This service ships DISABLED. Enable it (systemctl enable derbytime)
+# only if a confirmed consumer of derbynet/race/time exists. As of the
+# 2026-05 audit no consumer was found.
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/lib/infra/server
+ExecStart=/var/lib/infra/.venv/bin/python3 /var/lib/infra/server/derbyTime.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=derbytime
+
+[Install]
+WantedBy=multi-user.target

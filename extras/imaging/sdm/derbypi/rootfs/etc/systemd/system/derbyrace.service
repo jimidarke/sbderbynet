@@ -1,0 +1,23 @@
+[Unit]
+Description=Derby Race Server
+After=network-online.target mosquitto.service nginx.service
+Wants=mosquitto.service network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/lib/infra/server
+ExecStart=/var/lib/infra/.venv/bin/python3 /var/lib/infra/server/derbyRace.py
+Restart=always
+RestartSec=10
+Environment="DERBY_CONSOLE_LOG=false"
+Environment="DERBY_DEBUG=false"
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=derbyrace
+
+# Watchdog: if derbyRace.py wedges, systemd kills + restarts after 60s.
+WatchdogSec=60s
+
+[Install]
+WantedBy=multi-user.target

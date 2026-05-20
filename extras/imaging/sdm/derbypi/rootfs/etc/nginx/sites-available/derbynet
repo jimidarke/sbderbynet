@@ -1,0 +1,31 @@
+# DerbyNet Nginx Site Configuration
+# Baked into the derbypi SD image; do not edit on the running Pi.
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name derbynetpi 192.168.100.10;
+
+    root /var/www/html;
+    index index.php index.html;
+
+    access_log /var/log/nginx/derbynet_access.log derbynet_log;
+
+    location /derbynet {
+        index index.php;
+    }
+
+    location ~ derbynet/.*\.php(/.*)?$ {
+        client_max_body_size 16M;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php-fpm.sock;
+        fastcgi_param DERBYNET_CONFIG_DIR /var/www/html/derbynet/local;
+        fastcgi_param DERBYNET_DATA_DIR /var/lib/derbynet;
+    }
+
+    location ~ \.(css|js|png|jpg|gif|ico|svg|woff|woff2|ttf)$ {
+        expires 1h;
+        add_header Cache-Control "public, immutable";
+    }
+}

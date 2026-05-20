@@ -27,20 +27,9 @@ CURRENT_HOSTNAME=$(hostname)
 
 TOREBOOT=0
 
-# Apply system time settings 
-# Ensure systemd-timesyncd is installed
-if ! command -v systemctl &> /dev/null; then
-    echo "systemd-timesyncd is not installed. Installing..."
-    sudo apt update && sudo apt install -y systemd-timesyncd
-fi
-
-if ! grep -q "$SERVER_IP" /etc/systemd/timesyncd.conf; then
-    echo "Time server not found in /etc/systemd/timesyncd.conf. Adding..."
-    sudo bash -c "echo 'NTP=$SERVER_IP' >> /etc/systemd/timesyncd.conf"
-    sudo systemctl restart systemd-timesyncd
-    TOREBOOT=1
-fi
-timedatectl show-timesync --all
+# Time-sync block removed 2026-05: central Pi does not serve NTP (see
+# docs/SD_CARD_RECOVERY.md §Time-sync reality). Display Pis fall through to
+# systemd-timesyncd's defaults; kiosk pages do not depend on wall-clock.
 
 # checks if power saving features were added to the /boot/firmware/config.txt file
 if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then

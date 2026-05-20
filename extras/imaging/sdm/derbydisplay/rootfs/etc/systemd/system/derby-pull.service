@@ -1,0 +1,15 @@
+[Unit]
+Description=Refresh /opt/derbynet from central race-server rsync daemon (display)
+After=network-online.target
+Wants=network-online.target
+Before=derbydisplay.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/mkdir -p /opt/derbynet
+ExecStart=/bin/sh -c 'rsync -az --delete --timeout=10 rsync://192.168.100.10/derbynet/derbydisplay/ /opt/derbynet/ || true'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
