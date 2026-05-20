@@ -137,10 +137,18 @@ function renderProposal(proposal) {
     var $ul = $('<ul>');
     for (var j = 0; j < proposal.warnings.length; j++) {
       var w = proposal.warnings[j];
-      var text = w.type === 'consecutive'
-        ? (w.racer_name + ' (#' + w.carnumber + ') will race in consecutive heats ' +
-           w.heats[0] + ' and ' + w.heats[1])
-        : (w.racer_name + ' (#' + w.carnumber + '): ' + w.type);
+      var text;
+      if (w.type === 'consecutive') {
+        text = w.racer_name + ' (#' + w.carnumber + ') will race in consecutive heats ' +
+               w.heats[0] + ' and ' + w.heats[1];
+      } else if (w.type === 'gap-too-tight') {
+        text = w.racer_name + ' (#' + w.carnumber + ') will race within ' +
+               w.gap + ' heat(s) of their other race ' +
+               '(heats ' + w.heats[0] + ' and ' + w.heats[1] +
+               '; class minimum is ' + w.min_heat_gap + ')';
+      } else {
+        text = w.racer_name + ' (#' + w.carnumber + '): ' + w.type;
+      }
       $ul.append($('<li>').text(text));
     }
     $warn.append($ul);

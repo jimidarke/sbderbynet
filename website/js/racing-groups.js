@@ -184,6 +184,9 @@ function populate_racing_groups(data) {
         .attr('data-count', data.classes[i].count)
         .attr('data-nrounds', data.classes[i].nrounds)
         .attr('data-ntrophies', data.classes[i].ntrophies)
+        .attr('data-min-heat-gap',
+              data.classes[i].hasOwnProperty('min_heat_gap')
+                ? data.classes[i].min_heat_gap : 6)
         // data-constituent-of
         .append($("<p/>")
                 .addClass('class-name')
@@ -343,6 +346,9 @@ function populate_aggregates(classes, pack_aggregate_id) {
         .attr('data-count', classes[i].count)
         .attr('data-nrounds', classes[i].nrounds)
         .attr('data-ntrophies', classes[i].ntrophies)
+        .attr('data-min-heat-gap',
+              classes[i].hasOwnProperty('min_heat_gap')
+                ? classes[i].min_heat_gap : 6)
     // data-constituent-of populated below
         .append($("<p/>")
                 .attr('data-classid', classes[i].classid)

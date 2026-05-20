@@ -952,6 +952,11 @@ function populatePullForwardModal(proposal) {
       if (warn.type === 'consecutive') {
         text = warn.racer_name + ' (#' + warn.carnumber + ') will race in consecutive heats '
              + warn.heats[0] + ' and ' + warn.heats[1];
+      } else if (warn.type === 'gap-too-tight') {
+        text = warn.racer_name + ' (#' + warn.carnumber + ') will race within '
+             + warn.gap + ' heat(s) of their other race (heats '
+             + warn.heats[0] + ' and ' + warn.heats[1]
+             + '; class minimum is ' + warn.min_heat_gap + ')';
       }
       warnList.append($('<li>').text(text));
     }

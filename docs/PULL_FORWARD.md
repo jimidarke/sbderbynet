@@ -156,10 +156,21 @@ For each gap at (Heat H, Lane L), search later heats for the best candidate:
 
 - **Hard constraint:** Candidate must not already be in Heat H
 - **Proximity score:** Prefer the closest later heat (lower distance = better)
-- **Consecutive penalty (+5000):** Candidate would race back-to-back (in Heat H-1 or H+1)
+- **Windowed rest penalty:** Same shape as initial scheduling (`schedule_ordered.inc`).
+  For each `d` in `1..min_heat_gap-1`, if the candidate already races in heat
+  `H-d` or `H+d`, add `5000 × (min_heat_gap - d + 1) / min_heat_gap` to the
+  score. Back-to-back (`d=1`) costs the full 5000 — matching legacy behaviour
+  for classes where `min_heat_gap = 0` collapses the window to 2.
 - **Lane penalty (+200):** Candidate already used Lane L in another heat
 
 Select the best-scoring candidate. Move them into the gap. Their old slot becomes a new gap.
+
+The `min_heat_gap` value is read from the round's class (`Classes.min_heat_gap`)
+so pull-forward stays consistent with however that class was initially
+scheduled. When the algorithm can't honour the window (typical near the tail
+of the schedule), the soft penalty just biases against the worst options
+rather than refusing to fill the gap — a `gap-too-tight` fairness warning
+surfaces so the coordinator sees the trade-off before tapping Apply.
 
 ### Phase 3: Cascade
 Repeat Phase 2 for each newly created gap. The cascade propagates forward through the schedule until no candidates remain (gap reaches the last heat). No depth limit.
@@ -174,7 +185,7 @@ Verify no racer appears twice in any single heat. Report fairness warnings (cons
 
 ## Fairness
 
-Pull-forward intentionally disrupts the optimized schedule. The original scheduling weights (avoid_consecutive=5000, avoid_same_lane=200, group_weighted_cars=100) produced a carefully balanced heat chart, and pull-forward will violate some of those constraints. This is accepted because:
+Pull-forward intentionally disrupts the optimized schedule. The original scheduling weights (avoid_consecutive=5000, avoid_same_lane=200, group_weighted_cars=100, plus the per-class `min_heat_gap`) produced a carefully balanced heat chart, and pull-forward will violate some of those constraints. This is accepted because:
 
 - An empty lane is worse than a slightly imbalanced schedule
 - The alternative (full reschedule) would invalidate already-recorded results
@@ -275,6 +286,7 @@ The Puppeteer test (`testing/puppeteer/pull-forward-test.js`) exercises the coor
 | 9 | Undo button absent | Hidden when poll has no `pull-forward-undo` |
 | 10 | Undo button click | Sends `schedule.pullforward.undo` with correct roundid |
 | 11 | Modal re-population | Clears stale data when showing a new proposal |
+| 11b | `gap-too-tight` warning rendering | Warning text includes gap (e.g. "within 3 heats") and the class-min ("class minimum is 6"), and does *not* render as a legacy consecutive warning |
 
 Run with:
 ```bash

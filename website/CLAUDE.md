@@ -50,7 +50,7 @@ This is the core of the system. The Race Server (`extras/soapbox/infra/server/`)
 - **Database-required actions**: Most actions need a database connection. Files with `.nodata` suffix bypass this
 - **Round naming**: All round names MUST start with a number for proper sequencing
 - **Tournament configs**: JSON files in `inc/elimination-configs/` — hardcoded formats, not UI-editable at runtime
-- **Heat generation weights**: `avoid_consecutive=5000, group_weighted_cars=100, avoid_same_lane=200, heat_counts=10`
+- **Heat generation weights**: `avoid_consecutive=5000, group_weighted_cars=100, avoid_same_lane=200, heat_counts=10` (global, RaceInfo). Per-class rest window: `Classes.min_heat_gap` (default 6) — applies a windowed soft penalty within the window. See `docs/ROUNDSETUP.md` "Per-Class Minimum Heat Gap" for empirical tuning notes.
 
 ## Related Docs
 

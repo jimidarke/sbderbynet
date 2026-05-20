@@ -38,6 +38,7 @@ class ScheduleAdjuster {
   private $nlanes_usable;
   private $n_runs_per_lane;
   private $now_running;  // classid, roundid, heat, now_racing
+  private $min_heat_gap = 6;  // Per-class rest window; 0 = legacy N vs N+1 only.
 
   // $race_chart is an array of heats, each heat being an array of $nlanes
   // elements populated with racerids.  If $race_chart[$h] is null, then the
@@ -115,6 +116,13 @@ class ScheduleAdjuster {
     $this->nlanes_usable = $this->nlanes - count_one_bits($this->lane_mask);
     $this->n_runs_per_lane = n_runs_per_lane($roundid);
     $this->now_running = get_running_round();
+    // Per-class rest window (matches schedule_ordered.inc).  Defaults to 8 if
+    // the column doesn't exist yet (pre-schema-17) or is NULL.
+    $this->min_heat_gap = (int)read_single_value(
+      'SELECT COALESCE(c.min_heat_gap, 6) FROM Rounds r'
+      .' INNER JOIN Classes c ON r.classid = c.classid'
+      .' WHERE r.roundid = :roundid',
+      array(':roundid' => $roundid), 6);
     $this->load_race_chart();
 
     $heats_raced = 0;
@@ -750,9 +758,12 @@ class ScheduleAdjuster {
         }
       }
 
-      // If we found a candidate in this heat with no consecutive penalty,
-      // no need to search further heats (proximity only gets worse)
-      if ($best !== null && $best['source_heat'] == $h && $best_score < 5000) {
+      // If we found a candidate in this heat with no rest-window penalty at
+      // all, no need to search further heats (proximity only gets worse).
+      // The minimum-possible score for a candidate from heat $h is the
+      // proximity term alone.
+      $clean_score_for_h = ($h - $gap_heat) * 100;
+      if ($best !== null && $best['source_heat'] == $h && $best_score == $clean_score_for_h) {
         break;
       }
     }
@@ -765,16 +776,22 @@ class ScheduleAdjuster {
     // Proximity: prefer closest heat
     $proximity = ($source_heat - $gap_heat) * 100;
 
-    // Consecutive penalty: would this racer race back-to-back?
+    // Windowed rest penalty: look backwards AND forwards from the gap_heat
+    // within min_heat_gap, charging a linearly-decaying cost for each
+    // appearance.  Mirrors rate_consecutive() in schedule_ordered.inc so
+    // initial scheduling and mid-event reschedules behave the same way.
     $consecutive_penalty = 0;
-    if ($gap_heat > 0 && $this->race_chart[$gap_heat - 1] !== null) {
-      if (in_array($candidate_racerid, $this->race_chart[$gap_heat - 1], true)) {
-        $consecutive_penalty += 5000;
-      }
-    }
-    if ($gap_heat + 1 < $this->nheats && $this->race_chart[$gap_heat + 1] !== null) {
-      if (in_array($candidate_racerid, $this->race_chart[$gap_heat + 1], true)) {
-        $consecutive_penalty += 5000;
+    $window = $this->min_heat_gap > 0 ? $this->min_heat_gap : 2;
+    for ($d = 1; $d < $window; ++$d) {
+      // Full 5000 at d=1 (legacy preserved), tapering to ~5000/window near edge.
+      $weight = (int)round(5000 * ($window - $d + 1) / $window);
+      foreach (array($gap_heat - $d, $gap_heat + $d) as $h) {
+        if ($h < 0 || $h >= $this->nheats) continue;
+        if ($h == $source_heat) continue;  // pulling FROM here -- racer leaves
+        if ($this->race_chart[$h] === null) continue;
+        if (in_array($candidate_racerid, $this->race_chart[$h], true)) {
+          $consecutive_penalty += $weight;
+        }
       }
     }
 
@@ -792,24 +809,49 @@ class ScheduleAdjuster {
   }
 
   // Check and record fairness warnings for a pull-forward move.
+  // Emits a 'consecutive' warning for true back-to-back placements, and a
+  // 'gap-too-tight' warning for placements within the per-class rest window.
   private function check_pull_forward_warnings($racerid, $placed_heat) {
-    if ($placed_heat > 0 && $this->race_chart[$placed_heat - 1] !== null) {
-      if (in_array($racerid, $this->race_chart[$placed_heat - 1], true)) {
-        $this->pull_forward_warnings[] = array(
-          'type' => 'consecutive',
-          'racerid' => $racerid,
-          'heats' => array($placed_heat, $placed_heat + 1)
-        );
+    $window = $this->min_heat_gap > 0 ? $this->min_heat_gap : 2;
+    $closest = null;  // smallest |distance| to another appearance of this racer
+    $closest_heat = null;
+    for ($d = 1; $d < $window; ++$d) {
+      foreach (array($placed_heat - $d, $placed_heat + $d) as $h) {
+        if ($h < 0 || $h >= $this->nheats) continue;
+        if ($this->race_chart[$h] === null) continue;
+        if (in_array($racerid, $this->race_chart[$h], true)) {
+          if ($closest === null || $d < $closest) {
+            $closest = $d;
+            $closest_heat = $h;
+          }
+        }
       }
     }
-    if ($placed_heat + 1 < $this->nheats && $this->race_chart[$placed_heat + 1] !== null) {
-      if (in_array($racerid, $this->race_chart[$placed_heat + 1], true)) {
-        $this->pull_forward_warnings[] = array(
-          'type' => 'consecutive',
-          'racerid' => $racerid,
-          'heats' => array($placed_heat + 1, $placed_heat + 2)
-        );
-      }
+    if ($closest === null) return;
+
+    if ($closest == 1) {
+      // Preserve the existing 'consecutive' warning shape that the UI already
+      // renders, so the no-gap-config (min_heat_gap=0) case is byte-identical.
+      $this->pull_forward_warnings[] = array(
+        'type' => 'consecutive',
+        'racerid' => $racerid,
+        'heats' => array(
+          min($placed_heat, $closest_heat) + 1,
+          max($placed_heat, $closest_heat) + 1,
+        )
+      );
+    } else if ($this->min_heat_gap > 0) {
+      // Gap is inside the window but not back-to-back.
+      $this->pull_forward_warnings[] = array(
+        'type' => 'gap-too-tight',
+        'racerid' => $racerid,
+        'gap' => $closest,
+        'min_heat_gap' => $this->min_heat_gap,
+        'heats' => array(
+          min($placed_heat, $closest_heat) + 1,
+          max($placed_heat, $closest_heat) + 1,
+        )
+      );
     }
   }
 

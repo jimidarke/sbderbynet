@@ -60,6 +60,9 @@ array(
   // the standard value from settings.
    .", `ntrophies` INTEGER DEFAULT -1"))
 .(expected_schema_version() < 2 ? "" : ",  `sortorder` INTEGER")
+// Per-class minimum heat-gap window for the scheduler (soft penalty).  0
+// disables, falling back to legacy N vs N+1 only.  See schedule_ordered.inc.
+.(expected_schema_version() < 17 ? "" : ", `min_heat_gap` INTEGER DEFAULT 6")
 .")",
 
 "DROP TABLE IF EXISTS ConstituentClasses",

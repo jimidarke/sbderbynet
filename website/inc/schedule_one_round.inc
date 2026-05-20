@@ -277,6 +277,18 @@ function schedule_one_round(
       $roster[] = null;
     }
 
+    // Per-class minimum heat-gap window (soft penalty).  Falls back to 6 when
+    // the column is unset (e.g. legacy class created before schema 17).  6 is
+    // empirically the sweet spot for 3-lane soapbox: reliably produces min-gap
+    // >= 5 across 26-31 racer rounds without the over-spread regression we
+    // see at 8+ (where the windowed penalty dilutes the d=1 bias enough that
+    // the greedy occasionally accepts a min=3 in exchange for distant gains).
+    $min_heat_gap = read_single_value(
+      'SELECT COALESCE(min_heat_gap, 6) FROM Classes WHERE classid = :classid',
+      array(':classid' => $round_info['classid']));
+    if ($min_heat_gap === false || $min_heat_gap === null) $min_heat_gap = 6;
+    $min_heat_gap = (int)$min_heat_gap;
+
     // $roster = array_intersect($roster, $valid_racers);
 
     if (!$rotation_schedule) {
@@ -289,7 +301,8 @@ function schedule_one_round(
         $trace,
         $group_weighted_cars,
         $avoid_consecutive,
-        $avoid_same_lane
+        $avoid_same_lane,
+        $min_heat_gap
       );
     } else {
       $sched = make_rotation_schedule($nlanes, count($roster), $n_times_per_lane, $trace);

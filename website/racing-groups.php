@@ -212,6 +212,15 @@ $(function() {
     </select>
 </div>
 
+   <div class="min_heat_gap">
+    <label for='edit_class_min_heat_gap'>Minimum heat gap (rest between races):</label>
+    <input id='edit_class_min_heat_gap' name='min_heat_gap' type='number'
+           min='0' max='20' step='1' value='6'/>
+    <span class="hint">0 = off. 4&ndash;6 is the empirical sweet spot for
+       3-lane soapbox &mdash; higher values can dilute the penalty and let
+       tight gaps slip through.</span>
+   </div>
+
     <div id="completed_rounds_extension">
       <p><span id="completed_rounds_count"></span> completed round(s) exist for this class.</p>
     </div>

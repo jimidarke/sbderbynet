@@ -23,6 +23,10 @@ function on_edit_class(event) {
   }
   mobile_select_refresh($('#edit_class_ntrophies'));
 
+  var minHeatGap = list_item.attr('data-min-heat-gap');
+  if (minHeatGap === undefined || minHeatGap === '') minHeatGap = '6';
+  $('#edit_class_min_heat_gap').val(minHeatGap);
+
   // The "completed rounds" message appears only if there are no native racers,
   // but there are some completed rounds that prevent offering deletion of the
   // class.
@@ -47,7 +51,8 @@ function on_edit_class(event) {
             data: {action: 'class.edit',
                    classid: list_item.attr('data-classid'),
                    name: $("#edit_class_name").val(),
-                   ntrophies: Number($("#edit_class_ntrophies").val())},
+                   ntrophies: Number($("#edit_class_ntrophies").val()),
+                   min_heat_gap: Number($("#edit_class_min_heat_gap").val())},
             success: function () {
               poll_for_structure();
             }});

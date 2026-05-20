@@ -14,6 +14,8 @@ caught the majority of what we hit.
 |---|---|---|
 | Pull-forward backend | `testing/test-pull-forward.sh` | curl against running stack — 10 scenarios; Test 10 asserts dry-run JSON == execute JSON (simulation fidelity) |
 | Pull-forward UI | `testing/puppeteer/pull-forward-test.js` | Puppeteer with mocked AJAX — 20 scenarios (1–11 deprecated modal, 12–20 dedicated `pull-forward.php` page) |
+| Min-heat-gap scheduler | `testing/test-min-heat-gap.php` | Pure-PHP CLI driver; runs windowed scoring across 4 synthetic rosters and asserts gap=8 doesn't regress min-gap below legacy and tiny rosters still produce schedules |
+| Pull-forward windowed scoring | `testing/test-pull-forward-window.php` | Pure-PHP CLI driver; 10 assertions covering legacy/window=4/window=8 cases for both `score_pull_forward_candidate` and `check_warnings` (gap-too-tight + consecutive shapes) |
 | Cloud stack smoke | `testing/puppeteer/virtual-device-test.js` | Live cloud stack — opens virtual pages, asserts MQTT-WS connect |
 | MQTT replay | `testing/replay-real-race.py` | Captured Pi session against any broker |
 | Race-server unit | `extras/soapbox/infra/server/tests/` (pytest) | Mocked MQTT — heartbeat tests pass |

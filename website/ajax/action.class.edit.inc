@@ -40,6 +40,9 @@ if (have_permission(SET_UP_PERMISSION)) {
     if (isset($_POST['ntrophies'])) {
       update_ntrophies($_POST['classid'], $_POST['ntrophies']);
     }
+    if (isset($_POST['min_heat_gap'])) {
+      update_min_heat_gap($_POST['classid'], $_POST['min_heat_gap']);
+    }
     json_success();
   } else {
     json_failure('missing-args', "Unrecognized argument signature");

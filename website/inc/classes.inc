@@ -9,6 +9,7 @@ function all_classes() {
   global $db;
   $stmt = $db->prepare('SELECT Classes.classid, class, rankid, rank, '
                        .(schema_version() >= 3 ? 'Classes.ntrophies, ' : '-1 as ntrophies, ')
+                       .(schema_version() >= 17 ? 'COALESCE(Classes.min_heat_gap, 6) AS min_heat_gap, ' : '6 AS min_heat_gap, ')
                        .(schema_version() >= 3 ? 'constituents, ' : '\'\' as constituents, ')
                        .(schema_version() >= 5 ? 'rankids, ' : '\'\' as rankids, ')
                        .' (SELECT COUNT(*) FROM RegistrationInfo WHERE RegistrationInfo.classid = Classes.classid) AS nclass,'
@@ -32,6 +33,7 @@ function all_classes() {
       $classes[] = array('classid' => $row['classid'],
                          'name' => $row['class'],
                          'ntrophies' => $row['ntrophies'],
+                         'min_heat_gap' => (int)$row['min_heat_gap'],
                          'constituents' => $row['constituents'],
                          'rankids' => $row['rankids'],
                          'count' => $row['nclass'],
@@ -106,5 +108,18 @@ function update_ntrophies($classid, $ntrophies) {
     $stmt->execute(array(':classid' => $classid,
                          ':ntrophies' => $ntrophies));
   }
+}
+
+// Per-class minimum heat-gap window for the scheduler.  0 disables the
+// windowed soft penalty (falls back to legacy N vs N+1 behaviour); larger
+// values give racers more rest between appearances.
+function update_min_heat_gap($classid, $min_heat_gap) {
+  global $db;
+  if (schema_version() < 17) return;
+  $val = max(0, min(20, (int)$min_heat_gap));
+  $stmt = $db->prepare('UPDATE Classes SET min_heat_gap = :gap'
+                       .' WHERE classid = :classid');
+  $stmt->execute(array(':classid' => $classid,
+                       ':gap' => $val));
 }
 ?>

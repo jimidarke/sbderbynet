@@ -16,7 +16,7 @@ function rate_race_counts(&$next_heat, $n_prev_heats, &$appearances) {
     global $race_count_weight;
     $nlanes = count($next_heat);
     $ncars = count($appearances);
-    $new_appearances = $appearances; 
+    $new_appearances = $appearances;
 
     foreach ($next_heat as $car) {
         ++$new_appearances[$car];
@@ -31,35 +31,43 @@ function rate_race_counts(&$next_heat, $n_prev_heats, &$appearances) {
     return $deviation * $race_count_weight;
 }
 
-// Applies penalties for consecutive races and lane repetition when enabled
-function rate_consecutive(&$prev_heat, &$next_heat) {
+// Windowed soft penalty: any same-racer reuse inside [1..min_heat_gap-1] heats
+// is charged a linearly-decaying penalty (full weight at gap=1, ~zero at the
+// window edge).  min_heat_gap=0 collapses to legacy N vs N+1 behaviour.
+function rate_consecutive(&$next_heat, $current_heat_index,
+                          &$last_appearance, &$last_lane, $min_heat_gap) {
     global $consecutive_weight, $repeat_weight;
     $result = 0;
+    $window = $min_heat_gap > 0 ? $min_heat_gap : 2;  // legacy: only gap=1 triggers
 
     for ($lane = 0; $lane < count($next_heat); ++$lane) {
-        for ($prev_lane = 0; $prev_lane < count($prev_heat); ++$prev_lane) {
-            if ($prev_heat[$prev_lane] == $next_heat[$lane]) {
-                $result += $consecutive_weight;
-                if ($lane == $prev_lane) {
-                    $result += $repeat_weight;
-                }
-            }
+        $car = $next_heat[$lane];
+        if (!isset($last_appearance[$car])) continue;
+        $gap = $current_heat_index - $last_appearance[$car];
+        if ($gap <= 0 || $gap >= $window) continue;
+        // Linear ramp: gap=1 -> full weight (preserves legacy behaviour when
+        // window collapses to 2), gap=window-1 -> ~1/window of weight.
+        $result += (int)round($consecutive_weight * ($window - $gap + 1) / $window);
+        if (isset($last_lane[$car]) && $last_lane[$car] == $lane) {
+            $result += $repeat_weight;
         }
     }
     return $result;
 }
 
 // Scores a potential next heat based on fairness rules
-function rate_next_heat(&$prev_heat, $n_prev_heats, &$next_heat, &$appearances) {
-    $rating = rate_race_counts($next_heat, $n_prev_heats, $appearances);
-    if ($n_prev_heats > 0) {
-        $rating += rate_consecutive($prev_heat, $next_heat);
+function rate_next_heat($current_heat_index, &$next_heat, &$appearances,
+                        &$last_appearance, &$last_lane, $min_heat_gap) {
+    $rating = rate_race_counts($next_heat, $current_heat_index, $appearances);
+    if ($current_heat_index > 0) {
+        $rating += rate_consecutive($next_heat, $current_heat_index,
+                                    $last_appearance, $last_lane, $min_heat_gap);
     }
     return $rating;
 }
 
 // Generates the ordered race schedule
-function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace, $group_weighted_cars, $avoid_consecutive, $avoid_same_lane) {
+function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace, $group_weighted_cars, $avoid_consecutive, $avoid_same_lane, $min_heat_gap = 0) {
     $rough = make_rough_schedule($nlanes, $ncars, $n_times_per_lane, $max_runs_per_car, $trace);
     if (empty($rough)) {
         return $rough;
@@ -67,17 +75,23 @@ function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $ma
 
     // Track the number of times each car appears
     $appearances = array_fill(0, $ncars, 0);
+    // Track the heat index (1-based to match heat numbering) and lane of each
+    // racer's most recent appearance.  Used for the windowed rest penalty.
+    $last_appearance = array();
+    $last_lane = array();
 
     $ordered = array();
-    $prev_heat = array();
     for ($round = 0; $round < $n_times_per_lane; ++$round) {
         for ($car_index = 0; $car_index < $ncars; ++$car_index) {
             $best_heat_index = -1;
             $best_heat_score = PHP_INT_MAX;
+            $current_heat_index = count($ordered) + 1;  // 1-based
 
             for ($rough_i = 0; $rough_i < count($rough); ++$rough_i) {
                 if ($rough[$rough_i]) {
-                    $score = rate_next_heat($prev_heat, count($ordered), $rough[$rough_i], $appearances);
+                    $score = rate_next_heat($current_heat_index, $rough[$rough_i],
+                                            $appearances, $last_appearance,
+                                            $last_lane, $min_heat_gap);
                     if ($score < $best_heat_score) {
                         $best_heat_score = $score;
                         $best_heat_index = $rough_i;
@@ -86,18 +100,20 @@ function make_ordered_schedule($roundid, $nlanes, $ncars, $n_times_per_lane, $ma
             }
 
             if ($best_heat_index == -1) {
-                continue; 
+                continue;
             }
 
-            $prev_heat = $rough[$best_heat_index];
+            $chosen = $rough[$best_heat_index];
             $rough[$best_heat_index] = NULL;
-            foreach ($prev_heat as $car) {
+            foreach ($chosen as $lane => $car) {
                 ++$appearances[$car];
+                $last_appearance[$car] = $current_heat_index;
+                $last_lane[$car] = $lane;
                 if ($max_runs_per_car > 0 && $appearances[$car] > $max_runs_per_car) {
                     return $ordered;
                 }
             }
-            $ordered[] = $prev_heat;
+            $ordered[] = $chosen;
         }
     }
 

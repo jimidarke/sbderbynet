@@ -269,6 +269,18 @@ if (schema_version() < 16) {
   $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '16')";
 }
 
+if (schema_version() < 17) {
+  error_log("Updating to schema version 17 - Adding Classes.min_heat_gap...");
+
+  $column_exists = read_single_value("SELECT COUNT(*) FROM pragma_table_info('Classes') WHERE name='min_heat_gap'");
+  if (!$column_exists) {
+    $updates[] = "ALTER TABLE Classes ADD COLUMN min_heat_gap INTEGER DEFAULT 6";
+  }
+
+  $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+  $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '17')";
+}
+
 // For each new schema version, copy the DELETE and INSERT for schema version
 
 return $updates;

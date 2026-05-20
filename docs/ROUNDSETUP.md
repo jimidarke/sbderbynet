@@ -81,6 +81,61 @@ roundid | round | roundname        | classid
 
 ---
 
+## Per-Class Minimum Heat Gap
+
+`Classes.min_heat_gap` (added in schema 17) controls how many heats of rest the
+scheduler tries to give each racer between appearances. Soapbox racers need
+time to walk their cart back to the top of the hill; the legacy
+`avoid-consecutive` weight only penalised heat N vs N+1, so racers could still
+end up racing every 3rd or 4th heat.
+
+The scheduler now applies a **windowed soft penalty** inside `min_heat_gap`:
+full `avoid-consecutive` weight at gap = 1, tapering linearly to ~1/window at
+the window edge, zero beyond. The penalty is soft (algorithm never refuses to
+schedule), so small rosters that physically can't honour the window degrade
+gracefully — exactly the behaviour required for late-event pull-forward.
+
+Defaults:
+
+- New classes default to `min_heat_gap = 6` — empirically the sweet spot
+  for 3-lane soapbox.
+- Set to `0` to opt out and restore the legacy "only penalise N vs N+1" behaviour.
+- A small charity / VIP class with 12 racers might want `min_heat_gap = 3` so the
+  algorithm doesn't dump unnecessary penalty mass into a roster that physically
+  can't satisfy a larger window.
+
+Edit on the Racing Groups page (`racing-groups.php`) inside the per-class
+edit modal.
+
+### Why 6 instead of 8?
+
+The user-facing target was "8 races of rest." Empirically, on real
+production tenant data (26–31 racers × 3 lanes × 3 runs each), the
+windowed penalty performs best in the 4–6 range:
+
+| `min_heat_gap` | Observed `min` gap | Racers with tightest gap < 4 |
+|---|---|---|
+| 0 (legacy) | 2 | 17–58% |
+| **4** | **4** | **0%** |
+| **6** | **5–6** | **0%** |
+| 8 | 3 | 4–8% |
+| 12 | 3 | 4–15% |
+
+The intuition: at larger windows, the linearly-decaying penalty spreads
+weight over many heats. The d=1 (back-to-back) cost stays fixed at the
+full `avoid-consecutive` weight, but the integrated cost of *also*
+penalising d=2..7 dilutes the marginal value of fixing one specific
+violation. The greedy occasionally accepts a tighter gap in one place to
+score better elsewhere.
+
+For typical soapbox sizes, **6 reliably achieves min-gap of 5–6** without
+this dilution. Operators who want a guaranteed minimum of 8+ should
+instead increase `avoid-consecutive` to maximum and use `min_heat_gap = 6`;
+nothing prevents setting `min_heat_gap = 8`, it just may not behave
+better than 6 in practice.
+
+---
+
 ## Troubleshooting
 
 ### "Can't start race" / No heats scheduled

@@ -596,6 +596,67 @@ puppeteer.launch({devtools: debugging, slowMo: 200}).then(async browser => {
 
   console.log("  PASS");
 
+  // ================================ Test 11b: gap-too-tight warning renders ================================
+  console.log("Test 11b: gap-too-tight warning text includes gap and class-min");
+
+  var gapWarningProposal = {
+    dropout: {
+      racerid: 42,
+      name: 'Pat Reyes',
+      carnumber: '442',
+      gaps_created: 1
+    },
+    moves: [
+      {
+        gap_heat: 6, gap_lane: 2,
+        pulled_racerid: 18,
+        racer_name: 'Sam Lin', carnumber: '438',
+        source_heat: 8
+      }
+    ],
+    trailing_byes: [],
+    warnings: [
+      {
+        type: 'gap-too-tight',
+        racer_name: 'Sam Lin',
+        carnumber: '438',
+        gap: 3,
+        min_heat_gap: 6,
+        heats: [6, 9]
+      }
+    ],
+    heats_affected: [6, 8]
+  };
+
+  await page.evaluate(function(proposal) {
+    populatePullForwardModal(proposal);
+    show_modal('#pull_forward_modal');
+  }, gapWarningProposal);
+
+  await waitForModalOpen();
+
+  var gapWarningsVisible = await page.evaluate(() => !$('#pf-warnings').hasClass('hidden'));
+  assert.equal(true, gapWarningsVisible);
+
+  var gapWarningItems = await page.evaluate(() => {
+    var items = [];
+    $('#pf-warnings-list li').each(function() { items.push($(this).text()); });
+    return items;
+  });
+  assert.equal(1, gapWarningItems.length);
+  assert.includes('Sam Lin', gapWarningItems[0]);
+  assert.includes('within 3', gapWarningItems[0]);          // gap value
+  assert.includes('class minimum is 6', gapWarningItems[0]); // class min
+  // Should NOT match the legacy "consecutive" phrasing
+  if (gapWarningItems[0].indexOf('consecutive heats') !== -1) {
+    throw new Error('gap-too-tight warning mis-rendered as consecutive: ' + gapWarningItems[0]);
+  }
+
+  await page.evaluate(() => { close_modal('#pull_forward_modal'); });
+  await waitForModalsClosed();
+
+  console.log("  PASS");
+
   // ================================================================
   // PAGE-DRIVEN TESTS — pull-forward.php (the primary entry point)
   // ================================================================
