@@ -1,8 +1,9 @@
 # Server-Side Logging Map
 
 Where every log line ends up on the SBDerbyNet cloud twin, and how to find
-it fast. For the Pi side see `extras/soapbox/CLAUDE.md` and
-`extras/soapbox/infra/server/LOGGING.md`.
+it fast. For the on-track (race-day) side jump to
+[Race-day (on-Pi) logging map](#race-day-on-pi-logging-map) below; for the
+unified framework itself see `extras/soapbox/infra/server/LOGGING.md`.
 
 ## TL;DR
 
@@ -253,3 +254,80 @@ Run `derbyvps.sh audit` at any time. The "RESOURCES" section reports
 - Race DB: small (few MB even for a full event)
 
 If `df` shows < 4 GB free, the wrapper's preflight will refuse to deploy.
+
+## Race-day (on-Pi) logging map
+
+The on-track stack is more distributed than the cloud twin: there's no
+Docker, the network is isolated (`192.168.100.0/24`), and four classes of
+device write logs (race-server Pi, finishtimer Pis, ESP32 start timer,
+derby displays). All of them converge on **one file on the race-server Pi**
+via rsyslog UDP.
+
+### One file to rule them all
+
+`/var/log/derbynet.jsonl` on the race-server Pi (192.168.100.10) is the
+single canonical timeline. Every component — local Python, PHP, finishtimer
+Pis over rsyslog UDP 514, ESP32 over rsyslog UDP 514 — ends up in this file
+with a consistent JSONL schema:
+
+```json
+{"ts":"2026-05-20T09:00:01.523-06:00","level":"INFO","device":"FINISH2",
+ "component":"finishtimer","msg":"Toggle Changed to: False",
+ "corr_id":"heat-3-7-1716230400123","seq":42}
+```
+
+The `corr_id` field is the heat correlation_id (see
+`extras/soapbox/infra/server/LOGGING.md#heat-correlation-ids`); it lets you
+filter every component's events for a single heat with one tool.
+
+### Per-component map
+
+| Component | Local file | Forwarded? | Persistence | NTP source |
+|---|---|---|---|---|
+| Race-server Pi | `/var/log/derbynet.{log,jsonl}` | n/a (this *is* the destination) | DS3231 RTC + chrony; daily gz archives under `/var/lib/derbynet/logs/archive/` | chrony with public NTP + RTC fallback |
+| Finishtimer Pi (each lane) | `/var/log/derbynet.log` + systemd-journald (20 MB ring) | rsyslog UDP → race-server | journald survives reboot; rsyslog forwarding is the primary durable path | systemd-timesyncd → `192.168.100.10` |
+| ESP32 start timer | — (no persistent storage) | UDP syslog → race-server:514 | ephemeral on device; race-server file is the only record | `ntptime.settime()` against `192.168.100.10`; publishes a retained `ntp-synced` anchor event after sync |
+| Derby display | journald + rsyslog UDP → race-server | yes | journald local; race-server canonical | systemd-timesyncd → `192.168.100.10` |
+| Mosquitto broker | `/mosquitto/log/mosquitto.log` + syslog | yes | broker keeps connects/disconnects | n/a |
+
+### Time discipline
+
+- **Race-server Pi**: DS3231 hardware RTC (Ansible role `extras/derbypi/ansible/roles/rtc/`) plus chrony with `refclock PHC /dev/ptp0` as fallback. Serves NTP to `192.168.100.0/24`.
+- **Finishtimer Pis**: `systemd-timesyncd` with `NTP=192.168.100.10` set by `extras/soapbox/infra/finishtimer/setup.sh`.
+- **ESP32**: blocking `ntptime.settime()` against `192.168.100.10` at boot; emits a retained `ntp-synced` MQTT event after success so the chronology tool knows when its clock became trustworthy.
+- **Race-day go/no-go check** (cross-reference `docs/DRESS_REHEARSAL.md`): `chronyc tracking` on race-server and `timedatectl show-timesync` on each finishtimer Pi should show offsets under 10 ms after 5 minutes of network uptime. Expected chronology resolution: ±100 ms.
+
+### Event payload precision
+
+Race events carry timestamps captured at the **GPIO edge**, not at MQTT publish time, with **0.1 s** precision:
+
+| Source | Topic | Fields |
+|---|---|---|
+| Finishtimer toggle | `derbynet/device/{hwid}/state` | `timestamp` (GPIO edge), `publish_ts`, `seq`, `correlation_id` |
+| Start timer | `derbynet/device/starttimer/state` | `timestamp` (GPIO edge), `publish_ts`, `ntp_sync_ts`, `correlation_id` |
+| Start timer NTP anchor | `derbynet/device/starttimer/status` | retained `{"status":"ntp-synced","timestamp":...}` |
+
+The race server (`derbyRace.py`) uses the device-supplied start timestamp as the canonical race start, *not* its own wall-clock at receipt, and logs both so the offset is auditable.
+
+### Reconstructing a heat
+
+```sh
+# Round 3, heat 7 — full timeline, all components
+derby-chronology --heat 3/7
+
+# Same but pull rotated archives if the live file has been rolled
+derby-chronology --heat 3/7 --include-archives
+
+# Include broker connect/disconnect anchors
+derby-chronology --heat 3/7 --mqtt-log
+
+# Markdown report for an incident write-up
+derby-chronology --heat 3/7 --format md > incident-heat-3-7.md
+```
+
+The header block reports per-device entry counts, NTP-sync anchors, the start-event device/server offset, and the per-lane GPIO-edge→publish latency distribution.
+
+### Things on-Pi logging deliberately does NOT do
+
+- **No off-host shipping for race-day operations.** All ingest happens locally so the race is independent of internet. The separate `logsync.py` ships `/var/log/derbynet.jsonl` to the cloud only after the race (or in background on a 5-minute timer) — see `extras/saasbox/CLAUDE.md`.
+- **No live log query UI on race day.** `derby-chronology` is the post-hoc tool. If you want live, tail `/var/log/derbynet.log`.

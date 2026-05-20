@@ -138,10 +138,18 @@ class derbyPCBv1:
         while True:
             tchk = derbyPCBv1.getToggleState()
             if tog != tchk:
+                # Capture the wall-clock at the moment we observed the edge,
+                # before any callback dispatch / logging cost.
+                edge_ts = time.time()
                 tog = tchk
                 logger.debug(f"Toggle Changed to: {tog}")
                 if self.toggle_callback:
-                    self.toggle_callback()
+                    # Older callers used a zero-arg signature; pass the
+                    # edge timestamp positionally and fall back if needed.
+                    try:
+                        self.toggle_callback(edge_ts)
+                    except TypeError:
+                        self.toggle_callback()
             if self.readyToRace != (self.led == "green" or (tchk and self.led == "blue")):
                 # change of state detected
                 self.readyToRace = self.led == "green" or (tchk and self.led == "blue")

@@ -189,6 +189,52 @@ Critical errors (3xx codes) are published to MQTT for real-time alerting.
 mosquitto_sub -h 192.168.100.10 -t 'derbynet/alerts/#'
 ```
 
+## Heat Correlation IDs
+
+The race server mints a per-heat correlation ID on every heat change and
+broadcasts it (retained) on MQTT so device firmware can stamp it into every
+event payload. This is what lets `derby-chronology` filter and join all
+component events for a single heat.
+
+| Item | Value |
+|------|-------|
+| Topic | `derbynet/race/heat/correlation` |
+| QoS | 1 |
+| Retain | true |
+| Payload | `heat-{round}-{heat}-{epoch_ms}` (plain string) |
+| Publisher | `derbyRace.updateFromDerbyAPI` on `(roundid, heatid)` change |
+| Subscribers | `finishtimer.py`, `starttimer/main.py`, derby-chronology |
+
+Device payloads stamp `correlation_id` on:
+- `derbynet/device/{hwid}/state` (toggle + start events)
+- `derbynet/device/{hwid}/telemetry`
+
+Server-side, the same id is also passed through `derbylogger.set_correlation_id()`
+so every JSONL line written during the heat carries it in the `corr_id` field.
+A correlation id that starts with `heat-{round}-{heat}-` is sufficient to
+filter the entire heat — the epoch_ms suffix only disambiguates re-runs of
+the same heat number.
+
+## Chronology Tool
+
+`derby-chronology` (installed at `/usr/local/bin/derby-chronology` on the
+race-server Pi via the `raceserver` Ansible role) merges all sources into
+one timeline.
+
+```sh
+derby-chronology --heat 3/7              # round 3, heat 7
+derby-chronology --heat heat-3-7-...     # exact correlation_id
+derby-chronology --since "2026-05-20 09:00" --until "2026-05-20 09:30"
+derby-chronology --include-archives --heat 3/7    # also reads gz archives
+derby-chronology --heat 3/7 --mqtt-log            # add broker connect events
+derby-chronology --heat 3/7 --format md > heat-3-7.md
+```
+
+The header block shows: total entries and window, device counts, NTP-sync
+anchors, START-event device/server clock offset (logged by derbyRace as
+`START event: device_ts=... server_recv_ts=... offset_ms=...`), and the
+finishtimer GPIO-edge→publish latency distribution per lane.
+
 ## Configuration
 
 ### Timezone

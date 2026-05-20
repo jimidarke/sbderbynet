@@ -35,3 +35,14 @@
     name: derbytime
     enabled: yes
     state: started
+
+# Race-day chronology CLI: a thin wrapper that exec's the Python tool
+# shipped alongside derbyRace.py. Lives in /usr/local/bin so operators can
+# just run `derby-chronology --heat 3/7` from any shell on the race-server.
+- name: Install derby-chronology wrapper
+  ansible.builtin.copy:
+    dest: /usr/local/bin/derby-chronology
+    mode: '0755'
+    content: |
+      #!/bin/sh
+      exec python3 /var/lib/infra/app/derby-chronology.py "$@"

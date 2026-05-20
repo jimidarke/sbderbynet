@@ -55,3 +55,5 @@ See [doc/MQTT_API.md](doc/MQTT_API.md) for full protocol specification.
 - [doc/DERBYNET_REFERENCE.md](doc/DERBYNET_REFERENCE.md) — DerbyNet system technical reference
 - [doc/HLS_REPLAY_DOCUMENTATION.md](doc/HLS_REPLAY_DOCUMENTATION.md) — Video replay system
 - [doc/SoapboxDerby_Test_Guide.md](doc/SoapboxDerby_Test_Guide.md) — Hardware testing procedures
+- [../../docs/LOGGING.md](../../docs/LOGGING.md) — Race-day on-Pi logging map (rsyslog topology, time discipline, chronology tool)
+- [infra/server/LOGGING.md](infra/server/LOGGING.md) — Unified logging framework, heat correlation IDs, error code catalog

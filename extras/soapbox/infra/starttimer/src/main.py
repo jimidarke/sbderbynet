@@ -17,8 +17,9 @@ import urequests
 import usocket
 
 
-VERSION = '0.8.0'  # Version of the firmware.
+VERSION = '0.9.0'  # Version of the firmware.
 # Version History:
+# V0.9.0 - May 20 2026      - Race-day logging: 0.1s timestamps, ntp-synced anchor event, 1s telemetry, correlation_id stamping
 # V0.8.0 - Dec 12 2025      - Standardized version across all soapbox components
 # V0.5.0 - May 19 2025      - Standardized version schema across all components
 # V0.4.0 - May 10 2025      - Added service discovery via mDNS for dynamic MQTT broker configuration
@@ -131,6 +132,17 @@ previous_state = start_signal.value()  # Initialize with LOW state
 client = None
 boot_time = time.ticks_ms()
 
+# Set when sync_time() succeeds (unix seconds, 0.1s precision). Used to
+# emit a retained "ntp-synced" status event once MQTT is up so the
+# chronology tool has an anchor for when this device's clock became
+# trustworthy. Any event before NTP success carries this as None.
+_ntp_sync_ts = None
+
+# Last heat correlation_id seen on derbynet/race/heat/correlation (retained).
+# Stamped into state/telemetry payloads.
+current_correlation_id = None
+HEAT_CORR_TOPIC = 'derbynet/race/heat/correlation'
+
 # Initialize the hardware watchdog timer
 wdt = machine.WDT(timeout=WATCHDOG_TIMEOUT)
 
@@ -170,19 +182,31 @@ def ota_update():
     except Exception as e:
         sendLog(f'OTA update failed: {e}',"ERROR")
 
-# MQTT Callback for OTA
+# MQTT Callback for OTA + heat correlation_id
 def mqtt_callback(topic, msg):
+    global current_correlation_id
     sendLog(f'Received message: {msg} on topic: {topic}',"DEBUG")
     if topic == bytes(MQTT_TOPIC + '/update', 'utf-8') and msg == b'update':
         ota_update()
+        return
+    if topic == bytes(HEAT_CORR_TOPIC, 'utf-8'):
+        try:
+            new_cid = msg.decode('utf-8').strip() if msg else None
+        except Exception:
+            new_cid = None
+        if new_cid != current_correlation_id:
+            sendLog(f'Heat correlation_id set to: {new_cid}', "INFO")
+            current_correlation_id = new_cid or None
 
 # Sync time using NTP
 def sync_time():
+    global _ntp_sync_ts
     attempt = 0
     while True:
         try:
             ntptime.host = NTP_SERVER
             ntptime.settime()
+            _ntp_sync_ts = round(time.time() + UNIX_EPOCH_OFFSET, 1)
             sendLog('Time synchronized with NTP server', "DEBUG")
             break
         except Exception as e:
@@ -190,11 +214,11 @@ def sync_time():
             time.sleep(exponential_backoff(attempt))
             attempt += 1
 
-# Get current Unix timestamp
+# Get current Unix timestamp (0.1s precision; sufficient for race-day
+# chronology merging and keeps the payload compact).
 def get_timestamp():
     try:
-        current_time = time.time() + UNIX_EPOCH_OFFSET  # Adjust for local time zone
-        return int(current_time)
+        return round(time.time() + UNIX_EPOCH_OFFSET, 1)
     except Exception as e:
         sendLog('Error getting timestamp:' + str(e), "ERROR")
         return 0
@@ -242,7 +266,14 @@ def connect_mqtt():
             client.set_last_will(MQTT_TOPIC + "/status", 'offline', retain=True) 
             client.connect()
             client.subscribe(MQTT_TOPIC + '/update')
+            client.subscribe(HEAT_CORR_TOPIC)
             client.publish(MQTT_TOPIC + "/status", 'online', retain=True)
+            # Publish the NTP-sync anchor so the chronology tool can mark when
+            # this device's clock became trustworthy. Retained so a late
+            # subscriber (e.g. the chronology tool replaying) sees it.
+            if _ntp_sync_ts is not None:
+                anchor = '{"status":"ntp-synced","timestamp":' + str(_ntp_sync_ts) + ',"hwid":"' + HWID + '"}'
+                client.publish(MQTT_TOPIC + "/status", anchor, retain=True)
             sendLog(f'MQTT connected to {MQTT_BROKER}:{MQTT_PORT}')
             wdt.feed()
             return
@@ -322,6 +353,8 @@ def collect_telemetry():
         'cpu_temp': temperature,
         'humidity': humidity,
         'timestamp': get_timestamp(),
+        'ntp_sync_ts': _ntp_sync_ts,
+        'correlation_id': current_correlation_id,
         'version': VERSION,
         'hwid': HWID,
         'state': start_signal.value()
@@ -342,13 +375,23 @@ def send_telemetry():
     except Exception as e:
         print('Error sending telemetry:', e)
 
-# Send MQTT message for start signal
-def send_mqtt_message(state):
+# Send MQTT message for start signal. `edge_ts` is the get_timestamp() taken
+# at the moment we observed the GPIO change, before publish/wifi latency.
+def send_mqtt_message(state, edge_ts=None):
     try:
         ensure_mqtt()
         message = 'GO' if state else 'STOP'
-        msg = {"state": message, "timestamp": get_timestamp()}
-        msg = str(msg).replace("'", '"')  # Convert to JSON-like format
+        if edge_ts is None:
+            edge_ts = get_timestamp()
+        msg = {
+            "state": message,
+            "timestamp": edge_ts,
+            "publish_ts": get_timestamp(),
+            "ntp_sync_ts": _ntp_sync_ts,
+            "correlation_id": current_correlation_id,
+            "hwid": HWID,
+        }
+        msg = str(msg).replace("'", '"').replace('None', 'null')  # JSON-ish
         client.publish(MQTT_TOPIC + "/state", msg, retain=True)
         print(msg)
         time.sleep(0.1)
@@ -361,7 +404,7 @@ def send_mqtt_message(state):
 # Monitor for changes in start signal
 def monitor_signal():
     global previous_state
-    telemetry_interval = 10  # Send telemetry every x seconds
+    telemetry_interval = 1  # Send telemetry every second (parity with finishtimer)
     last_telemetry = 0
     while True:
 
@@ -369,15 +412,17 @@ def monitor_signal():
         if not network.WLAN(network.STA_IF).isconnected():
             print('Wi-Fi disconnected, reconnecting...')
             connect_wifi()
-        
+
         #ensure_mqtt()
         client.check_msg()  # Check for incoming MQTT messages
 
-        # Check for signal change
+        # Check for signal change — capture the wall-clock at the moment we
+        # observed the change so the published timestamp reflects the edge,
+        # not the post-publish/post-wifi latency.
         current_state = start_signal.value()
         if current_state != previous_state:
-            #print(f'State changed to: {"HIGH" if current_state else "LOW"}')
-            send_mqtt_message(current_state)
+            edge_ts = get_timestamp()
+            send_mqtt_message(current_state, edge_ts=edge_ts)
             previous_state = current_state
             send_telemetry()
 

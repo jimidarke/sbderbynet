@@ -72,11 +72,37 @@ if ! grep -q "#DERBYNET" /boot/firmware/config.txt; then
     sudo bash -c "echo 'dtparam=audio=off' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'dtparam=uart=off' >> /boot/firmware/config.txt"
     sudo bash -c "echo 'dtoverlay=disable-bt' >> /boot/firmware/config.txt"
-    sudo systemctl disable --now systemd-journald
-    # Note: Local logs go to /var/log/derbynet.log (backup on this device)
-    # nodelogger.py also sends logs via rsyslog UDP to central server (derby.jsonl)
-    sudo systemctl disable --now logrotate
-    sudo systemctl disable --now cron
+    # Keep systemd-journald enabled with a small ring buffer so we retain a
+    # local fallback copy if rsyslog UDP packets are dropped on race day.
+    # Volume-cap at 20MB (race-day log volume is tiny) — well under disk-fill risk.
+    sudo mkdir -p /etc/systemd/journald.conf.d
+    sudo bash -c "cat > /etc/systemd/journald.conf.d/finishtimer.conf <<EOF
+[Journal]
+Storage=persistent
+SystemMaxUse=20M
+RuntimeMaxUse=20M
+ForwardToSyslog=no
+EOF"
+    sudo systemctl enable --now systemd-journald
+    # logrotate stays disabled by default to save power, but we install our
+    # own minimal stanza for the /var/log/derbynet.log file. Triggered by
+    # the finishtimer service on restart and a daily cron-less timer below.
+    sudo bash -c "cat > /etc/logrotate.d/derbynet <<EOF
+/var/log/derbynet.log {
+    weekly
+    rotate 4
+    size 50M
+    missingok
+    notifempty
+    copytruncate
+    compress
+    delaycompress
+}
+EOF"
+    # Keep cron disabled (no need on a dedicated finishtimer); rotate is
+    # invoked from the systemd service ExecStartPre on each boot, which is
+    # sufficient for race-day power cycles.
+    sudo systemctl disable --now cron 2>/dev/null || true
     # Create log file with proper permissions
     sudo touch /var/log/derbynet.log
     sudo chmod 666 /var/log/derbynet.log

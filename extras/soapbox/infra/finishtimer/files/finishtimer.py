@@ -3,6 +3,7 @@ Primary module for the Finish Timer plugin. Relies on the derbynetPCBv1 library 
 Uses service discovery for improved resilience 
 
 Version History:
+- 0.9.0 - May 20, 2026 - Race-day logging: 100ms timestamps at GPIO edge, publish_ts, seq, correlation_id
 - 0.8.0 - Dec 12, 2025 - Standardized version across all soapbox components
 - 0.6.4 - Dec 09, 2025 - Fixed toggle state debouncing
 - 0.6.3 - Dec 08, 2025 - Fixed rsyslog TAG/programname for unified logging
@@ -13,7 +14,7 @@ Version History:
 - 0.5.0 - May 19, 2025 - Standardized version schema across all components
 '''
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 
 import json
 import time
@@ -62,10 +63,27 @@ STATUS_TOPIC        = "derbynet/device/{}/status"       # online/offline with wi
 LED_TOPIC           = "derbynet/lane/{}/led"            # set LED color
 PINNY_TOPIC         = "derbynet/lane/{}/pinny"          # set pinny display
 UPDATE_TOPIC        = "derbynet/device/{}/update"       # firmware update trigger message="update"
+HEAT_CORR_TOPIC     = "derbynet/race/heat/correlation"  # retained heat correlation_id
 
 # Default display values
 pinny = "0000" # default pinny display
 led = "white" # default LED color
+
+# Heat correlation_id last seen on derbynet/race/heat/correlation (retained).
+# Stamped into toggle/telemetry payloads so finish events can be joined to a
+# heat in the chronology tool.
+current_correlation_id = None
+
+# Monotonic publish sequence — lets the chronology tool detect dropped events
+# even when two toggles share the same 0.1s timestamp.
+_publish_seq = 0
+_publish_seq_lock = threading.Lock()
+
+def _next_seq():
+    global _publish_seq
+    with _publish_seq_lock:
+        _publish_seq += 1
+        return _publish_seq
 
 # Setup MQTTClient from derbynet library with auto-reconnect
 client = MQTTClient(pcb.gethwid(), broker=DEFAULT_MQTT_BROKER, port=DEFAULT_MQTT_PORT)
@@ -99,12 +117,22 @@ def on_update_message(topic, payload):
         except Exception as e:
             logger.error(f"Update failed: {e}")
 
+def on_heat_correlation(topic, payload):
+    global current_correlation_id
+    if isinstance(payload, bytes):
+        payload = payload.decode("utf-8", errors="replace")
+    new_cid = str(payload).strip() or None
+    if new_cid != current_correlation_id:
+        logger.info(f"Heat correlation_id set to: {new_cid}")
+        current_correlation_id = new_cid
+
 def initMQTT():
-    
+
     # Subscribe to topics
     client.subscribe(LED_TOPIC.format(pcb.get_Lane()), on_led_message)
     client.subscribe(PINNY_TOPIC.format(pcb.get_Lane()), on_pinny_message)
     client.subscribe(UPDATE_TOPIC.format(pcb.gethwid()), on_update_message)
+    client.subscribe(HEAT_CORR_TOPIC, on_heat_correlation)
     
     # Connect with auto-reconnect
     client.connect()
@@ -116,36 +144,43 @@ def initMQTT():
 
 
 ###########################    HELPERS    ###########################
-def toggle_callback():
+def toggle_callback(edge_ts=None):
     togglestate = pcb.getToggleState()
     logger.info("Toggle Changed to: " + str(togglestate))
-    nowtime = int(time.time())
+    # 100ms precision is sufficient for race-day chronology; rounding to one
+    # decimal keeps the JSON compact while preserving merge accuracy.
+    gpio_edge_ts = round(edge_ts if edge_ts is not None else time.time(), 1)
+    publish_ts = round(time.time(), 1)
     hwid = pcb.gethwid()
     dip = pcb.readDIP()
     lane = pcb.get_Lane()
     payload = {
         "toggle": togglestate,
-        "timestamp": nowtime,
+        "timestamp": gpio_edge_ts,
+        "publish_ts": publish_ts,
+        "seq": _next_seq(),
         "hwid": hwid,
         "dip": dip,
-        "lane": lane
+        "lane": lane,
+        "correlation_id": current_correlation_id,
     }
     logger.debug(f"Sending Toggle: {json.dumps(payload)}")
-    
+
     # Publish with QoS 2 to ensure delivery
     client.publish(TOGGLE_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=2, retain=True)
-    
-    # Update telemetry 
+
+    # Update telemetry
     send_telemetry()
 
-def send_telemetry():    
+def send_telemetry():
     payload = pcb.packageTelemetry()
 
     # Add timestamp
-    payload["sent_timestamp"] = int(time.time())
-    
+    payload["sent_timestamp"] = round(time.time(), 1)
+    payload["correlation_id"] = current_correlation_id
+
     logger.debug(f"Sending Telemetry: {json.dumps(payload)}")
-    
+
     # Publish using MQTTClient (handles offline queuing automatically)
     client.publish(TELEMETRY_TOPIC.format(pcb.gethwid()), json.dumps(payload), qos=1, retain=True)
     client.publish(STATUS_TOPIC.format(pcb.gethwid()), "online", qos=1, retain=True)

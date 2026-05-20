@@ -34,6 +34,17 @@ Version History:
 import logging
 from serverlogger import ServerLogger
 from derbyapi import DerbyNetClient, LoginError
+
+# Correlation IDs let us tie every PHP/Python/timer log line for a heat
+# together. We mint a heat-keyed id on STAGING and publish it (retained) so
+# late-attaching devices pick it up; finishtimer/starttimer stamp it into
+# their event payloads.
+try:
+    from derbylogger import set_correlation_id as _set_corr_id
+except ImportError:
+    def _set_corr_id(_cid):
+        pass
+HEAT_CORRELATION_TOPIC = "derbynet/race/heat/correlation"
 from datetime import datetime, timedelta
 import os
 import subprocess
@@ -70,7 +81,7 @@ except ImportError:
     LEDSIGN_AVAILABLE = False
 
 # Version information
-VERSION = "0.8.3"  # Added unified logging and alerting framework
+VERSION = "0.9.0"  # Race-day chronology: device start timestamp, heat correlation_id MQTT broadcast
 
 logger = ServerLogger(
     name='DERBYSERVER', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.
@@ -233,6 +244,10 @@ class derbyRace:
         self.lane_count = lane_count
         self.roundid = 0
         self.heatid = 0
+        # Heat correlation_id (minted on heat-change). Published retained on
+        # HEAT_CORRELATION_TOPIC so device firmware can stamp it into events.
+        self._heat_correlation_id = None
+        self._last_heat_key = None
         self.class_name = ""
         self.led = "red"
         self.lanePinny = {}
@@ -325,7 +340,27 @@ class derbyRace:
 
                 val = payload_data.get("state", False)
                 if val == "GO" and self.race_state != RACE_STATE_RACING:
-                    self.startRace()
+                    # Prefer the device-supplied timestamp (captured at GPIO
+                    # edge on the starttimer) over server wall-clock so the
+                    # canonical race start reflects actual gate release, not
+                    # MQTT receipt latency. Fall back to server time if the
+                    # device omits/zeroes it (pre-NTP boot).
+                    device_ts = payload_data.get("timestamp")
+                    server_recv_ts = time.time()
+                    if isinstance(device_ts, (int, float)) and device_ts > 0:
+                        offset_ms = (server_recv_ts - float(device_ts)) * 1000.0
+                        logger.info(
+                            f"START event: device_ts={device_ts} "
+                            f"server_recv_ts={server_recv_ts:.3f} "
+                            f"offset_ms={offset_ms:+.1f}"
+                        )
+                        self.startRace(timer=float(device_ts))
+                    else:
+                        logger.warning(
+                            "START event missing/invalid device timestamp "
+                            f"(payload={payload_data}); using server clock"
+                        )
+                        self.startRace()
                     self.api.send_start()
             
             ########### Trigger for LANE FINISH ###########
@@ -393,6 +428,24 @@ class derbyRace:
         self.heatid = racestats.get("heat",0)
         self.class_name = racestats.get("class","")
         lanes = racestats.get("lanes",[])
+
+        # Mint and broadcast a heat correlation_id when the heat changes.
+        # Shape: heat-{round}-{heat}-{epoch_ms}. Skip when round/heat are
+        # both 0 (pre-setup / between heats).
+        if self.roundid or self.heatid:
+            heat_key = (self.roundid, self.heatid)
+            if heat_key != self._last_heat_key:
+                cid = f"heat-{self.roundid}-{self.heatid}-{int(time.time() * 1000)}"
+                self._heat_correlation_id = cid
+                self._last_heat_key = heat_key
+                _set_corr_id(cid)
+                try:
+                    topic = (self._t('race', 'heat', 'correlation')
+                             if hasattr(self, '_t') else HEAT_CORRELATION_TOPIC)
+                    self.client.publish(topic, cid, qos=1, retain=True)
+                    logger.info(f"Heat correlation_id minted: {cid} (topic={topic})")
+                except Exception as e:
+                    logger.warning(f"Failed to publish heat correlation_id: {e}")
 
         # Update lane count from actual racers (only when not racing)
         # This allows supporting heats with different numbers of racers
