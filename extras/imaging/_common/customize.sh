@@ -67,19 +67,28 @@ done
 # ---------------------------------------------------------------------------
 # 5. journald volatile + log2ram
 # ---------------------------------------------------------------------------
-# journald drop-in already copied via rootfs/. Install log2ram from upstream.
-# We use the .deb directly so first-boot doesn't need apt-update.
-LOG2RAM_VER=1.8.0
-if ! dpkg -s log2ram >/dev/null 2>&1; then
-    curl -fsSL -o /tmp/log2ram.deb \
-        "https://github.com/azlux/log2ram/releases/download/${LOG2RAM_VER}/log2ram_${LOG2RAM_VER}_all.deb"
-    apt-get install -y --no-install-recommends /tmp/log2ram.deb || \
-        dpkg -i /tmp/log2ram.deb
-    rm -f /tmp/log2ram.deb
+# journald drop-in already copied via rootfs/.
+#
+# log2ram: azlux dropped pre-built .debs and install.sh assumes a live
+# systemd. Inside systemd-nspawn, lay down the files manually and enable
+# the units directly. Pinned to current latest 1.7.2 (2026-05).
+LOG2RAM_VER=1.7.2
+if [[ ! -f /usr/local/bin/log2ram ]]; then
+    TMPDIR=$(mktemp -d)
+    curl -fsSL "https://github.com/azlux/log2ram/archive/refs/tags/${LOG2RAM_VER}.tar.gz" \
+        | tar -xzf - -C "$TMPDIR"
+    SRC="$TMPDIR/log2ram-${LOG2RAM_VER}"
+    install -m 0755 "$SRC/log2ram" /usr/local/bin/log2ram
+    install -m 0644 "$SRC/log2ram.service"       /etc/systemd/system/log2ram.service
+    install -m 0644 "$SRC/log2ram-daily.service" /etc/systemd/system/log2ram-daily.service
+    install -m 0644 "$SRC/log2ram-daily.timer"   /etc/systemd/system/log2ram-daily.timer
+    # Don't overwrite if user dropped a custom config via _common/rootfs/
+    [[ -f /etc/log2ram.conf ]] || install -m 0644 "$SRC/log2ram.conf" /etc/log2ram.conf
+    rm -rf "$TMPDIR"
 fi
-# Drop-in config already in /etc/log2ram.conf.d/. The shipped log2ram service
-# reads /etc/log2ram.conf so make sure SIZE there matches.
+# Match SIZE in /etc/log2ram.conf to what _common/rootfs/log2ram.conf.d/ wants
 sed -i 's/^SIZE=.*/SIZE=64M/' /etc/log2ram.conf || true
+systemctl enable log2ram.service log2ram-daily.timer 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 6. Common apt packages
