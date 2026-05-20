@@ -29,19 +29,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch + verify pinned base image
+      - name: Read + verify pinned base image
         id: base
         run: |
           set -euo pipefail
-          URL=$(jq -r .url      extras/imaging/base-image.lock)
-          SHA=$(jq -r .sha256   extras/imaging/base-image.lock)
-          FN=$(jq -r  .filename extras/imaging/base-image.lock)
-          echo "Fetching $URL"
-          curl -fL --retry 3 "$URL" -o "$FN"
-          echo "$SHA  $FN" | sha256sum -c
-          # The action wants a URL; serve the verified file from the workspace
-          # via the file:// scheme.
-          echo "url=file://$PWD/$FN" >> "$GITHUB_OUTPUT"
+          URL=$(jq -r .url    extras/imaging/base-image.lock)
+          SHA=$(jq -r .sha256 extras/imaging/base-image.lock)
+          # Stream-verify the upstream image SHA256 without saving the file
+          # (rpi-image-modifier only accepts http(s):// URLs, not file://).
+          # The action will re-download with its own cache.
+          echo "Verifying SHA256 of $URL"
+          COMPUTED=$(curl -fL --retry 3 -sS "$URL" | sha256sum | awk '{print $1}')
+          if [[ "$COMPUTED" != "$SHA" ]]; then
+            echo "::error::Base image SHA mismatch. expected=$SHA computed=$COMPUTED"
+            exit 1
+          fi
+          echo "✓ SHA256 verified: $SHA"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Sanity-check finishtimer secrets
         if: matrix.role == 'finishtimer'
