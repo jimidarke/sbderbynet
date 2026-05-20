@@ -44,15 +44,15 @@ DEFAULT_QOS = 1
 DEFAULT_RETAIN = False
 
 # Constants for retry logic
-INITIAL_RETRY_DELAY = 0.5 # seconds
-MAX_RETRY_DELAY = 120.0    # 2 minutes
-RETRY_BACKOFF_FACTOR = 1.75
+INITIAL_RETRY_DELAY = 1.0  # seconds
+MAX_RETRY_DELAY = 300.0    # 5 minutes
+RETRY_BACKOFF_FACTOR = 2.0
 RETRY_JITTER = 0.1
 
 class MessageQueue:
     """Persistent message queue for offline operation"""
     
-    def __init__(self, queue_dir="/var/log/derbynet/queue"):
+    def __init__(self, queue_dir="/var/lib/derbynet/queue"):
         """Initialize the message queue with storage directory"""
         self.queue_dir = queue_dir
         self.queue = queue.Queue()

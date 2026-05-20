@@ -54,11 +54,13 @@ Defined in `/website/inc/heartbeat-config.inc`:
 
 | Constant | Value | Purpose |
 |----------|-------|---------|
-| `HEARTBEAT_INTERVAL` | 5s | Heartbeat send frequency |
-| `TIMER_RECENT_THRESHOLD` | 5s | Max age for "recent" timer |
-| `TIMER_STALE_THRESHOLD` | 8s | When to mark timer stale |
-| `TIMER_DISCONNECT_THRESHOLD` | 15s | When PHP considers disconnected |
-| `DEVICE_INACTIVE_THRESHOLD` | 30s | When to mark device inactive |
+| `HEARTBEAT_INTERVAL` | 2s | Heartbeat send frequency |
+| `TIMER_RECENT_THRESHOLD` | 3s | Max age for "recent" timer (Python `HEARTBEAT_TIMEOUT` matches) |
+| `TIMER_STALE_THRESHOLD` | 5s | When to mark timer stale in DB |
+| `TIMER_DISCONNECT_THRESHOLD` | 10s | When PHP considers disconnected |
+| `DEVICE_INACTIVE_THRESHOLD` | 20s | When to mark device inactive |
+| `FRONTEND_OFFLINE_THRESHOLD` | 5s | When UI shows timer as offline |
+| `STARTER_FRONTEND_OFFLINE_THRESHOLD` | 25s | Start timer leniency (slow ~10s cadence) |
 | `MIN_TIMERS_FOR_RACE` | 3 | Minimum finish timers required |
 
 ---
