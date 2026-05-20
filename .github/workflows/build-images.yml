@@ -75,9 +75,14 @@ jobs:
             BUILD_CTX=/mounted-github-repo
             export BUILD_CTX GIT_SHA ROLE WIFI_SSID WIFI_PASSWORD
 
-            # 1. Stage rootfs trees (_common + role) into the image filesystem
-            rsync -a "$BUILD_CTX/extras/imaging/_common/rootfs/" /
-            rsync -a "$BUILD_CTX/extras/imaging/$ROLE/rootfs/"  /
+            # 1. Stage rootfs trees (_common + role) into the image filesystem.
+            #    Use -rltD --no-owner --no-group (everything from -a EXCEPT
+            #    chown). The source-tree UIDs come from the GHA runner and
+            #    don't map to anything inside the image; the customize
+            #    scripts set ownership explicitly where it matters.
+            RSYNC="rsync -rltD --no-owner --no-group"
+            $RSYNC "$BUILD_CTX/extras/imaging/_common/rootfs/" /
+            $RSYNC "$BUILD_CTX/extras/imaging/$ROLE/rootfs/"  /
 
             # 2. Apply universal hardening
             bash "$BUILD_CTX/extras/imaging/_common/customize.sh" "$ROLE"
