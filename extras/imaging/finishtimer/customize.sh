@@ -1,5 +1,5 @@
 #!/bin/bash
-# extras/imaging/sdm/finishtimer/customize.sh
+# extras/imaging/finishtimer/customize.sh
 #
 # Bakes the Pi Zero 2 W finishtimer image:
 #   - WiFi-only (no Ethernet), wpa_supplicant rendered from CI secrets

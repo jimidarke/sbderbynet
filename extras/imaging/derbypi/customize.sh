@@ -1,5 +1,5 @@
 #!/bin/bash
-# extras/imaging/sdm/derbypi/customize.sh
+# extras/imaging/derbypi/customize.sh
 #
 # Bakes the central race-server Pi image:
 #   - nginx + php-fpm + sqlite serving DerbyNet
@@ -144,7 +144,7 @@ PRAGMA synchronous=NORMAL;
 PRAGMA busy_timeout=5000;
 PRAGMA temp_store=MEMORY;
 CREATE TABLE IF NOT EXISTS _derbynet_image_marker (note TEXT);
-INSERT INTO _derbynet_image_marker VALUES ('seeded by extras/imaging/sdm/derbypi/customize.sh');
+INSERT INTO _derbynet_image_marker VALUES ('seeded by extras/imaging/derbypi/customize.sh');
 SQL
 chown derbynet:derbynet "$SKEL"
 chmod 0664 "$SKEL"

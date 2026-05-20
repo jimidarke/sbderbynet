@@ -1,5 +1,5 @@
 #!/bin/bash
-# extras/imaging/sdm/derbydisplay/customize.sh
+# extras/imaging/derbydisplay/customize.sh
 #
 # Bakes the Pi 3 B+ kiosk image:
 #   - Chromium kiosk on tty1 with auto-respawn wrapper (audit P1 #8)

@@ -29,97 +29,72 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install sdm + QEMU + xz
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y \
-            qemu-user-static binfmt-support \
-            xz-utils jq curl ca-certificates parted dosfstools
-          # sdm installs to /usr/local/sdm
-          curl -fsSL https://raw.githubusercontent.com/gitbls/sdm/master/EZsdmInstaller \
-            -o /tmp/EZsdmInstaller
-          sudo bash /tmp/EZsdmInstaller
-          sudo /usr/local/sdm/sdm --version
-
       - name: Fetch + verify pinned base image
+        id: base
         run: |
           set -euo pipefail
-          LOCK=extras/imaging/sdm/base-image.lock
-          URL=$(jq -r .url "$LOCK")
-          SHA=$(jq -r .sha256 "$LOCK")
-          FN=$(jq -r .filename "$LOCK")
+          URL=$(jq -r .url      extras/imaging/base-image.lock)
+          SHA=$(jq -r .sha256   extras/imaging/base-image.lock)
+          FN=$(jq -r  .filename extras/imaging/base-image.lock)
           echo "Fetching $URL"
           curl -fL --retry 3 "$URL" -o "$FN"
           echo "$SHA  $FN" | sha256sum -c
-          xz -d "$FN"
-          mv "${FN%.xz}" base.img
+          # The action wants a URL; serve the verified file from the workspace
+          # via the file:// scheme.
+          echo "url=file://$PWD/$FN" >> "$GITHUB_OUTPUT"
 
-      - name: Build context (read-only repo snapshot)
+      - name: Sanity-check finishtimer secrets
+        if: matrix.role == 'finishtimer'
+        env:
+          WIFI_SSID: ${{ secrets.WIFI_SSID }}
+          WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
         run: |
-          mkdir -p /tmp/build-context
-          rsync -a --exclude='.git' ./ /tmp/build-context/
-          ls -la /tmp/build-context | head
+          if [[ -z "$WIFI_SSID" || -z "$WIFI_PASSWORD" ]]; then
+            echo "::error::WIFI_SSID and WIFI_PASSWORD repo secrets must be set for the finishtimer build."
+            exit 1
+          fi
 
-      - name: Customize image via sdm
+      - name: Build ${{ matrix.role }} image
+        id: build
+        uses: dtcooper/rpi-image-modifier@v1
+        with:
+          base-image-url: ${{ steps.base.outputs.url }}
+          image-path: sbderbynet-${{ matrix.role }}-${{ github.sha }}.img
+          image-maxsize: 8G
+          mount-repository: true
+          shrink: true
+          compress-with-xz: true
+          cache: true
+          env-vars: ROLE,GIT_SHA,WIFI_SSID,WIFI_PASSWORD
+          run: |
+            set -euxo pipefail
+            BUILD_CTX=/mounted-github-repo
+            export BUILD_CTX GIT_SHA ROLE WIFI_SSID WIFI_PASSWORD
+
+            # 1. Stage rootfs trees (_common + role) into the image filesystem
+            rsync -a "$BUILD_CTX/extras/imaging/_common/rootfs/" /
+            rsync -a "$BUILD_CTX/extras/imaging/$ROLE/rootfs/"  /
+
+            # 2. Apply universal hardening
+            bash "$BUILD_CTX/extras/imaging/_common/customize.sh" "$ROLE"
+
+            # 3. Apply role-specific customization
+            bash "$BUILD_CTX/extras/imaging/$ROLE/customize.sh"
         env:
           ROLE: ${{ matrix.role }}
           GIT_SHA: ${{ github.sha }}
           WIFI_SSID: ${{ secrets.WIFI_SSID }}
           WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
+
+      - name: Rename + checksum final artifact
         run: |
           set -euo pipefail
-
-          # Sanity: finishtimer build needs WiFi secrets
-          if [[ $ROLE == finishtimer ]]; then
-              if [[ -z $WIFI_SSID || -z $WIFI_PASSWORD ]]; then
-                  echo "::error::WIFI_SSID and WIFI_PASSWORD must be set in repository secrets for the finishtimer build."
-                  exit 1
-              fi
-          fi
-
-          cp base.img build.img
-
-          # Drop a wrapper script that runs _common + role customizations inside chroot
-          cat > /tmp/derby-build.sh <<EOF
-          #!/bin/bash
-          set -euo pipefail
-          export BUILD_CTX=/build-context
-          export GIT_SHA=$GIT_SHA
-          export ROLE=$ROLE
-          export WIFI_SSID="${WIFI_SSID:-}"
-          export WIFI_PASSWORD="${WIFI_PASSWORD:-}"
-
-          # 1. Apply universal hardening (in chroot)
-          bash /build-context/extras/imaging/sdm/_common/customize.sh "\$ROLE"
-
-          # 2. Apply role-specific customization
-          bash /build-context/extras/imaging/sdm/$ROLE/customize.sh
-          EOF
-          chmod +x /tmp/derby-build.sh
-
-          # Run sdm: copy _common + role rootfs into image, install our script
-          # to /etc/sdm/assets/derby-build.sh, then invoke it.
-          sudo /usr/local/sdm/sdm --customize \
-              --plugin copyfile:from=extras/imaging/sdm/_common/rootfs:to=/ \
-              --plugin copyfile:from=extras/imaging/sdm/$ROLE/rootfs:to=/ \
-              --plugin copyfile:from=/tmp/derby-build.sh:to=/usr/local/sbin/derby-build.sh \
-              --plugin copyfile:from=/tmp/build-context:to=/build-context \
-              --plugin runscript:script=/usr/local/sbin/derby-build.sh \
-              --no-rsyncbackup \
-              --batch \
-              build.img
-
-      - name: Shrink + xz
-        run: |
-          set -euo pipefail
-          sudo /usr/local/sdm/sdm --shrink build.img
           SHORT=${GITHUB_SHA::7}
-          OUT="sbderbynet-${{ matrix.role }}-${SHORT}.img"
-          mv build.img "$OUT"
-          xz -T0 -6 -v "$OUT"
-          sha256sum "${OUT}.xz" > "${OUT}.xz.sha256"
-          ls -la "${OUT}.xz"*
+          IN="${{ steps.build.outputs.image-path }}"
+          OUT="sbderbynet-${{ matrix.role }}-${SHORT}.img.xz"
+          mv "$IN" "$OUT" || cp "$IN" "$OUT"
+          sha256sum "$OUT" | tee "$OUT.sha256"
+          ls -la "$OUT"*
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

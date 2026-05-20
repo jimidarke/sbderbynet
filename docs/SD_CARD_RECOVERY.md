@@ -7,7 +7,7 @@ This doc is the **index** for the image-based deployment story. The pieces live 
 | What you want | Where it lives |
 |---------------|----------------|
 | **Race-day operator recovery instructions** | [`extras/imaging/INSTRUCTIONS.md`](../extras/imaging/INSTRUCTIONS.md) — 1-page sheet, source for the USB-stick PDF |
-| **Developer build pipeline + smoke-test checklist** | [`extras/imaging/README.md`](../extras/imaging/README.md) — sdm setup, local builds, base-image pinning, USB-stick refresh |
+| **Developer build pipeline + smoke-test checklist** | [`extras/imaging/README.md`](../extras/imaging/README.md) — `dtcooper/rpi-image-modifier` workflow, local builds via `act`, base-image pinning, USB-stick refresh |
 | **CI workflow** | [`.github/workflows/build-images.yml`](../.github/workflows/build-images.yml) — produces 3 `.img.xz` per push, publishes to GitHub Releases on tag |
 | **Audit that motivated this work** | [`docs/RACE_SYSTEM_AUDIT_2026-05.md`](RACE_SYSTEM_AUDIT_2026-05.md) — drift findings, hardening recommendations |
 
@@ -29,7 +29,7 @@ If you ever need LAN NTP back (e.g. a future device that uses wall-clock for rac
 ## What got demoted
 
 - `extras/derbypi/bootstrap.sh` — **expert/development path only**. Race-day recovery uses the image pipeline. Don't `curl | sudo bash` from `master` in production.
-- `extras/derbypi/ansible/` — reference for what's inside the derbypi image. Source-of-truth is now `extras/imaging/sdm/derbypi/`.
+- `extras/derbypi/ansible/` — reference for what's inside the derbypi image. Source-of-truth is now `extras/imaging/derbypi/`.
 - `extras/soapbox/infra/deployment/sdcard/` — deleted. The capture-from-running-Pi pipeline (`createImage.sh`, `deployImage.sh`, vendored `pishrink.sh`) is replaced by reproducible builds from git.
 
 ## Verification commands

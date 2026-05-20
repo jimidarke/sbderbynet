@@ -8,52 +8,47 @@ This directory builds the three pre-customized Raspberry Pi OS images that ship 
 | `sbderbynet-finishtimer-<sha>.img.xz` | **Pi Zero 2 W** | wlan0 DHCP | python3-rpi.gpio, paho-mqtt, snapshot of finishtimer code, wpa_supplicant (creds from CI secrets), DIP-switch identity reader, `finishtimer.service` |
 | `sbderbynet-derbydisplay-<sha>.img.xz` | Pi 3 B+ | eth0 DHCP | Chromium kiosk with **respawn wrapper**, xinit + openbox + unclutter, derby-pull from central, derbydisplay.service for MQTT telemetry |
 
-Every image inherits the universal hardening layer in `sdm/_common/` (hardware watchdog, journald volatile, log2ram 64M, masked `apt-daily*` timers, `noatime,commit=600` on root, pinned Python venv, America/Edmonton TZ).
+Every image inherits the universal hardening layer in `_common/` (hardware watchdog, journald volatile, log2ram 64M, masked `apt-daily*` timers, `noatime,commit=600` on root, pinned Python venv, America/Edmonton TZ).
 
-The plan that produced this directory: `/home/jimi/.claude/plans/lets-go-through-carefully-purrfect-beacon.md` (also tracked in `docs/SD_CARD_RECOVERY.md`).
+Source-of-truth design doc: [`docs/SD_CARD_RECOVERY.md`](../../docs/SD_CARD_RECOVERY.md).
 
 ## How a build works
 
-1. CI (`.github/workflows/build-images.yml`) checks out the repo and fetches the upstream base image pinned in `sdm/base-image.lock` (`raspios_lite_arm64-2026-04-21`).
-2. SHA256 is verified — fail-fast on tampering.
-3. `sdm` mounts the image, registers QEMU binfmt, copies `_common/rootfs/` + `<role>/rootfs/` into the image's filesystem.
-4. `sdm` chroots in and runs `_common/customize.sh <role>` → `<role>/customize.sh`. These do all `apt install`s, render `wpa_supplicant.conf` from secrets (finishtimer only), bake repo content (website/infra) into the derbypi image, seed the SQLite skeleton with WAL+NORMAL pragmas.
-5. `sdm --shrink` cuts unused space from the root partition.
-6. xz -6 compresses. SHA256 sidecar generated.
-7. On `release` event, the artifacts attach to the GitHub Release; on `push` to master, they're 30-day-retained CI artifacts.
+The CI workflow uses [**dtcooper/rpi-image-modifier**](https://github.com/dtcooper/rpi-image-modifier) — a GitHub Action that mounts a Raspberry Pi OS base image, runs a script inside it (chroot + QEMU), then auto-shrinks (PiShrink) and xz-compresses the result.
+
+1. `.github/workflows/build-images.yml` checks out the repo, reads the pinned base image from `extras/imaging/base-image.lock` (currently `raspios_lite_arm64-2026-04-21`), downloads it, and verifies SHA256.
+2. For each role in `[derbypi, finishtimer, derbydisplay]` (matrix-parallel):
+   - The action mounts the base image and mounts the repo at `/mounted-github-repo/`.
+   - Our `run:` script `rsync`s `_common/rootfs/` + `<role>/rootfs/` into the image, then invokes `_common/customize.sh <role>` followed by `<role>/customize.sh`.
+   - Those scripts do all `apt install`s, render `wpa_supplicant.conf` from secrets (finishtimer only), bake repo content (`website/` + `extras/soapbox/infra/`) into the derbypi image, seed the SQLite skeleton with WAL+NORMAL pragmas.
+3. The action auto-shrinks the root partition, xz-compresses, and emits `sbderbynet-<role>-<sha>.img.xz` plus a SHA256.
+4. On `release` event the artifacts attach to the GitHub Release; on push to master they're 30-day-retained CI artifacts.
 
 ## Local build (no GitHub Actions)
 
-You need a Linux host with `qemu-user-static`, `binfmt-support`, and the `sdm` install:
+You need a Linux host with Docker (the action uses a container internally). Easiest reproduction is the action itself, invoked via [`nektos/act`](https://github.com/nektos/act):
 
 ```bash
-# Once
-sudo apt-get install qemu-user-static binfmt-support xz-utils jq
-curl -fsSL https://raw.githubusercontent.com/gitbls/sdm/master/EZsdmInstaller | sudo bash
+brew install act          # or: curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+act push -j build -W .github/workflows/build-images.yml \
+    --matrix role:derbypi \
+    -s WIFI_SSID=DerbyNet -s WIFI_PASSWORD=xxx
+```
 
-# Every time
-cd /path/to/sbderbynet
-URL=$(jq -r .url extras/imaging/sdm/base-image.lock)
-SHA=$(jq -r .sha256 extras/imaging/sdm/base-image.lock)
-FN=$(jq -r .filename extras/imaging/sdm/base-image.lock)
+For a from-scratch local build without Docker, you can adapt the action's approach with `qemu-user-static` + a loop-mounted image. But CI iteration is fast enough that local builds aren't usually necessary.
+
+```bash
+# Reference variables (used in the workflow)
+URL=$(jq -r .url extras/imaging/base-image.lock)
+SHA=$(jq -r .sha256 extras/imaging/base-image.lock)
+FN=$(jq -r .filename extras/imaging/base-image.lock)
 curl -fL "$URL" -o "$FN"
 echo "$SHA  $FN" | sha256sum -c
-xz -d "$FN"
-cp "${FN%.xz}" build.img
 
-# Build, e.g., the derbypi image
-mkdir -p /tmp/build-context
-rsync -a --exclude='.git' ./ /tmp/build-context/
-# (set WIFI_SSID/WIFI_PASSWORD if building finishtimer)
-sudo /usr/local/sdm/sdm --customize \
-    --plugin copyfile:from=extras/imaging/sdm/_common/rootfs:to=/ \
-    --plugin copyfile:from=extras/imaging/sdm/derbypi/rootfs:to=/ \
-    --plugin copyfile:from=/tmp/build-context:to=/build-context \
-    --plugin runscript:script=/path/to/derby-build.sh \
-    --no-rsyncbackup --batch build.img
-
-sudo /usr/local/sdm/sdm --shrink build.img
-xz -T0 -6 build.img
+# Strongly recommended: just use `act` (above) instead of this — the action
+# handles QEMU + chroot + shrink + xz uniformly. Building "by hand" requires
+# replicating the action's loop-mount + binfmt setup. See action source:
+# https://github.com/dtcooper/rpi-image-modifier
 ```
 
 (Easier: trigger the workflow with `gh workflow run build-sd-images`.)
@@ -74,7 +69,7 @@ When upstream RPi OS ships a new release worth picking up:
 
 1. Browse https://downloads.raspberrypi.com/raspios_lite_arm64/images/
 2. Pick the newest folder, grab the `.img.xz` URL and its `.sha256`
-3. Edit `sdm/base-image.lock` (`url`, `sha256`, `version`, `filename`)
+3. Edit `base-image.lock` (`url`, `sha256`, `version`, `filename`)
 4. Push; CI will rebuild all 3 images against the new base. If something breaks (e.g., upstream renamed a package), iterate the per-role `customize.sh`.
 
 ## Where things go on the running Pi

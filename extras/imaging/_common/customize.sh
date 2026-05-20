@@ -1,5 +1,5 @@
 #!/bin/bash
-# extras/imaging/sdm/_common/customize.sh
+# extras/imaging/_common/customize.sh
 #
 # Universal customization layer applied to every image (derbypi, finishtimer,
 # derbydisplay). Runs inside sdm's chroot.
