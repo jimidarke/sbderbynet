@@ -16,6 +16,12 @@ services:
       # Caddyfile uses {$CADDY_HOST}. Defaults to uisp.darketech.ca; override
       # in installer/docker-cloud/.env when deploying to a different host.
       - CADDY_HOST=${CADDY_HOST:-uisp.darketech.ca}
+      # Spectator-page site block reads these. LIVE_STATS_HOST is the public
+      # FQDN for the noindexed static spectator pages; LIVE_STATS_TOKEN is the
+      # random path component that gates access. Empty token disables the
+      # site block (it 404s everything).
+      - LIVE_STATS_HOST=${LIVE_STATS_HOST:-live.soapboxderbynet.com}
+      - LIVE_STATS_TOKEN=${LIVE_STATS_TOKEN:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -164,6 +170,36 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Public spectator-page generator. Reads the Pi-synced SQLite read-only and
+  # writes pregenerated HTML into a shared volume that Caddy serves under the
+  # live.* host. Generator and broker never speak — this sidecar is purely
+  # SQLite -> HTML on a 30s loop. See docs/PUBLIC_STATS.md.
+  derbynet-stats-gen:
+    build:
+      context: ../..
+      dockerfile: installer/docker-cloud/Dockerfile.stats
+    container_name: derbynet-stats-gen
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - LIVE_STATS_TOKEN=${LIVE_STATS_TOKEN:-}
+      - REFRESH_SECONDS=${LIVE_STATS_REFRESH:-30}
+      - DB_PATH=/var/lib/derbynet/derbynet.sqlite3
+      - OUT_DIR=/out
+    volumes:
+      - derbynet_data:/var/lib/derbynet:ro
+      - public_stats:/out
+    networks:
+      - derbynet_net
+    depends_on:
+      derbynet-web:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   derbynet_net:
     driver: bridge
@@ -185,3 +221,9 @@ volumes:
     name: derbynet_web_nginx_logs
   derbynet_web_php_logs:
     name: derbynet_web_php_logs
+  # Holds prerendered spectator HTML (schedule.html, recent.html, etc).
+  # Written by derbynet-stats-gen, read by caddy under /srv/public-stats.
+  # Production override replaces this named volume with a host bind-mount
+  # so the directory survives stack recreation and is operator-inspectable.
+  public_stats:
+    name: public_stats

@@ -1,0 +1,21 @@
+# Static spectator-page generator for the cloud-twin.
+# Reads the Pi-synced SQLite at /var/lib/derbynet/derbynet.sqlite3 (ro mount)
+# and emits prerendered HTML to /out every REFRESH_SECONDS. Caddy serves the
+# files; this container never speaks HTTP itself.
+
+FROM alpine:3.20
+
+RUN apk add --no-cache \
+    sqlite \
+    qrencode \
+    tzdata \
+    dash \
+    coreutils \
+ && adduser -S -D -H -h /home/stats stats
+
+COPY installer/docker-cloud/stats-gen/ /opt/stats-gen/
+RUN chmod +x /opt/stats-gen/entrypoint.sh /opt/stats-gen/render.sh
+
+USER stats
+WORKDIR /opt/stats-gen
+ENTRYPOINT ["/opt/stats-gen/entrypoint.sh"]

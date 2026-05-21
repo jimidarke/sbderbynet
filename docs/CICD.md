@@ -156,10 +156,11 @@ that bind-mounts data at `/opt/derbynet/production/data`.
 
 | Service | Image | Purpose |
 |---------|-------|---------|
-| `caddy` | `caddy:2-alpine` | Reverse proxy, automatic HTTPS, plus `/mqtt` WebSocket route to the broker |
+| `caddy` | `caddy:2-alpine` | Reverse proxy, automatic HTTPS, plus `/mqtt` WebSocket route to the broker. Also serves the obfuscated-token spectator pages at `live.soapboxderbynet.com` (see `docs/PUBLIC_STATS.md`) |
 | `mqtt` | `eclipse-mosquitto:2` | MQTT broker. Listens on 1883 (TCP, internal) and 9001 (WebSockets, fronted by Caddy at `/mqtt`) |
 | `derbynet-web` | `ghcr.io/.../sbderbynet-web` | PHP/Nginx web application; serves `website/virtual/*` browser virtual hardware in cloud mode |
 | `race-server` | `ghcr.io/.../sbderbynet-server` | Python race server + simulator (extended with `SimulatedDisplay`/`SimulatedLEDSign` for headless CI) |
+| `derbynet-stats-gen` | local build (alpine + sqlite + qrencode) | Prerenders the public spectator pages (schedule + recent results) from the Pi-synced SQLite every 30 s. Not in CI image matrix — built fresh on each `derbyvps.sh deploy --build` |
 
 ### Browser virtual hardware (cloud-only)
 

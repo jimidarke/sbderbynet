@@ -46,7 +46,7 @@ echo 'VPS_KEY="$HOME/.ssh/my-other-key"' > scripts/derbyvps.config
 ```sh
 ./scripts/derbyvps.sh audit          # host healthy, UISP siloed, ports 80/443/1883 free
 ./scripts/derbyvps.sh bootstrap      # creates /opt/sbderbynet, .env, broker users, builds, brings up
-./scripts/derbyvps.sh status         # /health = 200, 4 services Up
+./scripts/derbyvps.sh status         # /health = 200, 5 services Up
 ```
 
 Then in a browser: `http://<vps>/derbynet/virtual/index.php` should render the device control panel.

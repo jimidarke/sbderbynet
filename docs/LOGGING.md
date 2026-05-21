@@ -28,6 +28,7 @@ service** (so up to ~30 MB per container, no disk-fill risk).
 | `derbynet-mqtt` | broker startup + connect/disconnect events + ACL denials | `derbyvps.sh logs mqtt` |
 | `derbynet-web` | nginx access log + PHP-FPM startup + PHP application errors | `derbyvps.sh logs derbynet-web` |
 | `derbynet-race-server` | derbylogger.py output (set `DERBY_CONSOLE_LOG=true` in `.env`) | `derbyvps.sh logs race-server` |
+| `derbynet-stats-gen` | render loop ticks + SQLITE_BUSY retries + WARN render failed | `derbyvps.sh logs derbynet-stats-gen` |
 
 Direct access without the wrapper:
 
@@ -249,7 +250,7 @@ priorities, and which of these fix patterns each one would have caught.
 Run `derbyvps.sh audit` at any time. The "RESOURCES" section reports
 `df -h /`. As a rough budget for race day:
 
-- Containers: ≤ 120 MB total log (4 services × 30 MB cap)
+- Containers: ≤ 150 MB total log (5 services × 30 MB cap)
 - Volumes: typically < 50 MB total unless something's wrong
 - Race DB: small (few MB even for a full event)
 

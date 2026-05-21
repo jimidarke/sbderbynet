@@ -23,6 +23,7 @@ Every routine VPS interaction goes through `scripts/derbyvps.sh`:
 ./scripts/derbyvps.sh rollback <tag>        # restore from snapshot
 ./scripts/derbyvps.sh shutdown              # clean down (data preserved)
 ./scripts/derbyvps.sh restore-uisp          # tear down sbderby, bring UISP back
+./scripts/derbyvps.sh stats-token {show|rotate|qr}  # spectator-page token control
 ```
 
 Full command reference and walkthroughs: `docs/VPS_OPERATIONS.md`.
@@ -75,7 +76,13 @@ starts containers in dependency order).
   `race-server` so cloud-sync.sh's scp target lines up with the
   `/var/lib/derbynet` path the containers read from
 - Stack: Caddy (80/443) + Mosquitto (1883 internal, 9001 WS via Caddy
-  `/mqtt`) + derbynet-web (PHP) + race-server (Python)
+  `/mqtt`) + derbynet-web (PHP) + race-server (Python) +
+  derbynet-stats-gen (Alpine sidecar, prerenders public spectator HTML
+  every 30 s — see `docs/PUBLIC_STATS.md`)
+- Postflight expects **5** running services (`EXPECTED_SERVICES_MIN=5`).
+- Caddy serves a second site at `live.soapboxderbynet.com` (separate
+  block) for the obfuscated-token spectator pages — does not interfere
+  with the main control surface on `uisp.darketech.ca`.
 
 ## Design decisions worth remembering
 

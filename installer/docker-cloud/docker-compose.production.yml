@@ -30,3 +30,21 @@ services:
     image: ghcr.io/${GITHUB_OWNER:-sbderbynet}/sbderbynet-server:latest
     volumes:
       - /opt/derbynet/production/data:/var/lib/derbynet
+
+  # Spectator-pages bind: a separate host directory keeps generator output
+  # outside /var/lib/derbynet, so it doesn't collide with the Pi → cloud
+  # sync that writes derbynet.sqlite3 + .cloud_readonly into that path.
+  # First-time bootstrap on the VPS:
+  #     sudo mkdir -p /opt/derbynet/production/public-stats/tokens
+  #     sudo chmod 777 /opt/derbynet/production/public-stats
+  # Generator (stats container) runs as a non-root 'stats' user; chmod 777
+  # is the simplest cross-distro write path. Files are world-readable by
+  # design — Caddy serves them publicly under the obfuscated token URL.
+  derbynet-stats-gen:
+    volumes:
+      - /opt/derbynet/production/data:/var/lib/derbynet:ro
+      - /opt/derbynet/production/public-stats:/out
+
+  caddy:
+    volumes:
+      - /opt/derbynet/production/public-stats:/srv/public-stats:ro

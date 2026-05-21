@@ -188,7 +188,7 @@ See [Testing](../development/testing.md) for the structured proposal.
 
 Run `derbyvps.sh audit` any time. The "RESOURCES" section reports `df -h /`. As a rough budget for race day:
 
-- Containers: ≤ 120 MB total log (4 services × 30 MB cap)
+- Containers: ≤ 150 MB total log (5 services × 30 MB cap)
 - Volumes: typically < 50 MB total unless something's wrong
 - Race DB: small (few MB even for a full event)
 

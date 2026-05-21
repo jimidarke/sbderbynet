@@ -33,7 +33,7 @@ BACKUP_RETENTION=10
 COMPOSE_DIR_REL="installer/docker-cloud"
 COMPOSE_FILES="-f docker-compose.yml -f docker-compose.production.yml"
 HEALTH_URL="http://localhost/health"
-EXPECTED_SERVICES_MIN=4
+EXPECTED_SERVICES_MIN=5
 DERBYNET_CLOUD_MODE="public"
 
 [[ -f "$CONFIG" ]] && source "$CONFIG"
@@ -319,6 +319,14 @@ cmd_deploy() {
 
   install_logrotate
 
+  # Ensure host directories that the production override bind-mounts into the
+  # stack exist. Idempotent — chmod 777 only widens permissions on first run.
+  info "ensuring public-stats host dir"
+  ssh_logged "
+    sudo mkdir -p /opt/derbynet/production/public-stats/tokens
+    sudo chmod 777 /opt/derbynet/production/public-stats /opt/derbynet/production/public-stats/tokens
+  "
+
   info "validating compose"
   ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES config -q" || {
     warn "compose config invalid — rolling back"
@@ -433,6 +441,96 @@ cmd_shutdown() {
   ok "stack stopped (data preserved)"
 }
 
+cmd_stats_token() {
+  local sub="${1:-show}"
+  local public_stats_dir="/opt/derbynet/production/public-stats"
+  local live_host_default="live.soapboxderbynet.com"
+
+  case "$sub" in
+    show)
+      section "Stats token (show)"
+      SSH "set +e
+ENV_FILE=$VPS_REPO_DIR/$COMPOSE_DIR_REL/.env
+if [ ! -f \$ENV_FILE ]; then echo '(no .env on host; run bootstrap or deploy first)'; exit 0; fi
+TOKEN=\$(sudo grep -E '^LIVE_STATS_TOKEN=' \$ENV_FILE 2>/dev/null | head -1 | cut -d= -f2-)
+HOST=\$(sudo grep -E '^LIVE_STATS_HOST=' \$ENV_FILE 2>/dev/null | head -1 | cut -d= -f2-)
+HOST=\${HOST:-$live_host_default}
+if [ -z \"\$TOKEN\" ]; then
+  echo '(no token set; run: derbyvps.sh stats-token rotate)'
+  exit 0
+fi
+echo \"host:      \$HOST\"
+echo \"token:     \$TOKEN\"
+echo \"schedule:  https://\$HOST/\$TOKEN/schedule.html\"
+echo \"recent:    https://\$HOST/\$TOKEN/recent.html\"
+QR=$public_stats_dir/tokens/\$TOKEN/qr.png
+if sudo test -f \$QR; then echo \"qr:        \$QR (on VPS)\"; else echo '(qr.png not generated yet)'; fi
+"
+      ;;
+
+    rotate)
+      section "Stats token (rotate)"
+      confirm "Mint a new spectator token? Old QR will stop working." || die "aborted"
+      local new_token
+      new_token=$(openssl rand -hex 12)
+      info "new token: $new_token (will be visible in .env on VPS)"
+
+      ssh_logged "
+        ENV_FILE=$VPS_REPO_DIR/$COMPOSE_DIR_REL/.env
+        sudo test -f \$ENV_FILE || { echo 'ERR: .env missing; run bootstrap first'; exit 1; }
+        # Idempotent set/append
+        if sudo grep -q '^LIVE_STATS_TOKEN=' \$ENV_FILE; then
+          sudo sed -i 's|^LIVE_STATS_TOKEN=.*|LIVE_STATS_TOKEN=$new_token|' \$ENV_FILE
+        else
+          echo 'LIVE_STATS_TOKEN=$new_token' | sudo tee -a \$ENV_FILE >/dev/null
+        fi
+        if ! sudo grep -q '^LIVE_STATS_HOST=' \$ENV_FILE; then
+          echo 'LIVE_STATS_HOST=$live_host_default' | sudo tee -a \$ENV_FILE >/dev/null
+        fi
+        HOST=\$(sudo grep -E '^LIVE_STATS_HOST=' \$ENV_FILE | head -1 | cut -d= -f2-)
+        HOST=\${HOST:-$live_host_default}
+        sudo mkdir -p $public_stats_dir/tokens/$new_token
+        sudo chmod 777 $public_stats_dir $public_stats_dir/tokens
+        # Recreate the two services that consume LIVE_STATS_TOKEN so they pick
+        # up the new value from .env. derbynet-stats-gen starts a fresh render
+        # loop on the new token; caddy starts serving the new path.
+        cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES up -d derbynet-stats-gen caddy
+        # First render is on the loop's natural cadence; nudge it.
+        sleep 2
+        sudo docker exec derbynet-stats-gen /opt/stats-gen/render.sh /var/lib/derbynet/derbynet.sqlite3 /out $new_token >/dev/null 2>&1 || true
+        # Generate the QR (qrencode is in the stats-gen image).
+        sudo docker exec -e URL=\"https://\$HOST/$new_token/schedule.html\" \
+          derbynet-stats-gen sh -c 'qrencode -o /out/tokens/$new_token/qr.png -s 10 -m 4 \"\$URL\"' \
+          || echo 'WARN: qr generation failed (token still active)'
+        echo \"ROTATE_HOST=\$HOST\"
+      "
+      ok "token rotated to $new_token"
+      say "  Run \"$0 stats-token show\" to see URLs + QR location."
+      ;;
+
+    qr)
+      section "Stats token (qr)"
+      local local_out="${1:-./derby-qr.png}"
+      [[ "${2:-}" == --out ]] && local_out="${3:-./derby-qr.png}"
+      # Resolve token, then scp the PNG down.
+      local remote_qr
+      remote_qr=$(SSH "set +e
+ENV_FILE=$VPS_REPO_DIR/$COMPOSE_DIR_REL/.env
+TOKEN=\$(sudo grep -E '^LIVE_STATS_TOKEN=' \$ENV_FILE 2>/dev/null | head -1 | cut -d= -f2-)
+[ -n \"\$TOKEN\" ] && echo $public_stats_dir/tokens/\$TOKEN/qr.png
+" 2>/dev/null)
+      [[ -n "$remote_qr" ]] || die "no token on VPS (run: $0 stats-token rotate)"
+      # Stage the file with read perms before scp (it's chmod 600 by default).
+      SSH "sudo cp $remote_qr /tmp/derby-qr.png && sudo chmod 644 /tmp/derby-qr.png"
+      scp -i "$VPS_KEY" -P "$VPS_PORT" "$VPS_USER@$VPS_HOST:/tmp/derby-qr.png" "$local_out"
+      SSH "sudo rm -f /tmp/derby-qr.png"
+      ok "QR saved to $local_out"
+      ;;
+
+    *) die "unknown stats-token subcommand: $sub (use: show|rotate|qr)" ;;
+  esac
+}
+
 cmd_restore_uisp() {
   section "Restore UISP"
   confirm "Stop SBDerbyNet and restart UISP?" || die "aborted"
@@ -469,6 +567,10 @@ Commands:
   rollback <tag>        Restore from a backup tag.
   shutdown              Clean down (volumes preserved).
   restore-uisp          Tear down SBDerbyNet, bring UISP back up.
+  stats-token <op>      Spectator-page token control.
+                          show    — print current token + URLs + QR location
+                          rotate  — mint new token, recreate stats-gen + caddy
+                          qr      — scp the QR PNG to ./derby-qr.png
 
 Options:
   --dry-run             Preview destructive ops; no remote changes.
@@ -514,5 +616,6 @@ case "$cmd" in
   rollback)     cmd_rollback "${args[@]:-}" ;;
   shutdown)     cmd_shutdown "${args[@]:-}" ;;
   restore-uisp) cmd_restore_uisp "${args[@]:-}" ;;
+  stats-token)  cmd_stats_token "${args[@]:-}" ;;
   *) usage; die "unknown command: $cmd" ;;
 esac

@@ -19,6 +19,9 @@ see the `derbyVPS` skill at `.claude/skills/derbyVPS/SKILL.md`.
 ./scripts/derbyvps.sh rollback <tag>        # restore from snapshot
 ./scripts/derbyvps.sh shutdown              # clean down (data preserved)
 ./scripts/derbyvps.sh restore-uisp          # tear down sbderby, bring UISP back
+./scripts/derbyvps.sh stats-token show      # spectator token + URL + QR location
+./scripts/derbyvps.sh stats-token rotate    # mint new spectator token (race-day morning)
+./scripts/derbyvps.sh stats-token qr        # scp the QR PNG down to ./derby-qr.png
 ```
 
 Common flags: `--dry-run`, `--yes`, `--quiet`, `--verbose`.
@@ -52,7 +55,8 @@ echo 'VPS_KEY="$HOME/.ssh/my-other-key"' > scripts/derbyvps.config
 # provisions broker users, builds + brings the stack up, runs postflight.
 
 ./scripts/derbyvps.sh status
-# Sanity check. /health should return 200; 4 services Up.
+# Sanity check. /health should return 200; 5 services Up
+# (Caddy + MQTT + derbynet-web + race-server + derbynet-stats-gen).
 ```
 
 Then in a browser: `http://<vps>/derbynet/virtual/index.php` should render
@@ -167,6 +171,17 @@ If a deploy goes sideways, attach both files to the post-mortem.
 - Want to skip the production override and use the named volume instead?
   `COMPOSE_FILES="-f docker-compose.yml"` (note: drops the bind mount).
 
+### Race-day: mint and print the spectator QR
+
+```sh
+./scripts/derbyvps.sh stats-token rotate    # generates new token, recreates stats-gen + caddy
+./scripts/derbyvps.sh stats-token qr        # downloads the QR PNG
+./scripts/derbyvps.sh stats-token show      # prints URLs + QR location anytime
+```
+
+The token gates a per-event `https://live.soapboxderbynet.com/<TOKEN>/{schedule,recent}.html`
+URL. Full runbook: `docs/PUBLIC_STATS.md`.
+
 ## See also
 
 - `.claude/skills/derbyVPS/SKILL.md` — connection details, what's running, what's siloed.
@@ -175,3 +190,4 @@ If a deploy goes sideways, attach both files to the post-mortem.
   feature branch lands on master).
 - `docs/DRESS_REHEARSAL.md` — race-day go/no-go gates that depend on the
   cloud twin being up.
+- `docs/PUBLIC_STATS.md` — public spectator pages: deployment, token rotation, troubleshooting.

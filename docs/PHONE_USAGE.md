@@ -7,13 +7,19 @@ event.
 
 ## What works fine on a phone
 
-- **Public-facing pages** on the cloud twin (when sync is current):
+- **Spectator pages** on `live.soapboxderbynet.com` (the recommended
+  destination for race-day spectators — see `docs/PUBLIC_STATS.md`):
+  - `/<TOKEN>/schedule.html` — current-round lineup with the active heat
+    highlighted
+  - `/<TOKEN>/recent.html` — last 3 completed heats with placements/times
+  - Pages are prerendered HTML behind a per-event obfuscated token,
+    distributed by QR. Refresh every ~30 s; pinny-only (no PII).
+- **Public-facing pages** on the cloud twin (when sync is current and the
+  spectator pages above aren't sufficient):
   - `/derbynet/index.php` — landing
   - `/derbynet/results.php` — results browsing
   - `/derbynet/standings.php` — class standings
   - `/derbynet/kiosk.php?name=now-racing` — view-only kiosk render
-  - `/derbynet/kiosk-public.php`, `/derbynet/public-displays.php` —
-    spectator view (when those land — currently in-progress on this branch)
 - Coordinator role pages **viewed** on phone (functional but not laid out
   for small screens — use a tablet or laptop for actual coordination).
 
@@ -43,8 +49,9 @@ event.
 ## Phones in the press box / spectator area
 
 Encourage spectators and parents to:
-1. Open the public spectator URL of the cloud twin.
-2. Bookmark `/results.php` for live results.
+1. Scan the printed QR for the race-day spectator URL
+   (`live.soapboxderbynet.com/<TOKEN>/schedule.html`).
+2. If they want depth, bookmark `/derbynet/results.php` on the cloud twin.
 3. Avoid the coordinator URL — it works but the desktop layout is awkward.
 
 That is the entire intended scope of phone use.

@@ -57,3 +57,37 @@
 		format console
 	}
 }
+
+# Public spectator pages — separate site block so it cannot interfere with the
+# main control surface above. Reads prerendered HTML from a bind-mount that
+# derbynet-stats-gen writes to. The {$LIVE_STATS_TOKEN} env var is what gates
+# access; rotate it per race day via `scripts/derbyvps.sh stats-token rotate`.
+# An empty token leaves the matcher unable to match anything → everything 404s,
+# which is the safe default before the operator mints a token.
+{$LIVE_STATS_HOST:live.soapboxderbynet.com} {
+	encode gzip
+
+	# Token-gated path. Caddy strips the /<TOKEN>/ prefix, so the file_server
+	# root resolves /schedule.html → /srv/public-stats/current/schedule.html.
+	# The "__no_token_set__" default is a sentinel: when LIVE_STATS_TOKEN is
+	# unset the matcher uses that string, so unrotated stacks serve 404s
+	# instead of accidentally exposing files under //*.
+	handle_path /{$LIVE_STATS_TOKEN:__no_token_set__}/* {
+		root * /srv/public-stats/current
+		file_server
+		header Cache-Control "public, max-age=20, stale-while-revalidate=40"
+		header X-Robots-Tag "noindex, nofollow"
+		header Referrer-Policy "no-referrer"
+	}
+
+	# Everything else (bare host, wrong token, probing) returns a flat 404.
+	# No body content that hints the route exists.
+	handle {
+		respond "Not found" 404
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -19,7 +19,8 @@ Use the wrapper for everything operational; it bakes in the right paths,
 gates, and backup behavior.
 
 - Cloud twin reachable: `./scripts/derbyvps.sh audit` exits 0 and shows
-  4 healthy SBDerbyNet containers, UISP siloed, all expected ports free.
+  5 healthy SBDerbyNet containers (Caddy, MQTT, derbynet-web, race-server,
+  derbynet-stats-gen), UISP siloed, all expected ports free.
 - Cloud DB is current. Inside the audit output check the "LAST CLOUD-SYNC"
   block — `last_sync_utc` should be within a few minutes if the Pi is
   syncing.
@@ -75,6 +76,15 @@ gates, and backup behavior.
    - `./scripts/derbyvps.sh logs race-server` — no errors. (For the full
      log map run `./scripts/derbyvps.sh logs --where`; troubleshooting
      index in `docs/LOGGING.md`.)
+9. **Spectator pages** (`docs/PUBLIC_STATS.md`):
+   - `./scripts/derbyvps.sh stats-token rotate` to mint a token (or
+     `stats-token show` if one's already set).
+   - On a phone, scan the QR (or visit the printed URL) — `schedule.html`
+     shows the round name + heat table with the current heat highlighted;
+     `recent.html` shows the last completed heat(s) ordered by most recent.
+   - Strip one character from the token URL → expect a flat 404.
+   - `./scripts/derbyvps.sh logs derbynet-stats-gen` — render loop ticking
+     every ~30 s, no SQLITE_BUSY retries.
 
 ### Cloud-twin pass criteria
 
@@ -85,6 +95,8 @@ gates, and backup behavior.
 - Round completed without manual intervention beyond clicking GO/finish.
 - No `B_` hwid leaked into a "must be online to race" decision (the race
   server should treat them like any other timer over MQTT).
+- Spectator schedule + recent pages reflected the rehearsed heat results
+  within one refresh tick (~30 s), and a wrong-token URL returned 404.
 
 ---
 
