@@ -23,7 +23,17 @@ The CI workflow uses [**dtcooper/rpi-image-modifier**](https://github.com/dtcoop
    - Our `run:` script `rsync`s `_common/rootfs/` + `<role>/rootfs/` into the image, then invokes `_common/customize.sh <role>` followed by `<role>/customize.sh`.
    - Those scripts do all `apt install`s, render `wpa_supplicant.conf` from secrets (finishtimer + derbydisplay), bake repo content (`website/` + `extras/soapbox/infra/`) into the derbypi image, seed the SQLite skeleton with WAL+NORMAL pragmas.
 3. The action auto-shrinks the root partition, xz-compresses, and emits `sbderbynet-<role>-<sha>.img.xz` plus a SHA256.
-4. On `release` event the artifacts attach to the GitHub Release; on push to master they're 30-day-retained CI artifacts.
+4. On `release` event the artifacts attach to the GitHub Release; on tag push (minor/major bumps only — `vX.Y.0`) they're 30-day-retained CI artifacts.
+
+The workflow only runs on **minor/major version tag pushes** (`v*.*.0`), `release: created`, or manual `workflow_dispatch`. Routine commits to `master` do **not** build — a 24-minute build per push was too noisy. To cut a fresh image set, tag a minor bump:
+
+```bash
+# previous tag was v0.9.20 — bump to v0.10.0 to trigger images
+git tag -a v0.10.0 -m "build images: <reason>"
+git push origin v0.10.0
+```
+
+To get a one-off build without bumping a tag: from the GitHub Actions UI, click "Run workflow" on the `build-sd-images` workflow (or `gh workflow run build-sd-images`).
 
 ## Local build (no GitHub Actions)
 

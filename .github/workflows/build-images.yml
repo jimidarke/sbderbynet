@@ -1,13 +1,15 @@
 name: build-sd-images
+# When does the matrix run?
+#   - Push of a version tag  → only if it's a minor/major bump (vX.Y.0).
+#     A 24-minute build for every routine commit was too noisy; we tag deliberately
+#     when we want fresh images. Patch tags (vX.Y.Z where Z>0) are skipped via the
+#     job-level `if` below — GitHub glob can't express "ends with .0" so we filter
+#     in the job instead of the trigger.
+#   - workflow_dispatch        → always (manual override for ad-hoc rebuilds).
+#   - release created          → always (e.g. GitHub Releases UI from any tag).
 on:
   push:
-    branches: [master]
-    paths:
-      - 'extras/imaging/**'
-      - 'extras/soapbox/infra/**'
-      - 'extras/derbypi/ansible/**'
-      - 'website/**'
-      - '.github/workflows/build-images.yml'
+    tags: ['v*']
   workflow_dispatch: {}
   release:
     types: [created]
@@ -17,6 +19,9 @@ permissions:
 
 jobs:
   build:
+    # Push events: only build for minor/major bumps (tag ends in `.0`).
+    # workflow_dispatch and release events: always build.
+    if: github.event_name != 'push' || endsWith(github.ref, '.0')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
