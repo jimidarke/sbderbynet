@@ -126,15 +126,38 @@ chmod 0644 /etc/systemd/system/derby-firstboot.service
 systemctl enable derby-firstboot.service
 
 # ---------------------------------------------------------------------------
-# 10. derbynet user (uid 1000, member of www-data + dialout for GPIO/I2C)
+# 10. derbynet user (uid 1000) — race-day appliance account
 # ---------------------------------------------------------------------------
+# RPi OS Lite Trixie ships a placeholder user at UID 1000 (set by Imager
+# normally, here the chroot inherits an empty placeholder). Reconcile:
+#   - if derbynet already exists, nothing to do
+#   - else if another user has UID 1000, rename them in place
+#   - else create from scratch
 if ! id derbynet >/dev/null 2>&1; then
-    groupadd -g 1000 derbynet 2>/dev/null || true
-    useradd -u 1000 -g 1000 -G www-data,sudo,dialout,gpio,i2c \
-        -s /bin/bash -m -d /home/derbynet derbynet
-    # Passwordless sudo for the appliance user (race-day operations)
-    echo 'derbynet ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010_derbynet-nopasswd
-    chmod 0440 /etc/sudoers.d/010_derbynet-nopasswd
+    existing=$(getent passwd 1000 | cut -d: -f1 || true)
+    if [[ -n "$existing" && "$existing" != "derbynet" ]]; then
+        echo "[derby-common] renaming UID-1000 user '$existing' -> derbynet"
+        # Kill any processes still owned by the old user
+        pkill -KILL -u "$existing" 2>/dev/null || true
+        usermod -l derbynet "$existing"
+        groupmod -n derbynet "$existing" 2>/dev/null || true
+        # Move home dir to /home/derbynet if currently elsewhere
+        if [[ -d "/home/$existing" && ! -d "/home/derbynet" ]]; then
+            usermod -d /home/derbynet -m derbynet
+        fi
+    else
+        groupadd -g 1000 derbynet 2>/dev/null || true
+        useradd -u 1000 -g 1000 -m -d /home/derbynet -s /bin/bash derbynet
+    fi
 fi
+# Add to the supplementary groups that exist on this image
+for grp in www-data sudo dialout gpio i2c spi netdev video; do
+    if getent group "$grp" >/dev/null 2>&1; then
+        usermod -aG "$grp" derbynet 2>/dev/null || true
+    fi
+done
+# Passwordless sudo for the appliance user (race-day operations)
+echo 'derbynet ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010_derbynet-nopasswd
+chmod 0440 /etc/sudoers.d/010_derbynet-nopasswd
 
 echo "[derby-common] done role=$ROLE"
