@@ -8,6 +8,12 @@
 > - **WiFi fallback on derbydisplay:** wlan0 joins the same WiFi as finishtimer (CI-secret-rendered `wpa_supplicant.conf`) but at `RouteMetric=2000` so eth0 stays primary. Cable failure no longer dark-screens a kiosk.
 > - **log2ram via apt:** `log2ram 1.7.2+ds-1` from Debian Trixie main replaced the hand-rolled tarball install.
 >
+> **Third pass (2026-05-21, live derbypi flash):** four interlocking bugs surfaced only after flashing a real card and SSH-ing in. Now fixed and guarded by the smoke-test checklist in [`extras/imaging/README.md`](../extras/imaging/README.md#lessons-learned-2026-05-bring-up):
+> - **Venv dropped entirely.** Recommendations below (§§ "—Convert `roles/python` to use a venv at `/var/lib/infra/.venv`", §§ "A venv at `/var/lib/infra/.venv` would be cleaner and pinned") are **superseded**. We tried the venv path, it was nuked by the role-rsync `--delete` on every build, and the apt-pinned Python deps in Debian Trixie are good enough on a frozen race-day image. All three services now run from `/usr/bin/python3`.
+> - **`derbyrace.service` missing `MQTT_BROKER` env.** derbyRace.py default of `localhost` couldn't reach the mosquitto broker (bound to 192.168.100.10 only). Now matches the satellite services.
+> - **`derby-firstboot.service` had `ConditionFirstBoot=no`** — semantically "skip on first boot," opposite of intent. Has been wrong since `f21f78e1`. Condition removed (the script's own `systemctl disable` handles single-shot). Among other things, this means finishtimer DIP-switch lane auto-detection has *never* actually run on any flashed satellite before this fix.
+> - **derbynet user inherited `/usr/sbin/nologin`** from Pi OS Lite Trixie's UID-1000 placeholder. `usermod -l … derbynet` doesn't reset shell. Explicit `usermod -s /bin/bash derbynet` added.
+>
 > **Snapshot date:** 2026-05-20. **Scope:** the race-day Pi at `192.168.100.10`, plus the core racing system (engine, finish timers, kiosk displays, network). SaaSbox and LED signs intentionally out of scope.
 >
 > This is a **point-in-time snapshot**, not a living spec. Many findings will be resolved by follow-up PRs; check `git log` on `extras/derbypi/`, `extras/soapbox/infra/`, and `website/inc/` before treating any specific finding as still-true. The high-level patterns (Part 1: appliance drift; Part 2: latent race-engine bugs + appliance-grade hardening) age more slowly than the line-numbered details.
