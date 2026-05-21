@@ -133,6 +133,12 @@ chmod 0644 /etc/systemd/system/derby-firstboot.service
 systemctl enable derby-firstboot.service
 
 # ---------------------------------------------------------------------------
+# 9b. SSH (Pi OS Lite ships openssh-server but with ssh.service disabled —
+#     no Imager run-time customisation here to flip it on for us).
+# ---------------------------------------------------------------------------
+systemctl enable ssh
+
+# ---------------------------------------------------------------------------
 # 10. derbynet user (uid 1000) — race-day appliance account
 # ---------------------------------------------------------------------------
 # RPi OS Lite Trixie ships a placeholder user at UID 1000 (set by Imager
