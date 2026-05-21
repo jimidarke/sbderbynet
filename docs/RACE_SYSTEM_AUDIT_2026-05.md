@@ -2,6 +2,12 @@
 
 > **Update (post-audit):** The SD-card recovery + image-pipeline strategy planned in response to this audit has been built. See [`docs/SD_CARD_RECOVERY.md`](SD_CARD_RECOVERY.md). Several P0/P1 findings below (watchdog armed, SQLite WAL pragma, hardened journald, masked apt-daily, Chromium respawn, logrotate, MQTT clear-on-boot, derbypi NTP-server claim removed) are addressed by the baked image and so may already be resolved on any freshly-flashed Pi — verify on the live hardware before treating a specific bullet as still-true.
 >
+> **Second pass (2026-05-21):** image-pipeline tuned for SSH, WiFi, and logging consistency across all three roles:
+> - **SSH hardening (all roles):** fleet `ed25519` key baked for `derbynet`, `root` (all roles), and `kioskuser` (derbydisplay). `/etc/ssh/sshd_config.d/10-derby-hardening.conf` sets `PasswordAuthentication=no` + `PermitRootLogin=prohibit-password`. Host keys are wiped at build and regenerated per-card on first boot by the shipped `regenerate_ssh_host_keys.service`. So §"No firewall installed" — SSH itself is now key-only.
+> - **Satellite log forwarding:** `extras/imaging/{finishtimer,derbydisplay}/rootfs/etc/rsyslog.d/30-forward-derbynet.conf` ships `*.* @192.168.100.10:514` on every freshly-flashed satellite, matching the architecture described in [`docs/LOGGING.md`](LOGGING.md). Until this PR the doc described a path that the imaging pipeline didn't actually implement.
+> - **WiFi fallback on derbydisplay:** wlan0 joins the same WiFi as finishtimer (CI-secret-rendered `wpa_supplicant.conf`) but at `RouteMetric=2000` so eth0 stays primary. Cable failure no longer dark-screens a kiosk.
+> - **log2ram via apt:** `log2ram 1.7.2+ds-1` from Debian Trixie main replaced the hand-rolled tarball install.
+>
 > **Snapshot date:** 2026-05-20. **Scope:** the race-day Pi at `192.168.100.10`, plus the core racing system (engine, finish timers, kiosk displays, network). SaaSbox and LED signs intentionally out of scope.
 >
 > This is a **point-in-time snapshot**, not a living spec. Many findings will be resolved by follow-up PRs; check `git log` on `extras/derbypi/`, `extras/soapbox/infra/`, and `website/inc/` before treating any specific finding as still-true. The high-level patterns (Part 1: appliance drift; Part 2: latent race-engine bugs + appliance-grade hardening) age more slowly than the line-numbered details.

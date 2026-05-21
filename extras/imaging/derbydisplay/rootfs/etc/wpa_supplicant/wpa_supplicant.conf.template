@@ -1,0 +1,17 @@
+# Pre-baked wpa_supplicant for the race-day WiFi on the isolated 192.168.100.0/24 LAN.
+# {{SSID}} and {{PSK}} are replaced at image-build time by derbydisplay/customize.sh
+# from GitHub Actions secrets WIFI_SSID + WIFI_PASSWORD (PSK hashed via wpa_passphrase).
+#
+# On derbydisplay this interface is the *fallback* path — eth0 is preferred via
+# a lower systemd-networkd RouteMetric (see 30-wlan0.network).
+
+country=CA
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+    ssid="{{SSID}}"
+    psk={{PSK}}
+    key_mgmt=WPA-PSK
+    priority=1
+}

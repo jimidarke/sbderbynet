@@ -1,5 +1,9 @@
 # DerbyNet Raspberry Pi Server Setup Guide
 
+> **SUPERSEDED for race-day recovery.** The supported path to rebuild a derbypi is now the SD-card image pipeline — flash `sbderbynet-derbypi-<sha>.img.xz`, edit `derbyid.txt`, boot. See [`docs/SD_CARD_RECOVERY.md`](../../../../docs/SD_CARD_RECOVERY.md) and [`extras/imaging/INSTRUCTIONS.md`](../../../imaging/INSTRUCTIONS.md). The baked image already includes SSH key access, sshd hardening, static IP, RTC overlay, MQTT broker, nginx + PHP, derbynet-backup timer, log2ram, journald-volatile, and the watchdog — none of the manual steps below are required for a fresh install.
+>
+> This guide remains useful as a **reference for what's inside the image** and for one-off experimentation on a non-race Pi. It is no longer maintained as the source of truth; the image-pipeline scripts under [`extras/imaging/derbypi/`](../../../imaging/derbypi/) are.
+
 Complete installation procedure for rebuilding the DerbyNet Raspberry Pi server from a fresh Raspberry Pi OS 64-bit installation.
 
 **Target Configuration:**

@@ -47,14 +47,14 @@ jobs:
           echo "✓ SHA256 verified: $SHA"
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Sanity-check finishtimer secrets
-        if: matrix.role == 'finishtimer'
+      - name: Sanity-check WiFi secrets
+        if: matrix.role == 'finishtimer' || matrix.role == 'derbydisplay'
         env:
           WIFI_SSID: ${{ secrets.WIFI_SSID }}
           WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
         run: |
           if [[ -z "$WIFI_SSID" || -z "$WIFI_PASSWORD" ]]; then
-            echo "::error::WIFI_SSID and WIFI_PASSWORD repo secrets must be set for the finishtimer build."
+            echo "::error::WIFI_SSID and WIFI_PASSWORD repo secrets must be set for the ${{ matrix.role }} build."
             exit 1
           fi
 

@@ -15,22 +15,41 @@ GIT_SHA=${GIT_SHA:-unknown}
 echo "[derbydisplay] starting derbydisplay customize"
 
 # ---------------------------------------------------------------------------
-# 1. apt packages — kiosk stack
+# 1. apt packages — kiosk stack + WiFi fallback
 # ---------------------------------------------------------------------------
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     xserver-xorg xinit x11-xserver-utils \
     openbox unclutter-xfixes feh \
-    chromium
+    chromium \
+    wpasupplicant iw wireless-tools
 
 # ---------------------------------------------------------------------------
-# 2. Disable WiFi (Pi 3 B+ kiosk is wired only; BT already disabled by _common)
+# 2. WiFi: render wpa_supplicant.conf from CI secrets. Same race-day LAN as
+#    the finishtimer Pis. Ethernet stays primary via systemd-networkd
+#    RouteMetric; wlan0 only takes over if eth0 is down.
 # ---------------------------------------------------------------------------
-if ! grep -q '^dtoverlay=disable-wifi' /boot/firmware/config.txt; then
-    echo 'dtoverlay=disable-wifi' >> /boot/firmware/config.txt
+if [[ -z ${WIFI_SSID:-} || -z ${WIFI_PASSWORD:-} ]]; then
+    echo "[derbydisplay] FATAL: WIFI_SSID and WIFI_PASSWORD must be set"
+    exit 1
 fi
+PSK=$(wpa_passphrase "$WIFI_SSID" "$WIFI_PASSWORD" \
+      | awk -F= '/^[[:space:]]*psk=/ && !/#/ {print $2; exit}')
+if [[ -z $PSK ]]; then
+    echo "[derbydisplay] FATAL: wpa_passphrase failed"
+    exit 1
+fi
+TEMPLATE=/etc/wpa_supplicant/wpa_supplicant.conf.template
+TARGET=/etc/wpa_supplicant/wpa_supplicant.conf
+sed -e "s|{{SSID}}|$WIFI_SSID|g" -e "s|{{PSK}}|$PSK|g" "$TEMPLATE" > "$TARGET"
+chmod 0600 "$TARGET"
+rm -f "$TEMPLATE"
+
+systemctl enable wpa_supplicant@wlan0.service
+echo 'country=CA' >> /etc/wpa_supplicant/wpa_supplicant.conf
+raspi-config nonint do_wifi_country CA 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 3. Network: DHCP on eth0 via systemd-networkd
+# 3. Network: DHCP on eth0 (primary) + DHCP on wlan0 (high RouteMetric fallback)
 # ---------------------------------------------------------------------------
 mkdir -p /etc/systemd/network
 cat > /etc/systemd/network/10-eth0.network <<'EOF'
@@ -43,6 +62,19 @@ IPForward=no
 MulticastDNS=no
 LinkLocalAddressing=no
 EOF
+cat > /etc/systemd/network/30-wlan0.network <<'EOF'
+[Match]
+Name=wlan0
+
+[Network]
+DHCP=yes
+IPForward=no
+MulticastDNS=no
+LinkLocalAddressing=no
+
+[DHCPv4]
+RouteMetric=2000
+EOF
 systemctl enable systemd-networkd
 systemctl disable dhcpcd 2>/dev/null || true
 
@@ -52,10 +84,21 @@ systemctl disable dhcpcd 2>/dev/null || true
 if ! id kioskuser >/dev/null 2>&1; then
     useradd -m -G video,input,render,tty,audio kioskuser
 fi
+# Lock the password — kioskuser only ever reaches a shell via tty1 autologin
+# (no password prompt) or fleet-key SSH. No password path should exist.
+passwd -l kioskuser
 # .xinitrc and .bash_profile copied via rootfs/; just fix ownership/mode
 chown -R kioskuser:kioskuser /home/kioskuser
 chmod 0755 /home/kioskuser/.xinitrc
 chmod 0644 /home/kioskuser/.bash_profile
+
+# Fleet key for kioskuser — consistent with derbynet/root, so the operator
+# can ssh kioskuser@<kiosk> for X-session debugging without sudo.
+SRC_KEY="${BUILD_CTX:-/build-context}/extras/imaging/_common/authorized_keys"
+if [[ -f "$SRC_KEY" ]]; then
+    install -d -m 0700 -o kioskuser -g kioskuser /home/kioskuser/.ssh
+    install -m 0600 -o kioskuser -g kioskuser "$SRC_KEY" /home/kioskuser/.ssh/authorized_keys
+fi
 
 # ---------------------------------------------------------------------------
 # 5. Snapshot the canonical derbydisplay files into /opt/derbynet/

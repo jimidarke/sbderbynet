@@ -72,39 +72,26 @@ for line in 'dtoverlay=disable-bt' 'dtparam=audio=off' 'gpu_mem=16'; do
 done
 
 # ---------------------------------------------------------------------------
-# 5. journald volatile + log2ram
+# 5. journald volatile (log2ram installed in step 6 via apt)
 # ---------------------------------------------------------------------------
 # journald drop-in already copied via rootfs/.
-#
-# log2ram: azlux dropped pre-built .debs and install.sh assumes a live
-# systemd. Inside systemd-nspawn, lay down the files manually and enable
-# the units directly. Pinned to current latest 1.7.2 (2026-05).
-LOG2RAM_VER=1.7.2
-if [[ ! -f /usr/local/bin/log2ram ]]; then
-    TMPDIR=$(mktemp -d)
-    curl -fsSL "https://github.com/azlux/log2ram/archive/refs/tags/${LOG2RAM_VER}.tar.gz" \
-        | tar -xzf - -C "$TMPDIR"
-    SRC="$TMPDIR/log2ram-${LOG2RAM_VER}"
-    install -m 0755 "$SRC/log2ram" /usr/local/bin/log2ram
-    install -m 0644 "$SRC/log2ram.service"       /etc/systemd/system/log2ram.service
-    install -m 0644 "$SRC/log2ram-daily.service" /etc/systemd/system/log2ram-daily.service
-    install -m 0644 "$SRC/log2ram-daily.timer"   /etc/systemd/system/log2ram-daily.timer
-    # Don't overwrite if user dropped a custom config via _common/rootfs/
-    [[ -f /etc/log2ram.conf ]] || install -m 0644 "$SRC/log2ram.conf" /etc/log2ram.conf
-    rm -rf "$TMPDIR"
-fi
-# Match SIZE in /etc/log2ram.conf to what _common/rootfs/log2ram.conf.d/ wants
-sed -i 's/^SIZE=.*/SIZE=64M/' /etc/log2ram.conf || true
-systemctl enable log2ram.service log2ram-daily.timer 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 6. Common apt packages
 # ---------------------------------------------------------------------------
+# log2ram 1.7.2+ds-1 ships in Debian Trixie main as of Feb 2025 — no more
+# GitHub tarball install. rsyslog ships by default on Pi OS Lite but pinning
+# it here keeps the dependency visible.
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     rsync git jq curl wget htop vim i2c-tools \
     python3 python3-pip python3-venv python3-paho-mqtt python3-psutil \
     python3-requests python3-tz python3-cryptography \
-    sqlite3
+    sqlite3 \
+    rsyslog log2ram
+
+# Match SIZE in /etc/log2ram.conf to what _common/rootfs/log2ram.conf.d/ wants
+sed -i 's/^SIZE=.*/SIZE=64M/' /etc/log2ram.conf || true
+systemctl enable log2ram.service log2ram-daily.timer 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 7. Pinned Python venv for race-server / satellite Python code
@@ -137,6 +124,23 @@ systemctl enable derby-firstboot.service
 #     no Imager run-time customisation here to flip it on for us).
 # ---------------------------------------------------------------------------
 systemctl enable ssh
+
+# Hardening drop-in: key-only auth, root key permitted (no password). Drop-in
+# survives Pi OS upgrades that bump /etc/ssh/sshd_config.
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/10-derby-hardening.conf <<'EOF'
+PasswordAuthentication no
+PermitRootLogin prohibit-password
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+UsePAM yes
+EOF
+chmod 0644 /etc/ssh/sshd_config.d/10-derby-hardening.conf
+
+# Wipe baked-in host keys and let the shipped regenerate_ssh_host_keys.service
+# create per-card unique keys on first boot. The unit self-disables.
+rm -f /etc/ssh/ssh_host_*
+systemctl enable regenerate_ssh_host_keys.service 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 10. derbynet user (uid 1000) — race-day appliance account
@@ -183,6 +187,13 @@ if [[ -f "$SRC_KEY" ]]; then
     install -d -m 0700 -o derbynet -g derbynet /home/derbynet/.ssh
     install -m 0600 -o derbynet -g derbynet "$SRC_KEY" /home/derbynet/.ssh/authorized_keys
     echo "[derby-common] installed authorized_keys for derbynet"
+    # Emergency root override: services run as root on every role, so a
+    # bricked /home/derbynet would otherwise lock us out. With sshd hardened
+    # to prohibit-password + PasswordAuthentication=no, root is only
+    # reachable with the fleet key.
+    install -d -m 0700 -o root -g root /root/.ssh
+    install -m 0600 -o root -g root "$SRC_KEY" /root/.ssh/authorized_keys
+    echo "[derby-common] installed authorized_keys for root"
 else
     echo "[derby-common] WARNING: $SRC_KEY missing — image will be unreachable until userconf.txt is supplied"
 fi

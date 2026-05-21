@@ -4,11 +4,11 @@ This directory builds the three pre-customized Raspberry Pi OS images that ship 
 
 | Image | Hardware | Network | What's baked in |
 |-------|----------|---------|-----------------|
-| `sbderbynet-derbypi-<sha>.img.xz` | Pi 3 B+ | eth0 static `192.168.100.10` | nginx + PHP + SQLite, mosquitto, rsyncd, rsyslog UDP 514, derbyrace, full `website/` + `extras/soapbox/infra/`, DS3231 RTC overlay, 15-min DB backup timer |
-| `sbderbynet-finishtimer-<sha>.img.xz` | **Pi Zero 2 W** | wlan0 DHCP | python3-rpi.gpio, paho-mqtt, snapshot of finishtimer code, wpa_supplicant (creds from CI secrets), DIP-switch identity reader, `finishtimer.service` |
-| `sbderbynet-derbydisplay-<sha>.img.xz` | Pi 3 B+ | eth0 DHCP | Chromium kiosk with **respawn wrapper**, xinit + openbox + unclutter, derby-pull from central, derbydisplay.service for MQTT telemetry |
+| `sbderbynet-derbypi-<sha>.img.xz` | Pi 3 B+ | eth0 static `192.168.100.10` (WiFi disabled) | nginx + PHP + SQLite, mosquitto, rsyncd, rsyslog UDP 514, derbyrace, full `website/` + `extras/soapbox/infra/`, DS3231 RTC overlay, 15-min DB backup timer |
+| `sbderbynet-finishtimer-<sha>.img.xz` | **Pi Zero 2 W** | wlan0 DHCP | python3-rpi.gpio, paho-mqtt, snapshot of finishtimer code, wpa_supplicant (creds from CI secrets), rsyslog UDP forward to .10, DIP-switch identity reader, `finishtimer.service` |
+| `sbderbynet-derbydisplay-<sha>.img.xz` | Pi 3 B+ | eth0 DHCP (primary) + wlan0 DHCP (fallback, RouteMetric=2000) | Chromium kiosk with **respawn wrapper**, xinit + openbox + unclutter, wpa_supplicant (same creds as finishtimer), rsyslog UDP forward to .10, derby-pull from central, derbydisplay.service for MQTT telemetry |
 
-Every image inherits the universal hardening layer in `_common/` (hardware watchdog, journald volatile, log2ram 64M, masked `apt-daily*` timers, `noatime,commit=600` on root, pinned Python venv, America/Edmonton TZ).
+Every image inherits the universal hardening layer in `_common/` (hardware watchdog, journald volatile, log2ram 64M from Trixie apt, masked `apt-daily*` timers, `noatime,commit=600` on root, pinned Python venv, America/Edmonton TZ, fleet SSH key baked for derbynet+root, sshd locked to key-only auth, SSH host keys regenerated per-card on first boot).
 
 Source-of-truth design doc: [`docs/SD_CARD_RECOVERY.md`](../../docs/SD_CARD_RECOVERY.md).
 
@@ -20,7 +20,7 @@ The CI workflow uses [**dtcooper/rpi-image-modifier**](https://github.com/dtcoop
 2. For each role in `[derbypi, finishtimer, derbydisplay]` (matrix-parallel):
    - The action mounts the base image and mounts the repo at `/mounted-github-repo/`.
    - Our `run:` script `rsync`s `_common/rootfs/` + `<role>/rootfs/` into the image, then invokes `_common/customize.sh <role>` followed by `<role>/customize.sh`.
-   - Those scripts do all `apt install`s, render `wpa_supplicant.conf` from secrets (finishtimer only), bake repo content (`website/` + `extras/soapbox/infra/`) into the derbypi image, seed the SQLite skeleton with WAL+NORMAL pragmas.
+   - Those scripts do all `apt install`s, render `wpa_supplicant.conf` from secrets (finishtimer + derbydisplay), bake repo content (`website/` + `extras/soapbox/infra/`) into the derbypi image, seed the SQLite skeleton with WAL+NORMAL pragmas.
 3. The action auto-shrinks the root partition, xz-compresses, and emits `sbderbynet-<role>-<sha>.img.xz` plus a SHA256.
 4. On `release` event the artifacts attach to the GitHub Release; on push to master they're 30-day-retained CI artifacts.
 
@@ -95,6 +95,9 @@ Run before tagging a release:
 
 1. `sbderbynet-derbypi-<sha>.img.xz` → flash → boot → `curl http://192.168.100.10/derbynet/` returns 200 in <3 min. `cat /etc/derby-role` says `derbypi`. `sqlite3 /var/lib/derbynet/skeleton.sqlite3 'PRAGMA journal_mode'` says `wal`. `systemctl is-active mosquitto nginx php*-fpm derbyrace rsync rsyslog` shows all active.
 2. `sbderbynet-finishtimer-<sha>.img.xz` → flash → boot → `wpa_cli status` (over serial) shows `wpa_state=COMPLETED`. `cat /boot/firmware/derbyid.txt` is `FT00<n>` matching DIP. `mosquitto_sub -h 192.168.100.10 -v -t 'derbynet/device/+/telemetry'` on the central Pi shows it within 60s.
-3. `sbderbynet-derbydisplay-<sha>.img.xz` → flash → boot → kiosk page within 60s. Pull power, plug back in — Chromium respawns.
-4. DB restore: drop a known-good `derbynet-snapshot-test-2026.sqlite3.gz` + `.sha256` into `bootfs:\restore\` before booting the derbypi card. After boot, `ls /var/lib/derbynet/2026/test/`. Now corrupt the gz, flash again — firstboot should refuse and leave the DB empty (check `/var/log/derby-firstboot.log`).
-5. WiFi rotation: change `WIFI_PASSWORD` secret in GitHub, re-run the workflow, flash a fresh finishtimer. New card associates; old cards do not (until re-flashed).
+3. `sbderbynet-derbydisplay-<sha>.img.xz` → flash → boot → kiosk page within 60s. Pull power, plug back in — Chromium respawns. Confirm WiFi fallback: `ip route` shows eth0 at default metric and wlan0 metric 2000; pull eth0, the kiosk should remain reachable via wlan0 inside ~30s.
+4. SSH hardening (all 3 roles): `ssh derbynet@<pi>` and `ssh root@<pi>` both succeed with the fleet key; `sshpass -p anything ssh root@<pi>` fails (password auth disabled); `sudo sshd -T | grep -E 'passwordauthentication|permitrootlogin'` reports `no` and `prohibit-password`.
+5. Host-key uniqueness: flash two cards of the same role; `ssh-keyscan` against each returns different host keys (`regenerate_ssh_host_keys.service` ran on first boot and self-disabled).
+6. Log forwarding (satellites → derbypi): on the central Pi, `sudo tail -F /var/log/derbynet.log`; on a satellite, `logger -t derby-smoke "$(date -Iseconds)"` — the line should appear on the central tail within seconds.
+7. DB restore: drop a known-good `derbynet-snapshot-test-2026.sqlite3.gz` + `.sha256` into `bootfs:\restore\` before booting the derbypi card. After boot, `ls /var/lib/derbynet/2026/test/`. Now corrupt the gz, flash again — firstboot should refuse and leave the DB empty (check `/var/log/derby-firstboot.log`).
+8. WiFi rotation: change `WIFI_PASSWORD` secret in GitHub, re-run the workflow, flash a fresh finishtimer (or derbydisplay). New card associates; old cards do not (until re-flashed).

@@ -1,10 +1,17 @@
-# Baked into /home/derbynet/.ssh/authorized_keys on every derby-fleet image
-# (derbypi, finishtimer, derbydisplay) by _common/customize.sh.
+# Baked into multiple authorized_keys files on every derby-fleet image
+# (derbypi, finishtimer, derbydisplay):
+#   - /home/derbynet/.ssh/authorized_keys   (all roles, via _common/customize.sh)
+#   - /root/.ssh/authorized_keys            (all roles, emergency override)
+#   - /home/kioskuser/.ssh/authorized_keys  (derbydisplay only, via derbydisplay/customize.sh)
+#
+# sshd is locked to key-only auth by /etc/ssh/sshd_config.d/10-derby-hardening.conf
+# (PasswordAuthentication=no, PermitRootLogin=prohibit-password).
 #
 # Private half lives in SECURE/keys/derby/derby_fleet_ed25519 (gitignored).
 # Rotate by:
 #   1. ssh-keygen new pair, replace this file + SECURE/ private
 #   2. Push -> CI rebuilds all three images
-#   3. Reflash or `cat new.pub >> ~derbynet/.ssh/authorized_keys` on each live Pi
+#   3. Reflash, or on each live Pi append the new pub to all three
+#      authorized_keys files before removing the old line
 
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINe/fwyEFafa90Hoa9alFmmlsgB+eKXwXMyat5OykjNr derby-fleet 2026-05-20

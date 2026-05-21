@@ -41,11 +41,11 @@ if [[ $DERBYID != CHANGE-ME && $DERBYID != "" ]]; then
     log "hostname set to $DERBYID"
 fi
 
-# 3. Regenerate SSH host keys (each card unique)
-rm -f /etc/ssh/ssh_host_*
-ssh-keygen -A
-systemctl restart ssh || true
-log "ssh host keys regenerated"
+# 3. SSH host-key regeneration is handled by the shipped
+#    regenerate_ssh_host_keys.service (enabled at build time in
+#    _common/customize.sh, self-disables after running). The keys were
+#    wiped during the build so the unit will produce per-card uniques on
+#    first boot ahead of this script.
 
 # 4. Per-role hook
 HOOK=/usr/local/sbin/derby-firstboot-${ROLE}.sh

@@ -290,6 +290,17 @@ filter every component's events for a single heat with one tool.
 | Derby display | journald + rsyslog UDP → race-server | yes | journald local; race-server canonical | systemd-timesyncd → `192.168.100.10` |
 | Mosquitto broker | `/mosquitto/log/mosquitto.log` + syslog | yes | broker keeps connects/disconnects | n/a |
 
+**Where the forwarding is wired up** (baked into every freshly-flashed satellite):
+
+| Side | File |
+|---|---|
+| Central listener (imudp UDP 514) | `extras/imaging/derbypi/rootfs/etc/rsyslog.d/10-derbynet.conf` |
+| Finishtimer outbound `*.* @192.168.100.10:514` | `extras/imaging/finishtimer/rootfs/etc/rsyslog.d/30-forward-derbynet.conf` |
+| Derbydisplay outbound `*.* @192.168.100.10:514` | `extras/imaging/derbydisplay/rootfs/etc/rsyslog.d/30-forward-derbynet.conf` |
+| journald→syslog bridge (all roles) | `extras/imaging/_common/rootfs/etc/systemd/journald.conf.d/99-volatile.conf` (`ForwardToSyslog=yes`) |
+
+UDP is best-effort. Race-timing-critical events carry GPIO-edge timestamps in their MQTT payload (TCP, retained) and are written to `/var/log/derbynet.jsonl` by the race server's own derbylogger — not by the rsyslog path. So packet loss on the syslog stream degrades the debug log but never the chronology.
+
 ### Time discipline
 
 - **Race-server Pi**: DS3231 hardware RTC (Ansible role `extras/derbypi/ansible/roles/rtc/`) plus chrony with `refclock PHC /dev/ptp0` as fallback. Serves NTP to `192.168.100.0/24`.
