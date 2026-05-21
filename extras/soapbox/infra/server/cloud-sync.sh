@@ -150,7 +150,7 @@ REMOTE_DB_TMP="${CLOUD_DB_PATH}.tmp"
 REMOTE_SENT_TMP="${CLOUD_DIR}/.cloud_readonly.tmp"
 REMOTE_SENT="${CLOUD_DIR}/.cloud_readonly"
 
-if ! scp -q -C "${ssh_common_opts[@]}" \
+if ! scp -O -q -C "${ssh_common_opts[@]}" \
        "$TEMP_BACKUP"   "${CLOUD_USER}@${CLOUD_HOST}:${REMOTE_DB_TMP}" \
        2>/dev/null; then
     log_failure "scp DB failed (cellular outage or auth)"
@@ -158,7 +158,7 @@ if ! scp -q -C "${ssh_common_opts[@]}" \
     exit 3
 fi
 
-if ! scp -q -C "${ssh_common_opts[@]}" \
+if ! scp -O -q -C "${ssh_common_opts[@]}" \
        "$TEMP_SENTINEL" "${CLOUD_USER}@${CLOUD_HOST}:${REMOTE_SENT_TMP}" \
        2>/dev/null; then
     log_failure "scp sentinel failed"
