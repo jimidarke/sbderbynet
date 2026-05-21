@@ -39,14 +39,18 @@ if [[ -z $PSK ]]; then
     exit 1
 fi
 TEMPLATE=/etc/wpa_supplicant/wpa_supplicant.conf.template
-TARGET=/etc/wpa_supplicant/wpa_supplicant.conf
+# Path MUST include the interface suffix to match `wpa_supplicant@wlan0.service`
+# (see finishtimer/customize.sh for the full explanation — same bug, same fix).
+TARGET=/etc/wpa_supplicant/wpa_supplicant-wlan0.conf
 sed -e "s|{{SSID}}|$WIFI_SSID|g" -e "s|{{PSK}}|$PSK|g" "$TEMPLATE" > "$TARGET"
 chmod 0600 "$TARGET"
 rm -f "$TEMPLATE"
 
 systemctl enable wpa_supplicant@wlan0.service
-echo 'country=CA' >> /etc/wpa_supplicant/wpa_supplicant.conf
-raspi-config nonint do_wifi_country CA 2>/dev/null || true
+# Pi OS Lite ships wpa_supplicant.service (DBUS) auto-enabled — disable it so
+# only the @wlan0 template-instance runs (same fix as finishtimer/customize.sh).
+systemctl disable wpa_supplicant.service 2>/dev/null || true
+# country=CA is in the template; no extra echo needed. raspi-config no-op in chroot.
 
 # ---------------------------------------------------------------------------
 # 3. Network: DHCP on eth0 (primary) + DHCP on wlan0 (high RouteMetric fallback)
