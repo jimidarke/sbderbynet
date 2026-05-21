@@ -21,8 +21,10 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=derbyrace
 
-# Watchdog: if derbyRace.py wedges, systemd kills + restarts after 60s.
-WatchdogSec=60s
+# No WatchdogSec= — systemd's watchdog requires the app to send periodic
+# WATCHDOG=1 sd_notify pings, and derbyRace.py doesn't. With Restart=always
+# (above) genuine crashes are already covered. Re-enable WatchdogSec only
+# after derbyRace.py is taught to call sdnotify.SystemdNotifier().notify().
 
 [Install]
 WantedBy=multi-user.target
