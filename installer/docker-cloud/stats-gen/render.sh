@@ -22,9 +22,9 @@ DEST_DIR="$OUT/tokens/$TOKEN"
 TMP_DIR=$(mktemp -d -p "$OUT/tokens" ".tmp.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT INT TERM
 
-GEN_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+GEN_AT=$(TZ=America/Edmonton date "+%m-%d-%Y %H:%M:%S")
 DB_MTIME="(missing)"
-[ -f "$DB" ] && DB_MTIME=$(date -u -r "$DB" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "(unknown)")
+[ -f "$DB" ] && DB_MTIME=$(TZ=America/Edmonton date -r "$DB" "+%m-%d-%Y %H:%M:%S" 2>/dev/null || echo "(unknown)")
 
 # Helper: run a single SQL statement, return TSV. Empty on missing DB.
 sql() {
