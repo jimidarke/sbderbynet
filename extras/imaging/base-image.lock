@@ -1,8 +1,20 @@
 {
-  "comment": "Pinned upstream Raspberry Pi OS Lite 64-bit base image. Used as the input to sdm in CI. To upgrade, update both fields and verify in build-images.yml that the matrix still passes.",
-  "version": "2026-04-21",
-  "url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-04-21/2026-04-21-raspios-trixie-arm64-lite.img.xz",
-  "sha256": "4cd31df026fd82243805a326dc0cafd7383f7e3d30c9413e7044d507aae281e2",
-  "filename": "2026-04-21-raspios-trixie-arm64-lite.img.xz",
+  "comment": "Pinned upstream Raspberry Pi OS Lite base images per architecture. Used as input to dtcooper/rpi-image-modifier in CI. To upgrade an arch, update both fields and verify in build-images.yml that the matrix entry still passes.",
+  "arm64": {
+    "version": "2026-04-21",
+    "url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-04-21/2026-04-21-raspios-trixie-arm64-lite.img.xz",
+    "sha256": "4cd31df026fd82243805a326dc0cafd7383f7e3d30c9413e7044d507aae281e2",
+    "filename": "2026-04-21-raspios-trixie-arm64-lite.img.xz",
+    "for_roles": ["derbypi", "finishtimer", "derbydisplay"],
+    "comment": "Pi 3 B+ (derbypi, derbydisplay) and Pi Zero 2 W (finishtimer-arm64). BCM2710 / BCM2711 / BCM2712. ARMv8."
+  },
+  "armhf": {
+    "version": "2026-04-21",
+    "url": "https://downloads.raspberrypi.com/raspios_lite_armhf/images/raspios_lite_armhf-2026-04-21/2026-04-21-raspios-trixie-armhf-lite.img.xz",
+    "sha256": "f393b8bc3fc49aef49ddc5d5af124333002f34e4b23ede439789145e5280d210",
+    "filename": "2026-04-21-raspios-trixie-armhf-lite.img.xz",
+    "for_roles": ["finishtimer"],
+    "comment": "Pi Zero W V1.1 (finishtimer-armhf). BCM2835 / BCM2837. ARMv6+VFP. Only ever used for the legacy Pi Zero W finishtimers; new hardware uses arm64."
+  },
   "release_notes": "https://downloads.raspberrypi.com/raspios_lite_arm64/release_notes.txt"
 }

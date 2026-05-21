@@ -22,7 +22,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        role: [derbypi, finishtimer, derbydisplay]
+        # Each build is (role, arch). The armhf finishtimer variant exists
+        # because the original Pi Zero W (BCM2835 / ARMv6) can't boot the
+        # arm64 image. derbypi + derbydisplay are arm64-only.
+        include:
+          - role: derbypi
+            arch: arm64
+          - role: finishtimer
+            arch: arm64
+          - role: finishtimer
+            arch: armhf
+          - role: derbydisplay
+            arch: arm64
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -33,15 +44,19 @@ jobs:
         id: base
         run: |
           set -euo pipefail
-          URL=$(jq -r .url    extras/imaging/base-image.lock)
-          SHA=$(jq -r .sha256 extras/imaging/base-image.lock)
+          URL=$(jq -r --arg arch "${{ matrix.arch }}" '.[$arch].url'    extras/imaging/base-image.lock)
+          SHA=$(jq -r --arg arch "${{ matrix.arch }}" '.[$arch].sha256' extras/imaging/base-image.lock)
+          if [[ -z "$URL" || "$URL" == "null" ]]; then
+            echo "::error::No base image entry for arch=${{ matrix.arch }} in base-image.lock"
+            exit 1
+          fi
           # Stream-verify the upstream image SHA256 without saving the file
           # (rpi-image-modifier only accepts http(s):// URLs, not file://).
           # The action will re-download with its own cache.
           echo "Verifying SHA256 of $URL"
           COMPUTED=$(curl -fL --retry 3 -sS "$URL" | sha256sum | awk '{print $1}')
           if [[ "$COMPUTED" != "$SHA" ]]; then
-            echo "::error::Base image SHA mismatch. expected=$SHA computed=$COMPUTED"
+            echo "::error::Base image SHA mismatch (arch=${{ matrix.arch }}). expected=$SHA computed=$COMPUTED"
             exit 1
           fi
           echo "✓ SHA256 verified: $SHA"
@@ -54,16 +69,28 @@ jobs:
           WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
         run: |
           if [[ -z "$WIFI_SSID" || -z "$WIFI_PASSWORD" ]]; then
-            echo "::error::WIFI_SSID and WIFI_PASSWORD repo secrets must be set for the ${{ matrix.role }} build."
+            echo "::error::WIFI_SSID and WIFI_PASSWORD repo secrets must be set for the ${{ matrix.role }}-${{ matrix.arch }} build."
             exit 1
           fi
 
-      - name: Build ${{ matrix.role }} image
+      - name: Compute artifact basename
+        id: name
+        run: |
+          # finishtimer ships in two arch variants — include the arch in the
+          # filename so operators don't confuse them. derbypi + derbydisplay
+          # only have one arch each, so they keep the cleaner name.
+          if [[ "${{ matrix.role }}" == "finishtimer" ]]; then
+            echo "stem=sbderbynet-${{ matrix.role }}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "stem=sbderbynet-${{ matrix.role }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build ${{ matrix.role }}-${{ matrix.arch }} image
         id: build
         uses: dtcooper/rpi-image-modifier@v1
         with:
           base-image-url: ${{ steps.base.outputs.url }}
-          image-path: sbderbynet-${{ matrix.role }}-${{ github.sha }}.img
+          image-path: ${{ steps.name.outputs.stem }}-${{ github.sha }}.img
           image-maxsize: 8G
           mount-repository: true
           shrink: true
@@ -100,7 +127,7 @@ jobs:
           set -euo pipefail
           SHORT=${GITHUB_SHA::7}
           IN="${{ steps.build.outputs.image-path }}"
-          OUT="sbderbynet-${{ matrix.role }}-${SHORT}.img.xz"
+          OUT="${{ steps.name.outputs.stem }}-${SHORT}.img.xz"
           mv "$IN" "$OUT" || cp "$IN" "$OUT"
           sha256sum "$OUT" | tee "$OUT.sha256"
           ls -la "$OUT"*
@@ -108,10 +135,10 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sbderbynet-${{ matrix.role }}
+          name: ${{ steps.name.outputs.stem }}
           path: |
-            sbderbynet-${{ matrix.role }}-*.img.xz
-            sbderbynet-${{ matrix.role }}-*.img.xz.sha256
+            ${{ steps.name.outputs.stem }}-*.img.xz
+            ${{ steps.name.outputs.stem }}-*.img.xz.sha256
           retention-days: 30
 
       - name: Attach to GitHub Release
@@ -119,5 +146,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            sbderbynet-${{ matrix.role }}-*.img.xz
-            sbderbynet-${{ matrix.role }}-*.img.xz.sha256
+            ${{ steps.name.outputs.stem }}-*.img.xz
+            ${{ steps.name.outputs.stem }}-*.img.xz.sha256

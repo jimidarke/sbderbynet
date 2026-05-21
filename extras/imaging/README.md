@@ -4,9 +4,10 @@ This directory builds the three pre-customized Raspberry Pi OS images that ship 
 
 | Image | Hardware | Network | What's baked in |
 |-------|----------|---------|-----------------|
-| `sbderbynet-derbypi-<sha>.img.xz` | Pi 3 B+ | eth0 static `192.168.100.10` (WiFi disabled) | nginx + PHP + SQLite, mosquitto, rsyncd, rsyslog UDP 514, derbyrace, full `website/` + `extras/soapbox/infra/`, DS3231 RTC overlay, 15-min DB backup timer |
-| `sbderbynet-finishtimer-<sha>.img.xz` | **Pi Zero 2 W** | wlan0 DHCP | python3-rpi.gpio, paho-mqtt, snapshot of finishtimer code, wpa_supplicant (creds from CI secrets), rsyslog UDP forward to .10, DIP-switch identity reader, `finishtimer.service` |
-| `sbderbynet-derbydisplay-<sha>.img.xz` | Pi 3 B+ | eth0 DHCP (primary) + wlan0 DHCP (fallback, RouteMetric=2000) | Chromium kiosk with **respawn wrapper**, xinit + openbox + unclutter, wpa_supplicant (same creds as finishtimer), rsyslog UDP forward to .10, derby-pull from central, derbydisplay.service for MQTT telemetry |
+| `sbderbynet-derbypi-<sha>.img.xz` | Pi 3 B+ (arm64) | eth0 static `192.168.100.10` (WiFi disabled) | nginx + PHP + SQLite, mosquitto, rsyncd, rsyslog UDP 514, derbyrace, full `website/` + `extras/soapbox/infra/`, DS3231 RTC overlay, 15-min DB backup timer |
+| `sbderbynet-finishtimer-arm64-<sha>.img.xz` | **Pi Zero 2 W** (arm64) | wlan0 DHCP | python3-rpi.gpio, paho-mqtt, snapshot of finishtimer code, wpa_supplicant (creds from CI secrets), rsyslog UDP forward to .10, DIP-switch identity reader, `finishtimer.service` |
+| `sbderbynet-finishtimer-armhf-<sha>.img.xz` | **Pi Zero W V1.1** (armhf) | wlan0 DHCP | Same as the arm64 variant — same `_common` + `finishtimer/` customize scripts, just built on `raspios_lite_armhf` (Trixie, Debian 13) for the BCM2835/ARMv6 SoC that can't run 64-bit. Use when you're recovering one of the legacy Pi Zero W finishtimers. |
+| `sbderbynet-derbydisplay-<sha>.img.xz` | Pi 3 B+ (arm64) | eth0 DHCP (primary) + wlan0 DHCP (fallback, RouteMetric=2000) | Chromium kiosk with **respawn wrapper**, xinit + openbox + unclutter, wpa_supplicant (same creds as finishtimer), rsyslog UDP forward to .10, derby-pull from central, derbydisplay.service for MQTT telemetry |
 
 Every image inherits the universal hardening layer in `_common/` (hardware watchdog, journald volatile, log2ram 64M from Trixie apt, masked `apt-daily*` timers, `noatime,commit=600` on root, pinned Python venv, America/Edmonton TZ, fleet SSH key baked for derbynet+root, sshd locked to key-only auth, SSH host keys regenerated per-card on first boot).
 
@@ -16,8 +17,8 @@ Source-of-truth design doc: [`docs/SD_CARD_RECOVERY.md`](../../docs/SD_CARD_RECO
 
 The CI workflow uses [**dtcooper/rpi-image-modifier**](https://github.com/dtcooper/rpi-image-modifier) — a GitHub Action that mounts a Raspberry Pi OS base image, runs a script inside it (chroot + QEMU), then auto-shrinks (PiShrink) and xz-compresses the result.
 
-1. `.github/workflows/build-images.yml` checks out the repo, reads the pinned base image from `extras/imaging/base-image.lock` (currently `raspios_lite_arm64-2026-04-21`), downloads it, and verifies SHA256.
-2. For each role in `[derbypi, finishtimer, derbydisplay]` (matrix-parallel):
+1. `.github/workflows/build-images.yml` checks out the repo, reads the pinned base image for each `(role, arch)` from `extras/imaging/base-image.lock`, downloads it, and verifies SHA256. The lock is arch-keyed (`arm64`, `armhf`); finishtimer is built twice (once per arch) for the two hardware generations, derbypi + derbydisplay are arm64-only.
+2. For each `(role, arch)` in the matrix (4 builds, parallel):
    - The action mounts the base image and mounts the repo at `/mounted-github-repo/`.
    - Our `run:` script `rsync`s `_common/rootfs/` + `<role>/rootfs/` into the image, then invokes `_common/customize.sh <role>` followed by `<role>/customize.sh`.
    - Those scripts do all `apt install`s, render `wpa_supplicant.conf` from secrets (finishtimer + derbydisplay), bake repo content (`website/` + `extras/soapbox/infra/`) into the derbypi image, seed the SQLite skeleton with WAL+NORMAL pragmas.
@@ -67,10 +68,12 @@ Then verify against the SHA file and label the cards.
 
 When upstream RPi OS ships a new release worth picking up:
 
-1. Browse https://downloads.raspberrypi.com/raspios_lite_arm64/images/
+1. Browse https://downloads.raspberrypi.com/raspios_lite_arm64/images/ (and `raspios_lite_armhf/images/` for the Pi Zero W variant)
 2. Pick the newest folder, grab the `.img.xz` URL and its `.sha256`
-3. Edit `base-image.lock` (`url`, `sha256`, `version`, `filename`)
-4. Push; CI will rebuild all 3 images against the new base. If something breaks (e.g., upstream renamed a package), iterate the per-role `customize.sh`.
+3. Edit the matching arch block in `base-image.lock` (`url`, `sha256`, `version`, `filename`)
+4. Push; CI will rebuild all 4 images against the new base(s). If something breaks (e.g., upstream renamed a package), iterate the per-role `customize.sh`.
+
+Both arches are kept on the same Debian release line (currently Trixie / Debian 13) so that `customize.sh` can use the same apt package names. If they diverge, the per-arch `_common/customize.sh` apt list needs conditional logic.
 
 ## Where things go on the running Pi
 

@@ -15,12 +15,15 @@ This doc is the **index** for the image-based deployment story. The pieces live 
 
 | Role | Board | Network | IP | Image |
 |------|-------|---------|----|----|
-| derbypi (central) | Pi 3 B+ | Ethernet only (WiFi intentionally disabled) | static `192.168.100.10` | `sbderbynet-derbypi-<sha>.img.xz` |
-| finishtimer (per lane) | Pi Zero 2 W | WiFi only | DHCP | `sbderbynet-finishtimer-<sha>.img.xz` |
-| derbydisplay (kiosk) | Pi 3 B+ | Ethernet (primary) + WiFi fallback | DHCP | `sbderbynet-derbydisplay-<sha>.img.xz` |
+| derbypi (central) | Pi 3 B+ (arm64) | Ethernet only (WiFi intentionally disabled) | static `192.168.100.10` | `sbderbynet-derbypi-<sha>.img.xz` |
+| finishtimer (per lane) — newer | Pi Zero 2 W (arm64) | WiFi only | DHCP | `sbderbynet-finishtimer-arm64-<sha>.img.xz` |
+| finishtimer (per lane) — legacy | Pi Zero W V1.1 (armhf) | WiFi only | DHCP | `sbderbynet-finishtimer-armhf-<sha>.img.xz` |
+| derbydisplay (kiosk) | Pi 3 B+ (arm64) | Ethernet (primary) + WiFi fallback | DHCP | `sbderbynet-derbydisplay-<sha>.img.xz` |
 | starttimer | ESP32 | WiFi | — | not SD-card-based (OTA from web app) |
 
 WiFi credentials (`WIFI_SSID` / `WIFI_PASSWORD` repo secrets) are baked into the finishtimer and derbydisplay images at build time. PSK is hashed via `wpa_passphrase` so the plaintext password never lands on the SD card. On derbydisplay, wlan0 has `RouteMetric=2000` so it stays dormant when eth0 is up — the WiFi is purely a recovery path if the cable fails.
+
+Finishtimer ships in two arch variants because the legacy Pi Zero W (BCM2835 / ARMv6) cannot run a 64-bit kernel. Both variants are built from the same role customize scripts on `raspios_lite_<arch>-2026-04-21` (Trixie). Use the armhf image only for the original Pi Zero W; everything else (including the Pi Zero 2 W) takes arm64.
 
 ## §Time-sync reality (referenced from satellite setup.sh files)
 
