@@ -327,6 +327,27 @@ cmd_deploy() {
     sudo chmod 777 /opt/derbynet/production/public-stats /opt/derbynet/production/public-stats/tokens
   "
 
+  # derbynet-stats-gen refuses to start without a token. Mint one on first
+  # deploy so postflight sees 5 containers running. Operator can rotate later
+  # via 'stats-token rotate' for race-day. Detects "missing OR empty" and
+  # only writes when needed — idempotent across redeploys.
+  info "ensuring LIVE_STATS_TOKEN is set in .env"
+  ssh_logged "
+    ENV_FILE=$VPS_REPO_DIR/$COMPOSE_DIR_REL/.env
+    if sudo test -f \$ENV_FILE; then
+      CUR=\$(sudo grep -E '^LIVE_STATS_TOKEN=' \$ENV_FILE 2>/dev/null | head -1 | cut -d= -f2-)
+      if [ -z \"\$CUR\" ]; then
+        NEW=\$(openssl rand -hex 12)
+        if sudo grep -q '^LIVE_STATS_TOKEN=' \$ENV_FILE; then
+          sudo sed -i \"s|^LIVE_STATS_TOKEN=.*|LIVE_STATS_TOKEN=\$NEW|\" \$ENV_FILE
+        else
+          echo \"LIVE_STATS_TOKEN=\$NEW\" | sudo tee -a \$ENV_FILE >/dev/null
+        fi
+        echo \"  auto-minted initial LIVE_STATS_TOKEN (use 'stats-token show' to print URL)\"
+      fi
+    fi
+  "
+
   info "validating compose"
   ssh_logged "cd $VPS_REPO_DIR/$COMPOSE_DIR_REL && sudo docker compose $COMPOSE_FILES config -q" || {
     warn "compose config invalid — rolling back"
