@@ -17,7 +17,9 @@ Environment="MQTT_BROKER=192.168.100.10"
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=finishtimer
-WatchdogSec=60s
+# No WatchdogSec= — systemd's watchdog requires the app to send periodic
+# WATCHDOG=1 sd_notify pings, and finishtimer.py doesn't. Same trap derbypi
+# hit on 2026-05-21 (see derbyrace.service). Restart=always covers crashes.
 
 [Install]
 WantedBy=multi-user.target
