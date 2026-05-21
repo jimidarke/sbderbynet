@@ -7,11 +7,16 @@ Wants=mosquitto.service network-online.target
 Type=simple
 User=root
 WorkingDirectory=/var/lib/infra/server
-ExecStart=/var/lib/infra/.venv/bin/python3 /var/lib/infra/server/derbyRace.py
+ExecStart=/usr/bin/python3 /var/lib/infra/server/derbyRace.py
 Restart=always
 RestartSec=10
 Environment="DERBY_CONSOLE_LOG=false"
 Environment="DERBY_DEBUG=false"
+# derbyRace.py defaults MQTT_BROKER to 'localhost', but the baked mosquitto
+# config binds to 192.168.100.10:1883 only (defense in depth) — so the
+# default fails with ECONNREFUSED. Match the satellite services explicitly.
+Environment="MQTT_BROKER=192.168.100.10"
+Environment="DERBYNET_API_HOST=127.0.0.1"
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=derbyrace

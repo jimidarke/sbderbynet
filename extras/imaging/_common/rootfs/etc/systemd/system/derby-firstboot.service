@@ -2,7 +2,10 @@
 Description=DerbyNet first-boot configuration (single-shot)
 After=network-online.target
 Wants=network-online.target
-ConditionFirstBoot=no
+# Single-shot is enforced by the script itself (it self-disables the service
+# after success). Do NOT add ConditionFirstBoot — it gates on
+# /etc/machine-id state and silently skips on every reflash where the
+# machine-id was baked into the image, which is exactly our case.
 ConditionPathExists=/etc/derby-role
 
 [Service]

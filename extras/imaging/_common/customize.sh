@@ -94,17 +94,16 @@ sed -i 's/^SIZE=.*/SIZE=64M/' /etc/log2ram.conf || true
 systemctl enable log2ram.service log2ram-daily.timer 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 7. Pinned Python venv for race-server / satellite Python code
+# 7. Python deps sanity check
 # ---------------------------------------------------------------------------
-# Apps that use it just call /var/lib/infra/.venv/bin/python3
-python3 -m venv /var/lib/infra/.venv
-/var/lib/infra/.venv/bin/pip install --no-cache-dir --upgrade pip
-/var/lib/infra/.venv/bin/pip install --no-cache-dir \
-    'paho-mqtt==2.1.0' \
-    'psutil==6.1.0' \
-    'requests==2.32.3' \
-    'pytz==2024.2' \
-    'cryptography==43.0.1'
+# No venv: all five deps (paho-mqtt, psutil, requests, pytz, cryptography)
+# are pinned by Debian Trixie's apt and live at /usr/lib/python3/dist-packages.
+# The systemd service files all call /usr/bin/python3 directly. A venv was
+# tried earlier but added no value over the apt packages on a frozen race-day
+# image and was easy to break (rsync --delete on /var/lib/infra/ would wipe
+# it). If you ever need pip-pinned packages, reintroduce a venv here.
+/usr/bin/python3 -c 'import paho.mqtt.client, psutil, requests, pytz, cryptography' \
+    && echo "[derby-common] python imports OK"
 
 # ---------------------------------------------------------------------------
 # 8. Timezone
@@ -167,6 +166,11 @@ if ! id derbynet >/dev/null 2>&1; then
         useradd -u 1000 -g 1000 -m -d /home/derbynet -s /bin/bash derbynet
     fi
 fi
+# Pi OS Lite Trixie's UID-1000 placeholder ships with shell /usr/sbin/nologin.
+# `usermod -l` doesn't touch the shell, so the rename path inherits nologin
+# and SSH refuses connections with "This account is currently not available."
+# Force shell unconditionally — idempotent.
+usermod -s /bin/bash derbynet
 # Add to the supplementary groups that exist on this image
 for grp in www-data sudo dialout gpio i2c spi netdev video; do
     if getent group "$grp" >/dev/null 2>&1; then

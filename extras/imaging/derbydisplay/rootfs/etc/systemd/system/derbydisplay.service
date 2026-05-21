@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/opt/derbynet
-ExecStart=/var/lib/infra/.venv/bin/python3 /opt/derbynet/derbydisplay.py
+ExecStart=/usr/bin/python3 /opt/derbynet/derbydisplay.py
 Restart=always
 RestartSec=10
 Environment="MQTT_BROKER=192.168.100.10"
