@@ -17,6 +17,13 @@ ROLE=${1:?usage: customize.sh <role>}
 echo "[derby-common] starting role=$ROLE"
 
 # ---------------------------------------------------------------------------
+# 0. Refresh apt cache (base image was frozen at build time; package
+#    versions on Debian mirrors have moved on, so the cached index
+#    points at .debs that 404).
+# ---------------------------------------------------------------------------
+DEBIAN_FRONTEND=noninteractive apt-get update
+
+# ---------------------------------------------------------------------------
 # 1. Tag the image with its role
 # ---------------------------------------------------------------------------
 echo "$ROLE" > /etc/derby-role
