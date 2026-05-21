@@ -1,0 +1,18 @@
+[Unit]
+Description=Push DerbyNet SQLite to the cloud twin every 30 s
+Documentation=https://github.com/jimidarke/sbderbynet/blob/master/docs/PUBLIC_STATS.md
+
+[Timer]
+# First fire 20 s after boot — gives the race-server time to settle.
+OnBootSec=20s
+# Then every 30 s after the previous run completes (oneshot pattern).
+OnUnitActiveSec=30s
+# Tiny jitter so two Pis on the same network don't sync at the same instant.
+RandomizedDelaySec=2s
+# Don't try to "catch up" missed ticks after a power blip — the next 30 s
+# tick will pick up the freshest snapshot anyway.
+Persistent=false
+Unit=derbynet-cloud-sync.service
+
+[Install]
+WantedBy=timers.target

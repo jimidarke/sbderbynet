@@ -73,6 +73,26 @@ jobs:
             exit 1
           fi
 
+      - name: Inject cloud-sync fleet key into derbypi rootfs
+        if: matrix.role == 'derbypi'
+        env:
+          CLOUD_SYNC_PRIVATE_KEY: ${{ secrets.CLOUD_SYNC_PRIVATE_KEY }}
+        run: |
+          set -eu
+          KEY_PATH=extras/imaging/derbypi/rootfs/etc/derbynet/cloud-sync-key
+          mkdir -p "$(dirname "$KEY_PATH")"
+          if [ -n "${CLOUD_SYNC_PRIVATE_KEY:-}" ]; then
+            printf '%s\n' "$CLOUD_SYNC_PRIVATE_KEY" > "$KEY_PATH"
+            chmod 600 "$KEY_PATH"
+            echo "✓ cloud-sync fleet key written ($(wc -c <"$KEY_PATH") bytes)"
+          else
+            # Leave an empty file so the rootfs tree has a known shape;
+            # customize.sh detects this and warns that cloud-sync is disabled.
+            : > "$KEY_PATH"
+            chmod 600 "$KEY_PATH"
+            echo "::warning::CLOUD_SYNC_PRIVATE_KEY secret not set — Pi image will boot with cloud-sync disabled."
+          fi
+
       - name: Compute artifact basename
         id: name
         run: |

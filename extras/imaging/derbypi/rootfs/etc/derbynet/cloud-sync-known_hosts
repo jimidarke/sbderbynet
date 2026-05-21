@@ -1,0 +1,14 @@
+# SSH known_hosts for the cloud twin.
+# Captured via: ssh-keyscan -t ed25519,rsa uisp.darketech.ca
+# Regenerate when the VPS host keys change (rare).
+#
+# This file is committed to the repo intentionally — host pubkeys are not
+# secret. Pinning here means the Pi's first scp attempt does NOT fall back
+# to TOFU (StrictHostKeyChecking=yes in cloud-sync.sh refuses unknown hosts).
+#
+# Fingerprints (verify after capture):
+#   3072 SHA256:yod9y3kpmQpfxHn8q9WgdBZFleuGMWXiMtqPeXfiG5I (RSA)
+#    256 SHA256:RpGQ2cEuMsmr/8nKWxRTHx5qW8J6G3zVpJBjgCXILf8 (ED25519)
+
+uisp.darketech.ca ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCzu1FVk+CcrPP4UTfz3IEqHtC37Bp/xR64ulXf8XuvcVtH+fyNVaE9rWeMceuMk7h0dLbuSHBPitMRUVAftPFZBgaa20o5jQIIB8q3K85hn3EncdGgSGs9BBHsrHTLz75w8zBJMiW4FKA+dK2HhHyVOPrr3vmIurJ0atN72SlwF20wCqGcZCDsMPW8Y/xIHpjBZDKMHUkW0GnbGGWT8lxPS6jZVW2tR6g46p9wgLA8IzpX12rUOfTOB94y6E9A8k73spPpBQ+knbOtnndjbzIAQufn9k/86dlsLgZ34aIXSyi5MN97LVFTxk/7OZtbEh8BBJx1KdtNkGR5EQZRx/XpGhLvoiT2eywk1HlaVea820GwlrXb40JZJECMQSSnXCOQ7HoAI6qtpY6f39LMkn7X+kNbvhU2YK+m5GZY08xFskTtix83cp5Csj5WGoutsfxs5zfJc76S0DnDMdrq9JJiuHvXNhayRMGwRyrzXwkAj2BOJcDx6P4bhjaHBwio738=
+uisp.darketech.ca ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIETO6KU8mrWl1JfxldPVKqYizlerCoyB6KP3LbSBMtT6

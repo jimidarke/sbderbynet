@@ -1,0 +1,23 @@
+[Unit]
+Description=Push race-day DerbyNet SQLite to the cloud twin
+Documentation=https://github.com/jimidarke/sbderbynet/blob/master/docs/PUBLIC_STATS.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=derbynet
+Group=derbynet
+EnvironmentFile=-/etc/default/derbynet-cloud-sync
+ExecStart=/usr/local/sbin/derbynet-cloud-sync.sh
+# Don't restart on failure — the .timer is the retry mechanism.
+# Exit codes 1 (config) and 2 (no DB) are non-network and shouldn't spam.
+SuccessExitStatus=0
+StandardOutput=journal
+StandardError=journal
+# Low-priority — must never compete with the race-server.
+Nice=19
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

@@ -158,10 +158,39 @@ systemctl enable derbynet-backup.timer
 # derbytime stays DISABLED until a consumer of derbynet/race/time is confirmed
 systemctl disable derbytime.service 2>/dev/null || true
 
+# Cloud-sync timer pushes the active SQLite DB to the VPS every 30 s for the
+# public spectator pages (live.soapboxderbynet.com). Best-effort over cellular;
+# failure is logged but not fatal. See docs/PUBLIC_STATS.md.
+systemctl enable derbynet-cloud-sync.timer
+
 # ---------------------------------------------------------------------------
 # 10. Permissions on scripts
 # ---------------------------------------------------------------------------
 chmod 0755 /usr/local/sbin/derby-firstboot-derbypi.sh \
            /usr/local/sbin/derbynet-backup.sh
+
+# Single source of truth for cloud-sync.sh lives at
+# /var/lib/infra/server/cloud-sync.sh (synced from the soapbox infra tree).
+# Make it executable from a stable systemd ExecStart path.
+install -m 0755 -o root -g root \
+    /var/lib/infra/server/cloud-sync.sh /usr/local/sbin/derbynet-cloud-sync.sh
+
+# Cloud-sync SSH credentials. The private key is injected at image-build time
+# by CI from the CLOUD_SYNC_PRIVATE_KEY secret; if absent (PR builds, dev
+# rebuilds), the file is empty and the timer will exit nonzero each tick with
+# a clear "SSH key not readable" log line — harmless, never crashes the Pi.
+if [ -f /etc/derbynet/cloud-sync-key ] && [ -s /etc/derbynet/cloud-sync-key ]; then
+    chmod 0600 /etc/derbynet/cloud-sync-key
+    chown derbynet:derbynet /etc/derbynet/cloud-sync-key
+    echo "[derbypi] cloud-sync key installed"
+else
+    # Create an empty placeholder so chown doesn't fail; service will refuse
+    # to start until a real key is dropped on the running Pi or the image
+    # is rebuilt with the CI secret set.
+    install -m 0600 -o derbynet -g derbynet /dev/null /etc/derbynet/cloud-sync-key
+    echo "[derbypi] WARN: cloud-sync key absent — push will be disabled until a key is provisioned"
+fi
+chmod 0644 /etc/derbynet/cloud-sync-known_hosts
+chown root:root /etc/derbynet/cloud-sync-known_hosts
 
 echo "[derbypi] customize complete"

@@ -1,0 +1,23 @@
+# Configuration for derbynet-cloud-sync.service.
+# Edit on the Pi (it's per-host config) or rebuild the image to change defaults.
+
+# VPS hostname. Must resolve via the Pi's upstream DNS.
+CLOUD_HOST=uisp.darketech.ca
+
+# SSH user on the VPS. Authorized_keys entry on the VPS side is
+# command-restricted to only allow the receiver wrapper.
+CLOUD_USER=claude
+
+# Destination path on the VPS. derbynet-stats-gen mounts the parent dir
+# read-only and reads derbynet.sqlite3 every 30 s.
+CLOUD_DB_PATH=/opt/derbynet/production/data/derbynet.sqlite3
+
+# Fleet ed25519 private key, baked into the image at build time from the
+# CLOUD_SYNC_PRIVATE_KEY GitHub Action secret. Same key on every Pi.
+SYNC_KEY=/etc/derbynet/cloud-sync-key
+
+# Pinned known_hosts (no TOFU). Committed to the repo; safe to publish.
+SYNC_KNOWN_HOSTS=/etc/derbynet/cloud-sync-known_hosts
+
+# Failure-streak counter; lives on tmpfs (cleared on reboot).
+STATE_FILE=/run/derbynet-cloud-sync.state
