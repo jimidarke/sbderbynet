@@ -173,4 +173,18 @@ done
 echo 'derbynet ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010_derbynet-nopasswd
 chmod 0440 /etc/sudoers.d/010_derbynet-nopasswd
 
+# ---------------------------------------------------------------------------
+# 11. Bake the derby-fleet authorized_keys so the image is reachable on first
+#     boot without a userconf.txt dance. Private half lives in
+#     SECURE/keys/derby/derby_fleet_ed25519 (gitignored).
+# ---------------------------------------------------------------------------
+SRC_KEY="${BUILD_CTX:-/build-context}/extras/imaging/_common/authorized_keys"
+if [[ -f "$SRC_KEY" ]]; then
+    install -d -m 0700 -o derbynet -g derbynet /home/derbynet/.ssh
+    install -m 0600 -o derbynet -g derbynet "$SRC_KEY" /home/derbynet/.ssh/authorized_keys
+    echo "[derby-common] installed authorized_keys for derbynet"
+else
+    echo "[derby-common] WARNING: $SRC_KEY missing — image will be unreachable until userconf.txt is supplied"
+fi
+
 echo "[derby-common] done role=$ROLE"

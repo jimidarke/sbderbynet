@@ -1,0 +1,10 @@
+# Baked into /home/derbynet/.ssh/authorized_keys on every derby-fleet image
+# (derbypi, finishtimer, derbydisplay) by _common/customize.sh.
+#
+# Private half lives in SECURE/keys/derby/derby_fleet_ed25519 (gitignored).
+# Rotate by:
+#   1. ssh-keygen new pair, replace this file + SECURE/ private
+#   2. Push -> CI rebuilds all three images
+#   3. Reflash or `cat new.pub >> ~derbynet/.ssh/authorized_keys` on each live Pi
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINe/fwyEFafa90Hoa9alFmmlsgB+eKXwXMyat5OykjNr derby-fleet 2026-05-20
