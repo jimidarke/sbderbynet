@@ -1,5 +1,15 @@
 # Public Spectator Pages — Operator Runbook
 
+> **Active token (do NOT rotate until 2026-06-22):**
+> `bea32bfcdd26bedf8303cc33`
+>
+> This is the auto-minted token from the first deploy. The QR has already
+> been distributed to spectators during testing and they've been showing
+> it off; rotating mid-event would invalidate every scan they've taken.
+> Keep stable through race day on 2026-06-21 + the day after for any
+> lingering "what was that URL?" lookups. Rotate after June 22 if the
+> next event wants a fresh one.
+
 Two prerendered HTML pages served from the cloud-twin, behind an obfuscated
 token URL. Designed for race-day spectators viewing on phones via QR code.
 

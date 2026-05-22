@@ -29,7 +29,11 @@ DB_MTIME="(missing)"
 # Helper: run a single SQL statement, return TSV. Empty on missing DB.
 sql() {
     if [ ! -f "$DB" ]; then return 0; fi
-    sqlite3 -separator "	" -readonly "$DB" "$1" 2>/dev/null || return 1
+    # Open via URI with immutable=1 so SQLite skips WAL/SHM sidecar probing.
+    # The bind-mount is RO and the Pi pushes WAL-mode DBs; without immutable
+    # we get SQLITE_CANTOPEN (14) on every query. Safe because cloud-sync
+    # replaces the file atomically — we're only ever reading a stable snapshot.
+    sqlite3 -separator "	" "file:${DB}?immutable=1" "$1" 2>/dev/null || return 1
 }
 
 # Helper: escape <, >, & for safe HTML interpolation.
@@ -56,14 +60,21 @@ EOF
 fi
 
 # ---- 2. Round metadata -------------------------------------------------------
+# Join Classes so the header chip can read e.g. "Ages 6-8, 1 Preliminary"
+# instead of just the round name.
+CLASS_NAME=""
 ROUND_NAME=""
 ROUND_NUM=""
 if [ -n "$ROUND_ID" ] && [ "$ROUND_ID" != "0" ]; then
-    while IFS='	' read -r n num _; do
-        ROUND_NAME="$n"
-        ROUND_NUM="$num"
+    while IFS='	' read -r cls rname rnum; do
+        CLASS_NAME="$cls"
+        ROUND_NAME="$rname"
+        ROUND_NUM="$rnum"
     done <<EOF
-$(sql "SELECT COALESCE(roundname,''), round, classid FROM Rounds WHERE roundid = $ROUND_ID;" || true)
+$(sql "SELECT COALESCE(c.class,''), COALESCE(r.roundname,''), r.round
+         FROM Rounds r
+         LEFT JOIN Classes c ON r.classid = c.classid
+        WHERE r.roundid = $ROUND_ID;" || true)
 EOF
 fi
 
@@ -72,6 +83,11 @@ if [ -n "$ROUND_NAME" ]; then
     ROUND_DISPLAY="$(esc "$ROUND_NAME")"
 elif [ -n "$ROUND_NUM" ]; then
     ROUND_DISPLAY="Round $(esc "$ROUND_NUM")"
+fi
+if [ -n "$CLASS_NAME" ] && [ -n "$ROUND_DISPLAY" ]; then
+    ROUND_DISPLAY="$(esc "$CLASS_NAME"), $ROUND_DISPLAY"
+elif [ -n "$CLASS_NAME" ]; then
+    ROUND_DISPLAY="$(esc "$CLASS_NAME")"
 fi
 
 # ---- 3. Schedule rows for current round --------------------------------------
@@ -97,9 +113,19 @@ else
         | awk -F'\t' -v now="${HEAT_NOW:-0}" '
             {
                 heat=$1; lane=$2; pinny=$3; t=$4; place=$5; done=$6;
+                # Zero-pad pinny to 4 digits ("9" -> "0009") so spectators
+                # can find their kid with the browsers Ctrl+F at a glance.
+                pinny_display = (pinny == "" ? "----" : sprintf("%04d", pinny));
                 if (done == 1) {
                     status="done";
-                    label = (place != "" ? "#" place : "");
+                    # Medal emoji for top-3 finishers — matches recent.html
+                    # visual treatment so finished rows on the schedule are
+                    # instantly recognizable.
+                    if (place == "1")      medal = "🥇 ";
+                    else if (place == "2") medal = "🥈 ";
+                    else if (place == "3") medal = "🥉 ";
+                    else                   medal = "";
+                    label = (place != "" ? medal "#" place : "");
                     timecell = (t != "" ? sprintf("%.3fs", t) : "");
                 } else if (heat == now) {
                     status="now";
@@ -111,7 +137,7 @@ else
                     timecell = "";
                 }
                 printf "<tr class=\"%s\"><td class=\"h\">%s</td><td class=\"l\">%s</td><td class=\"p\">%s</td><td class=\"r\">%s</td><td class=\"t\">%s</td></tr>\n",
-                       status, heat, lane, pinny, label, timecell;
+                       status, heat, lane, pinny_display, label, timecell;
             }'
     )
     if [ -z "$SCHEDULE_ROWS" ]; then
@@ -146,10 +172,12 @@ if [ -n "$ROUND_ID" ] && [ "$ROUND_ID" != "0" ]; then
                 | awk -F'\t' '
                     {
                         lane=$1; pinny=$2; place=$3; t=$4;
+                        # Zero-pad pinny to 4 digits ("9" -> "0009"); see schedule note.
+                        pinny_display = (pinny == "" ? "----" : sprintf("%04d", pinny));
                         placecell = (place != "" ? "#" place : "—");
                         timecell  = (t != "" ? sprintf("%.3fs", t) : "—");
                         printf "<tr><td class=\"r\">%s</td><td class=\"l\">%s</td><td class=\"p\">%s</td><td class=\"t\">%s</td></tr>\n",
-                               placecell, lane, pinny, timecell;
+                               placecell, lane, pinny_display, timecell;
                     }'
             )
             RECENT_BODY="${RECENT_BODY}<section class=\"heat\"><h3>Heat ${h}</h3><table class=\"recent\"><thead><tr><th>Place</th><th>Lane</th><th>Pinny</th><th>Time</th></tr></thead><tbody>${ROWS}</tbody></table></section>"

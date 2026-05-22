@@ -13,9 +13,10 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      # Caddyfile uses {$CADDY_HOST}. Defaults to uisp.darketech.ca; override
-      # in installer/docker-cloud/.env when deploying to a different host.
-      - CADDY_HOST=${CADDY_HOST:-uisp.darketech.ca}
+      # Caddyfile uses {$CADDY_HOST}. Defaults to soapboxderbynet.com (the
+      # primary public host as of 2026-05-21 DNS update). Override in
+      # installer/docker-cloud/.env when deploying to a different host.
+      - CADDY_HOST=${CADDY_HOST:-soapboxderbynet.com}
       # Spectator-page site block reads these. LIVE_STATS_HOST is the public
       # FQDN for the noindexed static spectator pages; LIVE_STATS_TOKEN is the
       # random path component that gates access. Empty token disables the

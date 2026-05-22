@@ -4,11 +4,14 @@
 # and serves HTTPS on 443 (with HTTP→HTTPS redirect on 80). Requires both
 # 80 and 443 to be reachable from the public internet.
 #
+# Primary public host is soapboxderbynet.com. The UISP container stack on
+# the same VPS is kept isolated (siloed via `derbyvps.sh restore-uisp` when
+# needed) — Caddy here serves only DerbyNet content, no UISP routing.
+#
 # Override the hostname via the CADDY_HOST env var if you ever move this
-# stack to a different domain (e.g. when the feature branch lands on master
-# and CI takes over).
+# stack to a different domain.
 
-{$CADDY_HOST:uisp.darketech.ca} {
+{$CADDY_HOST:soapboxderbynet.com} {
 	encode gzip
 
 	# Strip internal-only headers from any inbound external request. These
