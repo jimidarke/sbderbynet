@@ -19,5 +19,7 @@ SYNC_KEY=/etc/derbynet/cloud-sync-key
 # Pinned known_hosts (no TOFU). Committed to the repo; safe to publish.
 SYNC_KNOWN_HOSTS=/etc/derbynet/cloud-sync-known_hosts
 
-# Failure-streak counter; lives on tmpfs (cleared on reboot).
-STATE_FILE=/run/derbynet-cloud-sync.state
+# Failure-streak counter; lives on tmpfs (cleared on reboot). The service
+# unit declares RuntimeDirectory=derbynet-cloud-sync so this dir exists and
+# is owned by the derbynet user before each ExecStart.
+STATE_FILE=/run/derbynet-cloud-sync/state

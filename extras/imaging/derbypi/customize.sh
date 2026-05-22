@@ -193,4 +193,14 @@ fi
 chmod 0644 /etc/derbynet/cloud-sync-known_hosts
 chown root:root /etc/derbynet/cloud-sync-known_hosts
 
+# Force the static /etc/resolv.conf to be used even if systemd ships a
+# symlink to systemd-resolved's stub (which isn't installed on Pi OS Lite).
+# Without this, name resolution fails and cloud-sync + NTP both break.
+if [ -L /etc/resolv.conf ]; then
+    rm -f /etc/resolv.conf
+fi
+# (The actual contents come from extras/imaging/derbypi/rootfs/etc/resolv.conf
+# which the rsync step at the top of the build already laid down.)
+chmod 0644 /etc/resolv.conf
+
 echo "[derbypi] customize complete"

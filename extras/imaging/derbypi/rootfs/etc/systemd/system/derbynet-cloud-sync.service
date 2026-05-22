@@ -18,6 +18,12 @@ StandardError=journal
 # Low-priority — must never compete with the race-server.
 Nice=19
 IOSchedulingClass=idle
+# Give the service its own writable spot under /run for the failure-streak
+# counter (the derbynet user can't write to bare /run/). systemd creates
+# /run/derbynet-cloud-sync/ owned by the service user on each start, and
+# tears it down on stop. cloud-sync.sh's STATE_FILE default points here.
+RuntimeDirectory=derbynet-cloud-sync
+RuntimeDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target

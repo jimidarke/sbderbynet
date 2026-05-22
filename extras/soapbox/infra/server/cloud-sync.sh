@@ -35,7 +35,7 @@ CLOUD_USER="${CLOUD_USER:-claude}"
 CLOUD_DB_PATH="${CLOUD_DB_PATH:-/opt/derbynet/production/data/derbynet.sqlite3}"
 SYNC_KEY="${SYNC_KEY:-/etc/derbynet/cloud-sync-key}"
 SYNC_KNOWN_HOSTS="${SYNC_KNOWN_HOSTS:-/etc/derbynet/cloud-sync-known_hosts}"
-STATE_FILE="${STATE_FILE:-/run/derbynet-cloud-sync.state}"
+STATE_FILE="${STATE_FILE:-/run/derbynet-cloud-sync/state}"
 TEMP_BACKUP="$(mktemp -t derbynet-cloud-sync.sqlite3.XXXXXX)"
 TEMP_SENTINEL="$(mktemp -t derbynet-cloud-readonly.txt.XXXXXX)"
 
