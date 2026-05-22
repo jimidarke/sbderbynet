@@ -16,11 +16,10 @@
 | If the dead Pi is… | Flash this image | Card label |
 |--------------------|------------------|------------|
 | The **central server** (one box, ethernet, RTC chip) | `sbderbynet-derbypi-…img.xz` | RED |
-| A **finish-line timer** — **Pi Zero 2 W** (newer, smaller text on the board says "Pi Zero 2 W") | `sbderbynet-finishtimer-arm64-…img.xz` | YELLOW |
-| A **finish-line timer** — **Pi Zero W V1.1** (older, board says "Pi Zero W V1.1") | `sbderbynet-finishtimer-armhf-…img.xz` | YELLOW |
+| A **finish-line timer** (Pi Zero W V1.1, all 4 lanes use the same image) | `sbderbynet-finishtimer-…img.xz` | YELLOW |
 | A **kiosk / TV display** | `sbderbynet-derbydisplay-…img.xz` | GREEN |
 
-⚠️ **Finishtimer image choice is hardware-specific.** The arm64 image will not boot a Pi Zero W V1.1 (you'll get a black screen / no LEDs). The armhf image will boot either, but only use it for the Zero W V1.1 — the 2 W is faster on arm64. If you can't tell which board you have, flip it over: the V1.1 has a smaller silver square chip (BCM2835); the 2 W has a larger black square chip (BCM2710).
+ℹ️ All finishtimers are Pi Zero W V1.1 boards (board says "Pi Zero W V1.1"). The image is armhf-only because the BCM2835 chip cannot run a 64-bit kernel. There is no Pi Zero 2 W variant — older arm64 finishtimer cards were retired 2026-05.
 
 ## 2 — Flash with Pi Imager (Windows)
 

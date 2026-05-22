@@ -1,7 +1,7 @@
 #!/bin/bash
 # extras/imaging/finishtimer/customize.sh
 #
-# Bakes the Pi Zero 2 W finishtimer image:
+# Bakes the Pi Zero W V1.1 finishtimer image (armhf; BCM2835/ARMv6):
 #   - WiFi-only (no Ethernet), wpa_supplicant rendered from CI secrets
 #   - Snapshot of /opt/derbynet/ for first-boot offline operation
 #   - derby-pull.service refreshes from central rsync on every boot
@@ -34,8 +34,8 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     wireless-tools
 
 # tm1637 (7-segment LED driver) is not in Debian apt — PyPI package name is
-# raspberrypi-tm1637. Pure-Python, no C extensions, so the chroot install
-# works on both arm64 and armhf without per-arch wheels.
+# raspberrypi-tm1637. Pure-Python, no C extensions, so the armhf chroot
+# install needs no per-arch wheel.
 pip3 install --break-system-packages --no-cache-dir raspberrypi-tm1637
 
 # Enable I2C bus — required for the MCP3421 ADC (battery monitoring) and any

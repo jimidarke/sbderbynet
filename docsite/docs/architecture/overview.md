@@ -19,7 +19,7 @@ A **cloud twin** mirrors the Pi for rehearsal and audience-facing replay.
 | Web App | Pi 4/5 | `192.168.100.10:80` | HTTP (browser), SQLite (local), MQTT (subscribe) |
 | Race Server | Pi 4/5 (same box) | localhost daemon | MQTT (broker), HTTP→PHP, direct SQLite |
 | MQTT Broker | Mosquitto on race Pi | `192.168.100.10:1883` | — |
-| Finish Timers (×3) | Pi Zero 2W | `192.168.100.21–23` | MQTT |
+| Finish Timers (×3) | Pi Zero W V1.1 | `192.168.100.21–23` | MQTT |
 | Start Timer | ESP32 | DHCP on race subnet | MQTT (over WiFi) |
 | Derby Display kiosks | Pi 4 + HDMI | DHCP | MQTT, HTTP (browser to PHP) |
 | LED Signs | ESP32 + BetaBrite | DHCP | MQTT (config), HTTP (discovery) |

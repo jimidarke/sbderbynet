@@ -5,8 +5,8 @@
     "url": "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2026-04-21/2026-04-21-raspios-trixie-arm64-lite.img.xz",
     "sha256": "4cd31df026fd82243805a326dc0cafd7383f7e3d30c9413e7044d507aae281e2",
     "filename": "2026-04-21-raspios-trixie-arm64-lite.img.xz",
-    "for_roles": ["derbypi", "finishtimer", "derbydisplay"],
-    "comment": "Pi 3 B+ (derbypi, derbydisplay) and Pi Zero 2 W (finishtimer-arm64). BCM2710 / BCM2711 / BCM2712. ARMv8."
+    "for_roles": ["derbypi", "derbydisplay"],
+    "comment": "Pi 3 B+ (derbypi, derbydisplay). BCM2711 / BCM2837. ARMv8."
   },
   "armhf": {
     "version": "2026-04-21",
@@ -14,7 +14,7 @@
     "sha256": "f393b8bc3fc49aef49ddc5d5af124333002f34e4b23ede439789145e5280d210",
     "filename": "2026-04-21-raspios-trixie-armhf-lite.img.xz",
     "for_roles": ["finishtimer"],
-    "comment": "Pi Zero W V1.1 (finishtimer-armhf). BCM2835 / BCM2837. ARMv6+VFP. Only ever used for the legacy Pi Zero W finishtimers; new hardware uses arm64."
+    "comment": "Pi Zero W V1.1 (finishtimer). BCM2835 / ARMv6+VFP. The fleet is standardized on V1.1 boards; the Pi Zero 2 W arm64 variant was retired 2026-05."
   },
   "release_notes": "https://downloads.raspberrypi.com/raspios_lite_arm64/release_notes.txt"
 }

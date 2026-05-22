@@ -27,13 +27,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Each build is (role, arch). The armhf finishtimer variant exists
-        # because the original Pi Zero W (BCM2835 / ARMv6) can't boot the
-        # arm64 image. derbypi + derbydisplay are arm64-only.
+        # Each build is (role, arch). All three production hardware classes
+        # are pinned to a single arch:
+        #   - derbypi + derbydisplay: Pi 3 B+ → arm64
+        #   - finishtimer: Pi Zero W V1.1 → armhf (BCM2835 / ARMv6, can't boot
+        #     arm64). The fleet is standardized on V1.1 boards; the Pi Zero 2 W
+        #     arm64 finishtimer build was retired 2026-05.
         include:
           - role: derbypi
-            arch: arm64
-          - role: finishtimer
             arch: arm64
           - role: finishtimer
             arch: armhf
@@ -101,14 +102,8 @@ jobs:
       - name: Compute artifact basename
         id: name
         run: |
-          # finishtimer ships in two arch variants — include the arch in the
-          # filename so operators don't confuse them. derbypi + derbydisplay
-          # only have one arch each, so they keep the cleaner name.
-          if [[ "${{ matrix.role }}" == "finishtimer" ]]; then
-            echo "stem=sbderbynet-${{ matrix.role }}-${{ matrix.arch }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "stem=sbderbynet-${{ matrix.role }}" >> "$GITHUB_OUTPUT"
-          fi
+          # Single arch per role now — clean role-only filenames for all three.
+          echo "stem=sbderbynet-${{ matrix.role }}" >> "$GITHUB_OUTPUT"
 
       - name: Build ${{ matrix.role }}-${{ matrix.arch }} image
         id: build

@@ -1,6 +1,6 @@
 # Finish Timer
 
-Lane finish detection on a Raspberry Pi (Pi Zero 2W on race day). Toggle switch flips when the car crosses the finish line; the Pi publishes a timestamped event over MQTT, the race server records it.
+Lane finish detection on a Raspberry Pi (Pi Zero W V1.1 on race day, armhf image). Toggle switch flips when the car crosses the finish line; the Pi publishes a timestamped event over MQTT, the race server records it.
 
 One per lane. All three run identical firmware; lane is set by DIP switches on the board.
 
@@ -12,7 +12,7 @@ Lives at `extras/soapbox/infra/finishtimer/`. Python 3 + RPi.GPIO. Runs as `fini
 
 DerbyNet PCB v1 with:
 
-- Raspberry Pi (Zero 2W in production)
+- Raspberry Pi (Zero W V1.1 in production)
 - Physical toggle switch on the finish line
 - RGB LED for status feedback
 - 4-digit 7-segment display

@@ -12,9 +12,9 @@ Race-day operations run on a deliberately isolated subnet. No internet required,
 |---|---|---|
 | `192.168.100.1` | router/AP | DHCP, gateway (gateway is venue-dependent / often unused) |
 | `192.168.100.10` | **DerbyPi** (race server) | PHP, SQLite, Mosquitto broker, race-server daemon, NTP source |
-| `192.168.100.21` | finishtimer Lane 1 | Pi Zero 2W |
-| `192.168.100.22` | finishtimer Lane 2 | Pi Zero 2W |
-| `192.168.100.23` | finishtimer Lane 3 | Pi Zero 2W |
+| `192.168.100.21` | finishtimer Lane 1 | Pi Zero W V1.1 |
+| `192.168.100.22` | finishtimer Lane 2 | Pi Zero W V1.1 |
+| `192.168.100.23` | finishtimer Lane 3 | Pi Zero W V1.1 |
 | DHCP range | start timer (ESP32), kiosk displays, LED signs, HLS feed box, operator laptops/tablets | |
 
 The MQTT broker on `.10:1883` is the rendezvous for everything device-side. Devices retry with exponential backoff on disconnect and queue messages locally during outages.
