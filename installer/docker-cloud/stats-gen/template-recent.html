@@ -21,6 +21,8 @@
     --silver: #9aa3ad;
     --bronze: #c97d3b;
     --podium-shadow: rgba(245,179,1,.18);
+    --now-bg: #fff2c7;
+    --now-edge: #f4a300;
   }
   * { box-sizing: border-box; }
   html, body { background: var(--bg); }
@@ -48,12 +50,13 @@
     color: var(--accent-deep);
   }
   .meta {
-    margin-top: 4px;
+    margin-top: 6px;
     font-size: .95rem;
     color: var(--ink-mute);
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 12px;
+    align-items: center;
+    gap: 8px 12px;
   }
   .meta .round-chip {
     background: var(--accent);
@@ -63,7 +66,26 @@
     font-weight: 600;
     font-size: .85rem;
   }
-  .meta .heat-now { font-weight: 600; color: var(--ink); }
+  .heat-now-big {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    background: var(--now-bg);
+    border: 2px solid var(--now-edge);
+    color: var(--ink);
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .heat-now-big .num {
+    font-size: 1.9rem;
+    color: var(--accent-deep);
+    letter-spacing: .01em;
+  }
   nav {
     display: flex;
     gap: 8px;
@@ -174,6 +196,8 @@
     body { padding: 10px 8px 24px; }
     h1 { font-size: 1.2rem; }
     table.recent td.p { font-size: 1.25rem; }
+    .heat-now-big { font-size: .95rem; padding: 5px 10px; }
+    .heat-now-big .num { font-size: 1.55rem; }
   }
 </style>
 </head>
@@ -182,14 +206,15 @@
   <h1>🏆 Recent Results</h1>
   <div class="meta">
     <span class="round-chip">{{ROUND}}</span>
-    <span class="heat-now">Now on heat {{HEAT_NOW}}</span>
+    <span class="heat-now-big">Heat <span class="num">{{HEAT_NOW}}</span></span>
   </div>
 </header>
 <nav>
   <a href="schedule.html">Schedule</a>
   <a aria-current="page" href="recent.html">Recent results</a>
+  <a href="myraces.html">My Races</a>
 </nav>
 __STATSGEN_PAYLOAD__
-<footer><span class="refresh-dot"></span>Updated {{UPDATED}} · last 3 completed heats · refreshes every 30 s</footer>
+<footer><span class="refresh-dot"></span>Updated {{UPDATED}} · most recent completed heats · refreshes every 30 s</footer>
 </body>
 </html>

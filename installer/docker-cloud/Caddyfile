@@ -77,10 +77,22 @@
 	# instead of accidentally exposing files under //*.
 	handle_path /{$LIVE_STATS_TOKEN:__no_token_set__}/* {
 		root * /srv/public-stats/current
-		file_server
 		header Cache-Control "public, max-age=20, stale-while-revalidate=40"
 		header X-Robots-Tag "noindex, nofollow"
 		header Referrer-Policy "no-referrer"
+
+		# /me/<pinny>.html lookups: if the specific file isn't there (unknown
+		# or non-racing pinny), fall through to the friendly notfound page
+		# instead of Caddy's generic 404. stats-gen writes me/notfound.html
+		# on every render so it's always present.
+		@me_paths path /me/*.html
+		handle @me_paths {
+			try_files {path} /me/notfound.html
+			file_server
+		}
+
+		# All other token-gated paths: plain file_server, 404 for misses.
+		file_server
 	}
 
 	# Everything else (bare host, wrong token, probing) returns a flat 404.

@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#ff7a18">
+<title>My Races — {{ROUND}}</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #fffaf2;
+    --card: #ffffff;
+    --ink: #1f2937;
+    --ink-mute: #5b6473;
+    --rule: #ffe0bf;
+    --accent: #ff7a18;
+    --accent-deep: #d8580a;
+    --key-bg: #ffffff;
+    --key-press: #ffe7cf;
+    --key-edge: #f0b87a;
+    --now-bg: #fff2c7;
+    --now-edge: #f4a300;
+  }
+  * { box-sizing: border-box; }
+  html, body { background: var(--bg); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    margin: 0;
+    padding: 14px 12px 32px;
+    max-width: 480px;
+    margin-inline: auto;
+    -webkit-text-size-adjust: 100%;
+    line-height: 1.35;
+  }
+  header {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 14px rgba(255,122,24,.10);
+    border-top: 4px solid var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-size: 1.35rem;
+    margin: 0;
+    color: var(--accent-deep);
+  }
+  .meta {
+    margin-top: 6px;
+    font-size: .95rem;
+    color: var(--ink-mute);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+  .meta .round-chip {
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: .85rem;
+  }
+  .heat-now-big {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    background: var(--now-bg);
+    border: 2px solid var(--now-edge);
+    color: var(--ink);
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 1.05rem;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .heat-now-big .num {
+    font-size: 1.9rem;
+    color: var(--accent-deep);
+    letter-spacing: .01em;
+  }
+  nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  nav a {
+    flex: 1;
+    text-align: center;
+    padding: 10px 12px;
+    background: var(--card);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04);
+    border: 2px solid transparent;
+  }
+  nav a[aria-current] {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent-deep);
+  }
+  .panel {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px 16px 20px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.05);
+  }
+  .prompt {
+    margin: 0 0 12px;
+    text-align: center;
+    font-size: 1rem;
+    color: var(--ink-mute);
+  }
+  .display {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 0 auto 18px;
+    max-width: 320px;
+  }
+  .display .cell {
+    aspect-ratio: 3 / 4;
+    border: 3px solid var(--rule);
+    border-radius: 12px;
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--accent-deep);
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .15s, background .15s;
+  }
+  .display .cell.filled {
+    border-color: var(--accent);
+    background: #fff7ee;
+  }
+  .display .cell.caret {
+    border-color: var(--accent-deep);
+    background: #fff2c7;
+    animation: caret-pulse 1s infinite;
+  }
+  @keyframes caret-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .55; }
+  }
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .keypad button {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 2px solid var(--key-edge);
+    background: var(--key-bg);
+    border-radius: 14px;
+    padding: 18px 0;
+    min-height: 64px;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    touch-action: manipulation;
+    user-select: none;
+  }
+  .keypad button:active {
+    background: var(--key-press);
+    transform: translateY(1px);
+  }
+  .keypad button[data-action="back"],
+  .keypad button[data-action="clear"] {
+    font-size: 1rem;
+    color: var(--accent-deep);
+    background: #fff6ea;
+  }
+  .panel.disabled .keypad button {
+    opacity: .45;
+    pointer-events: none;
+  }
+  .status {
+    margin: 14px 0 0;
+    min-height: 1.2em;
+    text-align: center;
+    font-size: .95rem;
+    color: var(--ink-mute);
+  }
+  .status.loading {
+    color: var(--accent-deep);
+    font-weight: 600;
+  }
+  footer {
+    margin-top: 14px;
+    font-size: .8rem;
+    color: var(--ink-mute);
+    text-align: center;
+  }
+  @media (max-width: 380px) {
+    body { padding: 10px 8px 24px; }
+    h1 { font-size: 1.2rem; }
+    .display .cell { font-size: 2.4rem; }
+    .keypad button { font-size: 1.55rem; min-height: 56px; padding: 14px 0; }
+    .heat-now-big { font-size: .95rem; padding: 5px 10px; }
+    .heat-now-big .num { font-size: 1.55rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏎️ My Races</h1>
+  <div class="meta">
+    <span class="round-chip">{{ROUND}}</span>
+    <span class="heat-now-big">Heat <span class="num">{{HEAT_NOW}}</span></span>
+  </div>
+</header>
+<nav>
+  <a href="schedule.html">Schedule</a>
+  <a href="recent.html">Recent results</a>
+  <a aria-current="page" href="myraces.html">My Races</a>
+</nav>
+<div class="panel" id="panel">
+  <p class="prompt">Enter your 4-digit pinny number</p>
+  <div class="display" id="display" aria-live="polite">
+    <div class="cell caret" data-i="0">–</div>
+    <div class="cell" data-i="1">–</div>
+    <div class="cell" data-i="2">–</div>
+    <div class="cell" data-i="3">–</div>
+  </div>
+  <div class="keypad" id="keypad">
+    <button type="button" data-digit="1">1</button>
+    <button type="button" data-digit="2">2</button>
+    <button type="button" data-digit="3">3</button>
+    <button type="button" data-digit="4">4</button>
+    <button type="button" data-digit="5">5</button>
+    <button type="button" data-digit="6">6</button>
+    <button type="button" data-digit="7">7</button>
+    <button type="button" data-digit="8">8</button>
+    <button type="button" data-digit="9">9</button>
+    <button type="button" data-action="back">⌫ Back</button>
+    <button type="button" data-digit="0">0</button>
+    <button type="button" data-action="clear">Clear</button>
+  </div>
+  <p class="status" id="status"></p>
+</div>
+<footer>Look up your racer's heats in the current round.</footer>
+<script>
+(function () {
+  var buf = '';
+  var locked = false;
+  var cells = Array.prototype.slice.call(document.querySelectorAll('#display .cell'));
+  var panel = document.getElementById('panel');
+  var status = document.getElementById('status');
+
+  function render() {
+    for (var i = 0; i < 4; i++) {
+      var c = cells[i];
+      c.classList.remove('caret', 'filled');
+      if (i < buf.length) {
+        c.textContent = buf.charAt(i);
+        c.classList.add('filled');
+      } else {
+        c.textContent = '–';
+        if (i === buf.length) c.classList.add('caret');
+      }
+    }
+  }
+
+  function navigate() {
+    if (locked) return;
+    locked = true;
+    panel.classList.add('disabled');
+    status.textContent = 'Loading…';
+    status.classList.add('loading');
+    // Small debounce so the 4th digit is visible before navigation kicks in.
+    setTimeout(function () {
+      window.location.href = 'me/' + buf + '.html';
+    }, 300);
+  }
+
+  document.getElementById('keypad').addEventListener('click', function (ev) {
+    if (locked) return;
+    var btn = ev.target.closest('button');
+    if (!btn) return;
+    var digit = btn.getAttribute('data-digit');
+    var action = btn.getAttribute('data-action');
+    if (digit !== null) {
+      if (buf.length >= 4) return;
+      buf += digit;
+      render();
+      if (buf.length === 4) navigate();
+    } else if (action === 'back') {
+      if (buf.length === 0) return;
+      buf = buf.slice(0, -1);
+      status.textContent = '';
+      status.classList.remove('loading');
+      render();
+    } else if (action === 'clear') {
+      buf = '';
+      status.textContent = '';
+      status.classList.remove('loading');
+      render();
+    }
+  });
+
+  // Allow hardware keyboards too (useful for desktop debugging).
+  document.addEventListener('keydown', function (ev) {
+    if (locked) return;
+    if (ev.key >= '0' && ev.key <= '9') {
+      if (buf.length >= 4) return;
+      buf += ev.key;
+      render();
+      if (buf.length === 4) navigate();
+    } else if (ev.key === 'Backspace') {
+      if (buf.length === 0) return;
+      buf = buf.slice(0, -1);
+      status.textContent = '';
+      status.classList.remove('loading');
+      render();
+    }
+  });
+})();
+</script>
+</body>
+</html>

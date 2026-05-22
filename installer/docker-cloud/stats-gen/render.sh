@@ -41,6 +41,15 @@ esc() {
     printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
 }
 
+# Helper: escape characters that have special meaning in a sed replacement
+# string — backslash, the '|' delimiter we use, and '&' (the match back-ref).
+# Without this, an HTML-escaped value like "A&amp;B" coming back through
+# `s|{{KEY}}|...&amp;...|` would expand the '&' to the matched LHS instead
+# of staying literal.
+sed_subst_escape() {
+    printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+}
+
 # ---- 1. Current racing state -------------------------------------------------
 ROUND_ID=""
 HEAT_NOW=""
@@ -111,11 +120,20 @@ else
               WHERE rc.roundid = $ROUND_ID
               ORDER BY rc.heat, rc.lane;" 2>/dev/null \
         | awk -F'\t' -v now="${HEAT_NOW:-0}" '
+            BEGIN { prev_heat = "" }
             {
                 heat=$1; lane=$2; pinny=$3; t=$4; place=$5; done=$6;
+                # Trim history: once racing is underway, hide heats older than
+                # the last two — keeps the schedule focused on "what is coming
+                # up" while preserving a couple of recent rows for context.
+                # If now is unset/0, fall through and show everything (pre-race).
+                if (now+0 > 0 && heat+0 < now+0 - 2) next;
                 # Zero-pad pinny to 4 digits ("9" -> "0009") so spectators
                 # can find their kid with the browsers Ctrl+F at a glance.
                 pinny_display = (pinny == "" ? "----" : sprintf("%04d", pinny));
+                # Darker separator line on the first row of each heat group.
+                sep = (prev_heat != "" && heat != prev_heat) ? " heat-sep" : "";
+                prev_heat = heat;
                 if (done == 1) {
                     status="done";
                     # Medal emoji for top-3 finishers — matches recent.html
@@ -126,7 +144,10 @@ else
                     else if (place == "3") medal = "🥉 ";
                     else                   medal = "";
                     label = (place != "" ? medal "#" place : "");
-                    timecell = (t != "" ? sprintf("%.3fs", t) : "");
+                    # Times are ~20s tracked to 0.1s; cap at 99.9 so a stray
+                    # timer-error 3-digit reading cannot blow the column width.
+                    tcap = (t+0 > 99.9 ? 99.9 : t+0);
+                    timecell = (t != "" ? sprintf("%.1fs", tcap) : "");
                 } else if (heat == now) {
                     status="now";
                     label = "← NOW";
@@ -136,8 +157,8 @@ else
                     label = "";
                     timecell = "";
                 }
-                printf "<tr class=\"%s\"><td class=\"h\">%s</td><td class=\"l\">%s</td><td class=\"p\">%s</td><td class=\"r\">%s</td><td class=\"t\">%s</td></tr>\n",
-                       status, heat, lane, pinny_display, label, timecell;
+                printf "<tr class=\"%s%s\"><td class=\"h\">%s</td><td class=\"l\">%s</td><td class=\"p\">%s</td><td class=\"r\">%s</td><td class=\"t\">%s</td></tr>\n",
+                       status, sep, heat, lane, pinny_display, label, timecell;
             }'
     )
     if [ -z "$SCHEDULE_ROWS" ]; then
@@ -147,7 +168,7 @@ fi
 
 SCHEDULE_BODY="${SCHEDULE_ROWS:-$SCHEDULE_PLACEHOLDER}"
 
-# ---- 4. Last 3 completed heats ----------------------------------------------
+# ---- 4. Most recent completed heats (current round) -------------------------
 RECENT_BODY=""
 if [ -n "$ROUND_ID" ] && [ "$ROUND_ID" != "0" ]; then
     HEATS=$(sql "SELECT heat FROM RaceChart
@@ -155,7 +176,7 @@ if [ -n "$ROUND_ID" ] && [ "$ROUND_ID" != "0" ]; then
                     AND completed IS NOT NULL AND completed != ''
                   GROUP BY heat
                   ORDER BY MAX(completed) DESC
-                  LIMIT 3;" 2>/dev/null || true)
+                  LIMIT 10;" 2>/dev/null || true)
 
     if [ -z "$HEATS" ]; then
         RECENT_BODY='<p class="empty">No completed heats yet.</p>'
@@ -175,7 +196,9 @@ if [ -n "$ROUND_ID" ] && [ "$ROUND_ID" != "0" ]; then
                         # Zero-pad pinny to 4 digits ("9" -> "0009"); see schedule note.
                         pinny_display = (pinny == "" ? "----" : sprintf("%04d", pinny));
                         placecell = (place != "" ? "#" place : "—");
-                        timecell  = (t != "" ? sprintf("%.3fs", t) : "—");
+                        # Times tracked to 0.1s, capped at 99.9 for column-width safety.
+                        tcap = (t+0 > 99.9 ? 99.9 : t+0);
+                        timecell  = (t != "" ? sprintf("%.1fs", tcap) : "—");
                         printf "<tr><td class=\"r\">%s</td><td class=\"l\">%s</td><td class=\"p\">%s</td><td class=\"t\">%s</td></tr>\n",
                                placecell, lane, pinny_display, timecell;
                     }'
@@ -187,7 +210,95 @@ else
     RECENT_BODY='<p class="empty">Awaiting race start.</p>'
 fi
 
-# ---- 5. Templating -----------------------------------------------------------
+# ---- 5. My Races: per-racer pages -------------------------------------------
+# For every pinny in the current round, pre-render a static HTML page at
+# me/<XXXX>.html. Spectators reach these by entering their 4-digit pinny on
+# the keypad page (template-myraces.html); the keypad navigates straight to
+# the pre-rendered URL. Unknown pinnies fall through to me/notfound.html via
+# Caddy try_files. This keeps the whole "My Races" surface static — no
+# dynamic backend, no rate-limit module needed.
+ME_DIR="$TMP_DIR/me"
+mkdir -p "$ME_DIR"
+
+if [ -n "$ROUND_ID" ] && [ "$ROUND_ID" != "0" ]; then
+    PINNIES=$(sql "SELECT DISTINCT reg.carnumber
+                     FROM RaceChart rc
+                     JOIN RegistrationInfo reg ON reg.racerid = rc.racerid
+                    WHERE rc.roundid = $ROUND_ID
+                      AND reg.carnumber IS NOT NULL
+                      AND reg.carnumber != ''
+                    ORDER BY reg.carnumber;" 2>/dev/null || true)
+
+    # Pre-escape the shared header values once per render — these don't change
+    # per racer and the sed substitution needs replacement-string escaping.
+    ROUND_SUB=$(sed_subst_escape "$ROUND_DISPLAY")
+    HEATNOW_SUB=$(sed_subst_escape "${HEAT_NOW:-—}")
+    UPDATED_SUB=$(sed_subst_escape "$GEN_AT")
+
+    # No names — pinny only. The per-racer pages are public, so the only
+    # racer identifier we expose is the carnumber (which is already visible
+    # on the car itself and on the schedule page).
+    for pinny in $PINNIES; do
+        p4=$(printf "%04d" "$pinny" 2>/dev/null || echo "$pinny")
+        PINNY_SUB=$(sed_subst_escape "$p4")
+
+        ROWS=$(
+            sql "SELECT rc.heat, rc.lane,
+                        COALESCE(rc.finishtime, ''),
+                        COALESCE(rc.finishplace, ''),
+                        CASE WHEN rc.completed IS NULL OR rc.completed = '' THEN 0 ELSE 1 END
+                   FROM RaceChart rc
+                   JOIN RegistrationInfo reg ON reg.racerid = rc.racerid
+                  WHERE rc.roundid = $ROUND_ID AND reg.carnumber = $pinny
+                  ORDER BY rc.heat;" 2>/dev/null \
+            | awk -F'\t' -v now="${HEAT_NOW:-0}" '
+                {
+                    heat=$1; lane=$2; t=$3; place=$4; done=$5;
+                    if (done == 1) {
+                        status="done";
+                        if (place == "1")      medal = "🥇 ";
+                        else if (place == "2") medal = "🥈 ";
+                        else if (place == "3") medal = "🥉 ";
+                        else                   medal = "";
+                        label = (place != "" ? medal "#" place : "finished");
+                        tcap = (t+0 > 99.9 ? 99.9 : t+0);
+                        timecell = (t != "" ? sprintf("%.1fs", tcap) : "—");
+                    } else if (now+0 > 0 && heat+0 == now+0) {
+                        status="now";
+                        label = "← NOW";
+                        timecell = "—";
+                    } else {
+                        status="up";
+                        label = "upcoming";
+                        timecell = "—";
+                    }
+                    printf "<tr class=\"%s\"><td class=\"h\">%s</td><td class=\"l\">%s</td><td class=\"r\">%s</td><td class=\"t\">%s</td></tr>\n",
+                           status, heat, lane, label, timecell;
+                }'
+        )
+        if [ -z "$ROWS" ]; then
+            ROWS='<tr><td colspan="4" class="empty">No heats scheduled.</td></tr>'
+        fi
+
+        me_payload="$TMP_DIR/.me_payload"
+        printf '%s\n' "$ROWS" > "$me_payload"
+
+        sed -e "s|{{ROUND}}|$ROUND_SUB|g" \
+            -e "s|{{HEAT_NOW}}|$HEATNOW_SUB|g" \
+            -e "s|{{UPDATED}}|$UPDATED_SUB|g" \
+            -e "s|{{PINNY}}|$PINNY_SUB|g" \
+            -e "/__STATSGEN_PAYLOAD__/{ r $me_payload" -e "d; }" \
+            "$SELF_DIR/template-me-detail.html" > "$ME_DIR/$p4.html"
+    done
+fi
+
+# Notfound page — rendered regardless of round state so the keypad's fallback
+# always lands somewhere friendly.
+NOTFOUND_ROUND=$(sed_subst_escape "${ROUND_DISPLAY:-—}")
+sed -e "s|{{ROUND}}|$NOTFOUND_ROUND|g" \
+    "$SELF_DIR/template-me-notfound.html" > "$ME_DIR/notfound.html"
+
+# ---- 6. Templating -----------------------------------------------------------
 # Sub-marker so sed never sees the payload bytes.
 SUB_MARK="__STATSGEN_PAYLOAD__"
 
@@ -202,29 +313,52 @@ render_template() {
     payload_file="$TMP_DIR/.payload"
     printf '%s\n' "$payload" > "$payload_file"
 
-    sed -e "s|{{ROUND}}|$ROUND_DISPLAY|g" \
-        -e "s|{{HEAT_NOW}}|${HEAT_NOW:-—}|g" \
-        -e "s|{{STATE}}|${STATE:-0}|g" \
-        -e "s|{{UPDATED}}|$GEN_AT|g" \
+    # Sed-escape the simple replacement strings — values like a class name
+    # containing `&` would otherwise be re-expanded by sed's `&` back-ref.
+    round_sub=$(sed_subst_escape "$ROUND_DISPLAY")
+    heatnow_sub=$(sed_subst_escape "${HEAT_NOW:-—}")
+    state_sub=$(sed_subst_escape "${STATE:-0}")
+    updated_sub=$(sed_subst_escape "$GEN_AT")
+
+    sed -e "s|{{ROUND}}|$round_sub|g" \
+        -e "s|{{HEAT_NOW}}|$heatnow_sub|g" \
+        -e "s|{{STATE}}|$state_sub|g" \
+        -e "s|{{UPDATED}}|$updated_sub|g" \
         -e "/$SUB_MARK/{ r $payload_file" -e "d; }" \
         "$template" > "$out"
 }
 
+# The keypad page has no dynamic payload — feed it an empty body so the
+# __STATSGEN_PAYLOAD__ marker line is simply removed.
+EMPTY_BODY=""
+
 render_template "$SELF_DIR/template-schedule.html" "$TMP_DIR/schedule.html" SCHEDULE_BODY
 render_template "$SELF_DIR/template-recent.html"   "$TMP_DIR/recent.html"   RECENT_BODY
+render_template "$SELF_DIR/template-myraces.html"  "$TMP_DIR/myraces.html"  EMPTY_BODY
 
 # Generator-side health snapshot (no token leakage).
 cat > "$TMP_DIR/health.json" <<EOF
 {"generated_at":"$GEN_AT","round_id":"${ROUND_ID:-}","heat":"${HEAT_NOW:-}","state":"${STATE:-}","db_mtime":"$DB_MTIME"}
 EOF
 
-# ---- 6. Atomic publish -------------------------------------------------------
+# ---- 7. Atomic publish -------------------------------------------------------
 mkdir -p "$DEST_DIR"
 # Move the contents into place — DEST_DIR may already exist for the same token,
 # so swap files individually rather than the directory.
-for f in schedule.html recent.html health.json; do
+for f in schedule.html recent.html myraces.html health.json; do
     mv -f "$TMP_DIR/$f" "$DEST_DIR/$f"
 done
+
+# Swap the me/ directory atomically. Files in $ME_DIR were built in the same
+# tmp filesystem, so `mv` is a rename(2) (single atomic op for the directory).
+# We move the old one aside first so requests served between the two mvs
+# either see the previous set or 404 — never a half-written tree.
+if [ -d "$DEST_DIR/me" ]; then
+    rm -rf "$DEST_DIR/me.old"
+    mv "$DEST_DIR/me" "$DEST_DIR/me.old"
+fi
+mv "$ME_DIR" "$DEST_DIR/me"
+rm -rf "$DEST_DIR/me.old"
 
 # Point "current" at the active token (idempotent).
 ln -sfn "tokens/$TOKEN" "$OUT/current"

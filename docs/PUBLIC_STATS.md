@@ -10,27 +10,58 @@
 > lingering "what was that URL?" lookups. Rotate after June 22 if the
 > next event wants a fresh one.
 
-Two prerendered HTML pages served from the cloud-twin, behind an obfuscated
-token URL. Designed for race-day spectators viewing on phones via QR code.
+Three prerendered HTML surfaces served from the cloud-twin, behind an
+obfuscated token URL. Designed for race-day spectators viewing on phones via
+QR code.
 
-- **Schedule** — full lineup for the active round (heat #, lane #, pinny #,
-  with the current heat highlighted and finished heats showing place + time).
-- **Recent** — last 3 completed heats with placements and times.
+- **Schedule** — current + upcoming heats for the active round, plus the last
+  two completed heats for context. Heat number, lane, pinny, status, and
+  finish time per row, with a darker rule separating heat groups.
+- **Recent** — most recently completed heats (up to 10) with placements and
+  times, in card view.
+- **My Races** — keypad entry page where a spectator types their 4-digit
+  pinny and is routed to a pre-rendered per-racer page showing that racer's
+  heats in the current round.
 
 No personally identifiable data leaves the cloud — the generator only reads
-`carnumber` (pinny) from `RegistrationInfo`; first/last name fields are never
-touched. Pages refresh every ~30 s via an HTML `<meta refresh>`; no JS, no
-external assets.
+`carnumber` (pinny) from `RegistrationInfo`; first/last name fields are
+never emitted, including on the per-racer pages. The only racer identifier
+on any public-stats surface is the carnumber, which is already painted on
+the car itself and visible on the schedule page. Pages refresh every ~30 s
+via an HTML `<meta refresh>`; only the keypad page has any client-side JS
+(numeric input + navigate), no external assets, no XHR/fetch.
 
 ## URL shape
 
 ```
 https://live.soapboxderbynet.com/<TOKEN>/schedule.html
 https://live.soapboxderbynet.com/<TOKEN>/recent.html
+https://live.soapboxderbynet.com/<TOKEN>/myraces.html      ← keypad entry
+https://live.soapboxderbynet.com/<TOKEN>/me/<pinny>.html   ← per-racer detail
 ```
 
 `<TOKEN>` is a 24-hex-char random string. Wrong-token and bare-host requests
-return a flat 404 with no body content that hints the route exists.
+return a flat 404 with no body content that hints the route exists. An
+unknown pinny under `/me/*.html` falls through to a friendly "not racing in
+this round" page (via Caddy `try_files` → `me/notfound.html`).
+
+## Why no rate limiting on My Races
+
+The whole "My Races" surface is **pre-rendered every 30 s** — the keypad
+navigation just hits a static HTML file. There is no DB query per visitor,
+no fetch endpoint to abuse. Concrete properties:
+
+- Caddy serves each per-racer page from disk with
+  `Cache-Control: max-age=20, stale-while-revalidate=40`, so a packed venue
+  pounding refresh still costs ~1 file read per pinny per 20 s.
+- The keypad page has a 300 ms client-side debounce + input lock after the
+  4th digit, preventing accidental double-navigates.
+- Random guessing falls through to `me/notfound.html` — itself a static
+  cached file. No additional DB load, no information leak (all pinnies in
+  the round are already visible on schedule.html anyway).
+
+We deliberately do not run Caddy's rate-limit module here — there's no
+threat model that requires it.
 
 ## One-time prerequisites
 
@@ -197,7 +228,7 @@ run arbitrary commands, or touch the Pi.
 |-----------|------------------|--------|
 | Static page generator | `derbynet-stats-gen` | `installer/docker-cloud/Dockerfile.stats` + `stats-gen/*.sh` |
 | Renderer SQL queries | (same) | `stats-gen/render.sh` — reads RaceInfo, Rounds, RaceChart, RegistrationInfo |
-| HTML templates | (same) | `stats-gen/template-{schedule,recent}.html` |
+| HTML templates | (same) | `stats-gen/template-{schedule,recent,myraces,me-detail,me-notfound}.html` |
 | Public routing | `derbynet-caddy` | `installer/docker-cloud/Caddyfile` (`live.soapboxderbynet.com` block) |
 | Bind-mount | VPS host | `/opt/derbynet/production/public-stats/` |
 | Token store | VPS host | `installer/docker-cloud/.env` (`LIVE_STATS_TOKEN=…`) |

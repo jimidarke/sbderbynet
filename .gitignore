@@ -70,3 +70,4 @@ settings.jsonsw
 *.pyc
 *.log
 derbynet.sqlite3.claude/settings.local.json
+.claude/scheduled_tasks.lock
