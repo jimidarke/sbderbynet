@@ -1,6 +1,8 @@
 # DerbyPi
 
-One-command Ansible bootstrap for the race-day Raspberry Pi. Self-updating via `ansible-pull` every 30 minutes. **Native install — no Docker** on the Pi (Docker is reserved for the cloud twin).
+The race-day Raspberry Pi. **Native install — no Docker** on the Pi (Docker is reserved for the cloud twin).
+
+> **Race-day production deployment uses the SD-card image pipeline**, not the Ansible bootstrap documented below. Flash `sbderbynet-derbypi-<sha>.img.xz` from the latest CI build, edit `derbyid.txt`, boot — done in ~3 minutes. See the [SD-card recovery guide](https://github.com/jimidarke/sbderbynet/blob/master/docs/SD_CARD_RECOVERY.md) and [`extras/imaging/`](https://github.com/jimidarke/sbderbynet/tree/master/extras/imaging). The Ansible path below remains for developer use and one-off non-race deployments.
 
 Lives at `extras/derbypi/`. Ansible + Bash.
 

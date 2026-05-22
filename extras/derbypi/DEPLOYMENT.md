@@ -1,5 +1,9 @@
 # DerbyPi Deployment Guide
 
+> **SUPERSEDED for race-day deployment.** Production derbypi cards are now produced by the SD-card image pipeline — see [`docs/SD_CARD_RECOVERY.md`](../../docs/SD_CARD_RECOVERY.md) and [`extras/imaging/`](../imaging/). Flash `sbderbynet-derbypi-<sha>.img.xz`, edit `derbyid.txt`, boot. The baked image already includes everything documented below (Ansible runs at *build* time, not on the device).
+>
+> This guide remains useful as a developer reference and for one-off non-race deployments. The hardware prerequisites below are also out-of-date: actual race-day hardware is Pi 3 B+ (not Pi 4) — see [`docs/RACE_SYSTEM_AUDIT_2026-05.md`](../../docs/RACE_SYSTEM_AUDIT_2026-05.md).
+
 Step-by-step instructions for deploying a DerbyNet server on Raspberry Pi.
 
 ---
