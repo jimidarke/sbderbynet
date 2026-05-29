@@ -79,6 +79,17 @@ jobs:
             exit 1
           fi
 
+      - name: Sanity-check console password secret
+        # _common/customize.sh sets the break-glass console password for the
+        # derbynet account on EVERY role, so CONSOLE_PASSWORD is required for all.
+        env:
+          CONSOLE_PASSWORD: ${{ secrets.CONSOLE_PASSWORD }}
+        run: |
+          if [[ -z "$CONSOLE_PASSWORD" ]]; then
+            echo "::error::CONSOLE_PASSWORD repo secret must be set (break-glass console login baked into every image)."
+            exit 1
+          fi
+
       - name: Inject cloud-sync fleet key into derbypi rootfs
         if: matrix.role == 'derbypi'
         env:
@@ -116,11 +127,11 @@ jobs:
           shrink: true
           compress-with-xz: true
           cache: true
-          env-vars: ROLE,GIT_SHA,WIFI_SSID,WIFI_PASSWORD
+          env-vars: ROLE,GIT_SHA,WIFI_SSID,WIFI_PASSWORD,CONSOLE_PASSWORD
           run: |
             set -euxo pipefail
             BUILD_CTX=/mounted-github-repo
-            export BUILD_CTX GIT_SHA ROLE WIFI_SSID WIFI_PASSWORD
+            export BUILD_CTX GIT_SHA ROLE WIFI_SSID WIFI_PASSWORD CONSOLE_PASSWORD
 
             # 1. Stage rootfs trees (_common + role) into the image filesystem.
             #    Use -rltD --no-owner --no-group (everything from -a EXCEPT
@@ -141,6 +152,7 @@ jobs:
           GIT_SHA: ${{ github.sha }}
           WIFI_SSID: ${{ secrets.WIFI_SSID }}
           WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
+          CONSOLE_PASSWORD: ${{ secrets.CONSOLE_PASSWORD }}
 
       - name: Rename + checksum final artifact
         run: |

@@ -45,3 +45,34 @@ cat /etc/derby-role             # derbypi / finishtimer / derbydisplay
 cat /etc/derby-image-sha        # git SHA the image was built from
 cat /etc/derby-image-built-at   # ISO-8601 build timestamp
 ```
+
+## Boot troubleshooting (bench / recovery)
+
+### A finishtimer (Pi Zero W) that won't boot, reboots itself, or hangs on `systemd-networkd-wait-online`
+
+Before suspecting the image or WiFi, **check the power path — including HDMI.**
+
+- **HDMI parasitic power (confirmed 2026-05-29).** A monitor's HDMI cable connected to a Pi Zero W can back-feed enough parasitic current into the board to prevent it from powering down/up cleanly. Symptoms seen: card boots once fine, then on reboot it spontaneously resets, takes a very long time on the `systemd-networkd-wait-online.service` job, and never re-joins WiFi (so it looks "up" on the console but is unreachable on the LAN / silent on MQTT). **Fix: unplug the HDMI when power-cycling.** The Zero W only initialises HDMI output if the cable is present at power-on anyway, so for headless bench testing leave it disconnected and diagnose over SSH / the MQTT broker instead.
+- A flaky/under-spec 5V supply or a marginal USB cable produces the same class of symptoms. `vcgencmd get_throttled` (≠ `0x0`) flags under-voltage *if* you can reach a shell.
+
+### LED flash codes ≠ always the image
+A repeating green-ACT flash pattern (e.g. 3 flashes) is a **firmware-stage** failure (before the Linux kernel runs), so it is *not* an armv6-vs-arm64 kernel mismatch. On the Zero W it usually means a **bad/incompatible SD card or a bad write** — `dd` reports success without verifying what landed. Confirmed 2026-05-29: a 3-blink card failed while a different card flashed with the *same* image booted fine. Re-flash to a known-good card (and read back / hash-verify the write) before chasing image bugs.
+
+### Break-glass console login
+When WiFi (and therefore the fleet SSH key) is unavailable, log in at the **physical console/serial** with the appliance account and the `CONSOLE_PASSWORD` secret value:
+
+```
+login: derbynet
+password: <CONSOLE_PASSWORD>   # GitHub Actions repo secret; ask the maintainer
+```
+
+`derbynet` has passwordless `sudo`. SSH stays key-only (`PasswordAuthentication no`), so this password only works at the console — it is the deliberate fallback for the day the network won't come up. (Images from before 2026-05-29 have **no** console password and were unreachable in this situation; see imaging README "Second wave" lessons.)
+
+### Booted to the console but no WiFi / unreachable on the LAN
+If the Pi reaches a login prompt but never appears on the broker:
+
+- **Regulatory domain (most common, fixed in image ≥ 2026-05-29).** On Pi OS the wlan0 radio is rfkill-blocked until the kernel cfg80211 regdomain is set; `country=CA` in `wpa_supplicant.conf` alone is **not** enough. Check `iw reg get` (want `country CA`) and `rfkill list wifi` (must not be blocked). Quick manual unblock: `sudo rfkill unblock wifi && sudo iw reg set CA`. Permanent fix is `cfg80211.ieee80211_regdom=CA` on the kernel cmdline (now baked into the finishtimer image).
+- Then check association: `wpa_cli -i wlan0 status` → `wpa_state=COMPLETED`, and `systemctl status wpa_supplicant@wlan0 systemd-networkd`.
+
+### First-boot user wizard / "I can't log in as derbynet"
+If the console shows the stock Pi OS "new user" wizard, or `getent passwd 1000` shows a name other than `derbynet`, the image predates the `userconfig.service` mask (≥ 2026-05-29) — the wizard renamed the appliance user (e.g. `derbynet`→`newname`) and broke both console and `ssh derbynet@`. Reflash with a current image; do not try to complete the wizard.

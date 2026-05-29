@@ -42,8 +42,14 @@ You need a Linux host with Docker (the action uses a container internally). Easi
 brew install act          # or: curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 act push -j build -W .github/workflows/build-images.yml \
     --matrix role:derbypi \
-    -s WIFI_SSID=DerbyNet -s WIFI_PASSWORD=xxx
+    -s WIFI_SSID=DerbyNet -s WIFI_PASSWORD=xxx -s CONSOLE_PASSWORD=changeme
 ```
+
+Secrets the build requires: `WIFI_SSID`, `WIFI_PASSWORD` (finishtimer/derbydisplay
+WiFi), and `CONSOLE_PASSWORD` (break-glass console login on the `derbynet`
+account, **all roles** — the build fails fast if it's unset). SSH stays
+key-only; the console password is the fallback for when WiFi/the fleet key is
+unavailable.
 
 For a from-scratch local build without Docker, you can adapt the action's approach with `qemu-user-static` + a loop-mounted image. But CI iteration is fast enough that local builds aren't usually necessary.
 
@@ -108,6 +114,8 @@ Run before tagging a release:
 2. `sbderbynet-finishtimer-<sha>.img.xz` → flash → boot → `wpa_cli status` (over serial) shows `wpa_state=COMPLETED`. `cat /boot/firmware/derbyid.txt` is `FT00<n>` matching DIP. `mosquitto_sub -h 192.168.100.10 -v -t 'derbynet/device/+/telemetry'` on the central Pi shows it within 60s.
 3. `sbderbynet-derbydisplay-<sha>.img.xz` → flash → boot → kiosk page within 60s. Pull power, plug back in — Chromium respawns. Confirm WiFi fallback: `ip route` shows eth0 at default metric and wlan0 metric 2000; pull eth0, the kiosk should remain reachable via wlan0 inside ~30s.
 4. SSH hardening (all 3 roles): `ssh derbynet@<pi>` and `ssh root@<pi>` both succeed with the fleet key; `sshpass -p anything ssh root@<pi>` fails (password auth disabled); `sudo sshd -T | grep -E 'passwordauthentication|permitrootlogin'` reports `no` and `prohibit-password`. Also `getent passwd derbynet` should show `/bin/bash`, not `/usr/sbin/nologin` — confirms the placeholder-shell fix is in place.
+4b. **Break-glass console login + no rename wizard (all 3 roles):** the uid-1000 user is still `derbynet` — `getent passwd 1000` shows `derbynet`, NOT `newname`/an operator name — confirming `userconfig.service` is masked (`systemctl is-enabled userconfig.service` → `masked`) and the wizard never clobbered it. At the **physical console/serial**, `derbynet` + the `CONSOLE_PASSWORD` value logs in (and `sudo -n true` works). Catches the 2026-05-29 lockout (wizard renamed `derbynet`→`newname` + no console password existed).
+4c. **WiFi regulatory domain (finishtimer/derbydisplay):** `iw reg get` reports `country CA` and `rfkill list wifi` shows **not** soft/hard-blocked; `grep cfg80211.ieee80211_regdom /boot/firmware/cmdline.txt` is present. Catches the 2026-05-29 failure where a valid PSK still never associated because the radio stayed rfkill-blocked (regdomain unset).
 4a. firstboot ran (all 3 roles): `systemctl is-enabled derby-firstboot.service` reports `disabled` (the service self-disables after success). On finishtimer, `cat /boot/firmware/derbyid.txt` should be `FT00<lane>` matching the DIP switches even when the operator left it as `CHANGE-ME` — confirms the `ConditionFirstBoot` regression is gone.
 5. Host-key uniqueness: flash two cards of the same role; `ssh-keyscan` against each returns different host keys (`regenerate_ssh_host_keys.service` ran on first boot and self-disabled).
 6. Log forwarding (satellites → derbypi): on the central Pi, `sudo tail -F /var/log/derbynet.log`; on a satellite, `logger -t derby-smoke "$(date -Iseconds)"` — the line should appear on the central tail within seconds.
@@ -139,3 +147,15 @@ The first batch of flashed images (commits up to `dc43a7fc`) shipped with four i
 9. **I²C bus not enabled on finishtimer images.** `derbynetPCBv1.py:getBatteryPercent()` reads the MCP3421 ADC at `/dev/i2c-1`. Our `derbypi/customize.sh` writes `dtparam=i2c_arm=on` (for the DS3231 RTC), but `finishtimer/customize.sh` didn't — so `/dev/i2c-1` was absent, the ADC read returned `None`, and `sum([None, 0, …])` raised `TypeError` in a daemon thread, killing the whole process. Fix: add `dtparam=i2c_arm=on` to `/boot/firmware/config.txt` and `i2c-dev` to `/etc/modules-load.d/i2c.conf` in `finishtimer/customize.sh`. Requires a reboot to take effect. Lesson: hardware overlays are per-role — if a role's app code touches `/dev/i2c-*` or `/dev/spi-*` or any GPIO peripheral beyond plain pins, the matching `dtparam=`/`dtoverlay=` line **must** be in that role's customize.sh.
 
 All nine had a common signature: **the failure was invisible at build time** (the CI build went green) **and only showed up on a live Pi**. Notably, bugs 6–9 only became visible *after* bugs 1–5 were fixed, in a strict cascade — each fix unblocked the next failure mode. The smoke-test checklist above (especially items 9 and 10) is the gate that catches them now; run it on a real card of every role before tagging a release.
+
+### Second wave (2026-05-29 finishtimer bring-up)
+
+A v0.10.0 finishtimer card was completely unreachable. Three more build-invisible bugs, now guarded by checklist items 4b/4c:
+
+10. **The Pi OS first-boot wizard renamed our appliance user.** Pi OS Lite Trixie ships `userconfig.service` enabled; on first boot it renames the uid-1000 user to an operator-entered name and calls `/bin/cancel-rename` (which is what enables `getty@tty1`). We created `derbynet` in the chroot but never masked the wizard — so on first boot it silently renamed `derbynet`→`newname` and left it locked. That killed **console login** (locked password) **and** `ssh derbynet@` (no such user; the fleet key lives under `/home/derbynet`, which moved). Fix in `_common/customize.sh`: `systemctl mask userconfig.service` + `systemctl enable getty@tty1.service` (we must re-enable the getty userconfig would have). Lesson: a pre-baked uid-1000 user does **not** suppress the Trixie wizard — you must mask it explicitly, and re-enable the getty it owned.
+
+11. **No break-glass console login existed.** `derbynet` had no password and sshd is key-only, so the *only* access path was the fleet SSH key over WiFi. When WiFi was down (bug 12) there was no way in at all — console or remote. Fix: bake a console password on `derbynet` from the `CONSOLE_PASSWORD` secret (`_common/customize.sh`); SSH stays key-only so it's console-only. Lesson: a key-only appliance needs a physical-console fallback for the day the network won't come up.
+
+12. **WiFi radio stayed rfkill-blocked — `country=` in wpa_supplicant.conf is not enough.** The conf had `country=CA` and a valid PSK, but on Pi OS the wlan0 radio is soft-blocked by rfkill until the kernel **cfg80211 regdomain** is set. The known-good legacy card set it via `cfg80211.ieee80211_regdom=CA` on the kernel cmdline; the image dropped that step (a comment even claimed it was unnecessary), so wlan0 never associated. Fix in `finishtimer/customize.sh`: append `cfg80211.ieee80211_regdom=CA` to `cmdline.txt` + write `/etc/default/crda`. Lesson: setting the WiFi country requires the **regdomain**, not just a line in wpa_supplicant.conf — verify with `iw reg get` and `rfkill list wifi`, not by reading the config file.
+
+Also hardened in the same pass: WiFi conf is now generated directly from `wpa_passphrase` (no `sed`-template substitution that an `&`/`\` in the SSID could corrupt, and which had been rewriting comment lines), with a build-time validation gate asserting a real `ssid=`/64-hex `psk=` landed; and a `systemd-networkd-wait-online` timeout drop-in so a slow/missing link can't stall boot for the full ~120 s.

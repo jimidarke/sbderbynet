@@ -181,6 +181,33 @@ done
 echo 'derbynet ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010_derbynet-nopasswd
 chmod 0440 /etc/sudoers.d/010_derbynet-nopasswd
 
+# Break-glass console password. SSH stays key-only (PasswordAuthentication no),
+# so this password ONLY works at the physical console/serial — the fallback for
+# when WiFi (and therefore the fleet SSH key) is unavailable. Sourced from the
+# CONSOLE_PASSWORD CI secret; only the /etc/shadow hash lands on the card, never
+# plaintext in git. Added 2026-05-29 after a finishtimer was completely
+# unreachable: WiFi was down (no key login) and no console password existed.
+if [[ -z "${CONSOLE_PASSWORD:-}" ]]; then
+    echo "[derby-common] FATAL: CONSOLE_PASSWORD must be set (break-glass console login)"
+    exit 1
+fi
+echo "derbynet:${CONSOLE_PASSWORD}" | chpasswd
+echo "[derby-common] set break-glass console password for derbynet"
+
+# ---------------------------------------------------------------------------
+# 10b. Disable the Pi OS first-boot user wizard (userconfig.service)
+# ---------------------------------------------------------------------------
+# Pi OS Lite Trixie ships userconfig.service enabled. On first boot it RENAMES
+# the uid-1000 user to an operator-entered name and calls /bin/cancel-rename —
+# which is what enables getty@tty1. On 2026-05-29 this silently renamed our
+# baked `derbynet` account to `newname` and left it locked, killing BOTH console
+# login (locked password) AND `ssh derbynet@` (no such user; the fleet key lives
+# under /home/derbynet). Mask it so the baked appliance user is never clobbered,
+# and enable getty@tty1 ourselves (the job userconfig normally did) so the
+# console login prompt still appears.
+systemctl mask userconfig.service 2>/dev/null || true
+systemctl enable getty@tty1.service 2>/dev/null || true
+
 # ---------------------------------------------------------------------------
 # 11. Bake the derby-fleet authorized_keys so the image is reachable on first
 #     boot without a userconf.txt dance. Private half lives in

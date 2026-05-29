@@ -54,25 +54,39 @@ if [[ -z ${WIFI_SSID:-} || -z ${WIFI_PASSWORD:-} ]]; then
     echo "[finishtimer] FATAL: WIFI_SSID and WIFI_PASSWORD must be set"
     exit 1
 fi
-# wpa_passphrase produces the hashed PSK so plaintext never lands on disk
-PSK=$(wpa_passphrase "$WIFI_SSID" "$WIFI_PASSWORD" \
-      | awk -F= '/^[[:space:]]*psk=/ && !/#/ {print $2; exit}')
-if [[ -z $PSK ]]; then
-    echo "[finishtimer] FATAL: wpa_passphrase failed"
+# Build the conf directly from wpa_passphrase — NOT by sed-substituting a
+# template. wpa_passphrase emits a complete `network={ ssid="..." #psk="<plain>"
+# psk=<hash> }` block; we keep the hashed psk and STRIP the plaintext `#psk=`
+# comment so the password never lands on disk. Generating it this way (vs sed)
+# also means a special char in the SSID (& \ |) can't corrupt the file — the old
+# sed approach even rewrote the comment lines (cosmetic, but symptomatic).
+#
+# CRITICAL: target MUST be wpa_supplicant-wlan0.conf (interface-suffixed) because
+# we enable the template unit `wpa_supplicant@wlan0.service`:
+#   ExecStart=/sbin/wpa_supplicant -c/etc/wpa_supplicant/wpa_supplicant-%I.conf -i%I
+# The unsuffixed path is the legacy non-template service's path; a mismatch is a
+# silent no-association (FT002, 2026-05-21).
+TARGET=/etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+{
+    echo "# Race-day WiFi, rendered at image-build time from CI secrets (PSK hashed)."
+    echo "country=CA"
+    echo "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev"
+    echo "update_config=1"
+    echo ""
+    wpa_passphrase "$WIFI_SSID" "$WIFI_PASSWORD" | grep -v '^[[:space:]]*#psk='
+} > "$TARGET"
+chmod 0600 "$TARGET"
+rm -f /etc/wpa_supplicant/wpa_supplicant.conf.template
+
+# Validation gate: assert a real network actually landed — a non-empty quoted
+# SSID and a 64-hex PSK. Catches empty/placeholder/garbage creds at BUILD time
+# (e.g. secrets that never reached the chroot) instead of on the bench.
+if ! grep -qE '^[[:space:]]*ssid=".+"' "$TARGET" \
+   || ! grep -qE '^[[:space:]]*psk=[0-9a-fA-F]{64}[[:space:]]*$' "$TARGET"; then
+    echo "[finishtimer] FATAL: rendered $TARGET lacks a valid ssid/psk"
     exit 1
 fi
-TEMPLATE=/etc/wpa_supplicant/wpa_supplicant.conf.template
-# CRITICAL: this MUST be wpa_supplicant-wlan0.conf (with the interface
-# suffix), not wpa_supplicant.conf, because we enable the
-# `wpa_supplicant@wlan0.service` template unit below — which has:
-#   ExecStart=/sbin/wpa_supplicant -c/etc/wpa_supplicant/wpa_supplicant-%I.conf -i%I
-# The unsuffixed path is what the legacy non-template `wpa_supplicant.service`
-# uses, and it conflicts with our systemd-networkd setup. Mismatched-path
-# bug surfaced 2026-05-21 when FT002 never appeared on the LAN.
-TARGET=/etc/wpa_supplicant/wpa_supplicant-wlan0.conf
-sed -e "s|{{SSID}}|$WIFI_SSID|g" -e "s|{{PSK}}|$PSK|g" "$TEMPLATE" > "$TARGET"
-chmod 0600 "$TARGET"
-rm -f "$TEMPLATE"
+echo "[finishtimer] wpa_supplicant-wlan0.conf rendered + validated"
 
 systemctl enable wpa_supplicant@wlan0.service
 # Pi OS Lite ships with `wpa_supplicant.service` (the non-template DBUS one)
@@ -93,9 +107,21 @@ EOF
 systemctl enable systemd-networkd
 systemctl disable dhcpcd 2>/dev/null || true
 
-# country=CA is already in the wpa_supplicant template, so no extra echo
-# is needed here. `raspi-config nonint do_wifi_country` is also a no-op in
-# the chroot (no kernel running) — drop it.
+# ---------------------------------------------------------------------------
+# 2b. WiFi regulatory domain — REQUIRED or the radio stays rfkill-blocked.
+# ---------------------------------------------------------------------------
+# `country=CA` in wpa_supplicant.conf is NOT sufficient on its own: on Pi OS the
+# wlan0 radio is soft-blocked by rfkill until the kernel cfg80211 regdomain is
+# set. The known-good legacy finishtimer set it via the kernel cmdline
+# (cfg80211.ieee80211_regdom=CA); the image-built card did NOT, so wlan0 never
+# associated despite valid creds (confirmed 2026-05-29). Bake the regdomain into
+# cmdline.txt (must stay a SINGLE line) and /etc/default/crda.
+CMDLINE=/boot/firmware/cmdline.txt
+if ! grep -q 'cfg80211.ieee80211_regdom=' "$CMDLINE"; then
+    sed -i '1 s/[[:space:]]*$/ cfg80211.ieee80211_regdom=CA/' "$CMDLINE"
+    echo "[finishtimer] added cfg80211.ieee80211_regdom=CA to cmdline.txt"
+fi
+echo 'REGDOMAIN=CA' > /etc/default/crda
 
 # ---------------------------------------------------------------------------
 # 3. Snapshot the canonical finishtimer files into /opt/derbynet/
