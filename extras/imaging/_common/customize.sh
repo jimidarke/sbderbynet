@@ -191,7 +191,16 @@ if [[ -z "${CONSOLE_PASSWORD:-}" ]]; then
     echo "[derby-common] FATAL: CONSOLE_PASSWORD must be set (break-glass console login)"
     exit 1
 fi
-echo "derbynet:${CONSOLE_PASSWORD}" | chpasswd
+# Pre-hash and write directly with `chpasswd -e`. Plain `chpasswd` hashes via
+# PAM (pam_chauthtok -> yescrypt), which fails under QEMU armhf emulation with
+# "Authentication token manipulation error" (the finishtimer build runs armhf;
+# arm64 roles were unaffected). openssl SHA-512-crypt + `-e` bypasses PAM.
+DERBY_PW_HASH=$(openssl passwd -6 "$CONSOLE_PASSWORD")
+if [[ "$DERBY_PW_HASH" != \$6\$* ]]; then
+    echo "[derby-common] FATAL: could not hash CONSOLE_PASSWORD (openssl passwd -6)"
+    exit 1
+fi
+echo "derbynet:${DERBY_PW_HASH}" | chpasswd -e
 echo "[derby-common] set break-glass console password for derbynet"
 
 # ---------------------------------------------------------------------------
