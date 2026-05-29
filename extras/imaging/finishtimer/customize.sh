@@ -122,6 +122,11 @@ if ! grep -q 'cfg80211.ieee80211_regdom=' "$CMDLINE"; then
     echo "[finishtimer] added cfg80211.ieee80211_regdom=CA to cmdline.txt"
 fi
 echo 'REGDOMAIN=CA' > /etc/default/crda
+# Regdomain sets the country but does NOT clear the rfkill soft-block. The
+# shipped derby-rfkill-unblock.service runs `rfkill unblock wifi` on every boot
+# before wpa_supplicant. Without it, wlan0 stays "Soft blocked: yes" and never
+# associates (confirmed 2026-05-29; needed a manual `rfkill unblock wifi`).
+systemctl enable derby-rfkill-unblock.service
 
 # ---------------------------------------------------------------------------
 # 3. Snapshot the canonical finishtimer files into /opt/derbynet/
