@@ -195,7 +195,9 @@ fi
 # PAM (pam_chauthtok -> yescrypt), which fails under QEMU armhf emulation with
 # "Authentication token manipulation error" (the finishtimer build runs armhf;
 # arm64 roles were unaffected). openssl SHA-512-crypt + `-e` bypasses PAM.
-DERBY_PW_HASH=$(openssl passwd -6 "$CONSOLE_PASSWORD")
+# Feed the password via -stdin (NOT as an argv) so a value starting with '-'
+# (or any special char) can't be mis-parsed as an option.
+DERBY_PW_HASH=$(printf '%s' "$CONSOLE_PASSWORD" | openssl passwd -6 -stdin)
 if [[ "$DERBY_PW_HASH" != \$6\$* ]]; then
     echo "[derby-common] FATAL: could not hash CONSOLE_PASSWORD (openssl passwd -6)"
     exit 1
