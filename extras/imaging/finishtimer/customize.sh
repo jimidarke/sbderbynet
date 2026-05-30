@@ -122,11 +122,22 @@ if ! grep -q 'cfg80211.ieee80211_regdom=' "$CMDLINE"; then
     echo "[finishtimer] added cfg80211.ieee80211_regdom=CA to cmdline.txt"
 fi
 echo 'REGDOMAIN=CA' > /etc/default/crda
-# Regdomain sets the country but does NOT clear the rfkill soft-block. The
-# shipped derby-rfkill-unblock.service runs `rfkill unblock wifi` on every boot
-# before wpa_supplicant. Without it, wlan0 stays "Soft blocked: yes" and never
-# associates (confirmed 2026-05-29; needed a manual `rfkill unblock wifi`).
-systemctl enable derby-rfkill-unblock.service
+# Regdomain sets the country but does NOT clear the rfkill soft-block, and two
+# services actively RE-BLOCK the radio from saved state on every boot:
+#   - NetworkManager: shipped AND enabled in the base Pi OS image. We run
+#     systemd-networkd + wpa_supplicant@wlan0 instead, so NM is an unused,
+#     conflicting stack — and it restores "Wi-Fi disabled by state file",
+#     re-soft-blocking wlan0 a few seconds after we unblock it.
+#   - systemd-rfkill: restores the saved /dev/rfkill blocked state.
+# Confirmed 2026-05-30 by journal: every manual `rfkill unblock wifi` was
+# re-blocked seconds later (first by systemd-rfkill, then by NetworkManager).
+# Disabling NM + masking systemd-rfkill makes the unblock stick across reboots
+# (validated on a live card). The shipped
+# wpa_supplicant@wlan0.service.d/10-rfkill-unblock.conf drop-in clears the
+# initial driver block right before wpa_supplicant starts.
+systemctl disable NetworkManager.service 2>/dev/null || true
+systemctl mask NetworkManager.service 2>/dev/null || true
+systemctl mask systemd-rfkill.service systemd-rfkill.socket 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 3. Snapshot the canonical finishtimer files into /opt/derbynet/
