@@ -69,6 +69,7 @@ uasort($doc_classes, 'order_by_name');
 <link rel="stylesheet" type="text/css" href="css/mobile.css"/>
 <link rel="stylesheet" type="text/css" href="css/print.css"/>
 <script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/pinny.js"></script>
 <script type="text/javascript" src="js/ajax-setup.js"></script>
 <script type="text/javascript" src="js/jquery-ui.min.js"></script>
 <script type="text/javascript" src="js/jquery.ui.touch-punch.min.js"></script>

@@ -140,7 +140,7 @@ class ScheduleDocument extends PrintableSummaryDocument {
         
         $this->pdf->SetXY($x, $y);        
         $this->pdf->SetFont('Times', '', $carnumber_font);
-        $this->pdf->Cell($this->sizes['cell_width'], $cell_height, $rs['carnumber'],
+        $this->pdf->Cell($this->sizes['cell_width'], $cell_height, pinny_display($rs['carnumber']),
                          /* border */ 1, /* ln */ 0, "C");
 
         $lane = $new_lane;

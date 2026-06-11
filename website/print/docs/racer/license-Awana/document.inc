@@ -80,7 +80,7 @@ class AwanaDriversLicenseDocument extends PrintableRacerDocument {
 
     $this->pdf->CenteredSequence($x + 2.35, $y + 1.075,
                                  array(new SetFontTag('Arial', 'B', 24),
-                                       strval($racer['carnumber'])));
+                                       pinny_display($racer['carnumber'])));
 
     if (!$this->get_option('use_barcode')) {
       $y = $y - 0.15;

@@ -84,7 +84,7 @@ function mainphoto_onload(img) {
       var subtitle = $("<p class='subtitle'/>").text(response['name']).appendTo(next);
       if (response.hasOwnProperty('carnumber')) {
         subtitle.prepend(': ')
-                .prepend($("<span class='carno'/>").text(response['carnumber']));
+                .prepend($("<span class='carno'/>").text(pinnyDisplay(response['carnumber'])));
       }
       if (response.hasOwnProperty('carname')) {
         subtitle.append("<br/>")

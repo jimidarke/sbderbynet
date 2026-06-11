@@ -855,7 +855,7 @@ function make_table_row(racer, xbs) {
   tr.append($('<td class="sort-car-number"/>')
     .attr('data-car-number', racer.carnumber)
     .attr('id', 'car-number-' + racer.racerid)
-    .text(racer.carnumber));
+    .text(pinnyDisplay(racer.carnumber)));
 
   tr.append($('<td/>').attr('id', 'photo-' + racer.racerid)
     .append($('<a href="javascript:show_racer_photo_modal(' + racer.racerid + ')"/>')

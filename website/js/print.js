@@ -91,7 +91,7 @@ function process_racer_list(data) {
       tr.on("click", on_tr_click);
     }
     var cells = tr.find("td");
-    $(cells[1]).text(racer.carnumber);
+    $(cells[1]).text(pinnyDisplay(racer.carnumber));
     $(cells[2]).text(racer.firstname + " " + racer.lastname);
     $(cells[3]).find("img").prop("src", racer.headshot);
   });

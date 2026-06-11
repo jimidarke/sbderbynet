@@ -62,7 +62,7 @@ abstract class PrintableRacerDocument {
         $this->ok = false;
         echo "<p class='error'>An exception occurred in processing for <b>"
             .htmlspecialchars($racer['firstname']." ".$racer['lastname'], ENT_QUOTES, 'UTF-8')
-            ." ($racer[carnumber])</b>:";
+            ." (".pinny_display($racer['carnumber']).")</b>:";
         while ($ex) {
           echo "<br/>";
           echo "&nbsp; <b>".$ex->getMessage()."</b>";

@@ -37,6 +37,7 @@ if (isset($as_kiosk) || isset($slideshow_kiosk_type)) {
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <title><?php echo htmlspecialchars($slideshow_config['title']); ?></title>
     <script type="text/javascript" src="js/jquery.js"></script>
+    <script type="text/javascript" src="js/pinny.js"></script>
 <?php 
 // Check if this is being used as a kiosk (either $as_kiosk is set or we're in a kiosk context)
 if (isset($as_kiosk) || isset($slideshow_kiosk_type)) {

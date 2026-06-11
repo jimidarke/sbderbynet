@@ -12,6 +12,7 @@ require_once('inc/banner.inc');
 <link rel="stylesheet" type="text/css" href="css/kiosks.css"/>
 <link rel="stylesheet" type="text/css" href="css/now-racing.css"/>
 <script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/pinny.js"></script>
 <?php require('inc/kiosk-poller.inc'); ?>
 <script type="text/javascript" src="js/now-racing-overlay.js"></script>
 <script type="text/javascript" src="js/now-racing-poller.js"></script>

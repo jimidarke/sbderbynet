@@ -24,10 +24,10 @@ try {
     global $db;
     $db->beginTransaction();
 
-    // Set the racer's time to 99.999 (DNF) for the specific heat
+    // Set the racer's time to the DNF sentinel for the specific heat
     $stmt = $db->prepare(
-        'UPDATE RaceChart 
-         SET finishtime = 99.999,
+        'UPDATE RaceChart
+         SET finishtime = ' . DNF_TIME . ',
              finishplace = 0
          WHERE roundid = :roundid 
          AND racerid = :racerid 

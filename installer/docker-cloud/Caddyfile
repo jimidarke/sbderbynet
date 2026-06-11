@@ -47,8 +47,10 @@
 		reverse_proxy derbynet-web:80
 	}
 
-	# Bare-host requests redirect into the canonical path.
-	redir / /derbynet/ permanent
+	# Bare-host requests land on the public splash page (welcome.php), which
+	# explains the project and has a CTA into the tenant picker. Operators
+	# with bookmarks under /derbynet/ keep working — they bypass the splash.
+	redir / /derbynet/welcome.php permanent
 
 	# Default route: anything else goes to nginx as-is.
 	handle {

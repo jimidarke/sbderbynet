@@ -26,6 +26,7 @@ if (isset($as_kiosk)) {
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
 <script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/pinny.js"></script>
 <script type="text/javascript" src="js/ajax-setup.js"></script>
 <script type="text/javascript">
 
@@ -203,7 +204,7 @@ foreach ($rounds as $round) {
       }
       $racer_label .= '<div class="racer_label"><span class="racer">'
         .htmlspecialchars(mangled_name($rs, $name_style), ENT_QUOTES, 'UTF-8').'</span>'
-		.' (<span class="car"> Pinny: '.$rs['carnumber'].'</span>)</div>';
+		.' (<span class="car"> Pinny: '.pinny_display($rs['carnumber']).'</span>)</div>';
       $racer_cells = array();
       for ($i = 1; $i <= $nlanes; ++$i) {
 		$racer_cells[] = array();

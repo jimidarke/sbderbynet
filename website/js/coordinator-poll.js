@@ -374,7 +374,7 @@ function reason_for_schedule_change(round) {
     var who = round.adjustments[a];
     var li = $("<li/>")
       .appendTo(why)
-      .append($("<span/>").text(who.carnumber))
+      .append($("<span/>").text(pinnyDisplay(who.carnumber)))
       .append(" ")
       .append($("<span/>").text(who.firstname + " " + who.lastname));
     if (who.why == "unscheduled") {

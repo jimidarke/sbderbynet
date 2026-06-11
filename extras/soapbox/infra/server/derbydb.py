@@ -196,7 +196,7 @@ class DerbyDatabase:
         Args:
             roundid: The round ID
             heat: The heat number
-            lane_times: Dictionary of {lane: finishtime} (DNF = 9.999 or None)
+            lane_times: Dictionary of {lane: finishtime} (DNF = 99.999 or None)
             lane_places: Optional dictionary of {lane: place}, auto-calculated if not provided
 
         Returns:

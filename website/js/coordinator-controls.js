@@ -909,7 +909,7 @@ function showPullForwardModal(dropout_racerid, roundid) {
 function populatePullForwardModal(proposal) {
   // Dropout info
   $('#pf-dropout-name').text(proposal.dropout.name);
-  $('#pf-dropout-carnumber').text('#' + proposal.dropout.carnumber);
+  $('#pf-dropout-carnumber').text('#' + pinnyDisplay(proposal.dropout.carnumber));
   $('#pf-gaps-count').text(proposal.dropout.gaps_created);
 
   // Moves table
@@ -923,7 +923,7 @@ function populatePullForwardModal(proposal) {
       var row = $('<tr>');
       row.append($('<td>').text('Heat ' + move.gap_heat));
       row.append($('<td>').text('Lane ' + move.gap_lane));
-      row.append($('<td>').text(move.racer_name + ' (#' + move.carnumber + ')'));
+      row.append($('<td>').text(move.racer_name + ' (#' + pinnyDisplay(move.carnumber) + ')'));
       row.append($('<td>').text('Heat ' + move.source_heat));
       tbody.append(row);
     }

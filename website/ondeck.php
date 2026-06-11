@@ -21,6 +21,7 @@ require_once('inc/schema_version.inc');
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <script type="text/javascript" src="js/jquery.js"></script>
+  <script type="text/javascript" src="js/pinny.js"></script>
   <script type="text/javascript" src="js/ajax-setup.js"></script>
   <script type="text/javascript" src="js/modal.js"></script>
   <!-- For measure_text -->

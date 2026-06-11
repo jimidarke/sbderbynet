@@ -52,6 +52,7 @@ if ($has_active_round) {
   <link rel="stylesheet" type="text/css" href="css/mobile.css" />
   <link rel="stylesheet" type="text/css" href="css/pull-forward.css" />
   <script type="text/javascript" src="js/jquery.js"></script>
+  <script type="text/javascript" src="js/pinny.js"></script>
   <script type="text/javascript" src="js/ajax-setup.js"></script>
   <script type="text/javascript">
     var g_pf_roundid = <?php echo json_encode($roundid); ?>;

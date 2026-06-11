@@ -481,12 +481,14 @@ function handle_racer_dropout($racerid, $roundid)
     );
 
     if ($has_results > 0) {
-      // Scenario 2: Has already raced - mark remaining heats as DNF
+      // Scenario 2: Has already raced - mark remaining heats as DNF,
+      // using the same sentinel as the manual coordinator DNF
       $stmt = $db->prepare(
-        'UPDATE RaceChart 
-                 SET finishtime = 999.999
-                 WHERE roundid = :roundid 
-                 AND racerid = :racerid 
+        'UPDATE RaceChart
+                 SET finishtime = ' . DNF_TIME . ',
+                     finishplace = 0
+                 WHERE roundid = :roundid
+                 AND racerid = :racerid
                  AND finishtime IS NULL'
       );
       $stmt->execute([

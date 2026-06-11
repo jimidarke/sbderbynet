@@ -66,6 +66,7 @@ function column_header($text, $o)
   <link rel="stylesheet" type="text/css" href="css/main-table.css" />
   <link rel="stylesheet" type="text/css" href="css/checkin.css" />
   <script type="text/javascript" src="js/jquery.js"></script>
+  <script type="text/javascript" src="js/pinny.js"></script>
   <script type="text/javascript" src="js/jquery-ui.min.js"></script>
   <script type="text/javascript" src="js/qrcode.min.js"></script>
   <script type="text/javascript" src="js/ajax-setup.js"></script>

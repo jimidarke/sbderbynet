@@ -145,7 +145,7 @@ foreach ($db->query($sql) as $rs) {
       echo "<img src='".car_photo_repository()->lookup(RENDER_JUDGING)->render_url($racer['carphoto'])."'/>";
     }
     echo "<div class='carno'>";
-    echo $racer['carnumber'];
+    echo pinny_display($racer['carnumber']);
     echo "</div>";
 
 

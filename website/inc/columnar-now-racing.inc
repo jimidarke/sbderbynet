@@ -18,6 +18,7 @@ $linger_ms = read_raceinfo('now-racing-linger-ms', 10000);
 <?php echo $lane_to_column_fn; ?>
 </script>
 <script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/pinny.js"></script>
 <script type="text/javascript" src="js/jquery-ui.min.js"></script>
 <?php require('inc/kiosk-poller.inc'); ?>
 <script type="text/javascript" src="js/now-racing-overlay.js"></script>

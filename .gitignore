@@ -71,3 +71,7 @@ settings.jsonsw
 *.log
 derbynet.sqlite3.claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# 2026 event source data (registration/roster PII) + scratch — never commit
+/2026official/
+/tmp/

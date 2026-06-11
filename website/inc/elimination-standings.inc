@@ -93,7 +93,7 @@ class EliminationStandingsOracle {
                       LIMIT 1
                   )
                   AND (
-                      (rc.finishtime IS NOT NULL AND rc.finishtime > 0 AND rc.finishtime < 999.0) OR
+                      (rc.finishtime IS NOT NULL AND rc.finishtime > 0 AND rc.finishtime < " . DNF_TIME . ") OR
                       (rc.finishplace IS NOT NULL AND rc.finishplace > 0)
                   )
                 GROUP BY ri.racerid, ri.firstname, ri.lastname, ri.carnumber, 
@@ -200,7 +200,7 @@ class EliminationStandingsOracle {
             echo "<td class='place'>$display_place</td>";
             
             // Car Number (zero-padded to 4 digits)
-            echo "<td class='carnumber'>".str_pad($racer['carnumber'], 4, '0', STR_PAD_LEFT)."</td>";
+            echo "<td class='carnumber'>".pinny_display($racer['carnumber'])."</td>";
             
             // Name
             echo "<td class='name'>".htmlspecialchars(mangled_name($racer, $name_style), ENT_QUOTES, 'UTF-8')."</td>";

@@ -77,11 +77,11 @@
       photo.style.backgroundImage = "url('" + racer.photo.replace(/'/g, "%27") + "')";
     } else {
       photo.classList.add('no-photo');
-      photo.textContent = '#' + racer.carnumber;
+      photo.textContent = '#' + pinnyDisplay(racer.carnumber);
     }
     var car = document.createElement('div');
     car.className = 'rr-car';
-    car.textContent = '#' + racer.carnumber;
+    car.textContent = '#' + pinnyDisplay(racer.carnumber);
     var name = document.createElement('div');
     name.className = 'rr-name';
     name.textContent = racer.name || '';

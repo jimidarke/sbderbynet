@@ -539,7 +539,7 @@ class StandingsOracle {
       }
       echo "</td>";
 
-      echo "<td>".$row['carnumber']."</td>";
+      echo "<td>".pinny_display($row['carnumber'])."</td>";
       echo "<td>".htmlspecialchars(mangled_name($row, $name_style), ENT_QUOTES, 'UTF-8')."</td>";
       if ($show_car_name) {
         echo "<td>".$row['carname']."</td>";

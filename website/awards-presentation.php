@@ -24,6 +24,7 @@ $name_style = read_name_style();
 <link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css"/>
 <title>Awards Presentation Dashboard</title><?php require('inc/stylesheet.inc'); ?>
 <script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/pinny.js"></script>
 <script type="text/javascript" src="js/ajax-setup.js"></script>
 <script type="text/javascript" src="js/jquery-ui.min.js"></script>
 <script type="text/javascript" src="js/dashboard-ajax.js"></script>
@@ -201,7 +202,7 @@ foreach ($awards as &$row) {
           ' data-rank="'.htmlspecialchars($ranks[$rankid]['rank'], ENT_QUOTES, 'UTF-8').'"')
         .'>';
     echo '<span>'.htmlspecialchars($row['awardname'], ENT_QUOTES, 'UTF-8').'</span>';
-    echo '<p><strong>'.$row['carnumber'].':</strong> ';
+    echo '<p><strong>'.pinny_display($row['carnumber']).':</strong> ';
     echo htmlspecialchars(mangled_name($row, $name_style), ENT_QUOTES, 'UTF-8');
     echo '</p>';
     echo '</li>';

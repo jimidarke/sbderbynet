@@ -69,7 +69,7 @@ try {
                   LIMIT 1
               )
               AND (
-                  (rc.finishtime IS NOT NULL AND rc.finishtime > 0 AND rc.finishtime < 999.0) OR
+                  (rc.finishtime IS NOT NULL AND rc.finishtime > 0 AND rc.finishtime < " . DNF_TIME . ") OR
                   (rc.finishplace IS NOT NULL AND rc.finishplace > 0)
               )
             GROUP BY ri.racerid, ri.firstname, ri.lastname, ri.carnumber
@@ -88,7 +88,7 @@ try {
             echo "<tr>";
             echo "<td>$place</td>";
             echo "<td>" . htmlspecialchars($racer['firstname'] . ' ' . $racer['lastname']) . "</td>";
-            echo "<td>" . $racer['carnumber'] . "</td>";
+            echo "<td>" . pinny_display($racer['carnumber']) . "</td>";
             echo "<td>" . $racer['score'] . "</td>";
             echo "<td>" . number_format($racer['best_time'], 3) . "</td>";
             echo "</tr>";

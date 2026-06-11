@@ -106,12 +106,12 @@ function update_best_times(best_times) {
   var tiles = $("div.bottom-banner div.best-time");
   for (var i = 0; i < best_times.length; ++i) {
     if (i < tiles.length) {
-      tiles.eq(i).find('.carno').text(best_times[i].carnumber);
+      tiles.eq(i).find('.carno').text(pinnyDisplay(best_times[i].carnumber));
       tiles.eq(i).find('.time').text(best_times[i].finishtime);
     } else {
       $("div.bottom-banner").append(
         $('<div class="best-time"/>')
-          .append($('<div class="carno"/>').text(best_times[i].carnumber))
+          .append($('<div class="carno"/>').text(pinnyDisplay(best_times[i].carnumber)))
           .append($('<div class="time"/>').text(best_times[i].finishtime)));
     }
   }
@@ -178,7 +178,7 @@ function process_polling_result(data) {
                           .css({'max-width': g_column_width_exact})
                           .on('load', vcenter_image));
         }
-        div_car.find("div.number").text(data.racers[i].carnumber);
+        div_car.find("div.number").text(pinnyDisplay(data.racers[i].carnumber));
         if (data.racers[i].carname) {
           div_car.find("div.carname").css({'display': 'block'}).text(data.racers[i].carname);
         }

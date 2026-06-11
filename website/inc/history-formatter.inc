@@ -261,7 +261,7 @@ class HistoryActionFormatter
   {
     $s = "<b>$racer[firstname] $racer[lastname]</b>";
     if (isset($racer['carnumber'])) {
-      $s .= ", $racer[carnumber]";
+      $s .= ", ".pinny_display($racer['carnumber']);
     }
     if (isset($racer['rankid'])) {
       $r = $this->_ranks->GetOrError($racer['rankid']);

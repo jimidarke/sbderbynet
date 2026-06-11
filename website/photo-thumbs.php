@@ -201,9 +201,9 @@ foreach ($stmt as $rs) {
   }
   echo htmlspecialchars($rs['firstname'].' '.$rs['lastname'], ENT_QUOTES, 'UTF-8');
   if ($use_groups) {
-    echo '<p><strong>'.$rs['carnumber'].':</strong> '.htmlspecialchars($rs['class'], ENT_QUOTES, 'UTF-8').'</p>';
+    echo '<p><strong>'.pinny_display($rs['carnumber']).':</strong> '.htmlspecialchars($rs['class'], ENT_QUOTES, 'UTF-8').'</p>';
   } else {
-    echo '<p><strong>'.$rs['carnumber'].'</strong></p>';
+    echo '<p><strong>'.pinny_display($rs['carnumber']).'</strong></p>';
   }
   echo '</li>'."\n";
 }

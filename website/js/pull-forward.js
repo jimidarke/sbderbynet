@@ -29,7 +29,7 @@ function renderRoster() {
       .attr('data-racerid', r.racerid)
       .attr('role', 'button')
       .attr('tabindex', '0');
-    $row.append($('<span>').addClass('pf-car').text('#' + r.carnumber));
+    $row.append($('<span>').addClass('pf-car').text('#' + pinnyDisplay(r.carnumber)));
     $row.append($('<span>').addClass('pf-name').text(name.trim() || '(no name)'));
     $row.append($('<span>').addClass('pf-badge')
       .text(r.unraced_heats + ' heat' + (r.unraced_heats === 1 ? '' : 's')));
@@ -93,7 +93,7 @@ function renderProposal(proposal) {
 
   var dropoutLine = $('<div>').addClass('pf-dropout-line');
   dropoutLine.append($('<span>').addClass('pf-dropout-label').text('Dropout: '));
-  dropoutLine.append($('<strong>').text(proposal.dropout.name + ' (#' + proposal.dropout.carnumber + ')'));
+  dropoutLine.append($('<strong>').text(proposal.dropout.name + ' (#' + pinnyDisplay(proposal.dropout.carnumber) + ')'));
   dropoutLine.append($('<span>').addClass('pf-dropout-gaps')
     .text(' — ' + proposal.dropout.gaps_created + ' gap' +
           (proposal.dropout.gaps_created === 1 ? '' : 's') + ' to fill'));
@@ -113,7 +113,7 @@ function renderProposal(proposal) {
       var $tr = $('<tr>');
       $tr.append($('<td>').text('Heat ' + m.gap_heat));
       $tr.append($('<td>').text('Lane ' + m.gap_lane));
-      $tr.append($('<td>').text(m.racer_name + ' (#' + m.carnumber + ')'));
+      $tr.append($('<td>').text(m.racer_name + ' (#' + pinnyDisplay(m.carnumber) + ')'));
       $tr.append($('<td>').text('Heat ' + m.source_heat));
       $tbody.append($tr);
     }

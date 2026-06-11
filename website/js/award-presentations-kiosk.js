@@ -60,7 +60,7 @@ var AwardPoller = {
       $(".reveal").hide();
 
       $("#awardname").text(award.awardname);
-      $("#carnumber").text(award.carnumber);
+      $("#carnumber").text(pinnyDisplay(award.carnumber));
       $("#recipient").text(award.recipient);
       if (award.carname && award.carname.length > 0) {
         $("#carname").text(award.carname);

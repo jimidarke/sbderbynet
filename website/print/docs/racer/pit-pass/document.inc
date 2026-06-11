@@ -115,7 +115,7 @@ class PitPassDocument extends PrintableRacerDocument {
 
     $this->pdf->SetFont('Helvetica', 'BI', 20);
     $this->pdf->SetTextColor(0, 0, 0);
-    $this->pdf->CenteredText($x + 3.825/2, $y + $this->y_coords['carnumber'], strval($racer['carnumber']));
+    $this->pdf->CenteredText($x + 3.825/2, $y + $this->y_coords['carnumber'], pinny_display($racer['carnumber']));
 
     // Text in top border
     $upper_title1 = $this->get_option('upper_title1');

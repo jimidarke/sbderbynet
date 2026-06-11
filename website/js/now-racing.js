@@ -159,7 +159,7 @@ var Lineup = {
           //   $('[data-lane="' + lane + '"] .name').append($("<div class='subtitle'/>").text(r.note));
           // }
 
-          $('[data-lane="' + lane + '"] .carnumber').text(r.carnumber);
+          $('[data-lane="' + lane + '"] .carnumber').text(pinnyDisplay(r.carnumber));
         }
       } else if (racers.length > 0) {
 

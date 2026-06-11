@@ -307,7 +307,7 @@ function repopulate_schedule(json) {
         td.addClass(g_lane_colors[cell['lane'] - 1] + '_column_color');
       }
       racerids[cell['lane']] = cell['racerid'];
-      td.append($('<div/>').addClass('car').text(cell['carnumber']))
+      td.append($('<div/>').addClass('car').text(pinnyDisplay(cell['carnumber'])))
         .append($('<div/>').addClass('racer').text(cell['name']))
         .append($('<div/>').addClass('time').text(cell['result'].substring(1))
                 .css('display', cell['result'] ? 'block' : 'none'));

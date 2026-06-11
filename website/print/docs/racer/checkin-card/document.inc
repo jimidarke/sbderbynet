@@ -37,7 +37,7 @@ class CheckInCardDocument extends PrintableRacerDocument {
 
     $this->pdf->CenteredSequence($x + 3.375 / 2, $y + 1.05,
                                  array(new SetFontTag('Times', 'B', 24),
-                                       strval($racer['carnumber'])));
+                                       pinny_display($racer['carnumber'])));
 
     $this->pdf->HorizontalBarcode($x + 0.6875, $y + 1.50, 2.0, 0.20, $racer['barcode']);
   }

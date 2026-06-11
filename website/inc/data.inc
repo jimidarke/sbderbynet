@@ -1,4 +1,9 @@
 <?php
+// Sentinel finishtime for a DNF (Did Not Finish). Must match DNF_TIME in
+// extras/soapbox/infra/server/derbyRace.py, which detects coordinator DNFs
+// as finishtime >= this value.
+define('DNF_TIME', 99.999);
+
 $configdir = isset($_SERVER['DERBYNET_CONFIG_DIR']) ? $_SERVER['DERBYNET_CONFIG_DIR'] : 'local';
 
 // On the cloud VPS, the active database is per-browser-session ("tenant
@@ -249,6 +254,15 @@ function use_subgroups() {
 
 function use_master_sched() {
   return read_raceinfo_boolean('use-master-sched');
+}
+
+// Pinny (car number) display form. carnumber is an INTEGER column, so a
+// pinny printed "0004" on the physical bib is stored as 4; restore the
+// 4-digit zero padding whenever a carnumber is shown to a human.
+function pinny_display($carnumber) {
+  return is_numeric($carnumber)
+      ? str_pad($carnumber, 4, '0', STR_PAD_LEFT)
+      : $carnumber;
 }
 
 function update_period() {
