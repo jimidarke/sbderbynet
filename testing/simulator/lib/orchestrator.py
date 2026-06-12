@@ -292,10 +292,26 @@ class VariantRunner:
             except VariantError:
                 if attempt == attempts:
                     raise
+                # Re-firing a GO while the server is still digesting the
+                # first one computes times against the wrong backdated T0
+                # (seen under 4-way tenant concurrency).  Only retry when
+                # the race demonstrably never started: no chart results AND
+                # the server is not RACING.  Otherwise just wait longer.
+                partial = [r for r in dbread.race_chart(self.tenant, roundid)
+                           if r["heat"] == heat and r["finishtime"] is not None]
+                if partial or self.track.session.race_state == "RACING":
+                    self.anomalies.append({
+                        "type": "slow_heat_wait", "roundid": roundid,
+                        "heat": heat, "partial": len(partial)})
+                    logger.warning("heat %s slow (%d partial results); "
+                                   "extending wait instead of re-firing GO",
+                                   heat, len(partial))
+                    self._await_results(roundid, heat, results)
+                    break
                 self.anomalies.append({
                     "type": "heat_retry", "roundid": roundid, "heat": heat,
                     "race_state": self.track.session.race_state})
-                logger.warning("heat %s results missing; retrying GO/finish "
+                logger.warning("heat %s never started; retrying GO/finish "
                                "sequence once", heat)
 
         for r in results:

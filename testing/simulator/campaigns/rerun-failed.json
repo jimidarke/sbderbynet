@@ -1,0 +1,10 @@
+{
+  "name": "rerun-failed",
+  "description": "Serial re-run of the 9 full-matrix variants that failed under 4-way concurrency (heat_retry GO re-fire artifact, fixed in orchestrator). Same seeds, same configs, one tenant at a time; verdicts overwrite the originals in campaign-full-matrix.",
+  "variants": [
+    {"scenario": "dnf_edge", "seeds": [205, 207, 209], "configs": ["dropslowest"], "mode": "fast"},
+    {"scenario": "dnf_edge", "seeds": [211], "configs": ["std"], "mode": "fast"},
+    {"scenario": "tie_rich", "seeds": [403], "configs": ["std", "dropslowest"], "mode": "fast"},
+    {"scenario": "tie_rich", "seeds": [407, 408, 409], "configs": ["std"], "mode": "fast"}
+  ]
+}

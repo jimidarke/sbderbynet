@@ -287,6 +287,10 @@ do_rsync() {
     --exclude='scripts/.derbyvps-deploy.log' --exclude='scripts/derbyvps.config'
     --exclude="$COMPOSE_DIR_REL/.env"
     --exclude="$COMPOSE_DIR_REL/mosquitto/passwd"
+    # Simulator run artifacts are produced ON the VPS (root-owned via
+    # docker); mirroring the local tree would try to delete them and aborts
+    # the deploy with rsync code 23.
+    --exclude='testing/simulator/artifacts'
   )
   [[ $DRY_RUN -eq 1 ]] && rsync_opts+=(--dry-run -i)
   [[ $VERBOSE -eq 1 ]] && rsync_opts+=(-v)

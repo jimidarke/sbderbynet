@@ -5,6 +5,12 @@ File location: /var/lib/infra/app/derbyRace.py
 Service file: /etc/systemd/system/derbyrace.service
 
 Version History:
+- 0.9.2 - Jun 11, 2026 - Lane count adapts at heat change
+    * A DNF-completed heat can bounce FINISHED->RACING for one tick; a
+      partial (1-2 racer) heat staged in that window kept lane_count=3 and
+      waited forever for lanes with no racer (race timeout is disabled)
+    * lane_count now also updates when the heat key changes, regardless of
+      the transient race_state
 - 0.9.1 - Jun 11, 2026 - Finish path honors device GPIO-edge timestamps
     * Lane finishes prefer payload["timestamp"] (mirrors 0.9.0 START path)
     * Removes MQTT receipt jitter from recorded lane times
@@ -86,7 +92,7 @@ except ImportError:
     LEDSIGN_AVAILABLE = False
 
 # Version information
-VERSION = "0.9.1"  # Finish path honors device GPIO-edge timestamps (mirrors START); receipt-clock fallback preserved
+VERSION = "0.9.2"  # Lane count adapts at heat change (partial-heat hang after DNF-completed heat)
 
 logger = ServerLogger(
     name='DERBYSERVER', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.
@@ -478,6 +484,17 @@ class derbyRace:
                     logger.info(f"Heat correlation_id minted: {cid} (topic={topic})")
                 except Exception as e:
                     logger.warning(f"Failed to publish heat correlation_id: {e}")
+
+                # A heat change means the previous race is over: adapt the
+                # lane count NOW, even if the state machine is mid-settle
+                # (a DNF-completed heat can bounce FINISHED->RACING for one
+                # tick, which skips the not-RACING update below; a partial
+                # heat staged in that window would wait forever for lanes
+                # that have no racer).
+                if len(lanes) > 0 and len(lanes) != self.lane_count:
+                    logger.info(f"Lane count updated on heat change: "
+                                f"{self.lane_count} -> {len(lanes)}")
+                    self.lane_count = len(lanes)
 
         # Update lane count from actual racers (only when not racing)
         # This allows supporting heats with different numbers of racers
