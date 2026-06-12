@@ -96,13 +96,17 @@ Both methods are validated end-to-end (50 full tournaments each). The
 detailed who-changed tables are in the campaign report on the VPS
 (`artifacts/campaign-full-matrix/REPORT.md`, 308 difference rows).
 
-**Decision needed before race day:** consistency (total_time, current) vs
-peak pace + breakdown forgiveness (drop_slowest). Note the coordinator's
-`scoring=1` setting written to the official tenant on 2026-06-11 only
-changes *display* aggregates — to race under drop_slowest, the
-tournaments' `config_file` must be switched to
-`soapbox-derby-elimination-dropslowest.json` (and the display setting
-kept in agreement).
+**DECIDED 2026-06-12: the event races DROP-SLOWEST.** The Settings
+toggle (RaceInfo `scoring`) is now authoritative end-to-end: for
+multi-run rounds it overrides the config's scoring method in both
+advancement and the elimination standings display
+(`elimination_effective_scoring_method()`), so the coordinator's switch
+governs everything — validated by `test-elimination-scoring.sh` class C
+(std config + scoring=1 → drop-slowest advancement) run three times
+green against the production stack, plus a cross-tenant probe proving
+the setting is tenant-scoped (Pi: the single event DB — same code).
+The official tenant's existing `scoring=1` is therefore live and
+consistent: drop-slowest display AND drop-slowest advancement.
 
 ## 4. Race-day notes
 

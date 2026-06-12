@@ -194,9 +194,21 @@ user_login_coordinator
 ### The standings KIOSK (what spectators see) must render the finals
 ### standings.  Before the roundname fix this page silently rendered EMPTY
 ### for every elimination class -- the exact broadcast-day failure mode.
-curl_text "kiosk.php?page=kiosks/elimination-standings.kiosk&classid=$CLASSID_A" \
-    | grep -q "0901\|0902" || \
+### Fetch with a DEDICATED session like a real kiosk: tenant-bound (cloud)
+### but never logged in -- a coordinator login in this session drops the
+### tenant binding for page requests on public-mode cloud stacks.
+KIOSK_JAR=$(mktemp)
+if [ -n "$SIM_TENANT" ] ; then
+    curl --location -s -c $KIOSK_JAR -b $KIOSK_JAR \
+         -H "X-Requested-With: XMLHttpRequest" \
+         -d "action=tenant-select.nodata&slug=$SIM_TENANT" \
+         $BASE_URL/action.php > /dev/null
+fi
+curl --location -s -c $KIOSK_JAR -b $KIOSK_JAR \
+     "$BASE_URL/kiosk.php?page=kiosks/elimination-standings.kiosk&classid=$CLASSID_A" \
+    | tee $DEBUG_CURL | grep -q "0901\|0902" || \
     test_fails class A elimination-standings kiosk rendered no standings rows
+rm -f $KIOSK_JAR
 
 ### Race class B prelims (5 racers x 3 runs / 3 lanes = 5 heats)
 curl_postj action.php "action=heat.select&roundid=$RID_B1&now_racing=1" | check_jsuccess
