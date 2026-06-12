@@ -52,8 +52,18 @@ standings oracle, config validator, editor UI) + variant config
   Ages 12-14 = 14 racers.
 * Smoke campaign: **2/2 PASS**.
 * Full matrix (100 variants: 50 seeds × std + dropslowest across all
-  scenario families): **TBD — running**.
-* Realtime dress rehearsal: **TBD**.
+  scenario families): **IN PROGRESS** — launched 2026-06-11 ~18:24 MDT,
+  detached on the VPS (survives local shutdown). 8/8 PASS at last check.
+  Log: `/opt/sbderbynet/testing/simulator/artifacts/run-20260612-002410.log`
+  Status check:
+  `ssh claude@uisp.darketech.ca "sudo find /opt/sbderbynet/testing/simulator/artifacts/campaign-full-matrix -name verdict.json | wc -l"`
+  (done when the log tail says "campaign done: N/100"); aggregate report at
+  `artifacts/campaign-full-matrix/REPORT.md` on the VPS.
+* Realtime dress rehearsal: **TBD — queued after the matrix**:
+  `NOHUP=1 testing/simulator/deploy/run-on-vps.sh campaign run --plan /sim/campaigns/dress-rehearsal.json`
+* After campaigns: re-verify official DB hash against
+  `testing/simulator/artifacts/official-db-baseline.sha256`
+  (d18882526e350c18…).
 * Official tenant isolation: DB sha256 verified unchanged before/after
   campaigns (`artifacts/official-db-baseline.sha256`).
 
