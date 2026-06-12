@@ -10,6 +10,12 @@
 require_once('inc/data.inc');
 require_once('inc/classes.inc');
 
+// Two aggregate scores within this epsilon are the same score for tie
+// purposes (advancement cuts, shared ranks).  Times are recorded at 0.001s
+// resolution; half that absorbs float summation noise without ever merging
+// genuinely distinct times.
+define('ELIMINATION_SCORE_EPSILON', 0.0005);
+
 /**
  * Load all available elimination configuration files
  * @return array Array of configuration file info
@@ -153,7 +159,7 @@ function validate_round_config($round, $group_key, $round_index) {
     }
     
     // Validate scoring method
-    $valid_scoring_methods = array('total_time', 'best_time', 'average_time', 'placement');
+    $valid_scoring_methods = array('total_time', 'best_time', 'average_time', 'drop_slowest', 'placement');
     if (!in_array($round['scoring_method'], $valid_scoring_methods)) {
         error_log("Invalid scoring method '{$round['scoring_method']}' in round {$round_index} for age group '{$group_key}'");
         return false;

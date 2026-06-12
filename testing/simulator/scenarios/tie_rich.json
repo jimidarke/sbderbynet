@@ -1,0 +1,11 @@
+{
+  "name": "tie_rich",
+  "description": "Coarse 0.05s time resolution so natural exact ties occur throughout, including in best_time elimination rounds; plus forced cutoff ties.",
+  "dnf_probability": 0.02,
+  "time_model": {"min": 10.0, "max": 30.0, "resolution": 0.05},
+  "targeted_events": [
+    {"type": "tie_at_cutoff", "age_group": "ages_6_8", "width": 3},
+    {"type": "tie_at_cutoff", "age_group": "ages_12_14", "width": 2},
+    {"type": "tie_at_cutoff", "age_group": "vip", "width": 2}
+  ]
+}

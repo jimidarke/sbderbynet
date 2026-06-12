@@ -5,6 +5,11 @@ File location: /var/lib/infra/app/derbyRace.py
 Service file: /etc/systemd/system/derbyrace.service
 
 Version History:
+- 0.9.1 - Jun 11, 2026 - Finish path honors device GPIO-edge timestamps
+    * Lane finishes prefer payload["timestamp"] (mirrors 0.9.0 START path)
+    * Removes MQTT receipt jitter from recorded lane times
+    * Plausibility-gated: must be >= race start and within FINISH_TS_MAX_FUTURE_SKEW
+    * Falls back to server receipt clock (pre-0.9.1 behavior) when missing/implausible
 - 0.8.2 - Jan 14, 2026 - Added direct SQLite database access for race results
     * New derbydb.py module for direct DB writes (eliminates HTTP latency)
     * Race results written directly to SQLite with WAL mode
@@ -81,7 +86,7 @@ except ImportError:
     LEDSIGN_AVAILABLE = False
 
 # Version information
-VERSION = "0.9.0"  # Race-day chronology: device start timestamp, heat correlation_id MQTT broadcast
+VERSION = "0.9.1"  # Finish path honors device GPIO-edge timestamps (mirrors START); receipt-clock fallback preserved
 
 logger = ServerLogger(
     name='DERBYSERVER', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.
@@ -145,6 +150,9 @@ HEARTBEAT_PULSE         = 1     # seconds to wait between heartbeat pulses
 STARTER_HEARTBEAT_TIMEOUT = 25  # seconds to consider the start timer offline
 RACE_TIMEOUT            = 70    # seconds maximum race time before marking DNF
 DNF_TIME               = 99.999 # DNF (Did Not Finish) time value
+# A finish-timer device timestamp further in the future than this (vs server
+# receipt time) indicates a clock fault; fall back to receipt wall-clock.
+FINISH_TS_MAX_FUTURE_SKEW = 5.0 # seconds
 
 # Race state constants - aligned with derbyapi.py and coordinator-poll.js
 # See RACINGSTATEENGINE.md for complete state documentation
@@ -373,7 +381,31 @@ class derbyRace:
                         # Only count finish if this lane hasn't already finished in this race
                         if lane not in self.lane_times:
                             logger.info(f"Lane {lane} FINISH TRIGGERED!")
-                            self.laneFinish(lane)
+                            # Prefer the device-supplied timestamp (captured at
+                            # GPIO edge on the finish timer) over server
+                            # wall-clock, mirroring the START path, so lane
+                            # times don't absorb MQTT receipt latency. Fall
+                            # back to receipt time when missing/implausible.
+                            device_ts = payload_data.get("timestamp")
+                            server_recv_ts = time.time()
+                            if (isinstance(device_ts, (int, float)) and device_ts > 0
+                                    and float(device_ts) >= self.start_time > 0
+                                    and float(device_ts) <= server_recv_ts + FINISH_TS_MAX_FUTURE_SKEW):
+                                offset_ms = (server_recv_ts - float(device_ts)) * 1000.0
+                                logger.info(
+                                    f"Lane {lane} FINISH: device_ts={device_ts} "
+                                    f"server_recv_ts={server_recv_ts:.3f} "
+                                    f"offset_ms={offset_ms:+.1f}"
+                                )
+                                self.laneFinish(lane, timer=float(device_ts))
+                            else:
+                                if device_ts is not None:
+                                    logger.warning(
+                                        f"Lane {lane} FINISH device timestamp implausible "
+                                        f"(device_ts={device_ts} start_time={self.start_time} "
+                                        f"recv={server_recv_ts:.3f}); using server clock"
+                                    )
+                                self.laneFinish(lane)
                         else:
                             logger.warning(f"Lane {lane} finish ignored - already finished this race with time {self.lane_times[lane]}s")
                 

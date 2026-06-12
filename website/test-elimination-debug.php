@@ -65,11 +65,11 @@ try {
             WHERE rc.classid = :classid 
               AND rc.roundid = (
                   SELECT roundid FROM Rounds 
-                  WHERE classid = :classid AND round = :round_name 
+                  WHERE classid = :classid AND roundname = :round_name 
                   LIMIT 1
               )
               AND (
-                  (rc.finishtime IS NOT NULL AND rc.finishtime > 0 AND rc.finishtime < " . DNF_TIME . ") OR
+                  (rc.finishtime IS NOT NULL AND rc.finishtime > 0) OR
                   (rc.finishplace IS NOT NULL AND rc.finishplace > 0)
               )
             GROUP BY ri.racerid, ri.firstname, ri.lastname, ri.carnumber

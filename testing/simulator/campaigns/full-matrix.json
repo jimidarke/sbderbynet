@@ -1,0 +1,10 @@
+{
+  "name": "full-matrix",
+  "description": "Main validation matrix: 100 paired variants across all scenario families, every seed run under BOTH scoring configs so the std-vs-dropslowest comparison is apples-to-apples.",
+  "variants": [
+    {"scenario": "happy_path", "seed_start": 100, "count": 15, "configs": ["std", "dropslowest"], "mode": "fast"},
+    {"scenario": "dnf_edge",   "seed_start": 200, "count": 15, "configs": ["std", "dropslowest"], "mode": "fast"},
+    {"scenario": "pullforward","seed_start": 300, "count": 10, "configs": ["std", "dropslowest"], "mode": "fast"},
+    {"scenario": "tie_rich",   "seed_start": 400, "count": 10, "configs": ["std", "dropslowest"], "mode": "fast"}
+  ]
+}

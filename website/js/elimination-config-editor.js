@@ -526,6 +526,9 @@ function renderRound(ageGroupKey, roundData) {
                         <option value="average_time" ${roundData.scoring_method === 'average_time' ? 'selected' : ''}>
                             Average Time
                         </option>
+                        <option value="drop_slowest" ${roundData.scoring_method === 'drop_slowest' ? 'selected' : ''}>
+                            Drop Slowest, Then Average
+                        </option>
                         <option value="placement" ${roundData.scoring_method === 'placement' ? 'selected' : ''}>
                             Placement
                         </option>

@@ -249,12 +249,15 @@ function advance_round($roundid)
 {
   global $db;
 
+  // read_single_row defaults to PDO::FETCH_NUM; without FETCH_ASSOC every
+  // named lookup below silently came back empty and this function no-opped.
   $round_info = read_single_row(
     'SELECT r.roundid, r.roundname, r.classid, r.round as round_sequence, c.class
        FROM Rounds r
        JOIN Classes c ON c.classid = r.classid
        WHERE r.roundid = :roundid',
-    [':roundid' => $roundid]
+    [':roundid' => $roundid],
+    PDO::FETCH_ASSOC
   );
 
   if (!$round_info) {
@@ -264,6 +267,8 @@ function advance_round($roundid)
   // Check for elimination tournament - use JSON config if available
   require_once('inc/elimination-config.inc');
   $elimination_state = get_elimination_tournament_state($round_info['classid']);
+  error_log("advance_round(roundid={$roundid}): roundname='{$round_info['roundname']}'"
+            . " elimination=" . ($elimination_state ? "yes(cur={$elimination_state['current_round']})" : "no"));
 
   if ($elimination_state) {
     // Find current round config by matching round name
@@ -276,54 +281,34 @@ function advance_round($roundid)
     }
 
     if ($round_config && $round_config['advancement_rule'] != 'placement') {
-      // Use JSON config values for advancement
-      $advance_count = $round_config['advance_count'];
-      $scoring_method = $round_config['scoring_method'];
+      // Delegate to the single shared advancement engine (same code path as
+      // the explicit coordinator action): tie-inclusive cut, per-round
+      // scoring incl. drop_slowest, EliminationAdvancement bookkeeping, and
+      // a roster REPLACE rather than additive inserts.
+      require_once('inc/elimination-advancement.inc');
 
-      error_log("Elimination advancement: round='{$round_info['roundname']}', advance_count={$advance_count}, scoring={$scoring_method}");
-
-      // Build scoring expression based on JSON config
-      if ($scoring_method === 'total_time') {
-        $score_expr = 'SUM(finishtime)';
-      } elseif ($scoring_method === 'best_time') {
-        $score_expr = 'MIN(finishtime)';
-      } elseif ($scoring_method === 'average_time') {
-        $score_expr = 'AVG(finishtime)';
-      } else {
-        $score_expr = 'SUM(finishtime)'; // Default to total
+      // Guard against double-fire (e.g. a rerun of the last heat): only
+      // advance when the tournament still sits on the round that just
+      // completed.
+      if (intval($elimination_state['current_round']) !=
+          intval($round_config['round_sequence'])) {
+        error_log("Elimination advancement skipped: tournament at round "
+                  . $elimination_state['current_round']
+                  . ", completed roundid {$roundid} is sequence "
+                  . $round_config['round_sequence']);
+        return false;
       }
 
-      // Query top racers based on scoring method
-      // Note: LIMIT must be interpolated directly - PDO/SQLite doesn't bind LIMIT params correctly
-      $limit = intval($advance_count);
-      $stmt = $db->prepare(
-        "SELECT racerid, {$score_expr} as score
-         FROM RaceChart
-         WHERE roundid = :roundid AND finishtime IS NOT NULL AND finishtime > 0
-         GROUP BY racerid
-         ORDER BY score ASC
-         LIMIT {$limit}"
-      );
-      $stmt->execute([':roundid' => $roundid]);
-      $qualifiers = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-      error_log("Elimination advancement: found " . count($qualifiers) . " qualifiers");
-
-      // Find next round by sequence number
-      $next_round_seq = $round_config['round_sequence'] + 1;
-      $next_roundid = read_single_value(
-        'SELECT roundid FROM Rounds WHERE classid = :classid AND round = :seq',
-        [':classid' => $round_info['classid'], ':seq' => $next_round_seq]
-      );
-
-      if ($next_roundid && !empty($qualifiers)) {
-        foreach ($qualifiers as $racerid) {
-          add_to_round($next_roundid, $racerid);
-        }
-        error_log("Elimination advancement: added " . count($qualifiers) . " racers to round {$next_roundid}");
+      try {
+        $ok = advance_elimination_tournament($round_info['classid']);
+        error_log("Elimination auto-advancement for class "
+                  . "{$round_info['classid']} from round "
+                  . "'{$round_info['roundname']}': " . ($ok ? "ok" : "FAILED"));
+        return $ok;
+      } catch (Exception $e) {
+        error_log("Elimination auto-advancement failed: " . $e->getMessage());
+        return false;
       }
-
-      return true;
     }
   }
 

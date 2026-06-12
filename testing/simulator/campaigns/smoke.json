@@ -1,0 +1,8 @@
+{
+  "name": "smoke",
+  "description": "Quick end-to-end sanity: one happy-path and one edge variant.",
+  "variants": [
+    {"scenario": "happy_path", "seed_start": 1, "count": 1, "configs": ["std"], "mode": "fast"},
+    {"scenario": "dnf_edge", "seed_start": 2, "count": 1, "configs": ["std"], "mode": "fast"}
+  ]
+}

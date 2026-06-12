@@ -13,6 +13,11 @@ if (isset($params['classid']) && is_numeric($params['classid'])) {
     $classid = $params['classid'];
 }
 
+// Preview/testing fallback: kiosk.php?page=kiosks/elimination-standings.kiosk&classid=N
+if (!$classid && isset($_GET['classid']) && is_numeric($_GET['classid'])) {
+    $classid = intval($_GET['classid']);
+}
+
 if (!$classid) {
     echo "<div style='text-align: center; padding: 50px; font-size: 24px; color: #666;'>";
     echo "Please configure this kiosk to select a class for elimination tournament standings.";

@@ -287,33 +287,45 @@ function perform_playlist_after_round($roundid) {
 
             error_log("Created playlist entry for next round with bucket_limit={$bucket_limit}");
 
-            // Initialize standings
-            $standings = new StandingsOracle();
-            $bucket_keys = array(stkey_round($roundid));
+            if ($elimination_state) {
+                // Elimination tournaments advance through the single shared
+                // engine (inc/elimination-advancement.inc, invoked from
+                // advance_round()).  Computing a StandingsOracle roster here
+                // too produced a SECOND, differently-scored advancing set and
+                // duplicate Roster rows (add_to_round is a bare INSERT).
+                // The playlist entry above is kept for coordinator UI flow;
+                // roster + activation are the engine's job.
+                error_log("Elimination tournament active: leaving roster to "
+                          . "the elimination advancement engine");
+            } else {
+                // Initialize standings
+                $standings = new StandingsOracle();
+                $bucket_keys = array(stkey_round($roundid));
 
-            // Calculate roster using advance_count from JSON configuration
-            $finalists = calculate_roster_from_keys(
-                $bucket_keys,
-                0,  // No bucketing
-                $bucket_limit,
-                $standings
-            );
+                // Calculate roster using advance_count from JSON configuration
+                $finalists = calculate_roster_from_keys(
+                    $bucket_keys,
+                    0,  // No bucketing
+                    $bucket_limit,
+                    $standings
+                );
 
-            error_log("Calculated " . count($finalists) . " finalists with bucket_limit={$bucket_limit}");
+                error_log("Calculated " . count($finalists) . " finalists with bucket_limit={$bucket_limit}");
 
-            // Add racers to next round's roster
-            if (!empty($finalists)) {
-                foreach ($finalists as $finalist) {
-                    add_to_round($next_round['roundid'], $finalist['racerid']);
+                // Add racers to next round's roster
+                if (!empty($finalists)) {
+                    foreach ($finalists as $finalist) {
+                        add_to_round($next_round['roundid'], $finalist['racerid']);
+                    }
+                    error_log("Added " . count($finalists) . " racers to next round");
                 }
-                error_log("Added " . count($finalists) . " racers to next round");
-            }
 
-            // Activate the next round
-            $entry = playlist_entry_for($next_round['roundid']);
-            if ($entry) {
-                error_log("Activating next round: " . $next_round['roundid']);
-                activate_playlist_entry($entry);
+                // Activate the next round
+                $entry = playlist_entry_for($next_round['roundid']);
+                if ($entry) {
+                    error_log("Activating next round: " . $next_round['roundid']);
+                    activate_playlist_entry($entry);
+                }
             }
 
             // Commit transaction

@@ -58,6 +58,13 @@ class EliminationStandingsOracle {
                 $score_expr = 'AVG(rc.finishtime)';
                 $order_clause = 'score DESC';  // Reverse order: slowest times first for dramatic reveal
                 break;
+            case 'drop_slowest':
+                // Drop the slowest run, average the rest; a single-run racer
+                // keeps that time.  Matches calculate_round_advancement().
+                $score_expr = 'CASE COUNT(*) WHEN 1 THEN MAX(rc.finishtime)'
+                            . ' ELSE (SUM(rc.finishtime) - MAX(rc.finishtime)) / (COUNT(*) - 1) END';
+                $order_clause = 'score DESC';  // Reverse order: slowest times first for dramatic reveal
+                break;
             case 'placement':
                 $score_expr = 'MIN(rc.finishplace)';  // Best placement (1st place = 1, 2nd place = 2, etc.)
                 $order_clause = 'score ASC';  // Normal order: 1st place first, 2nd place second, etc.
@@ -88,14 +95,18 @@ class EliminationStandingsOracle {
                 LEFT JOIN Ranks r ON ri.rankid = r.rankid
                 WHERE rc.classid = :classid 
                   AND rc.roundid = (
-                      SELECT roundid FROM Rounds 
-                      WHERE classid = :classid AND round = :round_name 
+                      SELECT roundid FROM Rounds
+                      WHERE classid = :classid AND roundname = :round_name
                       LIMIT 1
                   )
                   AND (
-                      (rc.finishtime IS NOT NULL AND rc.finishtime > 0 AND rc.finishtime < " . DNF_TIME . ") OR
+                      (rc.finishtime IS NOT NULL AND rc.finishtime > 0) OR
                       (rc.finishplace IS NOT NULL AND rc.finishplace > 0)
                   )
+                  -- withdrawn racers (pull-forward clears passedinspection)
+                  -- are dropped here too so the displayed standings always
+                  -- agree with the advancement engine
+                  AND ri.passedinspection = 1 AND ri.exclude = 0
                 GROUP BY ri.racerid, ri.firstname, ri.lastname, ri.carnumber, 
                          ri.carname, c.class, r.rank
                 ORDER BY {$order_clause}, ri.lastname, ri.firstname";
@@ -168,7 +179,20 @@ class EliminationStandingsOracle {
         $time_format = get_finishtime_formatting_string();
         $advance_count = $this->get_advance_count();
         $total_racers = count($this->current_standings);
-        
+
+        // Score of the last guaranteed-advancing position: anyone tied with
+        // it advances too (mirrors the tie-inclusive advancement cut).
+        $cutoff_score = null;
+        if ($this->has_advancement() && $total_racers > $advance_count) {
+            if ($this->current_round_config['scoring_method'] == 'placement') {
+                $cutoff_score = $this->current_standings[$advance_count - 1]['score'];
+            } else {
+                // Rows are ordered slowest-first; the advance_count-th best
+                // sits advance_count rows from the end.
+                $cutoff_score = $this->current_standings[$total_racers - $advance_count]['score'];
+            }
+        }
+
         foreach ($this->current_standings as $i => $racer) {
             // For placement scoring, display in normal order; for time scoring, reverse order (slowest first for drama)
             if ($this->current_round_config['scoring_method'] == 'placement') {
@@ -207,12 +231,12 @@ class EliminationStandingsOracle {
             
             // Advancement Status - use actual_place for advancement determination
             if ($this->has_advancement()) {
-                $status = '';
-                if ($actual_place <= $advance_count) {
-                    $status = '<span class="advancing">ADVANCING</span>';
-                } else {
-                    $status = '<span class="eliminated">Good Try</span>';
-                }
+                $advancing = $actual_place <= $advance_count ||
+                    ($cutoff_score !== null &&
+                     abs($racer['score'] - $cutoff_score) <= ELIMINATION_SCORE_EPSILON);
+                $status = $advancing
+                    ? '<span class="advancing">ADVANCING</span>'
+                    : '<span class="eliminated">Good Try</span>';
                 echo "<td class='status'>$status</td>";
             }
             

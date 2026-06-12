@@ -166,7 +166,7 @@
       "minimum_racers_per_heat": 1,
       "comment": "Each racer must get exactly 3 races in preliminary - partial heats with <3 racers are acceptable"
     },
-    "dnf_time": 99.000,
+    "dnf_time": 99.999,
     "auto_advancement": true,
     "bracket_seeding": "time_based"
   }

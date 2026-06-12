@@ -1,0 +1,12 @@
+{
+  "name": "dnf_edge",
+  "description": "Random ~3% DNFs plus targeted edge cases: an all-DNF heat, a racer who DNFs every prelim run, and an exact tie at every prelim advancement cutoff.",
+  "dnf_probability": 0.03,
+  "time_model": {"min": 10.0, "max": 30.0, "resolution": 0.001},
+  "targeted_events": [
+    {"type": "tie_at_cutoff", "age_group": "ages_6_8", "width": 2},
+    {"type": "tie_at_cutoff", "age_group": "ages_9_11", "width": 2},
+    {"type": "racer_all_dnf", "age_group": "ages_6_8"},
+    {"type": "dnf_all_lanes", "age_group": "ages_12_14", "round": 1, "heat_fraction": 0.5}
+  ]
+}

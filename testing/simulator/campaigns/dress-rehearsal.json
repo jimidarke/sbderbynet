@@ -1,0 +1,7 @@
+{
+  "name": "dress-rehearsal",
+  "description": "One realtime variant: actual wall-clock race durations, coordinator-DNF loop and heartbeat/staging cadence under true timing. Run on a single tenant; expect ~2.5-4h.",
+  "variants": [
+    {"scenario": "dnf_edge", "seeds": [9001], "configs": ["std"], "mode": "realtime"}
+  ]
+}

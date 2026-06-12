@@ -1,0 +1,21 @@
+{
+  "_provenance": "computed by hand on paper from fixture.json times; do not regenerate programmatically",
+  "total_time": {
+    "prelim_scores": {"901": 20.0, "902": 22.0, "903": 25.0, "904": 25.0,
+                       "905": 112.999, "906": 60.0},
+    "prelim_ranks": {"901": 1, "902": 2, "903": 3, "904": 3, "905": 6, "906": 5},
+    "advancing": [901, 902, 903, 904]
+  },
+  "drop_slowest": {
+    "prelim_scores": {"901": 10.0, "902": 11.0, "903": 12.5, "904": 12.0,
+                       "905": 13.0, "906": 30.0},
+    "prelim_ranks": {"901": 1, "902": 2, "903": 4, "904": 3, "905": 5, "906": 6},
+    "advancing": [901, 902, 904]
+  },
+  "with_904_withdrawn": {
+    "comment": "if 904 pulls out after racing, the tie partner 903 plus the next eligible take the cut under total_time",
+    "advancing_total_time": [901, 902, 903]
+  },
+  "finals_order": [902, 904, 901, 903],
+  "awards": [902, 904, 901]
+}

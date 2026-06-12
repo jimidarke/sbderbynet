@@ -1,0 +1,7 @@
+{
+  "name": "happy_path",
+  "description": "All racers finish every run; uniform random 10-30s times.",
+  "dnf_probability": 0.0,
+  "time_model": {"min": 10.0, "max": 30.0, "resolution": 0.001},
+  "targeted_events": []
+}

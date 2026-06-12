@@ -75,3 +75,4 @@ derbynet.sqlite3.claude/settings.local.json
 # 2026 event source data (registration/roster PII) + scratch — never commit
 /2026official/
 /tmp/
+installer/docker-cloud/mosquitto/passwd

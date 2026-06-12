@@ -1,0 +1,37 @@
+{
+  "name": "micro6",
+  "notes": [
+    "Hand-computed 6-racer fixture. expected.json was written BY HAND from",
+    "these times - it must never be regenerated from the oracle, since its",
+    "whole job is to catch oracle bugs.",
+    "Prelim (2 runs each, advance 3, total_time): 901=20.000, 902=22.000,",
+    "903=25.000 and 904=25.000 tie exactly at the cutoff (both advance),",
+    "905 has a DNF so totals 13.000+99.999=112.999, 906=60.000.",
+    "Under drop_slowest the same times give 901=10.000 902=11.000",
+    "903=12.500 904=12.000 905=13.000 (the DNF is dropped!) 906=30.000,",
+    "so the advancing trio is 901,902,904 - 903 is OUT and 905 nearly",
+    "recovers. This is the DNF-forgiveness policy difference on display.",
+    "Finals run as two heats (4 advanced, 3 lanes): heat1 901=15.000",
+    "902=14.000 903=16.000; heat2 904=15.500. Places: 902 and 904 both",
+    "take a heat-place of 1; best-time breaks the tie -> 902, 904, 901, 903."
+  ],
+  "classid": 99,
+  "rounds": [
+    {"round_sequence": 1, "round_name": "1 Preliminary", "races_per_racer": 2,
+     "advance_count": 3, "scoring_method": "total_time"},
+    {"round_sequence": 2, "round_name": "2 Finals", "races_per_racer": 1,
+     "advance_count": 0, "scoring_method": "placement"}
+  ],
+  "prelim_times": {
+    "901": [10.0, 10.0],
+    "902": [11.0, 11.0],
+    "903": [12.5, 12.5],
+    "904": [12.0, 13.0],
+    "905": [13.0, "DNF"],
+    "906": [30.0, 30.0]
+  },
+  "finals_heats": {
+    "1": {"901": 15.0, "902": 14.0, "903": 16.0},
+    "2": {"904": 15.5}
+  }
+}

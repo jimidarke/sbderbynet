@@ -1,0 +1,10 @@
+{
+  "name": "pullforward",
+  "description": "Mid-prelim withdrawals handled via schedule.pullforward (dry-run then apply; one undo/re-apply cycle), plus light random DNFs.",
+  "dnf_probability": 0.01,
+  "time_model": {"min": 10.0, "max": 30.0, "resolution": 0.001},
+  "targeted_events": [
+    {"type": "pullforward", "age_group": "ages_9_11", "round": 1, "after_heat_fraction": 0.35, "dropouts": 1, "undo_first": true},
+    {"type": "pullforward", "age_group": "ages_6_8", "round": 1, "after_heat_fraction": 0.5, "dropouts": 2}
+  ]
+}

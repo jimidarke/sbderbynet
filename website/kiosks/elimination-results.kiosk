@@ -204,7 +204,7 @@ $(document).ready(function() {
                                      'Roster', 'Roster.racerid = RegistrationInfo.racerid',
                                      'Rounds', 'Rounds.roundid = Roster.roundid')
                 .' WHERE Rounds.roundid = RaceChart.roundid'
-                .' AND Rounds.classid = :classid AND Rounds.round = :round_name'
+                .' AND Rounds.classid = :classid AND Rounds.roundname = :round_name'
                 .' ORDER BY lastname, firstname, carnumber, resultid, lane';
 
             $stmt = $db->prepare($sql);

@@ -1,0 +1,173 @@
+{
+  "format_name": "Soapbox Derby Triple Elimination (Drop Slowest)",
+  "description": "Standard soapbox derby elimination format with age-based brackets Variant: preliminary rounds score by drop-slowest-then-average instead of total time.",
+  "version": "1.0",
+  "age_groups": {
+    "ages_6_8": {
+      "name": "Ages 6-8",
+      "class_name_pattern": "^(Ages 6-8|6-8|6 to 8).*$",
+      "expected_racers": 73,
+      "lanes": 3,
+      "rounds": [
+        {
+          "round_sequence": 1,
+          "round_name": "1 Preliminary",
+          "races_per_racer": 3,
+          "advancement_rule": "top_count",
+          "advance_count": 27,
+          "scoring_method": "drop_slowest",
+          "description": "Each racer runs 3 times (once in each lane), top 27 advance based on drop-slowest average"
+        },
+        {
+          "round_sequence": 2,
+          "round_name": "2 Quarter Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "top_count",
+          "advance_count": 9,
+          "scoring_method": "best_time",
+          "description": "Each racer runs once, top 9 advance based on best time"
+        },
+        {
+          "round_sequence": 3,
+          "round_name": "3 Semi-Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "top_count",
+          "advance_count": 3,
+          "scoring_method": "best_time",
+          "description": "Each racer runs once, top 3 advance based on best time"
+        },
+        {
+          "round_sequence": 4,
+          "round_name": "4 Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "placement",
+          "advance_count": 0,
+          "scoring_method": "placement",
+          "description": "Single race determines final standings (1st, 2nd, 3rd place)"
+        }
+      ]
+    },
+    "ages_9_11": {
+      "name": "Ages 9-11",
+      "class_name_pattern": "^(Ages 9-11|9-11|9 to 11).*$",
+      "expected_racers": 62,
+      "lanes": 3,
+      "rounds": [
+        {
+          "round_sequence": 1,
+          "round_name": "1 Preliminary",
+          "races_per_racer": 3,
+          "advancement_rule": "top_count",
+          "advance_count": 27,
+          "scoring_method": "drop_slowest",
+          "description": "Each racer runs 3 times (once in each lane), top 27 advance based on drop-slowest average"
+        },
+        {
+          "round_sequence": 2,
+          "round_name": "2 Quarter Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "top_count",
+          "advance_count": 9,
+          "scoring_method": "best_time",
+          "description": "Each racer runs once, top 9 advance based on best time"
+        },
+        {
+          "round_sequence": 3,
+          "round_name": "3 Semi-Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "top_count",
+          "advance_count": 3,
+          "scoring_method": "best_time",
+          "description": "Each racer runs once, top 3 advance based on best time"
+        },
+        {
+          "round_sequence": 4,
+          "round_name": "4 Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "placement",
+          "advance_count": 0,
+          "scoring_method": "placement",
+          "description": "Single race determines final standings (1st, 2nd, 3rd place)"
+        }
+      ]
+    },
+    "ages_12_14": {
+      "name": "Ages 12-14",
+      "class_name_pattern": "^(Ages 12-14|12-14|12 to 14).*$",
+      "expected_racers": 23,
+      "lanes": 3,
+      "rounds": [
+        {
+          "round_sequence": 1,
+          "round_name": "1 Preliminary",
+          "races_per_racer": 3,
+          "advancement_rule": "top_count",
+          "advance_count": 9,
+          "scoring_method": "drop_slowest",
+          "description": "Each racer runs 3 times (once in each lane), top 9 advance based on drop-slowest average"
+        },
+        {
+          "round_sequence": 2,
+          "round_name": "2 Semi-Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "top_count",
+          "advance_count": 3,
+          "scoring_method": "best_time",
+          "description": "Each racer runs once, top 3 advance based on best time"
+        },
+        {
+          "round_sequence": 3,
+          "round_name": "3 Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "placement",
+          "advance_count": 0,
+          "scoring_method": "placement",
+          "description": "Single race determines final standings (1st, 2nd, 3rd place)"
+        }
+      ]
+    },
+    "vip": {
+      "name": "VIPs",
+      "class_name_pattern": "^(VIP|Very Important Person).*$",
+      "expected_racers": 15,
+      "lanes": 3,
+      "rounds": [
+        {
+          "round_sequence": 1,
+          "round_name": "1 Preliminary",
+          "races_per_racer": 2,
+          "advancement_rule": "top_count",
+          "advance_count": 3,
+          "scoring_method": "drop_slowest",
+          "description": "Each racer runs twice, top 3 advance based on drop-slowest average"
+        },
+        {
+          "round_sequence": 2,
+          "round_name": "2 Finals",
+          "races_per_racer": 1,
+          "advancement_rule": "top_count",
+          "advance_count": 0,
+          "scoring_method": "placement",
+          "description": "Single race determines final standings (1st, 2nd, 3rd place)"
+        }
+      ]
+    }
+  },
+  "scheduling_rules": {
+    "heat_ordering": {
+      "heat_counts": 10,
+      "group_weighted_cars": 100,
+      "avoid_consecutive": 5000,
+      "avoid_same_lane": 200
+    },
+    "preliminary_requirements": {
+      "races_per_racer": 3,
+      "allow_partial_heats": true,
+      "minimum_racers_per_heat": 1,
+      "comment": "Each racer must get exactly 3 races in preliminary - partial heats with <3 racers are acceptable"
+    },
+    "dnf_time": 99.999,
+    "auto_advancement": true,
+    "bracket_seeding": "time_based"
+  }
+}
