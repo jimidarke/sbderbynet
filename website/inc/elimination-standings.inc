@@ -42,7 +42,7 @@ class EliminationStandingsOracle {
         
         $classid = $this->tournament_state['tournament']['classid'];
         $current_round = $this->tournament_state['current_round'];
-        $scoring_method = $this->current_round_config['scoring_method'];
+        $scoring_method = elimination_effective_scoring_method($this->current_round_config);
         
         // Build scoring expression based on tournament configuration
         switch ($scoring_method) {
@@ -292,7 +292,7 @@ class EliminationStandingsOracle {
             'current_round' => $this->tournament_state['current_round'],
             'total_rounds' => $this->tournament_state['total_rounds'],
             'advance_count' => $this->get_advance_count(),
-            'scoring_method' => $this->current_round_config['scoring_method']
+            'scoring_method' => elimination_effective_scoring_method($this->current_round_config)
         ];
     }
 }

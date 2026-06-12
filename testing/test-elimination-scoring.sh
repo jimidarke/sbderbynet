@@ -10,6 +10,8 @@
 #     and the standings display
 #   * drop_slowest scoring method (drop slowest run, average the rest);
 #     note its policy effect: a single DNF gets dropped
+#   * the Settings toggle (RaceInfo scoring=1) overrides the config method
+#     for multi-run rounds, so the coordinator switch governs advancement
 #
 # Uses the VIP age group (top 3 advance, then finals) from both elimination
 # configs, on two classes that match its name pattern.  The scheduler gives
@@ -74,8 +76,16 @@ for CARNO in 911 912 913 914 915 ; do
         | check_jsuccess
 done
 
-# Check in everyone (fresh DB: racerids 1..11)
-for RACER in 1 2 3 4 5 6 7 8 9 10 11 ; do
+# Class "VIP Toggle" (std config, but raced under RaceInfo scoring=1):
+# same shape as VIP Drop -- the toggle alone must produce the
+# drop_slowest advancement set {921, 922, 923}.
+for CARNO in 921 922 923 924 925 ; do
+    curl_postj action.php "action=racer.import&firstname=Racer&lastname=T$CARNO&partition=VIP%20Toggle&carnumber=$CARNO" \
+        | check_jsuccess
+done
+
+# Check in everyone (fresh DB: racerids 1..16)
+for RACER in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ; do
     curl_postj action.php "action=racer.pass&racer=$RACER&value=1" | check_jsuccess
 done
 
@@ -83,12 +93,15 @@ done
 curl_getj "action.php?query=class.list" > /dev/null
 CLASSID_A=$(jq -r '.classes[] | select(.name == "VIP") | .classid' $DEBUG_CURL)
 CLASSID_B=$(jq -r '.classes[] | select(.name == "VIP Drop") | .classid' $DEBUG_CURL)
-[ -n "$CLASSID_A" ] && [ -n "$CLASSID_B" ] || test_fails could not resolve classids
+CLASSID_C=$(jq -r '.classes[] | select(.name == "VIP Toggle") | .classid' $DEBUG_CURL)
+[ -n "$CLASSID_A" ] && [ -n "$CLASSID_B" ] && [ -n "$CLASSID_C" ] || test_fails could not resolve classids
 
 ### Initialize tournaments (both VIP* names match the vip pattern)
 curl_postj action.php "action=elimination.tournament.initialize&classid=$CLASSID_A&config_file=soapbox-derby-elimination.json&age_group_key=vip" \
     | check_jsuccess
 curl_postj action.php "action=elimination.tournament.initialize&classid=$CLASSID_B&config_file=soapbox-derby-elimination-dropslowest.json&age_group_key=vip" \
+    | check_jsuccess
+curl_postj action.php "action=elimination.tournament.initialize&classid=$CLASSID_C&config_file=soapbox-derby-elimination.json&age_group_key=vip" \
     | check_jsuccess
 
 # Map classid -> prelim/finals roundids
@@ -100,8 +113,9 @@ round_for() {  # $1 = classid, $2 = round sequence number
 }
 RID_A1=$(round_for $CLASSID_A 1) ; RID_A2=$(round_for $CLASSID_A 2)
 RID_B1=$(round_for $CLASSID_B 1) ; RID_B2=$(round_for $CLASSID_B 2)
+RID_C1=$(round_for $CLASSID_C 1) ; RID_C2=$(round_for $CLASSID_C 2)
 [ -n "$RID_A1" ] && [ -n "$RID_A2" ] && [ -n "$RID_B1" ] && [ -n "$RID_B2" ] \
-    || test_fails could not resolve roundids
+    && [ -n "$RID_C1" ] && [ -n "$RID_C2" ] || test_fails could not resolve roundids
 
 ### Schedule prelims
 curl_postj action.php "action=schedule.generate&roundid=$RID_A1" | check_jsuccess
@@ -115,6 +129,9 @@ PLAN[905]="13.000 13.000 99.999" ; PLAN[906]="30.000 30.000 30.000"
 PLAN[911]="10.000 10.000 25.000" ; PLAN[912]="11.000 11.000 11.000"
 PLAN[913]="99.999 12.000 12.000" ; PLAN[914]="12.500 12.500 12.500"
 PLAN[915]="13.000 13.000 13.000"
+PLAN[921]="10.000 10.000 25.000" ; PLAN[922]="11.000 11.000 11.000"
+PLAN[923]="99.999 12.000 12.000" ; PLAN[924]="12.500 12.500 12.500"
+PLAN[925]="13.000 13.000 13.000"
 
 # Drive every heat of the round now showing in poll.coordinator, assigning
 # each racer their next planned time, until the round has no current heat.
@@ -198,5 +215,25 @@ curl_getj "action.php?query=poll.coordinator" > /dev/null
 ADVANCED_B=$(jq -r '[.racers[].carnumber] | sort | join(",")' $DEBUG_CURL)
 [ "$ADVANCED_B" == "911,912,913" ] || \
     test_fails class B drop_slowest advanced set was $ADVANCED_B expected 911,912,913
+
+### Class C: STANDARD config, but flip the coordinator Settings toggle to
+### drop-slowest BEFORE racing -- the toggle alone must govern advancement.
+curl_postj action.php "action=settings.write&scoring=1" | check_jsuccess
+curl_postj action.php "action=schedule.generate&roundid=$RID_C1" | check_jsuccess
+curl_postj action.php "action=heat.select&roundid=$RID_C1&now_racing=1" | check_jsuccess
+user_login_timer
+run_round_from_plan $RID_C1 5
+
+user_login_coordinator
+curl_getj "action.php?query=elimination.tournament.status&classid=$CLASSID_C" | \
+    jq -e '.tournament.current_round == 2' > /dev/null || \
+    test_fails class C did not auto-advance to round 2
+curl_postj action.php "action=schedule.generate&roundid=$RID_C2" | check_jsuccess
+curl_postj action.php "action=heat.select&roundid=$RID_C2&now_racing=0" | check_jsuccess
+curl_getj "action.php?query=poll.coordinator" > /dev/null
+ADVANCED_C=$(jq -r '[.racers[].carnumber] | sort | join(",")' $DEBUG_CURL)
+[ "$ADVANCED_C" == "921,922,923" ] || \
+    test_fails class C settings-toggle advanced set was $ADVANCED_C expected 921,922,923 \
+               "(toggle did not govern advancement)"
 
 echo "test-elimination-scoring PASSED"

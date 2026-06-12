@@ -17,6 +17,38 @@ require_once('inc/classes.inc');
 define('ELIMINATION_SCORE_EPSILON', 0.0005);
 
 /**
+ * Resolve the scoring method that actually governs a round.
+ *
+ * The coordinator's Settings toggle (RaceInfo 'scoring': 0=average,
+ * 1=drop-slowest, 2=best) OVERRIDES the config's method for multi-run
+ * rounds, so one switch governs both the displayed standings and who
+ * advances — previously the toggle changed display aggregates only, and
+ * the tenant could race in a display-says-one-thing, advancement-does-
+ * another state.  Single-run rounds (best_time QF/SF) and placement
+ * finals are unaffected: the toggle has no meaning there.
+ *
+ * scoring=0 keeps the config's authored method (total_time for prelims;
+ * order-identical to average when every racer has equal runs).
+ */
+function elimination_effective_scoring_method($round_config) {
+    $method = $round_config['scoring_method'];
+    if (($round_config['races_per_racer'] ?? 1) > 1 && $method !== 'placement') {
+        $scoring = intval(read_raceinfo('scoring', 0));
+        if ($scoring == 1 && $method !== 'drop_slowest') {
+            error_log("Scoring setting override: round '{$round_config['round_name']}' "
+                      . "{$method} -> drop_slowest (RaceInfo scoring=1)");
+            return 'drop_slowest';
+        }
+        if ($scoring == 2 && $method !== 'best_time') {
+            error_log("Scoring setting override: round '{$round_config['round_name']}' "
+                      . "{$method} -> best_time (RaceInfo scoring=2)");
+            return 'best_time';
+        }
+    }
+    return $method;
+}
+
+/**
  * Load all available elimination configuration files
  * @return array Array of configuration file info
  */

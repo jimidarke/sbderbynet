@@ -93,7 +93,7 @@ function advance_elimination_tournament($classid) {
 function calculate_round_advancement($classid, $round_number, $round_config) {
     global $db;
     
-    $scoring_method = $round_config['scoring_method'];
+    $scoring_method = elimination_effective_scoring_method($round_config);
     $advance_count = intval($round_config['advance_count']);
 
     // Build query based on scoring method.  DNF runs carry the 99.999
