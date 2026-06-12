@@ -46,6 +46,18 @@ standings oracle, config validator, editor UI) + variant config
   fix #6 — and it was this scenario that exposed #6.
 * Realtime micro run (VIP class, real wall-clock, coordinator DNF loop):
   PASS — 48/48 recorded times within 0.15s of plan.
+* Stock-suite regression A/B (2026-06-12): `setup-basic-no-photos.sh` +
+  `test-basic-racing.sh` run against side-by-side containers built from
+  the pre-change baseline (061de2ad) and the current tree. Result: **all
+  92 executed steps and every failure point byte-identical** between the
+  two builds. The failures themselves are pre-existing fork rot /
+  environment gaps (`note_from` custom-field assertions, replay-client
+  expectations with no replay attached, and the fork's own
+  check-in-gates-scheduling behavior) — none introduced by this change
+  set. Note: the `FETCH_ASSOC` fix re-awakened `advance_round()`'s legacy
+  non-elimination branch, which only fires for rounds named exactly
+  "Preliminary"/"Semi-Final"; SBDerbyNet rounds are always number-prefixed
+  ("1 Preliminary"), so it remains unreachable in this fork.
 
 ### VPS (production stack, tenants cloned from st-albert-2026-official)
 * Real 2026 registration shape: Ages 9-11 = 57, Ages 6-8 = 55,
