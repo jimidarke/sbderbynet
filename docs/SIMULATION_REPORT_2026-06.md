@@ -51,37 +51,54 @@ standings oracle, config validator, editor UI) + variant config
 * Real 2026 registration shape: Ages 9-11 = 57, Ages 6-8 = 55,
   Ages 12-14 = 14 racers.
 * Smoke campaign: **2/2 PASS**.
-* Full matrix (100 variants: 50 seeds × std + dropslowest across all
-  scenario families): **IN PROGRESS** — launched 2026-06-11 ~18:24 MDT,
-  detached on the VPS (survives local shutdown). 8/8 PASS at last check.
-  Log: `/opt/sbderbynet/testing/simulator/artifacts/run-20260612-002410.log`
-  Status check:
-  `ssh claude@uisp.darketech.ca "sudo find /opt/sbderbynet/testing/simulator/artifacts/campaign-full-matrix -name verdict.json | wc -l"`
-  (done when the log tail says "campaign done: N/100"); aggregate report at
-  `artifacts/campaign-full-matrix/REPORT.md` on the VPS.
-* Realtime dress rehearsal: **TBD — queued after the matrix**:
-  `NOHUP=1 testing/simulator/deploy/run-on-vps.sh campaign run --plan /sim/campaigns/dress-rehearsal.json`
-* After campaigns: re-verify official DB hash against
-  `testing/simulator/artifacts/official-db-baseline.sha256`
-  (d18882526e350c18…).
+* Full matrix (100 variants: 50 seeds × std + dropslowest across
+  happy_path / dnf_edge / pullforward / tie_rich): **100/100 PASS.**
+  First pass was 91/100; all 9 failures were one latent race-server bug
+  (lane count not adapting when a partial heat staged inside the one-tick
+  FINISHED→RACING bounce after a DNF-completed heat — possible only at
+  simulator pacing, near-zero race-day exposure). Fixed in derbyRace
+  0.9.2; the 9 seeds re-ran 9/9 PASS. The 91 original passes are
+  unaffected by the fix (it changes a hang path, not any scoring path).
+* Realtime dress rehearsal: launched detached 2026-06-11 ~21:04 MDT
+  (full event, real wall-clock; expect ~2.5-4h). Log:
+  `/opt/sbderbynet/testing/simulator/artifacts/run-20260612-030345.log`
+* Official tenant isolation: hash unchanged across all campaigns. (It DID
+  change once mid-evening — coordinator settings edits `weight-units=kg`
+  + `scoring=1` at 19:19 MDT, human action, no race data touched.)
 * Official tenant isolation: DB sha256 verified unchanged before/after
   campaigns (`artifacts/official-db-baseline.sha256`).
 
 ## 3. Scoring method assessment (std total_time vs drop_slowest)
 
-Preliminary (paired seed 11, ~3% DNF rate): the methods disagree
-substantially — e.g. 5 of 27 Ages 6-8 prelim advancers differ and the
-finals field changes. The dominant driver is DNF policy:
+50 paired seeds, identical injected times under both methods:
+
+| Effect | Result |
+|---|---|
+| Prelim advancers changed | mean ~10-12% of each cut (3.3/27 Ages 9-11, 3.1/29 Ages 6-8, 1.0/10 Ages 12-14); max 6-7 |
+| Finals field differs | **46 / 50 seeds (92%)** |
+| A podium differs | **46 / 50 seeds (92%)** |
+| Why drop-only advancers got in | 278 pure peak-vs-consistency vs 92 DNF-forgiveness (**3:1**) |
+
+The headline: the scoring choice changes a podium in 92% of simulated
+events — and the dominant mechanism is NOT DNF forgiveness. Dropping the
+slowest run fundamentally rewards *peak pace* (your best 2 runs) where
+total_time rewards *consistency* (all 3 runs count). DNF policy rides on
+top of that:
 
 * **total_time**: one DNF ≈ +100s — effectively eliminates the racer.
-* **drop_slowest**: the DNF *is* the dropped run — one DNF is fully
-  forgiven; only a second DNF hurts.
+* **drop_slowest**: the DNF *is* the dropped run — one DNF fully forgiven.
 
-Full-matrix comparison tables: **TBD**.
+Both methods are validated end-to-end (50 full tournaments each). The
+detailed who-changed tables are in the campaign report on the VPS
+(`artifacts/campaign-full-matrix/REPORT.md`, 308 difference rows).
 
-**Decision needed before race day:** which DNF philosophy do you want on
-the track? (A mechanical failure costing a kid the event argues for
-drop_slowest; "you must finish your runs" argues for total_time.)
+**Decision needed before race day:** consistency (total_time, current) vs
+peak pace + breakdown forgiveness (drop_slowest). Note the coordinator's
+`scoring=1` setting written to the official tenant on 2026-06-11 only
+changes *display* aggregates — to race under drop_slowest, the
+tournaments' `config_file` must be switched to
+`soapbox-derby-elimination-dropslowest.json` (and the display setting
+kept in agreement).
 
 ## 4. Race-day notes
 
