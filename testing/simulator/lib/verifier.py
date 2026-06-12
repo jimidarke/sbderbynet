@@ -34,6 +34,13 @@ class Check:
 def verify(artifact: dict) -> dict:
     tenant = artifact["tenant"]
     tolerance = FAST_TOLERANCE if artifact["mode"] == "fast" else REALTIME_TOLERANCE
+    if artifact["mode"] == "realtime":
+        # In realtime mode the engine's inputs are the RECORDED times, which
+        # legitimately differ from the plan by sleep/edge jitter — enough to
+        # break a planted exact tie at a cutoff.  Re-adjudicate expected
+        # progression from the recorded times so the oracle judges the same
+        # inputs the engine saw.
+        _rebuild_expected_from_recorded(tenant, artifact)
     checks: List[Check] = []
 
     checks.append(_check_times(tenant, artifact, tolerance))
@@ -59,6 +66,37 @@ def verify(artifact: dict) -> dict:
 
 
 # ---------------------------------------------------------------------- #
+
+def _rebuild_expected_from_recorded(tenant: str, artifact: dict) -> None:
+    import os
+
+    from .oracle import Oracle
+    from .util import find_configs_dir, load_json
+
+    chart = _chart_by_key(tenant, {e["roundid"] for e in artifact["run_log"]})
+    log = []
+    for entry in artifact["run_log"]:
+        row = chart.get((entry["roundid"], entry["heat"], entry["lane"]))
+        time_val = entry["time"]
+        if row is not None and row.get("finishtime") is not None and \
+                entry["via"] != "racer.dnf":
+            time_val = float(row["finishtime"])
+        log.append({**entry, "time": time_val})
+
+    # Rebuild per-class round configs (the artifact strips them).
+    config_file = {"std": "soapbox-derby-elimination.json",
+                   "dropslowest": "soapbox-derby-elimination-dropslowest.json"}[
+                       artifact["config"]]
+    config = load_json(os.path.join(find_configs_dir(), config_file))
+    classes = {}
+    for cid_s, info in artifact["classes"].items():
+        classes[int(cid_s)] = {
+            **info,
+            "rounds": config["age_groups"][info["age_group_key"]]["rounds"],
+        }
+    withdrawn = {int(k): v for k, v in (artifact.get("withdrawn") or {}).items()}
+    artifact["expected"] = Oracle(log, classes, withdrawn).expected()
+
 
 def _chart_by_key(tenant: str, roundids) -> dict:
     out = {}

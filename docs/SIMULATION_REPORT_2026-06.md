@@ -59,9 +59,13 @@ standings oracle, config validator, editor UI) + variant config
   simulator pacing, near-zero race-day exposure). Fixed in derbyRace
   0.9.2; the 9 seeds re-ran 9/9 PASS. The 91 original passes are
   unaffected by the fix (it changes a hang path, not any scoring path).
-* Realtime dress rehearsal: launched detached 2026-06-11 ~21:04 MDT
-  (full event, real wall-clock; expect ~2.5-4h). Log:
-  `/opt/sbderbynet/testing/simulator/artifacts/run-20260612-030345.log`
+* Realtime dress rehearsal: **PASS** — the full event at real wall-clock
+  (157 heats, 469 results, 70 minutes, zero anomalies), coordinator-DNF
+  loop and heartbeat cadence under true timing. One adjudication nuance:
+  realtime jitter (~0.1s/run) legitimately broke a scenario-planted exact
+  tie at the 27th cut, so the verifier now judges realtime runs against
+  the RECORDED times (the engine's actual inputs) rather than the plan —
+  with that, engine and oracle agree completely.
 * Official tenant isolation: hash unchanged across all campaigns. (It DID
   change once mid-evening — coordinator settings edits `weight-units=kg`
   + `scoring=1` at 19:19 MDT, human action, no race data touched.)
