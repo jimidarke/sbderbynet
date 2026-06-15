@@ -26,6 +26,14 @@ GEN_AT=$(TZ=America/Edmonton date "+%m-%d-%Y %H:%M:%S")
 DB_MTIME="(missing)"
 [ -f "$DB" ] && DB_MTIME=$(TZ=America/Edmonton date -r "$DB" "+%m-%d-%Y %H:%M:%S" 2>/dev/null || echo "(unknown)")
 
+# Content version for the browser version-bump refresh. We key it on the DB
+# mtime (the source of the content), NOT wall-clock, so the periodic "floor"
+# render of an idle DB does NOT bump the version — spectators only reload when
+# the race data actually changed. Fallback to epoch if the DB is absent
+# (pre-event). Published to version.txt and embedded as {{VERSION}} in the
+# auto-refreshing pages. See docs/PUBLIC_STATS.md.
+VERSION=$([ -f "$DB" ] && stat -c %Y "$DB" 2>/dev/null || date +%s)
+
 # Helper: run a single SQL statement, return TSV. Empty on missing DB.
 sql() {
     if [ ! -f "$DB" ]; then return 0; fi
@@ -287,6 +295,7 @@ if [ -n "$ROUND_ID" ] && [ "$ROUND_ID" != "0" ]; then
             -e "s|{{HEAT_NOW}}|$HEATNOW_SUB|g" \
             -e "s|{{UPDATED}}|$UPDATED_SUB|g" \
             -e "s|{{PINNY}}|$PINNY_SUB|g" \
+            -e "s|{{VERSION}}|$VERSION|g" \
             -e "/__STATSGEN_PAYLOAD__/{ r $me_payload" -e "d; }" \
             "$SELF_DIR/template-me-detail.html" > "$ME_DIR/$p4.html"
     done
@@ -324,6 +333,7 @@ render_template() {
         -e "s|{{HEAT_NOW}}|$heatnow_sub|g" \
         -e "s|{{STATE}}|$state_sub|g" \
         -e "s|{{UPDATED}}|$updated_sub|g" \
+        -e "s|{{VERSION}}|$VERSION|g" \
         -e "/$SUB_MARK/{ r $payload_file" -e "d; }" \
         "$template" > "$out"
 }
@@ -335,17 +345,24 @@ EMPTY_BODY=""
 render_template "$SELF_DIR/template-schedule.html" "$TMP_DIR/schedule.html" SCHEDULE_BODY
 render_template "$SELF_DIR/template-recent.html"   "$TMP_DIR/recent.html"   RECENT_BODY
 render_template "$SELF_DIR/template-myraces.html"  "$TMP_DIR/myraces.html"  EMPTY_BODY
+# Static audience-feedback page — no dynamic payload (empty body strips the
+# marker) and no version-bump refresh in the template. See docs/PUBLIC_STATS.md.
+render_template "$SELF_DIR/template-feedback.html" "$TMP_DIR/feedback.html" EMPTY_BODY
 
 # Generator-side health snapshot (no token leakage).
 cat > "$TMP_DIR/health.json" <<EOF
-{"generated_at":"$GEN_AT","round_id":"${ROUND_ID:-}","heat":"${HEAT_NOW:-}","state":"${STATE:-}","db_mtime":"$DB_MTIME"}
+{"generated_at":"$GEN_AT","round_id":"${ROUND_ID:-}","heat":"${HEAT_NOW:-}","state":"${STATE:-}","db_mtime":"$DB_MTIME","version":"$VERSION"}
 EOF
+
+# Content version for the browser version-bump poll. The auto-refreshing pages
+# embed this same value as {{VERSION}} and reload when version.txt differs.
+printf '%s\n' "$VERSION" > "$TMP_DIR/version.txt"
 
 # ---- 7. Atomic publish -------------------------------------------------------
 mkdir -p "$DEST_DIR"
 # Move the contents into place — DEST_DIR may already exist for the same token,
 # so swap files individually rather than the directory.
-for f in schedule.html recent.html myraces.html health.json; do
+for f in schedule.html recent.html myraces.html feedback.html health.json version.txt; do
     mv -f "$TMP_DIR/$f" "$DEST_DIR/$f"
 done
 

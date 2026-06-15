@@ -457,6 +457,17 @@ function record_action($args) {
   }
 }
 
+// Request a near-immediate cloud-sync push of the event DB to the VPS twin.
+// Best-effort: bumps the mtime of a world-writable trigger file that a systemd
+// .path unit watches on the race-day Pi (see docs/PUBLIC_STATS.md). The file is
+// owned by `derbynet` but mode 0666, so the web app (www-data) can update its
+// mtime. Silent no-op off-Pi (cloud twin, dev, tests) where the file is absent,
+// and never throws into the calling race action.
+function request_cloud_push() {
+  $f = '/run/derbynet-cloud-sync.trigger';
+  if (@is_writable($f)) { @touch($f); }
+}
+
 function set_current_heat($roundid, $heat) {
   global $db;
   write_raceinfo('RoundID', $roundid);
@@ -465,6 +476,9 @@ function set_current_heat($roundid, $heat) {
   record_action(array('action' => 'heat.*advance',
                       'roundid' => $roundid,
                       'heat' => $heat));
+
+  // Heat advance + round change → refresh the spectator pages promptly.
+  request_cloud_push();
 }
 
 // If not working with a timer device, or if DerbyNet is just running as a

@@ -174,6 +174,9 @@ function write_chart($roundid, &$heats)
       }
     }
   }
+
+  // Schedule (re)generated → refresh the spectator pages promptly.
+  request_cloud_push();
 }
 
 // Main scheduling function

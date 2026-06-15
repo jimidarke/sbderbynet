@@ -1,8 +1,9 @@
 #!/bin/bash
 # cloud-sync.sh — Sync DerbyNet SQLite from the race-day Pi to the cloud VPS.
 #
-# Runs every 30 s on the Pi via systemd timer
-# (derbynet-cloud-sync.{service,timer} in the derbypi image). Uses SQLite's
+# Runs on the Pi via systemd: a 30 s timer backstop (derbynet-cloud-sync.timer)
+# plus a .path unit (derbynet-cloud-sync.path) that fires on demand when race
+# code touches the trigger file. Uses SQLite's
 # .backup command for a safe, consistent snapshot even during active racing
 # (WAL mode). Writes the DB into a `.tmp` path on the cloud and renames it
 # atomically so concurrent readers (the stats-gen container) cannot see a
@@ -104,34 +105,58 @@ if [ ! -r "$SYNC_KNOWN_HOSTS" ]; then
     exit 1
 fi
 
-# Locate the active DB. Multi-event layouts put it under
-# /var/lib/derbynet/<year>/<event>/derbynet.sqlite3; pick the most recently
-# modified one.
-if [ -n "${DERBYNET_DB:-}" ]; then
-    DB_PATH="$DERBYNET_DB"
-else
-    DB_PATH=$(find /var/lib/derbynet -name "derbynet.sqlite3" -printf '%T@ %p\n' 2>/dev/null \
-              | sort -rn | head -1 | cut -d' ' -f2-)
+# ---- single-flight lock -----------------------------------------------------
+#
+# Only one push may run at a time. If a trigger fires while a push is in flight,
+# the in-flight holder catches it via the mtime recheck below (and the 30 s
+# timer is the final backstop), so a blocked invocation simply exits 0. The lock
+# file lives OUTSIDE the service RuntimeDirectory (which systemd recreates on
+# every start) so contention is visible across the timer- and event-driven
+# (.path unit) invocations alike. See docs/PUBLIC_STATS.md.
+TRIGGER_FILE="${TRIGGER_FILE:-/run/derbynet-cloud-sync.trigger}"
+LOCK_FILE="${LOCK_FILE:-/run/derbynet-cloud-sync.lock}"
+
+exec 9>"$LOCK_FILE" 2>/dev/null || exit 0
+if ! flock -n 9; then
+    exit 0
 fi
 
-if [ -z "$DB_PATH" ] || [ ! -f "$DB_PATH" ]; then
-    log_failure "DB not found at: ${DB_PATH:-<auto-detect empty>}"
-    bump_failures
-    exit 2
-fi
+flag_mtime() { stat -c %Y "$TRIGGER_FILE" 2>/dev/null || echo 0; }
 
-# ---- snapshot ---------------------------------------------------------------
+# do_one_push: locate the active DB, snapshot it WAL-safely, and push the DB +
+# sentinel to the cloud with an atomic remote rename. Returns 0 on success, 2 if
+# no DB was found, 3 on snapshot/scp/ssh failure. Updates the failure-streak
+# state on every outcome so both the initial and catch-up pushes count.
+do_one_push() {
+    local DB_PATH SYNC_TS CLOUD_DIR REMOTE_DB_TMP REMOTE_SENT_TMP REMOTE_SENT
 
-# .backup is WAL-safe and does not lock the main DB. Tiny CPU cost; runs in
-# tens of milliseconds for typical race-day DB sizes (< 10 MB).
-if ! sqlite3 "$DB_PATH" ".backup $TEMP_BACKUP" 2>/dev/null; then
-    log_failure "sqlite3 .backup failed for $DB_PATH"
-    bump_failures
-    exit 3
-fi
+    # Locate the active DB. Multi-event layouts put it under
+    # /var/lib/derbynet/<year>/<event>/derbynet.sqlite3; pick the most recently
+    # modified one.
+    if [ -n "${DERBYNET_DB:-}" ]; then
+        DB_PATH="$DERBYNET_DB"
+    else
+        DB_PATH=$(find /var/lib/derbynet -name "derbynet.sqlite3" -printf '%T@ %p\n' 2>/dev/null \
+                  | sort -rn | head -1 | cut -d' ' -f2-)
+    fi
 
-SYNC_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-cat > "$TEMP_SENTINEL" <<EOF
+    if [ -z "$DB_PATH" ] || [ ! -f "$DB_PATH" ]; then
+        log_failure "DB not found at: ${DB_PATH:-<auto-detect empty>}"
+        bump_failures
+        return 2
+    fi
+
+    # ---- snapshot -----------------------------------------------------------
+    # .backup is WAL-safe and does not lock the main DB. Tiny CPU cost; runs in
+    # tens of milliseconds for typical race-day DB sizes (< 10 MB).
+    if ! sqlite3 "$DB_PATH" ".backup $TEMP_BACKUP" 2>/dev/null; then
+        log_failure "sqlite3 .backup failed for $DB_PATH"
+        bump_failures
+        return 3
+    fi
+
+    SYNC_TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    cat > "$TEMP_SENTINEL" <<EOF
 # DerbyNet Cloud Twin Sentinel
 # Presence of this file marks the host as a read-only replica of a Pi.
 # Local edits will be overwritten on the next cloud-sync.
@@ -139,49 +164,63 @@ last_sync_utc=$SYNC_TS
 source_host=$(hostname)
 EOF
 
-# ---- push -------------------------------------------------------------------
-#
-# Atomic remote write: scp to .tmp paths, then a single ssh `mv` so a partial
-# transfer never replaces a good DB. -C enables compression; saves ~30-60%
-# on a typical SQLite file over a slow uplink.
+    # ---- push ---------------------------------------------------------------
+    # Atomic remote write: scp to .tmp paths, then a single ssh `mv` so a partial
+    # transfer never replaces a good DB. -C enables compression; saves ~30-60%
+    # on a typical SQLite file over a slow uplink.
+    CLOUD_DIR=$(dirname "$CLOUD_DB_PATH")
+    REMOTE_DB_TMP="${CLOUD_DB_PATH}.tmp"
+    REMOTE_SENT_TMP="${CLOUD_DIR}/.cloud_readonly.tmp"
+    REMOTE_SENT="${CLOUD_DIR}/.cloud_readonly"
 
-CLOUD_DIR=$(dirname "$CLOUD_DB_PATH")
-REMOTE_DB_TMP="${CLOUD_DB_PATH}.tmp"
-REMOTE_SENT_TMP="${CLOUD_DIR}/.cloud_readonly.tmp"
-REMOTE_SENT="${CLOUD_DIR}/.cloud_readonly"
+    if ! scp -O -q -C "${ssh_common_opts[@]}" \
+           "$TEMP_BACKUP"   "${CLOUD_USER}@${CLOUD_HOST}:${REMOTE_DB_TMP}" \
+           2>/dev/null; then
+        log_failure "scp DB failed (cellular outage or auth)"
+        bump_failures
+        return 3
+    fi
 
-if ! scp -O -q -C "${ssh_common_opts[@]}" \
-       "$TEMP_BACKUP"   "${CLOUD_USER}@${CLOUD_HOST}:${REMOTE_DB_TMP}" \
-       2>/dev/null; then
-    log_failure "scp DB failed (cellular outage or auth)"
-    bump_failures
-    exit 3
+    if ! scp -O -q -C "${ssh_common_opts[@]}" \
+           "$TEMP_SENTINEL" "${CLOUD_USER}@${CLOUD_HOST}:${REMOTE_SENT_TMP}" \
+           2>/dev/null; then
+        log_failure "scp sentinel failed"
+        bump_failures
+        return 3
+    fi
+
+    # Single ssh round-trip swaps both files atomically (each `mv` is atomic on
+    # POSIX; back-to-back means at most a few ms of inconsistency, which the
+    # stats-gen render won't notice).
+    if ! ssh "${ssh_common_opts[@]}" \
+           "${CLOUD_USER}@${CLOUD_HOST}" \
+           "mv $REMOTE_DB_TMP $CLOUD_DB_PATH && mv $REMOTE_SENT_TMP $REMOTE_SENT" \
+           2>/dev/null; then
+        log_failure "ssh mv failed"
+        bump_failures
+        return 3
+    fi
+
+    # ---- success ------------------------------------------------------------
+    log_recovery
+    clear_failures
+    # Quiet success log — at info level so it doesn't clutter default-priority
+    # filters even when events fire several pushes a minute.
+    logger -t derbynet-cloud-sync -p user.info "synced $DB_PATH -> ${CLOUD_USER}@${CLOUD_HOST}:${CLOUD_DB_PATH} @ $SYNC_TS"
+    return 0
+}
+
+# Run a push, then — if a trigger arrived while it was running — exactly one
+# catch-up push. This coalesces any number of mid-push triggers into a single
+# retry; anything that arrives after the catch-up rides the next 30 s timer
+# tick. `before` is captured AFTER acquiring the lock so triggers that landed
+# while we were blocked on flock aren't double-counted. The `if` form keeps
+# `set -e` from aborting before the retry check.
+before=$(flag_mtime)
+if do_one_push; then rc=0; else rc=$?; fi
+
+if [ "$(flag_mtime)" != "$before" ]; then
+    if do_one_push; then rc=0; else rc=$?; fi
 fi
 
-if ! scp -O -q -C "${ssh_common_opts[@]}" \
-       "$TEMP_SENTINEL" "${CLOUD_USER}@${CLOUD_HOST}:${REMOTE_SENT_TMP}" \
-       2>/dev/null; then
-    log_failure "scp sentinel failed"
-    bump_failures
-    exit 3
-fi
-
-# Single ssh round-trip swaps both files atomically (each `mv` is atomic on
-# POSIX; back-to-back means at most a few ms of inconsistency, which the
-# stats-gen 30 s tick won't notice).
-if ! ssh "${ssh_common_opts[@]}" \
-       "${CLOUD_USER}@${CLOUD_HOST}" \
-       "mv $REMOTE_DB_TMP $CLOUD_DB_PATH && mv $REMOTE_SENT_TMP $REMOTE_SENT" \
-       2>/dev/null; then
-    log_failure "ssh mv failed"
-    bump_failures
-    exit 3
-fi
-
-# ---- success ---------------------------------------------------------------
-
-log_recovery
-clear_failures
-# Quiet success log — every 30 s is enough to look at if you're tailing,
-# but at info level so it doesn't clutter default-priority filters.
-logger -t derbynet-cloud-sync -p user.info "synced $DB_PATH -> ${CLOUD_USER}@${CLOUD_HOST}:${CLOUD_DB_PATH} @ $SYNC_TS"
+exit $rc

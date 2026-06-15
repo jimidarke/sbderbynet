@@ -1,0 +1,14 @@
+[Unit]
+Description=Trigger cloud-sync when a race event requests a push
+Documentation=https://github.com/jimidarke/sbderbynet/blob/master/docs/PUBLIC_STATS.md
+
+[Path]
+# Race code bumps this file's mtime (see /etc/tmpfiles.d/derbynet-cloud-sync-trigger.conf).
+# systemd coalesces modifications that arrive while the service is active into a
+# single re-activation after it exits; cloud-sync.sh's own mtime recheck covers
+# the rest. The 30 s timer remains the catch-all backstop.
+PathModified=/run/derbynet-cloud-sync.trigger
+Unit=derbynet-cloud-sync.service
+
+[Install]
+WantedBy=multi-user.target

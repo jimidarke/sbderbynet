@@ -5,10 +5,27 @@ pinny lookup + spectator UI polish`). Pages live behind the locked token
 through 2026-06-22; see [PUBLIC_STATS.md](PUBLIC_STATS.md) for the current
 architecture.
 
-The system today: Pi → cloud-sync (30 s) → cloud-twin → stats-gen render
-(30 s) → static HTML → Caddy (max-age 20 s, swr 40 s) → browser `<meta refresh>`
-(30 s). Worst-case end-to-end latency ≈ 90 s. PII-free (pinny only),
-token-gated, no JS except the keypad page, no XHR/fetch.
+The system today (since the 2026-06-15 event-driven rework): race events on
+the Pi request a push (single-flight + one coalesced catch-up; 30 s timer as
+backstop) → cloud-twin → stats-gen renders on DB-mtime change (≤2 s poll, 30 s
+idle floor) → static HTML + `version.txt` → Caddy (`no-cache` HTML, `no-store`
+version.txt) → browser version-bump poll (~4 s, reload only on change).
+End-to-end latency ≈ 5–12 s. PII-free (pinny only), token-gated. See
+[PUBLIC_STATS.md](PUBLIC_STATS.md) "Event-driven freshness".
+
+> **Done:** items P1-#1 (tighten cadence) and P1-#5 (push-not-poll) below are
+> superseded by that rework — kept for history. The version-bump poll achieves
+> P1-#5's goal (reload only on change, low mobile data) without needing a
+> streaming SSE backend, which static-file Caddy can't serve anyway.
+>
+> **Done (2026-06-15): audience feedback form.** A footer **💬 Submit feedback**
+> button → static `feedback.html` (150-char box, soft one-note-per-device gate via
+> `localStorage`) that POSTs same-origin to a standalone `website/feedback-submit.php`
+> (Caddy-proxied, token-gated, no DB/auth) which appends `{ts,device_id,text,ip,ua}`
+> JSONL to the `derbynet_data` volume. Every submission recorded (no dedup) so the
+> manual post-mortem can spot spammers. Retrieve via `derbyvps.sh feedback show|dump`.
+> See [PUBLIC_STATS.md](PUBLIC_STATS.md) "Audience feedback form". This subsumes much
+> of P6's intent for capturing spectator signal (page-view counter below remains open).
 
 Items below are ranked roughly by "user-value per hour of work".
 
@@ -16,9 +33,10 @@ Items below are ranked roughly by "user-value per hour of work".
 
 ## P1 — Top 5 picks (highest ROI)
 
-### 1. Tighten cadence to ~10 s
-Deploy-only knobs, no Pi reflash needed if we leave the Pi sync at 30 s for
-race-day cellular slack; better still, drop the Pi timer too.
+### 1. Tighten cadence to ~10 s — ✅ SUPERSEDED (2026-06-15)
+Replaced by event-driven push + render-on-change + ~4 s version-bump poll
+(end-to-end ≈ 5–12 s, better than the 10 s target without the 3×-cellular
+cost). Original deploy-only plan kept below for history.
 
 | File | Change |
 |---|---|
@@ -45,10 +63,16 @@ see *exactly* how stale they're looking at.
 ### 4. "Event ended" graceful state
 Catches the awkward post-final-heat dead-air. When `health.json.db_mtime`
 is fresh **and** the last completion was >5 min ago **and** HEAT_NOW ==
-max(heat), switch the schedule/recent headers to "🏁 Final Results" and
-drop the meta-refresh. Requires a small render.sh hook + a CSS variant.
+max(heat), switch the schedule/recent headers to "🏁 Final Results". (The
+version-bump poll already stops reloading once the data stops changing, so no
+refresh teardown is needed — just a render.sh hook + a CSS variant.)
 
-### 5. SSE push instead of polling
+### 5. SSE push instead of polling — ✅ SUPERSEDED (2026-06-15)
+Achieved the goal (reload only on change, low mobile data) via version-bump
+polling of `version.txt` instead of true SSE — static-file Caddy can't hold an
+`EventSource` stream open, so a polling heartbeat is the right fit here.
+Original note kept below for history.
+
 Bigger lift (~½ day). Replace `<meta refresh>` with `EventSource` against a
 tiny `events.txt` file that stats-gen `touch`es each render — Caddy serves
 it with `Content-Type: text/event-stream`. Page reloads only when the file

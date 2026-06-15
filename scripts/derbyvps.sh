@@ -578,6 +578,50 @@ cmd_restore_uisp() {
   ok "UISP restored"
 }
 
+cmd_feedback() {
+  # Audience-feedback log written by website/feedback-submit.php into the
+  # derbynet_data volume. We read it through the web container so we don't have
+  # to know the host-side bind path. See docs/PUBLIC_STATS.md.
+  local sub="${1:-show}"
+  local container="derbynet-web"
+  local remote_file="/var/lib/derbynet/feedback/feedback.jsonl"
+
+  case "$sub" in
+    show)
+      section "Audience feedback (summary)"
+      SSH "set +e
+if ! sudo docker exec $container test -f $remote_file 2>/dev/null; then
+  echo '(no feedback yet — nobody has submitted)'
+  exit 0
+fi
+echo \"submissions: \$(sudo docker exec $container sh -c 'wc -l < $remote_file' | tr -d ' ')\"
+echo
+echo 'most recent:'
+sudo docker exec $container sh -c 'tail -n 5 $remote_file'
+"
+      ;;
+
+    dump)
+      section "Audience feedback (dump)"
+      local out="${2:-./derby-feedback.jsonl}"
+      SSH "sudo docker exec $container test -f $remote_file" \
+        || die "no feedback file yet on VPS (nobody has submitted)"
+      # Stage with read perms (the volume is root-owned), scp down, clean up.
+      SSH "sudo docker exec $container cat $remote_file | sudo tee /tmp/derby-feedback.jsonl >/dev/null && sudo chmod 644 /tmp/derby-feedback.jsonl"
+      scp -i "$VPS_KEY" -P "$VPS_PORT" "$VPS_USER@$VPS_HOST:/tmp/derby-feedback.jsonl" "$out"
+      SSH "sudo rm -f /tmp/derby-feedback.jsonl"
+      local n; n=$(wc -l < "$out" 2>/dev/null | tr -d ' ')
+      ok "feedback saved to $out ($n submissions)"
+      if command -v jq >/dev/null 2>&1; then
+        local u; u=$(jq -r '.device_id' "$out" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+        say "  unique devices: $u"
+      fi
+      ;;
+
+    *) die "unknown feedback subcommand: $sub (use: show|dump)" ;;
+  esac
+}
+
 # ---------- Argument parsing ----------
 usage() {
   cat <<USAGE
@@ -597,6 +641,9 @@ Commands:
                           show    — print current token + URLs + QR location
                           rotate  — mint new token, recreate stats-gen + caddy
                           qr      — scp the QR PNG to ./derby-qr.png
+  feedback <op>         Audience-feedback log control.
+                          show    — submission count + last 5 entries (default)
+                          dump    — download feedback.jsonl to ./derby-feedback.jsonl
 
 Options:
   --dry-run             Preview destructive ops; no remote changes.
@@ -643,5 +690,6 @@ case "$cmd" in
   shutdown)     cmd_shutdown "${args[@]:-}" ;;
   restore-uisp) cmd_restore_uisp "${args[@]:-}" ;;
   stats-token)  cmd_stats_token "${args[@]:-}" ;;
+  feedback)     cmd_feedback "${args[@]:-}" ;;
   *) usage; die "unknown command: $cmd" ;;
 esac

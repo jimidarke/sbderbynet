@@ -184,6 +184,7 @@ services:
       - TZ=${TZ:-America/New_York}
       - LIVE_STATS_TOKEN=${LIVE_STATS_TOKEN:-}
       - REFRESH_SECONDS=${LIVE_STATS_REFRESH:-30}
+      - POLL_SECONDS=${LIVE_STATS_POLL:-2}
       - DB_PATH=/var/lib/derbynet/derbynet.sqlite3
       - OUT_DIR=/out
     volumes:

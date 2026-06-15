@@ -83,8 +83,10 @@ gates, and backup behavior.
      shows the round name + heat table with the current heat highlighted;
      `recent.html` shows the last completed heat(s) ordered by most recent.
    - Strip one character from the token URL → expect a flat 404.
-   - `./scripts/derbyvps.sh logs derbynet-stats-gen` — render loop ticking
-     every ~30 s, no SQLITE_BUSY retries.
+   - `./scripts/derbyvps.sh logs derbynet-stats-gen` — a render fires within a
+     couple seconds of each Pi push (event-driven; 30 s idle floor), no
+     SQLITE_BUSY retries. After a result is entered on the Pi, the spectator
+     page should update within ~5–12 s (not the old ~90 s).
 
 ### Cloud-twin pass criteria
 

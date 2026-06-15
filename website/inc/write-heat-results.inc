@@ -151,7 +151,10 @@ function write_heat_results($results) {
     }
 
     record_last_heat($roundid, $heat);
-    
+
+    // Result recorded → refresh the spectator pages (times/places) promptly.
+    request_cloud_push();
+
     return true;
   }
 }

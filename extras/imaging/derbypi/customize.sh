@@ -163,6 +163,12 @@ systemctl disable derbytime.service 2>/dev/null || true
 # failure is logged but not fatal. See docs/PUBLIC_STATS.md.
 systemctl enable derbynet-cloud-sync.timer
 
+# Event-driven companion to the 30 s timer: a .path unit watches a trigger file
+# (created by tmpfiles.d, mode 0666) that race code touches on schedule/heat/
+# round/result changes, firing a near-immediate push. The timer stays as the
+# stray-catcher. See docs/PUBLIC_STATS.md.
+systemctl enable derbynet-cloud-sync.path
+
 # ---------------------------------------------------------------------------
 # 10. Permissions on scripts
 # ---------------------------------------------------------------------------

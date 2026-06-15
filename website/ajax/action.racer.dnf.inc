@@ -46,6 +46,10 @@ try {
                     ['roundid' => $roundid, 'heat' => $heat, 'racerid' => $racerid, 'action' => 'DNF']);
         
         $db->commit();
+
+        // Result correction (DNF) → refresh the spectator pages promptly.
+        request_cloud_push();
+
         json_success();
     } else {
         $db->rollBack();

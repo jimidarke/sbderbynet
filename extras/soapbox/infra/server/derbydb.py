@@ -261,6 +261,7 @@ class DerbyDatabase:
                 self._record_last_heat(roundid, heat)
 
                 logger.info(f"Race results written: round={roundid}, heat={heat}, times={lane_times}")
+                self.request_cloud_push()  # result recorded → refresh spectator pages
                 return True
 
         except Exception as e:
@@ -292,6 +293,7 @@ class DerbyDatabase:
                 ''', (roundid, heat))
                 self.conn.commit()
                 logger.info(f"Heat results cleared: round={roundid}, heat={heat}")
+                self.request_cloud_push()  # results cleared (re-run) → refresh spectator pages
                 return True
         except Exception as e:
             logger.error(f"Failed to clear heat results: {e}")
@@ -331,11 +333,13 @@ class DerbyDatabase:
             new_heat = heat + 1
             self.write_raceinfo('Heat', str(new_heat))
             logger.info(f"Advanced to heat {new_heat} in round {roundid}")
+            self.request_cloud_push()  # heat advanced → refresh spectator pages
             return roundid, new_heat
         else:
             # No more heats - turn off racing
             self.write_raceinfo('NowRacingState', '0')
             logger.info(f"Round {roundid} complete - no more heats")
+            self.request_cloud_push()  # round complete → refresh spectator pages
             return None, None
 
     # =========================================================================
@@ -366,6 +370,27 @@ class DerbyDatabase:
                 self.conn.commit()
         except Exception as e:
             logger.warning(f"Failed to record action: {e}")
+
+    # =========================================================================
+    # Cloud-sync trigger
+    # =========================================================================
+
+    def request_cloud_push(self) -> None:
+        """Request a near-immediate cloud-sync push of the event DB to the VPS
+        twin so the public spectator pages refresh promptly.
+
+        Best-effort: bumps the mtime of a world-writable trigger file that a
+        systemd .path unit watches on the race-day Pi (see docs/PUBLIC_STATS.md).
+        The file is owned by `derbynet` but mode 0666, so the race server
+        (root) can update its mtime. Silent no-op where the file is absent
+        (dev, tests, non-Pi). Never raises into the caller.
+        """
+        try:
+            path = '/run/derbynet-cloud-sync.trigger'
+            if os.path.exists(path):
+                os.utime(path, None)  # set mtime=now
+        except OSError:
+            pass
 
 
 # Singleton instance for easy access

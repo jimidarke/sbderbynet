@@ -3,9 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="refresh" content="30">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#ff7a18">
+<script>
+// Version-bump refresh: poll the tiny version.txt and reload only when the race
+// data actually changed (replaces a blind <meta refresh>). Tolerates transient
+// fetch failures; never reloads until the version differs. See docs/PUBLIC_STATS.md.
+(function(){var V="{{VERSION}}";setInterval(function(){
+  fetch("version.txt",{cache:"no-store"}).then(function(r){return r.text();})
+    .then(function(t){if(t.trim()!==V){location.reload();}}).catch(function(){});
+},4000);})();
+</script>
 <title>Recent Results — {{ROUND}}</title>
 <style>
   :root {
@@ -199,6 +207,60 @@
     .heat-now-big { font-size: .95rem; padding: 5px 10px; }
     .heat-now-big .num { font-size: 1.55rem; }
   }
+  /* — Submit-feedback button (sits just above the sponsor credit) — */
+  .fb-btn {
+    display: block;
+    max-width: 320px;
+    margin: 16px auto 0;
+    text-align: center;
+    padding: 12px 18px;
+    background: var(--card);
+    color: var(--accent-deep);
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 700;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fb-btn:active { background: var(--accent); color: #fff; }
+  /* — Sovereign Shelf sponsor credit (advertising; non-persistent, scroll-to-see) — */
+  .sosh-credit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+    max-width: 440px;
+    margin: 22px auto 4px;
+    padding: 14px 18px 2px;
+    border-top: 1px solid rgba(19,56,75,.12);
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sosh-credit img {
+    flex: 0 0 auto;
+    width: 34px;
+    height: auto;
+    opacity: .95;
+  }
+  .sosh-credit .sosh-txt {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    line-height: 1.3;
+    min-width: 0;
+  }
+  .sosh-credit .sosh-l1 {
+    font-size: .82rem;
+    font-weight: 600;
+    color: #1f2937;
+  }
+  .sosh-credit .sosh-l1 b { color: #13384b; font-weight: 800; }
+  .sosh-credit .sosh-l2 {
+    font-size: .72rem;
+    color: #5b6473;
+    margin-top: 1px;
+  }
 </style>
 </head>
 <body>
@@ -215,6 +277,14 @@
   <a href="myraces.html">My Races</a>
 </nav>
 __STATSGEN_PAYLOAD__
-<footer><span class="refresh-dot"></span>Updated {{UPDATED}} · most recent completed heats · refreshes every 30 s</footer>
+<footer><span class="refresh-dot"></span>Updated {{UPDATED}} · most recent completed heats · refreshes automatically</footer>
+<a class="fb-btn" href="feedback.html">💬 Submit feedback</a>
+<a class="sosh-credit" href="https://sovereignshelf.com" target="_blank" rel="noopener noreferrer" aria-label="Sovereign Shelf — sovereignshelf.com">
+  <img src="data:image/png;base64,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" alt="" width="34" height="37">
+  <span class="sosh-txt">
+    <span class="sosh-l1">Built locally in St. Albert by <b>Sovereign Shelf</b></span>
+    <span class="sosh-l2">Digital price tags for independent retail</span>
+  </span>
+</a>
 </body>
 </html>

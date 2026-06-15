@@ -27,9 +27,38 @@ No personally identifiable data leaves the cloud — the generator only reads
 `carnumber` (pinny) from `RegistrationInfo`; first/last name fields are
 never emitted, including on the per-racer pages. The only racer identifier
 on any public-stats surface is the carnumber, which is already painted on
-the car itself and visible on the schedule page. Pages refresh every ~30 s
-via an HTML `<meta refresh>`; only the keypad page has any client-side JS
-(numeric input + navigate), no external assets, no XHR/fetch.
+the car itself and visible on the schedule page. The schedule, recent, and
+per-racer pages auto-refresh via **version-bump polling**: a few lines of JS
+poll a tiny `version.txt` every ~4 s and reload only when the underlying race
+data actually changed (the version is keyed on the synced DB's mtime, so an
+idle DB triggers no reloads). The keypad page additionally has its numeric
+input + navigate JS. No external assets.
+
+### Event-driven freshness (how a result reaches a phone fast)
+
+Updates are driven by race **events**, not a wall-clock poll, with a timer
+backstop:
+
+- **Pi push.** Race code requests a near-immediate push on the events that
+  change the spectator pages — schedule generated/changed, heat advanced,
+  round changed, result recorded/corrected. PHP (`request_cloud_push()` in
+  `website/inc/data.inc`) and the Python race server (`derbydb.py`) bump the
+  mtime of a world-writable trigger file (`/run/derbynet-cloud-sync.trigger`,
+  mode 0666 via tmpfiles.d). A systemd `.path` unit
+  (`derbynet-cloud-sync.path`) watching that file launches the existing
+  cloud-sync service. The 30 s timer remains as the stray-catcher.
+- **Single-flight + one catch-up.** `cloud-sync.sh` takes a non-blocking
+  `flock`, so only one push runs at a time. If triggers arrive while a push is
+  in flight they coalesce into exactly **one** catch-up push afterward
+  (mtime recheck); anything past that rides the next 30 s tick. Verified by
+  `testing/test-cloud-sync-trigger.sh`.
+- **Cloud render-on-change.** The stats-gen container polls the synced DB's
+  mtime every `POLL_SECONDS` (default 2) and re-renders the moment it changes,
+  with `REFRESH_SECONDS` (default 30) as an idle floor. Each render publishes
+  `version.txt`, which the pages poll to reload.
+
+End-to-end a result is visible in roughly **5–12 s** (cellular push + ≤2 s
+detect + render + ≤4 s browser poll), versus the old ~90 s worst case.
 
 ## URL shape
 
@@ -38,6 +67,8 @@ https://live.soapboxderbynet.com/<TOKEN>/schedule.html
 https://live.soapboxderbynet.com/<TOKEN>/recent.html
 https://live.soapboxderbynet.com/<TOKEN>/myraces.html      ← keypad entry
 https://live.soapboxderbynet.com/<TOKEN>/me/<pinny>.html   ← per-racer detail
+https://live.soapboxderbynet.com/<TOKEN>/feedback.html     ← audience feedback form
+https://live.soapboxderbynet.com/<TOKEN>/feedback-submit   ← POST sink (→ derbynet-web)
 ```
 
 `<TOKEN>` is a 24-hex-char random string. Wrong-token and bare-host requests
@@ -47,13 +78,15 @@ this round" page (via Caddy `try_files` → `me/notfound.html`).
 
 ## Why no rate limiting on My Races
 
-The whole "My Races" surface is **pre-rendered every 30 s** — the keypad
-navigation just hits a static HTML file. There is no DB query per visitor,
-no fetch endpoint to abuse. Concrete properties:
+The whole "My Races" surface is **pre-rendered** (on each race event, with a
+30 s idle floor) — the keypad navigation just hits a static HTML file. There
+is no DB query per visitor, no fetch endpoint to abuse. Concrete properties:
 
-- Caddy serves each per-racer page from disk with
-  `Cache-Control: max-age=20, stale-while-revalidate=40`, so a packed venue
-  pounding refresh still costs ~1 file read per pinny per 20 s.
+- Caddy serves each per-racer page from disk. The HTML is sent `no-cache`
+  (revalidate-each-load, so a version-bump reload never serves stale) and the
+  `version.txt` heartbeat is `no-store`; both are tiny, so a packed venue
+  polling `version.txt` every ~4 s costs only a few bytes per poll and a full
+  page read only when the data actually changes.
 - The keypad page has a 300 ms client-side debounce + input lock after the
   4th digit, preventing accidental double-navigates.
 - Random guessing falls through to `me/notfound.html` — itself a static
@@ -62,6 +95,52 @@ no fetch endpoint to abuse. Concrete properties:
 
 We deliberately do not run Caddy's rate-limit module here — there's no
 threat model that requires it.
+
+## Audience feedback form
+
+A **💬 Submit feedback** button sits in the footer of every spectator page (just
+above the sponsor credit) and opens `feedback.html` — a small static page with a
+150-character text box. Purpose: capture spectator sentiment during the event for
+a manual post-mortem afterwards (no live analysis, no moderation surface).
+
+How it works:
+
+- **Page** (`stats-gen/template-feedback.html`): rendered into the token dir like
+  the other pages, but with **no auto-reload script** (a reload would wipe a draft).
+  On load it mints a per-device id (`crypto.randomUUID`, fallback for old browsers)
+  in `localStorage['sbd_fb_device']` and prefills the box from
+  `localStorage['sbd_fb_text']`, so a returning visitor **edits** their note rather
+  than adding a new one. This "one note per person" gate is soft and client-side by
+  design.
+- **Submit**: a relative `fetch("feedback-submit", {method:"POST", …})`. Because the
+  page is served under `/<TOKEN>/`, Caddy resolves that to
+  `/<TOKEN>/feedback-submit` and **reverse-proxies it to `derbynet-web`** (rewritten
+  to `/feedback-submit.php`). Staying on the `live.*` host keeps it **same-origin
+  (no CORS)** and never exposes the control-surface host to spectators. It's still
+  behind the token gate, and the request body is capped at 8 KB in Caddy.
+- **Server** (`website/feedback-submit.php`): a deliberately **standalone,
+  unauthenticated** endpoint — it does **not** include the DerbyNet session/DB/auth
+  stack, so it can never touch the race database. It validates + truncates `text` to
+  150 chars, then appends one JSON object per line to
+  `/var/lib/derbynet/feedback/feedback.jsonl` (in the `derbynet_data` volume) with
+  `LOCK_EX`. Each record is `{ts, device_id, text, ip, ua}` (UTC ISO-8601; `ip`/`ua`
+  are stored for the forensic post-mortem only and are **never displayed**).
+- **No rate limiting on purpose**: every submission — including a returning visitor's
+  edits — is recorded as its own timestamped line under the same `device_id`. That's
+  what lets the post-mortem spot a single device or IP spamming. A 50 MB file cap is
+  the only backstop (accept-but-drop past it); far above any plausible event volume.
+
+Retrieve the log after the event (routes through the web container, so you don't
+need the host bind path):
+
+```
+./scripts/derbyvps.sh feedback show          # submission count + last 5 entries
+./scripts/derbyvps.sh feedback dump [outfile] # download feedback.jsonl (default ./derby-feedback.jsonl)
+```
+
+`dump` also prints the unique-device count when `jq` is available locally. The file
+is JSONL — one record per line — so a post-mortem can `jq` / group by `device_id`
+or `ip` directly.
 
 ## One-time prerequisites
 
@@ -139,7 +218,10 @@ the "Awaiting race start" placeholder.
 
 ### What runs on the Pi
 
-A systemd timer fires every 30 s and runs `/usr/local/sbin/derbynet-cloud-sync.sh`:
+`/usr/local/sbin/derbynet-cloud-sync.sh` runs on two triggers: a 30 s systemd
+timer (`derbynet-cloud-sync.timer`, the stray-catcher) and — for near-immediate
+freshness — a `.path` unit (`derbynet-cloud-sync.path`) that fires whenever race
+code requests a push (see "Event-driven freshness" above). Each run:
 
 1. SQLite `.backup` of the active event DB (WAL-safe; no main DB lock).
 2. `scp -C` the snapshot to `/opt/derbynet/production/data/derbynet.sqlite3.tmp`
@@ -148,9 +230,12 @@ A systemd timer fires every 30 s and runs `/usr/local/sbin/derbynet-cloud-sync.s
 4. Single SSH `mv` to atomically swap both files into their final paths
    so concurrent stats-gen reads never see a torn DB.
 
-Failure on any step logs to journal (rate-limited during outages — first
-failure + every 10th) and exits non-zero. The next timer tick (30 s later)
-is the retry mechanism; no in-process queue, no daemon.
+Only one push runs at a time: the script takes a non-blocking `flock`, and if a
+trigger lands mid-push it does exactly one coalesced catch-up afterward (further
+triggers ride the next timer tick). Failure on any step logs to journal
+(rate-limited during outages — first failure + every 10th) and exits non-zero;
+the 30 s timer is the ultimate retry. The flock + coalesce-to-one-retry logic is
+covered by `testing/test-cloud-sync-trigger.sh`.
 
 ### One-time setup
 
@@ -228,11 +313,12 @@ run arbitrary commands, or touch the Pi.
 |-----------|------------------|--------|
 | Static page generator | `derbynet-stats-gen` | `installer/docker-cloud/Dockerfile.stats` + `stats-gen/*.sh` |
 | Renderer SQL queries | (same) | `stats-gen/render.sh` — reads RaceInfo, Rounds, RaceChart, RegistrationInfo |
-| HTML templates | (same) | `stats-gen/template-{schedule,recent,myraces,me-detail,me-notfound}.html` |
+| HTML templates | (same) | `stats-gen/template-{schedule,recent,myraces,me-detail,me-notfound,feedback}.html` |
 | Public routing | `derbynet-caddy` | `installer/docker-cloud/Caddyfile` (`live.soapboxderbynet.com` block) |
+| Feedback sink | `derbynet-web` | `website/feedback-submit.php` → `feedback.jsonl` in `derbynet_data` volume |
 | Bind-mount | VPS host | `/opt/derbynet/production/public-stats/` |
 | Token store | VPS host | `installer/docker-cloud/.env` (`LIVE_STATS_TOKEN=…`) |
-| Pi-side pusher | DerbyPi systemd | `extras/imaging/derbypi/rootfs/etc/systemd/system/derbynet-cloud-sync.{service,timer}` + `extras/soapbox/infra/server/cloud-sync.sh` |
+| Pi-side pusher | DerbyPi systemd | `extras/imaging/derbypi/rootfs/etc/systemd/system/derbynet-cloud-sync.{service,timer,path}` + `…/tmpfiles.d/derbynet-cloud-sync-trigger.conf` + `extras/soapbox/infra/server/cloud-sync.sh` |
 | VPS-side receiver | `claude@uisp.darketech.ca` ForceCommand | `installer/docker-cloud/scripts/cloud-sync-recv.sh` (in `authorized_keys` `command=`) |
 | Fleet key (private) | GitHub secret `CLOUD_SYNC_PRIVATE_KEY` → image rootfs at build | `extras/imaging/derbypi/rootfs/etc/derbynet/cloud-sync-key` |
 | Fleet key (public) | VPS `~claude/.ssh/authorized_keys` with restricted `command=` | (committed by operator manually) |
@@ -245,9 +331,10 @@ race-control surface.
 
 ## Architecture notes
 
-- Caching: `Cache-Control: public, max-age=20, stale-while-revalidate=40` means
-  100 phones effectively share one file read every ~20 s regardless of refresh
-  jitter. Caddy gzips on the wire (~3 KB per page).
+- Caching: pages are served `Cache-Control: no-cache` (revalidate each load) and
+  `version.txt` `no-store`, so a version-bump reload always fetches fresh. Both
+  are tiny — Caddy gzips on the wire (~3 KB per page, a few bytes per ~4 s poll),
+  and a full page is re-fetched only when the data actually changed.
 - Index hygiene: `X-Robots-Tag: noindex, nofollow` and `<meta name="robots">`
   keep accidental crawls out of search results.
 - DerbyPi impact: zero. The generator only reads the cloud-twin's replica DB.
@@ -255,3 +342,21 @@ race-control surface.
   target). It does NOT understand `DERBYNET_TENANT_MODE=multi` sandboxes; if
   you ever route the Pi sync into a per-tenant subdir, update `DB_PATH` in
   `docker-compose.yml`.
+
+## Testing
+
+Offline suites (no Pi/cloud needed) under `testing/`:
+
+| Suite | Covers |
+|---|---|
+| `test-cloud-sync-trigger.sh` | Pi push single-flight `flock` + coalesce-to-one-catch-up retry (stubs scp/ssh/sqlite3) |
+| `test-stats-render.sh` | `render.sh`: `version.txt` = DB mtime, stable when idle, bumps on change; `{{VERSION}}` substitution + content (real sqlite DB); feedback page generated (form, 150-char cap, no auto-reload) + footer button on spectator pages |
+| `test-stats-render-loop.sh` | `entrypoint.sh`: renders on startup + on DB change, not while idle |
+| `test-cloud-push-integration.sh` | PHP hooks against a real DerbyNet instance in Docker — no-op when the trigger is absent (cannot break racing), fires on schedule/heat/result when present |
+| `test-derbydb-cloud-push.py` | The real `derbydb.request_cloud_push`: no-op absent, fires present, swallows `OSError` |
+
+These prove the system **can't break racing** and that freshness behaves
+correctly. They do **not** exercise the real `.path` trigger firing, the scp
+transfer, Caddy's headers, or end-to-end latency — confirm those once on real
+hardware via [DRESS_REHEARSAL.md](DRESS_REHEARSAL.md). Every failure on that
+remaining path degrades to the 30 s timer; none can break racing.

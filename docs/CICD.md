@@ -160,7 +160,7 @@ that bind-mounts data at `/opt/derbynet/production/data`.
 | `mqtt` | `eclipse-mosquitto:2` | MQTT broker. Listens on 1883 (TCP, internal) and 9001 (WebSockets, fronted by Caddy at `/mqtt`) |
 | `derbynet-web` | `ghcr.io/.../sbderbynet-web` | PHP/Nginx web application; serves `website/virtual/*` browser virtual hardware in cloud mode |
 | `race-server` | `ghcr.io/.../sbderbynet-server` | Python race server + simulator (extended with `SimulatedDisplay`/`SimulatedLEDSign` for headless CI) |
-| `derbynet-stats-gen` | local build (alpine + sqlite + qrencode) | Prerenders the public spectator pages (schedule + recent results) from the Pi-synced SQLite every 30 s. Not in CI image matrix — built fresh on each `derbyvps.sh deploy --build` |
+| `derbynet-stats-gen` | local build (alpine + sqlite + qrencode) | Prerenders the public spectator pages (schedule + recent results) from the Pi-synced SQLite on each DB change (≤2 s mtime poll; 30 s idle floor). Not in CI image matrix — built fresh on each `derbyvps.sh deploy --build` |
 
 ### Browser virtual hardware (cloud-only)
 

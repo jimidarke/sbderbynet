@@ -13,7 +13,8 @@ event.
     highlighted
   - `/<TOKEN>/recent.html` — last 3 completed heats with placements/times
   - Pages are prerendered HTML behind a per-event obfuscated token,
-    distributed by QR. Refresh every ~30 s; pinny-only (no PII).
+    distributed by QR. They auto-refresh within seconds of a result
+    (version-bump poll); pinny-only (no PII).
 - **Public-facing pages** on the cloud twin (when sync is current and the
   spectator pages above aren't sufficient):
   - `/derbynet/index.php` — landing

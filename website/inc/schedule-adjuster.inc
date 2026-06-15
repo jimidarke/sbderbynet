@@ -920,4 +920,7 @@ function update_race_chart($roundid, &$race_chart, &$renumbering_map) {
       }
     }
   }
+
+  // Pull-forward / reschedule mutated the chart → refresh spectator pages.
+  request_cloud_push();
 }

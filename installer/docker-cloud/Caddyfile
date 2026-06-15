@@ -79,9 +79,33 @@
 	# instead of accidentally exposing files under //*.
 	handle_path /{$LIVE_STATS_TOKEN:__no_token_set__}/* {
 		root * /srv/public-stats/current
-		header Cache-Control "public, max-age=20, stale-while-revalidate=40"
 		header X-Robots-Tag "noindex, nofollow"
 		header Referrer-Policy "no-referrer"
+
+		# Version-bump refresh (see stats-gen templates): pages poll version.txt
+		# and reload only when it changes. Both must dodge the long edge cache or
+		# a reload would serve a stale page. version.txt is never cached; the HTML
+		# revalidates each load (a render is tiny, so this is cheap).
+		@version path */version.txt
+		header @version Cache-Control "no-store"
+		@html path *.html
+		header @html Cache-Control "no-cache"
+
+		# Audience feedback POST → the standalone PHP writer in derbynet-web.
+		# The token prefix is already stripped here, so the page's relative
+		# fetch("feedback-submit") lands on this path. Keeping it under the
+		# token gate (and on the live host) means it's same-origin with the
+		# static feedback.html page — no CORS — and never exposes the main
+		# control-surface host to spectators. `handle` is terminal, so only
+		# this exact path is proxied; everything else still hits file_server.
+		@fb_submit path /feedback-submit
+		handle @fb_submit {
+			request_body {
+				max_size 8KB
+			}
+			rewrite * /feedback-submit.php
+			reverse_proxy derbynet-web:80
+		}
 
 		# /me/<pinny>.html lookups: if the specific file isn't there (unknown
 		# or non-racing pinny), fall through to the friendly notfound page
