@@ -20,6 +20,12 @@ require_once('inc/json-device-status.inc');
 
 $now_running = get_running_round();
 json_out('current-heat', json_current_heat($now_running));
+// Physical track lane count (RaceInfo.lane_count). The race server needs this
+// to publish a pinny to EVERY physical lane each heat — including empty (bye)
+// lanes, which must show "----" rather than retain a stale pinny. Cast to int
+// so the server's numeric comparison is type-safe. (json-current-racers only
+// returns POPULATED lanes, so it can't convey the physical count on its own.)
+json_out('race_info', array('lane_count' => (int)get_lane_count()));
 json_out('racers', json_current_racers($now_running, FULL_NAME, /* photos */ false));
 json_out('timer-state', json_timer_state());
 json_out('replay-state', json_replay());

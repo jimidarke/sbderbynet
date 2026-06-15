@@ -90,6 +90,28 @@ Array of racers in the current heat:
 }
 ```
 
+> **Bye lanes:** `racers` contains only the **populated** lanes for the heat.
+> An empty "bye" lane (from a pull-forward withdrawal or an odd racer count) has
+> no `RaceChart` row, so it is **absent** from this array — the lane numbers are
+> not guaranteed contiguous (e.g. a middle bye yields lanes `[1, 3]`). Consumers
+> that drive a per-lane display must NOT infer the track's lane count from
+> `racers.length`; use `race_info.lane_count` (below) for the physical count and
+> blank any lane not present in `racers`.
+
+### `race_info`
+
+Track-level configuration. Added so the race server can publish a pinny to every
+**physical** lane each heat (blanking bye lanes with `"----"`) and count only
+populated lanes for race completion.
+
+```json
+{
+  "race_info": {
+    "lane_count": 3             // Physical lanes on the track (RaceInfo.lane_count)
+  }
+}
+```
+
 ### `timer-state`
 
 Status of the timer hardware and system health:

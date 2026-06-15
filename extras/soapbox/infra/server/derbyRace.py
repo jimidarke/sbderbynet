@@ -5,6 +5,15 @@ File location: /var/lib/infra/app/derbyRace.py
 Service file: /etc/systemd/system/derbyrace.service
 
 Version History:
+- 0.9.3 - Jun 15, 2026 - Bye-lane pinny + physical/populated lane separation
+    * lane_count is now the PHYSICAL track lane count (from RaceInfo.lane_count
+      via direct DB / poll race_info), no longer overwritten with the racer count
+    * active_lanes tracks the POPULATED lanes for the current heat; race
+      completion / DNF / guard math counts populated lanes (_expected_finishers)
+    * Every physical lane gets an explicit pinny each heat: empty (bye) lanes
+      now show "----" instead of retaining a stale pinny from a prior heat
+    * Fixes finish-timer pinny crossing/staleness in heats with a bye (created
+      by pull-forward withdrawals or odd-numbered racer counts)
 - 0.9.2 - Jun 11, 2026 - Lane count adapts at heat change
     * A DNF-completed heat can bounce FINISHED->RACING for one tick; a
       partial (1-2 racer) heat staged in that window kept lane_count=3 and
@@ -92,7 +101,7 @@ except ImportError:
     LEDSIGN_AVAILABLE = False
 
 # Version information
-VERSION = "0.9.2"  # Lane count adapts at heat change (partial-heat hang after DNF-completed heat)
+VERSION = "0.9.3"  # Bye-lane pinny ("----") + physical/populated lane separation
 
 logger = ServerLogger(
     name='DERBYSERVER', # Name of the logger, can be anything like 'finishtimer', 'derbydisplay', etc.
@@ -112,6 +121,12 @@ MQTT_USER               = os.getenv('MQTT_USER', '')
 MQTT_PASS               = os.getenv('MQTT_PASS', '')
 MQTT_QOS_CRITICAL       = 2     # QoS level for critical race messages
 MQTT_QOS_NORMAL         = 1     # QoS level for normal operational messages
+
+# Pinny value published to a PHYSICAL lane that has no racer in the current
+# heat (a "bye", from pull-forward withdrawals or odd-numbered racer counts).
+# The finish-timer firmware already renders "----" as its idle/blank glyph, so
+# an empty lane reads clearly as "no racer" instead of retaining a stale pinny.
+BYE_PINNY               = "----"
 
 # Tenant routing mode (cloud only). When 'multi', the race-server runs as a
 # dispatcher: one MQTT connection subscribes derbynet/t/+/... and routes each
@@ -255,7 +270,10 @@ class derbyRace:
         self.start_time = 0
         self.lane_times = {}
         self.lanesFinished = 0
-        self.lane_count = lane_count
+        self.lane_count = lane_count  # PHYSICAL track lanes (display / timer presence)
+        # POPULATED lanes for the current heat (race-completion math). Re-derived
+        # each poll tick from the coordinator's lane list; empty between heats.
+        self.active_lanes = set()
         self.roundid = 0
         self.heatid = 0
         # Heat correlation_id (minted on heat-change). Published retained on
@@ -446,6 +464,46 @@ class derbyRace:
         except Exception as e:
             logger.error(f"Error processing message on {topic}: {e}")
 
+    def _resolve_physical_lane_count(self, racestats, lanes):
+        """Determine the PHYSICAL number of lanes on the track.
+
+        This is the source of truth for the display layer (one pinny per lane)
+        and timer-presence checks — distinct from how many lanes have a racer
+        in the current heat. A bye lane must NOT shrink this value, or the empty
+        lane's pinny would never be refreshed (it would keep a stale value).
+
+        Resolution order:
+          1. Direct DB (RaceInfo.lane_count) — authoritative, reflects the track.
+          2. Poll payload race_info.lane_count — for the HTTP-only path.
+          3. Fallback: max populated lane index, current lane_count, or 1 — uses
+             the max lane INDEX (not the count), so a front/middle bye still
+             yields the right physical count.
+        """
+        if self.db:
+            try:
+                n = self.db.get_lane_count()
+                if n and n > 0:
+                    return n
+            except Exception as e:
+                logger.debug(f"get_lane_count() failed, falling back: {e}")
+        try:
+            n = int(racestats.get('lane-count', 0) or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            return n
+        max_lane = max((int(l['lane']) for l in lanes if l.get('lane')), default=0)
+        return max(max_lane, self.lane_count, 1)
+
+    def _expected_finishers(self):
+        """Number of lanes that must finish for the heat to be complete.
+
+        Counts POPULATED lanes only, so the race never waits on an empty (bye)
+        lane. Falls back to the physical lane_count when no roster is known yet
+        (first tick / all-empty heat) to preserve pre-0.9.3 behavior.
+        """
+        return len(self.active_lanes) if self.active_lanes else self.lane_count
+
     def updateFromDerbyAPI(self):
         # sets online
         self.client.publish(self._t('status'), payload="online", qos=1, retain=True)
@@ -466,6 +524,12 @@ class derbyRace:
         self.heatid = racestats.get("heat",0)
         self.class_name = racestats.get("class","")
         lanes = racestats.get("lanes",[])
+        # POPULATED lanes for this heat (drives race-completion math). Empty
+        # lanes (byes) are simply absent from the coordinator's lane list.
+        self.active_lanes = {int(l["lane"]) for l in lanes if l.get("lane")}
+        # PHYSICAL lanes on the track (drives the display layer). Resolved from
+        # the track config, NOT the racer count, so a bye lane is still updated.
+        physical_lane_count = self._resolve_physical_lane_count(racestats, lanes)
 
         # Mint and broadcast a heat correlation_id when the heat changes.
         # Shape: heat-{round}-{heat}-{epoch_ms}. Skip when round/heat are
@@ -486,23 +550,22 @@ class derbyRace:
                     logger.warning(f"Failed to publish heat correlation_id: {e}")
 
                 # A heat change means the previous race is over: adapt the
-                # lane count NOW, even if the state machine is mid-settle
-                # (a DNF-completed heat can bounce FINISHED->RACING for one
-                # tick, which skips the not-RACING update below; a partial
-                # heat staged in that window would wait forever for lanes
-                # that have no racer).
-                if len(lanes) > 0 and len(lanes) != self.lane_count:
+                # PHYSICAL lane count NOW, even if the state machine is
+                # mid-settle. lane_count tracks the track, not the roster — a
+                # partial (bye) heat keeps the full physical count so the empty
+                # lane's pinny is refreshed, while _expected_finishers() (which
+                # counts active_lanes) prevents waiting on the empty lane.
+                if physical_lane_count > 0 and physical_lane_count != self.lane_count:
                     logger.info(f"Lane count updated on heat change: "
-                                f"{self.lane_count} -> {len(lanes)}")
-                    self.lane_count = len(lanes)
+                                f"{self.lane_count} -> {physical_lane_count}")
+                    self.lane_count = physical_lane_count
 
-        # Update lane count from actual racers (only when not racing)
-        # This allows supporting heats with different numbers of racers
-        if self.race_state != RACE_STATE_RACING and len(lanes) > 0:
-            actual_lane_count = len(lanes)
-            if actual_lane_count != self.lane_count:
-                logger.info(f"Lane count updated: {self.lane_count} -> {actual_lane_count}")
-                self.lane_count = actual_lane_count
+        # Keep the physical lane count current when not racing (e.g. track
+        # config changed). Race-completion math uses active_lanes, not this.
+        if self.race_state != RACE_STATE_RACING and physical_lane_count > 0:
+            if physical_lane_count != self.lane_count:
+                logger.info(f"Lane count updated: {self.lane_count} -> {physical_lane_count}")
+                self.lane_count = physical_lane_count
 
         # During active racing, check for DNF from coordinator page
         # This detects when coordinator marks a lane as DNF (finishtime = 99.999)
@@ -524,8 +587,13 @@ class derbyRace:
 
         self.setLEDFromRaceStat(racestats)
         logger.debug(f"Race Stats: {racestats}")
-        for lane in lanes:
-            self.setLanePinny(lane["lane"],lane["racerid"])
+        # Publish a pinny to EVERY physical lane, not just populated ones, so an
+        # empty (bye) lane shows "----" instead of retaining a stale pinny from a
+        # previous heat. Keyed by physical lane index so a front/middle bye stays
+        # aligned (racers in lanes 1 & 3 keep their lanes; lane 2 shows "----").
+        populated = {int(l["lane"]): l["racerid"] for l in lanes if l.get("lane")}
+        for lane in range(1, self.lane_count + 1):
+            self.setLanePinny(lane, populated.get(lane, BYE_PINNY))
         # publish racestate
         racestate_topic = self._t('race', 'state')
         result = self.client.publish(racestate_topic, self.race_state, qos=1)
@@ -533,7 +601,10 @@ class derbyRace:
             logger.error(f"Error publishing to {racestate_topic} with rc {result.rc} and error {mqtt.error_string(result.rc)}")
 
     def setLanePinny(self, lane, pinny):
-        pinny = str(pinny).zfill(4)
+        # BYE_PINNY ("----") is published verbatim — an empty lane must not be
+        # coerced to "0000" (which would read as a real pinny). Real pinnies are
+        # zero-padded to 4 digits as before.
+        pinny = pinny if pinny == BYE_PINNY else str(pinny).zfill(4)
         if self.lanePinny.get(str(lane),None) == pinny:
             return
         self.lanePinny[str(lane)] = pinny
@@ -561,12 +632,15 @@ class derbyRace:
         with self._race_lock:
             prev_race_state = self.race_state
 
-            # GUARD: If we're racing and not all lanes finished, stay in RACING
-            # regardless of what PHP reports (physical race cannot be stopped)
+            # GUARD: If we're racing and not all POPULATED lanes finished, stay
+            # in RACING regardless of what PHP reports (physical race cannot be
+            # stopped). Counts active_lanes, not physical lane_count, so a bye
+            # heat doesn't hang waiting on the empty lane.
+            expected = self._expected_finishers()
             if (self.race_state == RACE_STATE_RACING and
                 self.start_time > 0 and
-                self.lanesFinished < self.lane_count):
-                logger.debug(f"Race guard: staying RACING ({self.lanesFinished}/{self.lane_count} lanes finished)")
+                self.lanesFinished < expected):
+                logger.debug(f"Race guard: staying RACING ({self.lanesFinished}/{expected} lanes finished)")
                 return  # Exit early, don't change state
 
             if raceActive == True:
@@ -801,7 +875,7 @@ class derbyRace:
             self.lane_times[lane] = race_time
             self.lanesFinished += 1
             lanes_done = self.lanesFinished
-            total_lanes = self.lane_count
+            total_lanes = self._expected_finishers()  # populated lanes, not physical
 
         # Log the finish with detailed information (outside lock)
         logger.info(f"Lane {lane} finished at {timer} with time {race_time}s (#{lanes_done} to finish) of total {total_lanes} lanes")
@@ -848,7 +922,7 @@ class derbyRace:
             # Set DNF time
             self.lane_times[lane] = DNF_TIME
             lanes_done = self.lanesFinished
-            total_lanes = self.lane_count
+            total_lanes = self._expected_finishers()  # populated lanes, not physical
 
         # Update LED to red for DNF (outside lock)
         self.updateLED("red", lane)
@@ -871,8 +945,12 @@ class derbyRace:
         # Check if race has exceeded timeout
         if race_duration > RACE_TIMEOUT:
             dnf_lanes = []
-            # Mark unfinished lanes as DNF
-            for lane in range(1, self.lane_count + 1):
+            # Mark unfinished POPULATED lanes as DNF. Iterate active_lanes so an
+            # empty (bye) lane is never marked DNF; fall back to all physical
+            # lanes when the roster isn't known (preserves pre-0.9.3 behavior).
+            sweep_lanes = sorted(self.active_lanes) if self.active_lanes \
+                else range(1, self.lane_count + 1)
+            for lane in sweep_lanes:
                 if lane not in self.lane_times:
                     self.lane_times[lane] = DNF_TIME
                     self.lanesFinished += 1
@@ -888,8 +966,8 @@ class derbyRace:
                     'timeout_threshold': RACE_TIMEOUT
                 })
 
-                # Stop race if all lanes are now finished
-                if self.lanesFinished >= self.lane_count:
+                # Stop race if all populated lanes are now finished
+                if self.lanesFinished >= self._expected_finishers():
                     self.stopRace(current_time)
                     return True
                     

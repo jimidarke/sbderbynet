@@ -116,7 +116,7 @@ class MockDerbyNetClient:
     def set_staging(self):
         self.staging_calls.append(time.time())
 
-    def send_timer_heartbeat(self, heartbeats):
+    def send_timer_heartbeat(self, heartbeats, starter_heartbeat=None):
         self.heartbeat_calls.append(dict(heartbeats))
         return True
 
@@ -667,3 +667,130 @@ class TestPinnyAssignment:
 
         pinny_publishes = [p for p in mqtt.published if 'pinny' in p['topic']]
         assert pinny_publishes[0]['payload'] == "0007"
+
+    def test_hw040_bye_pinny_published_verbatim(self, derby_race_instance):
+        """HW-040: An empty (bye) lane publishes '----' verbatim, not coerced to '0000'."""
+        race, mqtt, api = derby_race_instance
+        from derbyRace import BYE_PINNY
+
+        mqtt.published = []
+        race.lanePinny = {}
+
+        race.setLanePinny(3, BYE_PINNY)
+
+        pinny_publishes = [p for p in mqtt.published if 'pinny' in p['topic']]
+        assert len(pinny_publishes) == 1
+        assert pinny_publishes[0]['topic'] == "derbynet/lane/3/pinny"
+        assert pinny_publishes[0]['payload'] == BYE_PINNY  # not "0000"
+
+    def test_hw041_trailing_bye_blanks_empty_lane(self, derby_race_instance):
+        """HW-041: 2-racer heat on a 3-lane track blanks the trailing empty lane.
+
+        Reproduces the race-day symptom: without this, lane 3 retains a stale
+        pinny from the previous heat. Every physical lane must be refreshed.
+        """
+        race, mqtt, api = derby_race_instance
+        from derbyRace import BYE_PINNY
+
+        race.lanePinny = {}
+        race.lane_count = 3
+        api.set_race_status({
+            'active': False, 'roundid': 1, 'heat': 5, 'class': 'Test',
+            'timer-state-string': '', 'lane-count': 3,
+            'lanes': [{'lane': 1, 'racerid': '0007', 'name': 'A', 'finishtime': ''},
+                      {'lane': 2, 'racerid': '0012', 'name': 'B', 'finishtime': ''}],
+        })
+        mqtt.published = []
+
+        race.updateFromDerbyAPI()
+
+        pinny = {p['topic']: p['payload'] for p in mqtt.published if 'pinny' in p['topic']}
+        assert pinny["derbynet/lane/1/pinny"] == "0007"
+        assert pinny["derbynet/lane/2/pinny"] == "0012"
+        assert pinny["derbynet/lane/3/pinny"] == BYE_PINNY  # empty lane blanked
+
+    def test_hw042_middle_bye_preserves_alignment(self, derby_race_instance):
+        """HW-042: Middle bye (racers in lanes 1 & 3) blanks lane 2, keeps alignment.
+
+        The pinny loop is keyed by physical lane index, so a non-trailing bye does
+        not shift racers onto the wrong lanes.
+        """
+        race, mqtt, api = derby_race_instance
+        from derbyRace import BYE_PINNY
+
+        race.lanePinny = {}
+        race.lane_count = 3
+        api.set_race_status({
+            'active': False, 'roundid': 1, 'heat': 6, 'class': 'Test',
+            'timer-state-string': '', 'lane-count': 3,
+            'lanes': [{'lane': 1, 'racerid': '0007', 'name': 'A', 'finishtime': ''},
+                      {'lane': 3, 'racerid': '0012', 'name': 'B', 'finishtime': ''}],
+        })
+        mqtt.published = []
+
+        race.updateFromDerbyAPI()
+
+        pinny = {p['topic']: p['payload'] for p in mqtt.published if 'pinny' in p['topic']}
+        assert pinny["derbynet/lane/1/pinny"] == "0007"
+        assert pinny["derbynet/lane/2/pinny"] == BYE_PINNY  # middle bye blanked
+        assert pinny["derbynet/lane/3/pinny"] == "0012"     # NOT shifted to lane 2
+
+
+# =============================================================================
+# Test Classes: Physical vs Populated Lanes (bye-lane handling)
+# =============================================================================
+
+@pytest.mark.skipif(not PAHO_MQTT_V2, reason=SKIP_REASON)
+class TestPhysicalVsPopulatedLanes:
+    """Separation of PHYSICAL lane count (display) from POPULATED lanes (completion).
+
+    Covers heats with a bye (empty lane) from pull-forward or odd racer counts
+    (HW-050 through HW-054).
+    """
+
+    def test_hw050_expected_finishers_counts_populated(self, derby_race_instance):
+        """HW-050: _expected_finishers counts populated lanes, not physical."""
+        race, mqtt, api = derby_race_instance
+        race.lane_count = 3
+        race.active_lanes = {1, 2}
+        assert race._expected_finishers() == 2
+
+    def test_hw051_expected_finishers_fallback_physical(self, derby_race_instance):
+        """HW-051: With no known roster, _expected_finishers falls back to physical."""
+        race, mqtt, api = derby_race_instance
+        race.lane_count = 3
+        race.active_lanes = set()
+        assert race._expected_finishers() == 3
+
+    def test_hw052_physical_lane_count_from_poll(self, derby_race_instance):
+        """HW-052: Physical lane count resolves from poll race_info when no DB."""
+        race, mqtt, api = derby_race_instance
+        race.db = None
+        assert race._resolve_physical_lane_count({'lane-count': 4}, [{'lane': 1}]) == 4
+
+    def test_hw053_physical_lane_count_max_index_fallback(self, derby_race_instance):
+        """HW-053: Fallback uses max lane INDEX, so a middle bye still yields 3."""
+        race, mqtt, api = derby_race_instance
+        race.db = None
+        race.lane_count = 1
+        # racers in lanes 1 & 3, no DB/poll hint -> physical must be 3, not len()==2
+        assert race._resolve_physical_lane_count({}, [{'lane': 1}, {'lane': 3}]) == 3
+
+    def test_hw054_bye_heat_completes_without_waiting(self, derby_race_instance):
+        """HW-054: A 2-racer heat on a 3-lane track completes after 2 finishes.
+
+        Guards against the latent hang where the race waits forever on the empty
+        physical lane.
+        """
+        race, mqtt, api = derby_race_instance
+        from derbyRace import RACE_STATE_RACING
+
+        race.race_state = RACE_STATE_RACING
+        race.lane_count = 3          # physical
+        race.active_lanes = {1, 2}   # populated (lane 3 is a bye)
+        race.lane_times = {}
+        race.lanesFinished = 0
+        race.start_time = time.time() - 1
+
+        assert race.laneFinish(1) is False   # 1/2 -> not complete
+        assert race.laneFinish(2) is True    # 2/2 -> complete, no wait on lane 3

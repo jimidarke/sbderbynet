@@ -24,6 +24,17 @@ Heat 7: Justin, Pat, Lisa   -> Heat 7: Alex, Pat, Lisa        <-- Alex fills Jus
 Heat 8: Alex, Sam, Tony        Heat 8: [bye], Sam, Tony       <-- trailing bye
 ```
 
+> **Hardware handling of bye lanes (race server v0.9.3+):** A bye is not written
+> to `RaceChart`, so the coordinator poll only reports the populated lanes — and
+> the empty slot can land in **any** lane (the `[bye]` above is lane 1, not the
+> last lane). The race server treats the **physical** lane count
+> (`RaceInfo.lane_count`) as the source of truth for the display: it publishes a
+> pinny to every physical lane each heat, showing `"----"` on the empty lane so
+> the finish timer never displays a stale number from a previous heat. Race
+> completion counts only the **populated** lanes, so the heat finishes without
+> waiting on the empty lane. See the race server `derbyRace.py` changelog and
+> [COORDINATOR_POLL_API.md](COORDINATOR_POLL_API.md) (`race_info.lane_count`).
+
 ---
 
 ## Use Cases

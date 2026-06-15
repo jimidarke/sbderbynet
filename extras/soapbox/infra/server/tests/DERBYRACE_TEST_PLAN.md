@@ -31,11 +31,21 @@ Since commit `7d90953f` (cloud testing v1), the following changes have been made
 
 | Change | Version | Risk Level | Test Priority |
 |--------|---------|------------|---------------|
+| Bye-lane pinny + physical/populated lane split | 0.9.3 | HIGH | Critical |
+| Lane count adapts at heat change | 0.9.2 | MEDIUM | High |
 | Direct SQLite DB access | 0.8.2 | HIGH | Critical |
 | Thread synchronization locks | 0.8.1 | HIGH | Critical |
 | Alert handler integration | 0.8.3 | MEDIUM | High |
 | State machine refactoring | 0.8.1 | HIGH | Critical |
 | Fallback logic (DB → HTTP) | 0.8.2 | HIGH | Critical |
+
+**0.9.3 bye-lane handling (HW-040–054):** Heats with an empty "bye" lane (from
+a pull-forward withdrawal or an odd racer count) must (a) refresh **every
+physical lane's** pinny each heat — empty lanes show `"----"`, never a stale
+number — and (b) count only **populated** lanes for race completion so the race
+never hangs waiting on the empty lane. `lane_count` is the physical track count
+(from `RaceInfo.lane_count` via DB or the `race_info.lane_count` poll field);
+`active_lanes` / `_expected_finishers()` track the populated lanes.
 
 ---
 
@@ -193,6 +203,7 @@ Complete race execution from start to finish.
 | RL-041 | Timeout sends alert | Race timeout occurs | Alert with ERR-RACE-301 | P1 |
 | RL-042 | Timeout completes race | All lanes timed out | stopRace() called | P1 |
 | RL-043 | No timeout if not racing | checkRaceTimeout() while STOPPED | Returns False | P2 |
+| RL-044 | Timeout skips bye lanes | Timeout with a bye lane | Only populated lanes get DNF | P1 |
 
 ### 3. Hardware Integration (HIGH)
 
@@ -239,6 +250,23 @@ MQTT message handling and device coordination.
 | HW-033 | Offline timer cleanup | No heartbeat for 3+ seconds | Timer removed from dict | P0 |
 | HW-034 | Offline timer alert | Timer goes offline | Alert with ERR-HW-301 | P0 |
 | HW-035 | Heartbeat sent to API | timerHeartbeat() | api.send_timer_heartbeat() | P0 |
+
+#### Test Cases: Pinny Assignment & Bye Lanes
+
+Validates that every physical lane's pinny is refreshed each heat and that empty
+(bye) lanes are blanked rather than retaining a stale number. See `0.9.3 bye-lane
+handling` above.
+
+| ID | Test Case | Input | Expected | Priority |
+|----|-----------|-------|----------|----------|
+| HW-040 | Bye pinny verbatim | setLanePinny(3, "----") | Publishes "----", not "0000" | P0 |
+| HW-041 | Trailing bye blanked | Heat: lanes 1,2 populated on 3-lane track | lane3 pinny = "----" | P0 |
+| HW-042 | Middle bye alignment | Heat: lanes 1,3 populated | lane2="----", lane3 NOT shifted | P0 |
+| HW-050 | Expected finishers (populated) | active_lanes={1,2}, lane_count=3 | _expected_finishers()==2 | P0 |
+| HW-051 | Expected finishers fallback | active_lanes=∅, lane_count=3 | _expected_finishers()==3 | P1 |
+| HW-052 | Physical count from poll | racestats lane-count=4 | _resolve_physical_lane_count()==4 | P1 |
+| HW-053 | Physical count max-index | racers in lanes 1,3; no DB/poll | Returns 3 (max index, not len) | P0 |
+| HW-054 | Bye heat completes | 2-racer heat, finish lanes 1,2 | Race completes, no hang on lane 3 | P0 |
 
 ### 4. Thread Safety (CRITICAL)
 

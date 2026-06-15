@@ -182,13 +182,20 @@ derbynet/lane/1/led green
 **Description**: Racer number for display  
 **Publisher**: Derby Race server  
 **Subscribers**: Displays, finish timers  
-**Format**: String (4-digit racer number)  
+**Format**: String — 4-digit zero-padded racer number, or `"----"` for an empty
+(bye) lane  
 **Flags**: QoS 2, Retained  
 
 **Example**:
 ```
 derbynet/lane/1/pinny 0042
+derbynet/lane/3/pinny ----      # bye lane (no racer this heat)
 ```
+
+> The server refreshes **every physical lane** each heat (not just populated
+> ones). A lane with no racer — a "bye" from a pull-forward withdrawal or an odd
+> racer count — is published as `"----"` so the retained topic never leaves a
+> stale number on the display. (Race server v0.9.3+.)
 
 ## Alert Topics
 

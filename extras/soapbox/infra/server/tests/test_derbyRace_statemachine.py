@@ -119,7 +119,7 @@ class MockDerbyNetClient:
     def set_staging(self):
         self.staging_calls.append(time.time())
 
-    def send_timer_heartbeat(self, heartbeats):
+    def send_timer_heartbeat(self, heartbeats, starter_heartbeat=None):
         self.heartbeat_calls.append(heartbeats)
         return True
 

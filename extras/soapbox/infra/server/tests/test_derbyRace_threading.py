@@ -102,7 +102,7 @@ class MockDerbyNetClient:
     def send_start(self):
         self.sent_starts.append(time.time())
 
-    def send_timer_heartbeat(self, heartbeats):
+    def send_timer_heartbeat(self, heartbeats, starter_heartbeat=None):
         """Mock method to record timer heartbeats."""
         return True
 
