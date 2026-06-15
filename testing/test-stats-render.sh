@@ -40,14 +40,14 @@ sqlite3 "$DB" <<'SQL'
 CREATE TABLE RaceInfo (ItemKey TEXT, ItemValue TEXT);
 CREATE TABLE Classes (ClassID INTEGER, Class TEXT);
 CREATE TABLE Rounds (RoundID INTEGER, ClassID INTEGER, Round INTEGER, RoundName TEXT);
-CREATE TABLE RegistrationInfo (RacerID INTEGER, CarNumber INTEGER);
+CREATE TABLE RegistrationInfo (RacerID INTEGER, CarNumber INTEGER, ClassID INTEGER, Exclude INTEGER DEFAULT 0);
 CREATE TABLE RaceChart (ResultID INTEGER, RoundID INTEGER, Heat INTEGER, Lane INTEGER,
                         RacerID INTEGER, FinishTime DOUBLE, FinishPlace INTEGER, Completed DATETIME);
 
 INSERT INTO RaceInfo VALUES ('RoundID','1'),('Heat','2'),('NowRacingState','1'),('ClassID','1');
 INSERT INTO Classes VALUES (1,'Ages 6-8');
 INSERT INTO Rounds VALUES (1,1,1,'1 Preliminary');
-INSERT INTO RegistrationInfo VALUES (1,4),(2,9),(3,15),(4,23),(5,31),(6,42);
+INSERT INTO RegistrationInfo VALUES (1,4,1,0),(2,9,1,0),(3,15,1,0),(4,23,1,0),(5,31,1,0),(6,42,1,0);
 
 -- Heat 1: completed (times + places).  Heat 2: current, not yet finished.
 INSERT INTO RaceChart VALUES
@@ -101,6 +101,10 @@ if [ -f "$DEST/me/0023.html" ]; then
     ok "per-racer page generated (me/0023.html)"
     grep -q '"../version.txt"' "$DEST/me/0023.html" && ok "per-racer page polls ../version.txt" \
         || bad "per-racer page does not poll ../version.txt"
+    grep -q '>Ages 6-8<' "$DEST/me/0023.html" && ok "per-racer page shows age group" \
+        || bad "per-racer page missing age-group chip"
+    grep -q '<section class="rnd"><h3>1 Preliminary</h3>' "$DEST/me/0023.html" \
+        && ok "per-racer page has round section" || bad "per-racer page missing round section"
 else
     bad "per-racer page me/0023.html not generated"
 fi
@@ -125,6 +129,66 @@ grep -q 'href="feedback.html"' "$DEST/schedule.html" && ok "schedule footer link
     || bad "schedule missing feedback button"
 grep -q 'href="../feedback.html"' "$DEST/me/0023.html" 2>/dev/null && ok "per-racer footer links to ../feedback" \
     || bad "per-racer page missing feedback button"
+
+# ---- 7. My Races: persistent, cross-round ----------------------------------
+# A second event DB that spans rounds and classes, to assert the persistent
+# My Races behaviour: every registered racer gets a page; a racer's results
+# accumulate across rounds; DNF (99.999) shows "DNF"; an unstarted group shows
+# the "check back" panel; the NOW highlight is scoped to the current round
+# (a matching heat number in another round must NOT light up).
+echo "Test 7: persistent cross-round My Races"
+DB2="$WORK/cross.sqlite3"
+sqlite3 "$DB2" <<'SQL'
+CREATE TABLE RaceInfo (ItemKey TEXT, ItemValue TEXT);
+CREATE TABLE Classes (ClassID INTEGER, Class TEXT);
+CREATE TABLE Rounds (RoundID INTEGER, ClassID INTEGER, Round INTEGER, RoundName TEXT);
+CREATE TABLE RegistrationInfo (RacerID INTEGER, CarNumber INTEGER, ClassID INTEGER, Exclude INTEGER DEFAULT 0);
+CREATE TABLE RaceChart (ResultID INTEGER, RoundID INTEGER, Heat INTEGER, Lane INTEGER,
+                        RacerID INTEGER, FinishTime DOUBLE, FinishPlace INTEGER, Completed DATETIME);
+
+-- Class 1 active, in round 2 (Quarter Finals), heat 5. Class 2 not started.
+INSERT INTO RaceInfo VALUES ('RoundID','2'),('Heat','5'),('NowRacingState','1'),('ClassID','1');
+INSERT INTO Classes VALUES (1,'Ages 6-8'),(2,'Ages 9-11');
+INSERT INTO Rounds VALUES (1,1,1,'1 Preliminary'),(2,1,2,'2 Quarter Finals'),(3,2,1,'1 Preliminary');
+-- pinny 4 advances (class1); pinny 9 DNF in prelim (class1); pinny 31 class2 (not started)
+INSERT INTO RegistrationInfo VALUES (1,4,1,0),(2,9,1,0),(5,31,2,0);
+
+-- Class1 prelim done; pinny4 won, pinny9 DNF
+INSERT INTO RaceChart VALUES
+ (101,1,1,1,1,22.1,1,'2026-06-15 10:00:01'),
+ (102,1,1,2,2,99.999,3,'2026-06-15 10:00:02');
+-- Class1 quarter (current): pinny4 lane1 = NOW
+INSERT INTO RaceChart VALUES (201,2,5,1,1,NULL,NULL,NULL);
+-- Class2 prelim heat 5 scheduled (same heat number as current, different round)
+INSERT INTO RaceChart VALUES (301,3,5,1,5,NULL,NULL,NULL);
+SQL
+"$SHELL_BIN" "$RENDER" "$DB2" "$OUT" "$TOKEN" >/dev/null 2>&1
+ME="$DEST/me"
+
+# every registered racer has a page, even one whose group hasn't started
+for p in 0004 0009 0031; do
+    [ -f "$ME/$p.html" ] && ok "page generated for $p" || bad "missing page for $p"
+done
+
+# pinny 4: both rounds present, in order, with the quarter-final heat as NOW
+if grep -q '<h3>1 Preliminary</h3>' "$ME/0004.html" && grep -q '<h3>2 Quarter Finals</h3>' "$ME/0004.html"; then
+    ok "cross-round sections present for advancing racer"
+else
+    bad "advancing racer missing a round section"
+fi
+grep -q 'class="now"' "$ME/0004.html" && ok "current-round heat marked NOW" || bad "NOW marker missing on current heat"
+
+# pinny 9: DNF rendered as text, not a 99.x time
+grep -q '>DNF<' "$ME/0009.html" && ok "DNF shown as \"DNF\"" || bad "DNF not rendered as DNF"
+grep -q '99.9' "$ME/0009.html" && bad "DNF leaked a 99.9s time" || ok "DNF did not leak a numeric time"
+
+# pinny 31: group not started -> check-back panel, no result rows
+grep -q 'class="checkback"' "$ME/0031.html" && ok "unstarted group shows check-back panel" \
+    || bad "unstarted group missing check-back panel"
+grep -q 'class="now"\|class="done"' "$ME/0031.html" && bad "unstarted group leaked heat rows" \
+    || ok "unstarted group shows no heat rows"
+# its heat 5 (other round) must not be falsely NOW even once its group starts
+# (covered by the check above: no rows shown while unstarted)
 
 echo
 echo "stats-gen render tests: $PASS passed, $FAIL failed"

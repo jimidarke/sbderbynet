@@ -21,7 +21,15 @@ QR code.
   times, in card view.
 - **My Races** — keypad entry page where a spectator types their 4-digit
   pinny and is routed to a pre-rendered per-racer page showing that racer's
-  heats in the current round.
+  heats and times **across the whole event** — every round (preliminary
+  through finals) grouped into a section, and persisting from before their
+  group races (a "check back when your group starts" panel) through end of
+  day. A page is pre-rendered for every registered racer, so any valid pinny
+  resolves at any point in the event. The header shows the racer's **age
+  group** (class) and a status (hasn't started / racing now / group finished).
+  The live heat is highlighted only on the currently-racing round (matched by
+  round id, not heat number). DNF (`99.999`) shows as "DNF"; a racer removed
+  via pull-forward simply shows their completed heats (empty-state if none).
 
 No personally identifiable data leaves the cloud — the generator only reads
 `carnumber` (pinny) from `RegistrationInfo`; first/last name fields are

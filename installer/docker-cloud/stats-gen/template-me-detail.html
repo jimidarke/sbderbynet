@@ -15,7 +15,7 @@
     .then(function(t){if(t.trim()!==V){location.reload();}}).catch(function(){});
 },4000);})();
 </script>
-<title>Pinny {{PINNY}} — {{ROUND}}</title>
+<title>Pinny {{PINNY}} — {{GROUP}}</title>
 <style>
   :root {
     color-scheme: light;
@@ -81,33 +81,53 @@
     align-items: center;
     gap: 8px 12px;
   }
-  .meta .round-chip {
+  .meta .group-label {
+    font-size: .72rem;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-weight: 700;
+  }
+  .meta .group-chip {
     background: var(--accent);
     color: #fff;
-    padding: 2px 10px;
+    padding: 4px 14px;
     border-radius: 999px;
-    font-weight: 600;
-    font-size: .8rem;
-  }
-  .heat-now-big {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-    background: var(--now-bg);
-    border: 2px solid var(--now-edge);
-    color: var(--ink);
-    padding: 6px 14px;
-    border-radius: 12px;
     font-weight: 800;
     font-size: 1.05rem;
-    letter-spacing: .03em;
-    text-transform: uppercase;
-    line-height: 1;
-  }
-  .heat-now-big .num {
-    font-size: 1.9rem;
-    color: var(--accent-deep);
     letter-spacing: .01em;
+  }
+  .meta .status-chip {
+    background: var(--up);
+    color: var(--ink-mute);
+    border: 1px solid var(--rule);
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  /* Per-round section: each round of the event is its own card + heading. */
+  section.rnd { margin-bottom: 14px; }
+  section.rnd h3 {
+    margin: 0 0 8px 2px;
+    font-size: 1.05rem;
+    color: var(--accent-deep);
+  }
+  /* "Check back" / no-results panel (group hasn't started, or no rows). */
+  .checkback {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 34px 18px;
+    text-align: center;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.05);
+  }
+  .checkback .cb-emoji { font-size: 2.6rem; line-height: 1; }
+  .checkback p {
+    margin: 12px 0 0;
+    color: var(--ink-mute);
+    font-size: 1.05rem;
   }
   nav {
     display: flex;
@@ -293,8 +313,9 @@
     <span class="num">#{{PINNY}}</span>
   </div>
   <div class="meta">
-    <span class="round-chip">{{ROUND}}</span>
-    <span class="heat-now-big">Heat <span class="num">{{HEAT_NOW}}</span></span>
+    <span class="group-label">Age group</span>
+    <span class="group-chip">{{GROUP}}</span>
+    <span class="status-chip">{{STATUS}}</span>
   </div>
 </header>
 <nav>
@@ -302,14 +323,7 @@
   <a href="../recent.html">Recent results</a>
   <a aria-current="page" href="../myraces.html">My Races</a>
 </nav>
-<table>
-  <thead>
-    <tr><th>Heat</th><th>Lane</th><th>Status</th><th>Time</th></tr>
-  </thead>
-  <tbody>
 __STATSGEN_PAYLOAD__
-  </tbody>
-</table>
 <p class="back"><a href="../myraces.html">← Look up another pinny</a></p>
 <footer><span class="refresh-dot"></span>Updated {{UPDATED}} · refreshes automatically</footer>
 <a class="fb-btn" href="../feedback.html">💬 Submit feedback</a>
