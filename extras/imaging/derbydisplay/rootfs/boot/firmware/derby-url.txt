@@ -1,0 +1,11 @@
+# OPTIONAL: full kiosk URL override for this display.
+#
+# Leave this file all-comments (the default) to show the standard kiosk page on
+# the server named in derby-server.txt.
+#
+# If you put a complete URL on its own line below, the kiosk loads it EXACTLY as
+# written — the kiosk's MAC address is NOT appended, and the server-readiness
+# wait is skipped. Use this to aim the display at a remote/cloud server.
+#
+# Example (delete the leading '#' to activate):
+# https://soapboxderbynet.com/derbynet/kiosk.php?address=BigScreen

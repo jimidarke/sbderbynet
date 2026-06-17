@@ -1,0 +1,26 @@
+#!/bin/sh
+# derby-server-host — resolve the DerbyNet server host for this kiosk.
+#
+# Reads the first non-comment, non-blank line of the operator-editable file on
+# the FAT bootfs (CR + surrounding whitespace stripped, so Windows Notepad edits
+# are safe), and falls back to the race-LAN default if it's missing/blank.
+# Consumed by .xinitrc (browser URL + readiness probe), derbydisplay-run
+# (MQTT_BROKER), and derby-pull.service (rsync source).
+#
+# $DERBY_SERVER_FILE overrides the path (used by the test suite).
+DEFAULT="192.168.100.10"
+FILE="${DERBY_SERVER_FILE:-/boot/firmware/derby-server.txt}"
+
+host=""
+if [ -f "$FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        line=$(printf '%s' "$line" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+        case "$line" in
+            ''|\#*) continue ;;
+            *) host="$line"; break ;;
+        esac
+    done < "$FILE"
+fi
+
+[ -n "$host" ] || host="$DEFAULT"
+printf '%s\n' "$host"

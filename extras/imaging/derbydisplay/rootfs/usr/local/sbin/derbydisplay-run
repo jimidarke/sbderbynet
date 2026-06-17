@@ -1,0 +1,7 @@
+#!/bin/sh
+# derbydisplay-run — launch the derbydisplay telemetry daemon with MQTT_BROKER
+# resolved at boot from the operator-editable server-address file, so the kiosk
+# follows /boot/firmware/derby-server.txt (see derby-server-host) instead of a
+# hardcoded broker. Invoked by derbydisplay.service.
+export MQTT_BROKER="$(/usr/local/sbin/derby-server-host)"
+exec /usr/bin/python3 /opt/derbynet/derbydisplay.py

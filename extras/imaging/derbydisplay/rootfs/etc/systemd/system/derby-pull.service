@@ -7,7 +7,7 @@ Before=derbydisplay.service
 [Service]
 Type=oneshot
 ExecStartPre=/bin/mkdir -p /opt/derbynet
-ExecStart=/bin/sh -c 'rsync -az --delete --timeout=10 rsync://192.168.100.10/derbynet/derbydisplay/ /opt/derbynet/ || true'
+ExecStart=/bin/sh -c 'H="$(/usr/local/sbin/derby-server-host)"; rsync -az --delete --timeout=10 "rsync://$H/derbynet/derbydisplay/" /opt/derbynet/ || true'
 StandardOutput=journal
 StandardError=journal
 

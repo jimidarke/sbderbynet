@@ -1,0 +1,10 @@
+# DerbyNet server address for this kiosk display.
+#
+# Put the IP address (or hostname) of the machine running DerbyNet on its own
+# line below. This drives the kiosk web page, the telemetry MQTT broker, and the
+# content refresh. The default is the race-day central Pi.
+#
+# Editing from Windows is fine. Lines starting with '#' are ignored; the first
+# real line wins. To point the browser somewhere completely different (e.g. a
+# cloud server), use derby-url.txt instead.
+192.168.100.10

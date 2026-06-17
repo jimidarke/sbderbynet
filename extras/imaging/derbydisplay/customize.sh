@@ -21,7 +21,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     xserver-xorg xinit x11-xserver-utils \
     openbox unclutter-xfixes feh \
     chromium \
-    wpasupplicant iw wireless-tools
+    wpasupplicant iw wireless-tools rfkill
 
 # ---------------------------------------------------------------------------
 # 2. WiFi: render wpa_supplicant.conf from CI secrets. Same race-day LAN as
@@ -51,6 +51,29 @@ systemctl enable wpa_supplicant@wlan0.service
 # only the @wlan0 template-instance runs (same fix as finishtimer/customize.sh).
 systemctl disable wpa_supplicant.service 2>/dev/null || true
 # country=CA is in the template; no extra echo needed. raspi-config no-op in chroot.
+
+# ---------------------------------------------------------------------------
+# 2b. WiFi regulatory domain + rfkill — REQUIRED or wlan0 stays soft-blocked.
+# ---------------------------------------------------------------------------
+# Ported from finishtimer/customize.sh: country=CA in wpa_supplicant.conf is NOT
+# sufficient. On Pi OS wlan0 is rfkill soft-blocked until the kernel cfg80211
+# regdomain is set, and NetworkManager + systemd-rfkill actively RE-block it from
+# saved state on every boot. (Confirmed on a live kiosk 2026-06-17: phy0 soft=1,
+# no cfg80211 on cmdline, NetworkManager active — the eth->wifi fallback was dead.)
+CMDLINE=/boot/firmware/cmdline.txt
+if ! grep -q 'cfg80211.ieee80211_regdom=' "$CMDLINE"; then
+    sed -i '1 s/[[:space:]]*$/ cfg80211.ieee80211_regdom=CA/' "$CMDLINE"
+    echo "[derbydisplay] added cfg80211.ieee80211_regdom=CA to cmdline.txt"
+fi
+echo 'REGDOMAIN=CA' > /etc/default/crda
+# NetworkManager is shipped+enabled in base Pi OS; we run systemd-networkd +
+# wpa_supplicant@wlan0, so NM is an unused, conflicting stack that re-soft-blocks
+# wlan0 seconds after we unblock it. systemd-rfkill restores the saved blocked
+# state. Disable/mask both; the wpa_supplicant@wlan0 10-rfkill-unblock.conf
+# drop-in (rootfs/) clears the initial driver block right before wpa_supplicant.
+systemctl disable NetworkManager.service 2>/dev/null || true
+systemctl mask NetworkManager.service 2>/dev/null || true
+systemctl mask systemd-rfkill.service systemd-rfkill.socket 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 3. Network: DHCP on eth0 (primary) + DHCP on wlan0 (high RouteMetric fallback)
@@ -112,6 +135,10 @@ rsync -a --delete \
     --exclude='.git' --exclude='*.md' --exclude='__pycache__' \
     "$BUILD_CTX/extras/soapbox/infra/derbydisplay/" /opt/derbynet/
 chown -R kioskuser:kioskuser /opt/derbynet /var/log/derbynet
+
+# rootfs rsync (rsync -rltD, no -p) doesn't preserve the exec bit — set it on the
+# shipped helper scripts in /usr/local/sbin.
+chmod 0755 /usr/local/sbin/derby-server-host /usr/local/sbin/derbydisplay-run
 
 # Image provenance
 echo "$GIT_SHA" > /etc/derby-image-sha
