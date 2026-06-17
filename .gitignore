@@ -76,3 +76,6 @@ derbynet.sqlite3.claude/settings.local.json
 /2026official/
 /tmp/
 installer/docker-cloud/mosquitto/passwd
+
+# WSL/Windows alternate-data-stream artifacts
+*:Zone.Identifier
