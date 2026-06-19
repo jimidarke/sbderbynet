@@ -34,6 +34,25 @@ DB_MTIME="(missing)"
 # auto-refreshing pages. See docs/PUBLIC_STATS.md.
 VERSION=$([ -f "$DB" ] && stat -c %Y "$DB" 2>/dev/null || date +%s)
 
+# ---- Splash gate -------------------------------------------------------------
+# Operator-toggled "race starting soon" landing page. The gate is a single flag
+# file at the output volume ROOT (NOT under tokens/, so render never touches it
+# and it survives every pass; it's event-wide, independent of the token). Its
+# presence = gate ON; its contents = the headline message (empty -> default).
+# Toggled via `scripts/derbyvps.sh splash {on|off}`. When ON we render the
+# splash into the schedule + recent slots and suffix the content version with
+# "-splash" so the browser version-bump poll reloads every open phone — onto the
+# splash when flipped on, back to the live page when flipped off. See
+# docs/PUBLIC_STATS.md.
+SPLASH_ON=0
+SPLASH_MSG=""
+if [ -f "$OUT/splash.flag" ]; then
+    SPLASH_ON=1
+    SPLASH_MSG=$(cat "$OUT/splash.flag" 2>/dev/null || true)
+    [ -n "$SPLASH_MSG" ] || SPLASH_MSG="Race starting soon — all carts must be checked in"
+    VERSION="${VERSION}-splash"
+fi
+
 # Helper: run a single SQL statement, return TSV. Empty on missing DB.
 sql() {
     if [ ! -f "$DB" ]; then return 0; fi
@@ -420,8 +439,23 @@ render_template() {
 # __STATSGEN_PAYLOAD__ marker line is simply removed.
 EMPTY_BODY=""
 
-render_template "$SELF_DIR/template-schedule.html" "$TMP_DIR/schedule.html" SCHEDULE_BODY
-render_template "$SELF_DIR/template-recent.html"   "$TMP_DIR/recent.html"   RECENT_BODY
+if [ "$SPLASH_ON" = "1" ]; then
+    # Gate ON: the two public landing pages show the splash instead of live
+    # data. My Races + feedback (below) still render normally, so the footer's
+    # "Submit feedback" link keeps working. Only {{MESSAGE}}/{{UPDATED}}/
+    # {{VERSION}} are substituted — the template carries no dynamic payload.
+    msg_sub=$(sed_subst_escape "$(esc "$SPLASH_MSG")")
+    updated_sub=$(sed_subst_escape "$GEN_AT")
+    for slot in schedule recent; do
+        sed -e "s|{{MESSAGE}}|$msg_sub|g" \
+            -e "s|{{UPDATED}}|$updated_sub|g" \
+            -e "s|{{VERSION}}|$VERSION|g" \
+            "$SELF_DIR/template-splash.html" > "$TMP_DIR/$slot.html"
+    done
+else
+    render_template "$SELF_DIR/template-schedule.html" "$TMP_DIR/schedule.html" SCHEDULE_BODY
+    render_template "$SELF_DIR/template-recent.html"   "$TMP_DIR/recent.html"   RECENT_BODY
+fi
 render_template "$SELF_DIR/template-myraces.html"  "$TMP_DIR/myraces.html"  EMPTY_BODY
 # Static audience-feedback page — no dynamic payload (empty body strips the
 # marker) and no version-bump refresh in the template. See docs/PUBLIC_STATS.md.

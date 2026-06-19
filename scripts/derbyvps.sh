@@ -557,6 +557,74 @@ TOKEN=\$(sudo grep -E '^LIVE_STATS_TOKEN=' \$ENV_FILE 2>/dev/null | head -1 | cu
   esac
 }
 
+# Operator toggle for the spectator "race starting soon" splash gate. The gate
+# is a single flag file at the public-stats volume root (event-wide, token-
+# independent); render.sh checks it each pass. Turning it on/off forces an
+# immediate render so the version-bump poll reloads every open phone within ~4s.
+# See docs/PUBLIC_STATS.md.
+cmd_splash() {
+  local sub="${1:-status}"
+  local public_stats_dir="/opt/derbynet/production/public-stats"
+  local flag="$public_stats_dir/splash.flag"
+  # Mirror render.sh's fallback so `status` and the file always agree.
+  local default_msg="Race starting soon — all carts must be checked in"
+
+  # Resolve the active token and force one synchronous render. Mirrors the nudge
+  # in `stats-token rotate`. Token-independent file, but render.sh needs the
+  # token to know which tokens/<token>/ tree to write.
+  local force_render="
+        ENV_FILE=$VPS_REPO_DIR/$COMPOSE_DIR_REL/.env
+        TOKEN=\$(sudo grep -E '^LIVE_STATS_TOKEN=' \$ENV_FILE 2>/dev/null | head -1 | cut -d= -f2-)
+        [ -n \"\$TOKEN\" ] || { echo 'ERR: no LIVE_STATS_TOKEN set (run: stats-token rotate)'; exit 1; }
+        sudo docker exec derbynet-stats-gen /opt/stats-gen/render.sh /var/lib/derbynet/derbynet.sqlite3 /out \$TOKEN >/dev/null 2>&1 || true"
+
+  case "$sub" in
+    on)
+      shift || true
+      local msg="${*:-}"
+      [ -n "$msg" ] || msg="$default_msg"
+      section "Splash gate (on)"
+      # $msg is expanded locally into the script body, then written verbatim on
+      # the host via a quoted heredoc (no remote re-expansion). chmod 644 so the
+      # container's non-root 'stats' user can read it.
+      ssh_logged "
+        sudo mkdir -p $public_stats_dir
+        sudo tee $flag >/dev/null <<'SPLASHEOF'
+$msg
+SPLASHEOF
+        sudo chmod 644 $flag
+$force_render
+      "
+      ok "splash gate ON"
+      say "  message: $msg"
+      say "  Spectators see the splash within ~4s. Turn off with: $0 splash off"
+      ;;
+
+    off)
+      section "Splash gate (off)"
+      ssh_logged "
+        sudo rm -f $flag
+$force_render
+      "
+      ok "splash gate OFF — live pages restored"
+      ;;
+
+    status)
+      section "Splash gate (status)"
+      SSH "set +e
+if sudo test -f $flag; then
+  echo 'gate:    ON'
+  echo \"message: \$(sudo cat $flag 2>/dev/null)\"
+else
+  echo 'gate:    OFF (live pages)'
+fi
+"
+      ;;
+
+    *) die "unknown splash subcommand: $sub (use: on [message] | off | status)" ;;
+  esac
+}
+
 cmd_restore_uisp() {
   section "Restore UISP"
   confirm "Stop SBDerbyNet and restart UISP?" || die "aborted"
@@ -641,6 +709,10 @@ Commands:
                           show    — print current token + URLs + QR location
                           rotate  — mint new token, recreate stats-gen + caddy
                           qr      — scp the QR PNG to ./derby-qr.png
+  splash <op>           Spectator "race starting soon" splash gate.
+                          on [msg] — show splash on schedule + recent pages
+                          off      — restore live pages
+                          status   — report gate state + message
   feedback <op>         Audience-feedback log control.
                           show    — submission count + last 5 entries (default)
                           dump    — download feedback.jsonl to ./derby-feedback.jsonl
@@ -690,6 +762,7 @@ case "$cmd" in
   shutdown)     cmd_shutdown "${args[@]:-}" ;;
   restore-uisp) cmd_restore_uisp "${args[@]:-}" ;;
   stats-token)  cmd_stats_token "${args[@]:-}" ;;
+  splash)       cmd_splash "${args[@]:-}" ;;
   feedback)     cmd_feedback "${args[@]:-}" ;;
   *) usage; die "unknown command: $cmd" ;;
 esac

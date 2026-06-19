@@ -150,6 +150,40 @@ need the host bind path):
 is JSONL — one record per line — so a post-mortem can `jq` / group by `device_id`
 or `ip` directly.
 
+## Splash gate
+
+A toggleable "race starting soon" landing page for when the QR is scannable but
+the live schedule isn't meaningful yet (e.g. testing night, or before doors).
+While the gate is **on**, the `schedule.html` and `recent.html` pages show a
+friendly splash instead of live data; **My Races** and the **Feedback** page stay
+reachable, and the splash keeps the **💬 Submit feedback** button and the
+Sovereign Shelf credit in its footer.
+
+```
+./scripts/derbyvps.sh splash on                       # default message
+./scripts/derbyvps.sh splash on "Doors open at 9am"   # custom message
+./scripts/derbyvps.sh splash status                   # gate state + message
+./scripts/derbyvps.sh splash off                      # back to live pages
+```
+
+Default message: *"Race starting soon — all carts must be checked in"*.
+
+**How it works.** The gate is a single flag file `splash.flag` at the public-stats
+volume **root** (`/opt/derbynet/production/public-stats/splash.flag`) — not under
+`tokens/`, so `render.sh` never overwrites it and it survives every render. It is
+event-wide and **independent of the token** (toggling it does not rotate or touch
+the locked token). `render.sh` checks the flag each pass: when present it renders
+`stats-gen/template-splash.html` into the schedule + recent slots and **suffixes
+the content version with `-splash`**. Because every open phone already polls
+`version.txt`, flipping the gate changes the version and triggers an automatic
+reload — onto the splash when turned on, back to the live page when turned off
+(~4 s). The `on`/`off`/`status` commands force one synchronous render so the
+change lands immediately rather than on the idle-floor cadence.
+
+> The cloud DB is a read-only replica overwritten on every Pi sync, so the toggle
+> is deliberately a cloud-side file rather than a DB/`RaceInfo` flag (which would
+> be clobbered on the next sync).
+
 ## One-time prerequisites
 
 Performed once per VPS, before the first race day.
@@ -321,7 +355,8 @@ run arbitrary commands, or touch the Pi.
 |-----------|------------------|--------|
 | Static page generator | `derbynet-stats-gen` | `installer/docker-cloud/Dockerfile.stats` + `stats-gen/*.sh` |
 | Renderer SQL queries | (same) | `stats-gen/render.sh` — reads RaceInfo, Rounds, RaceChart, RegistrationInfo |
-| HTML templates | (same) | `stats-gen/template-{schedule,recent,myraces,me-detail,me-notfound,feedback}.html` |
+| HTML templates | (same) | `stats-gen/template-{schedule,recent,myraces,me-detail,me-notfound,feedback,splash}.html` |
+| Splash gate | (same) host flag | `splash.flag` at the public-stats volume root; toggled by `derbyvps.sh splash` |
 | Public routing | `derbynet-caddy` | `installer/docker-cloud/Caddyfile` (`live.soapboxderbynet.com` block) |
 | Feedback sink | `derbynet-web` | `website/feedback-submit.php` → `feedback.jsonl` in `derbynet_data` volume |
 | Bind-mount | VPS host | `/opt/derbynet/production/public-stats/` |
@@ -358,7 +393,7 @@ Offline suites (no Pi/cloud needed) under `testing/`:
 | Suite | Covers |
 |---|---|
 | `test-cloud-sync-trigger.sh` | Pi push single-flight `flock` + coalesce-to-one-catch-up retry (stubs scp/ssh/sqlite3) |
-| `test-stats-render.sh` | `render.sh`: `version.txt` = DB mtime, stable when idle, bumps on change; `{{VERSION}}` substitution + content (real sqlite DB); feedback page generated (form, 150-char cap, no auto-reload) + footer button on spectator pages |
+| `test-stats-render.sh` | `render.sh`: `version.txt` = DB mtime, stable when idle, bumps on change; `{{VERSION}}` substitution + content (real sqlite DB); feedback page generated (form, 150-char cap, no auto-reload) + footer button on spectator pages; splash gate on/off (`-splash` version suffix, message on schedule + recent, live data hidden, footer preserved, restore on flag removal) |
 | `test-stats-render-loop.sh` | `entrypoint.sh`: renders on startup + on DB change, not while idle |
 | `test-cloud-push-integration.sh` | PHP hooks against a real DerbyNet instance in Docker — no-op when the trigger is absent (cannot break racing), fires on schedule/heat/result when present |
 | `test-derbydb-cloud-push.py` | The real `derbydb.request_cloud_push`: no-op absent, fires present, swallows `OSError` |

@@ -190,6 +190,50 @@ grep -q 'class="now"\|class="done"' "$ME/0031.html" && bad "unstarted group leak
 # its heat 5 (other round) must not be falsely NOW even once its group starts
 # (covered by the check above: no rows shown while unstarted)
 
+# ---- 8. Splash gate ---------------------------------------------------------
+# A splash.flag at the OUT volume root turns the schedule + recent pages into a
+# "race starting soon" splash, suffixes the version with -splash (so open phones
+# reload), and keeps the feedback link working. Removing the flag restores the
+# live pages and the plain version. See docs/PUBLIC_STATS.md.
+echo "Test 8: splash gate on/off"
+touch -d @1000000100 "$DB"
+SPLASH_MSG="Race starting soon - all carts must be checked in"
+printf '%s\n' "$SPLASH_MSG" > "$OUT/splash.flag"
+run_render
+vS=$(version)
+[ "$vS" = "1000000100-splash" ] && ok "version suffixed when gate on ($vS)" \
+    || bad "version not -splash suffixed (got '$vS')"
+grep -qF "$SPLASH_MSG" "$DEST/schedule.html" && ok "splash message on schedule" \
+    || bad "splash message missing from schedule"
+grep -qF "$SPLASH_MSG" "$DEST/recent.html" && ok "splash message on recent" \
+    || bad "splash message missing from recent"
+# The live schedule table must NOT render while gated.
+grep -q "← NOW" "$DEST/schedule.html" && bad "live schedule leaked through splash" \
+    || ok "live schedule hidden while gated"
+# Footer must keep the feedback link + Sovereign Shelf credit.
+grep -q 'href="feedback.html"' "$DEST/schedule.html" && ok "splash keeps feedback button" \
+    || bad "splash missing feedback button"
+grep -q 'sovereignshelf.com' "$DEST/schedule.html" && ok "splash keeps Sovereign Shelf credit" \
+    || bad "splash missing Sovereign Shelf credit"
+# Embedded poll value must match the suffixed version so the reload fires.
+embS=$(grep -o 'var V="[^"]*"' "$DEST/schedule.html" | sed 's/.*"\(.*\)"/\1/')
+[ "$embS" = "$vS" ] && ok "splash embeds suffixed version ($embS)" \
+    || bad "splash embedded V ($embS) != version.txt ($vS)"
+# Feedback + My Races still render normally (footer link must resolve).
+grep -q 'id="fb-form"' "$DEST/feedback.html" && ok "feedback page still live while gated" \
+    || bad "feedback page broke while gated"
+
+echo "Test 8b: removing the flag restores live pages"
+rm -f "$OUT/splash.flag"
+run_render
+vN=$(version)
+[ "$vN" = "1000000100" ] && ok "version un-suffixed when gate off ($vN)" \
+    || bad "version still suffixed after gate off (got '$vN')"
+grep -qF "$SPLASH_MSG" "$DEST/schedule.html" && bad "splash message lingered after gate off" \
+    || ok "splash message gone after gate off"
+grep -q "← NOW" "$DEST/schedule.html" && ok "live schedule restored after gate off" \
+    || bad "live schedule not restored after gate off"
+
 echo
 echo "stats-gen render tests: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
