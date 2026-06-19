@@ -112,6 +112,30 @@ ln -sf /usr/share/zoneinfo/America/Edmonton /etc/localtime
 echo 'America/Edmonton' > /etc/timezone
 
 # ---------------------------------------------------------------------------
+# 8b. DNS resolver + network time (all roles)
+# ---------------------------------------------------------------------------
+# Pi OS Lite does not ship systemd-resolved, but the base image leaves
+# /etc/resolv.conf as a symlink to resolved's (dead) 127.0.0.53 stub. With
+# nothing listening there, every name lookup fails — which silently breaks
+# systemd-timesyncd (clock skews to the build date) and cloud-sync (DNS error).
+# The static resolver + timesyncd config are laid down via _common/rootfs/;
+# here we just guarantee the stub symlink can't shadow the real file.
+# (Previously this lived only in derbypi/customize.sh, so finishtimer + the
+# kiosk shipped with broken DNS. Consolidated 2026-06-17.)
+# Normal case: rootfs rsync already replaced the symlink with our static file.
+# Defensive: if a stub symlink somehow survived, drop it and write a resolver
+# set inline (don't leave the image with no /etc/resolv.conf at all).
+if [ -L /etc/resolv.conf ]; then
+    rm -f /etc/resolv.conf
+    printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\nnameserver 1.0.0.1\noptions edns0 timeout:2 attempts:2\n' \
+        > /etc/resolv.conf
+fi
+chmod 0644 /etc/resolv.conf
+# systemd-timesyncd is the quiet background NTP poller (servers in
+# rootfs/etc/systemd/timesyncd.conf, IP-first so it works without DNS).
+systemctl enable systemd-timesyncd 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
 # 9. Permissions
 # ---------------------------------------------------------------------------
 chmod 0755 /usr/local/sbin/derby-firstboot.sh

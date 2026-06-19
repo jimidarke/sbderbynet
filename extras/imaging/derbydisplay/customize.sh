@@ -21,6 +21,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     xserver-xorg xinit x11-xserver-utils \
     openbox unclutter-xfixes feh \
     chromium \
+    fonts-noto-color-emoji \
     wpasupplicant iw wireless-tools rfkill
 
 # ---------------------------------------------------------------------------

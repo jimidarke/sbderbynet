@@ -199,14 +199,10 @@ fi
 chmod 0644 /etc/derbynet/cloud-sync-known_hosts
 chown root:root /etc/derbynet/cloud-sync-known_hosts
 
-# Force the static /etc/resolv.conf to be used even if systemd ships a
-# symlink to systemd-resolved's stub (which isn't installed on Pi OS Lite).
-# Without this, name resolution fails and cloud-sync + NTP both break.
-if [ -L /etc/resolv.conf ]; then
-    rm -f /etc/resolv.conf
-fi
-# (The actual contents come from extras/imaging/derbypi/rootfs/etc/resolv.conf
-# which the rsync step at the top of the build already laid down.)
-chmod 0644 /etc/resolv.conf
+# DNS resolver + network time are now handled for ALL roles in
+# _common/customize.sh (static /etc/resolv.conf + timesyncd, with the stub
+# symlink stripped). This used to live here, derbypi-only — which is why the
+# finishtimer and kiosk images shipped with broken DNS / skewed clocks.
+# Consolidated 2026-06-17; see _common/rootfs/etc/{resolv.conf,systemd/timesyncd.conf}.
 
 echo "[derbypi] customize complete"
