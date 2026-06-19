@@ -1,0 +1,57 @@
+<!DOCTYPE html><?php
+ // Public per-age-group "best times" leaderboard for ad-hoc racing mode.
+ // Reads the live (marker-selected) DB: shows real data only while ad-hoc mode is
+ // active. Pinny + age group only — never racer names.
+require_once('inc/data.inc');
+require_once('inc/banner.inc');
+require_once('inc/authorize.inc');
+require_once('inc/adhoc.inc');
+require_once('inc/adhoc-standings.inc');
+?>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<title>Ad-Hoc Best Times</title>
+<script type="text/javascript" src="js/jquery.js"></script>
+<?php require('inc/kiosk-poller.inc'); ?>
+<?php require('inc/stylesheet.inc'); ?>
+<link rel="stylesheet" type="text/css" href="css/kiosks.css"/>
+<style type="text/css">
+body { overflow: hidden; }
+.adhoc-leaderboard {
+  display: flex; flex-wrap: wrap; align-items: flex-start;
+  gap: 1.5vw; padding: 1.5vw; box-sizing: border-box;
+}
+.adhoc-group {
+  flex: 1 1 28%; min-width: 24vw;
+  background: rgba(0,0,0,0.03); border-radius: 1vw; padding: 1vw 1.2vw;
+}
+.adhoc-group-name {
+  margin: 0 0 0.5vw 0; font-size: 3vw; text-align: center;
+  border-bottom: 0.2vw solid #888; padding-bottom: 0.3vw;
+}
+.adhoc-board { width: 100%; border-collapse: collapse; font-size: 3.2vw; }
+.adhoc-board td { padding: 0.4vw 0.6vw; }
+.adhoc-rank { width: 2.5vw; text-align: center; font-weight: bold; opacity: 0.7; }
+.adhoc-pinny { font-weight: bold; }
+.adhoc-time { text-align: right; font-variant-numeric: tabular-nums; }
+.adhoc-place-1 { background: rgba(255,215,0,0.35); }
+.adhoc-place-2 { background: rgba(192,192,192,0.35); }
+.adhoc-place-3 { background: rgba(205,127,50,0.30); }
+.adhoc-empty, .adhoc-off { font-size: 4vw; text-align: center; padding: 8vh 4vw; opacity: 0.75; }
+</style>
+</head>
+<body class="kiosk">
+<?php make_banner('Ad-Hoc Best Times', /* back_button */ false); ?>
+<div class="adhoc-leaderboard">
+<?php
+if (!adhoc_mode_active()) {
+  echo '<div class="adhoc-off">Ad-hoc racing is not currently active.</div>';
+} else {
+  adhoc_write_leaderboard(3);
+}
+?>
+</div>
+<?php require('inc/ajax-failure.inc'); ?>
+</body>
+</html>
