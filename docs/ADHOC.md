@@ -1,62 +1,23 @@
 # Ad-Hoc Racing Mode
 
-Casual "come-as-you-are" racing on the real track. A start-line **marshal** types
-(or scans) whichever pinnies are at the line, the system forms that heat on the
-fly, the real timers record the run, and a racer's **single best time** is their
-score. Kids may run once or many times. The leaderboard shows the **top 3 per age
-group**.
+Casual "come-as-you-are" racing on the real track. The race coordinator types
+whichever pinnies are at the line and picks **each pinny's age group**, locks in
+the heat, and the real timers record the run. A pinny's **single best time** is
+its score (kids may run once or many times). Results are compared **like-to-like,
+per age group** — mixed ages may share a heat, but the leaderboard shows the
+**top 3 per age group**.
+
+Ad-hoc racing is **roster-less and schedule-less**: there is no roster to load and
+no schedule to generate. A run is stored as one self-describing row, so a drop-in
+kid who never pre-registered can still race.
 
 Ad-hoc results live in a **separate SQLite file** (`adhoc.sqlite3`) so casual fun
-runs never pollute the official event database.
+runs never touch the official event database.
 
-## Requirements & deployment checklist
-
-Everything ships with the code **except two one-time manual steps on each Pi**
-(marked ⚠️). Nothing here needs a new library or a composer install.
-
-### Code (deploys normally via image/rsync/git)
-- `website/inc/db-marker.inc`, `website/inc/adhoc.inc`, `website/inc/adhoc-standings.inc`
-- `website/ajax/action.adhoc.mode.inc`, `website/ajax/action.adhoc.heat.inc`
-- `website/adhoc.php`, `website/js/adhoc.js`, `website/css/adhoc.css`
-- `website/kiosks/adhoc-leaderboard.kiosk` (auto-discovered by `kiosk.php`; no registration step)
-- `testing/test-adhoc-mode.php` (offline test)
-
-### ⚠️ 1. Make `config-database.inc` marker-aware (Pi-local, gitignored)
-`website/local/config-database.inc` is **not** version-controlled, so it does **not**
-deploy with the code — it must be hand-edited on each Pi to the form in
-[Canonical `config-database.inc`](#canonical-config-databaseinc-pi-local-gitignored)
-below (reads the marker, exposes `$official_db_path`). It fail-safes to the official
-DB, so making this change while ad-hoc is unused is harmless.
-
-### ⚠️ 2. Create the marker file, writable by the web user
-The web app (`www-data`) rewrites the marker file's contents; pre-create it so the
-parent directory's ownership doesn't matter:
-```sh
-sudo install -o derbynet -g www-data -m 0664 /dev/null /var/lib/derbynet/active-db
-```
-(Default path is `/var/lib/derbynet/active-db`; override with the
-`DERBYNET_ACTIVE_DB_MARKER` env var if your DBs live elsewhere.)
-
-### Already true in any working DerbyNet install (verify, don't re-do)
-- **PHP `pdo_sqlite`** — baseline DerbyNet requirement (the test also needs it in the
-  **CLI**: `php -m | grep pdo_sqlite`).
-- **Event directory writable by `www-data`** — `adhoc_build()` creates/overwrites
-  `adhoc.sqlite3` beside the official DB (same dir DerbyNet already writes its
-  `derbynet.sqlite3` + `-wal`/`-shm` to). No extra grant needed.
-- **`RaceInfo.lane_count` set** (e.g. 3) and real finish timers on the track — ad-hoc
-  uses the identical timer/MQTT path as official racing.
-- **Race-control permission** for whoever opens `/adhoc.php` (`CONTROL_RACE_PERMISSION`).
-
-### Race server — no change required
-Leave `DERBYNET_DB_PATH` **unset** in `derbyrace.service` (its current state). The
-server then routes round/heat reads and result writes through PHP, which honors the
-marker. See [Race server](#race-server-python).
-
-## How isolation works
+## How isolation works (and why it no longer corrupts data)
 
 On the race-day Pi the whole rig (PHP, race server, kiosks) opens **one** SQLite
-file. Ad-hoc mode re-points that selection at `adhoc.sqlite3` for the session and
-back to the official DB afterward, via a tiny filesystem **marker**:
+file, chosen by a tiny filesystem **marker**:
 
 ```
 /var/lib/derbynet/active-db        <- text file: one absolute *.sqlite3 path
@@ -64,26 +25,111 @@ back to the official DB afterward, via a tiny filesystem **marker**:
   /…/adhoc.sqlite3                  -> ad-hoc mode
 ```
 
-- `website/inc/db-marker.inc` resolves the marker. It only ever accepts an
-  existing `*.sqlite3` file **in the same directory as the official DB**; anything
-  malformed/missing resolves back to official. No DB dependency, so it is safe to
-  include before `$db` exists.
-- `website/local/config-database.inc` reads the marker and also exposes
-  `$official_db_path`. PHP opens a fresh connection per request, so a flip takes
-  effect on the very next request.
-- The ad-hoc DB carries `RaceInfo.adhoc-mode = 1`. Every ad-hoc write action
-  refuses unless it sees this flag in the *live* DB — a second interlock so a heat
-  can never be injected into the official database.
+Turning ad-hoc mode **on** (`adhoc_build()` in `inc/adhoc.inc`):
 
-### Canonical `config-database.inc` (Pi-local, gitignored)
+1. **Builds `adhoc.sqlite3` FRESH from the schema** — the same `include(schema.inc)`
+   path `create_tenant()` uses. It does **not** copy the live official file.
+   *(The old design `@copy()`-ed a hot WAL database mid-write, which produced a
+   "database disk image is malformed" file — that was the corruption bug.)*
+2. Takes a **read-only snapshot** of just the reference data it needs from official
+   — the age-group `Classes` and the display/config `RaceInfo` (lane_count, labels,
+   time format) — in one read transaction, then seeds them into the fresh DB.
+3. Creates one synthetic **"Ad-Hoc Open"** class + round to hold the open racing
+   pool (this is plumbing, **not** a schedule — no heats are pre-generated).
+4. Stamps `RaceInfo`: `adhoc-mode=1`, `scoring=2` (best single time), the round/
+   class ids. The stamp is how any process knows the file it opened is ad-hoc.
+5. Flips the marker to `adhoc.sqlite3` **atomically** (`dn_set_active_db()` writes
+   a temp file + `fsync` + `rename`). The very next request opens the ad-hoc DB.
 
-The per-deployment shim must read the marker. The required form:
+Turning ad-hoc mode **off** stops racing and clears the marker → back to official.
+Every ad-hoc write also re-checks `adhoc-mode=1` in the *live* DB, a second
+interlock so a heat can never be injected into the official database.
+
+## Operator workflow
+
+1. **Main page → "Ad-Hoc Racing"** (coordinator-only button in *During the Race*).
+   It builds + switches to the isolated DB and lands you on the coordinator page.
+   The button turns into **"Exit Ad-Hoc Racing"** while active.
+2. On the coordinator dashboard a red **"AD-HOC RACING ACTIVE"** strip appears and
+   an **Ad-Hoc Heat** card. Tap **Set Up Next Group**.
+3. In the modal, for each physical lane enter the **pinny** and pick its **age
+   group** (leave a lane blank for a bye). Tap **Lock In Heat & Race**.
+   - All-or-nothing: an unknown age group, a non-numeric pinny, or the same pinny
+     twice aborts the arm so no kid is silently dropped.
+   - Physical lane numbers are preserved (cars in lanes 1 & 3 stay 1 & 3).
+4. The real timers record the heat exactly as in official racing. After it
+   finishes, racing turns off; set up the next group and lock in again. Each lock
+   is a new heat, so a pinny can run repeatedly.
+5. **Exit Ad-Hoc** (strip button or the main-menu button) returns the rig to the
+   official DB. Official standings are untouched.
+
+The public leaderboard is the **`adhoc-leaderboard`** kiosk: best single time per
+pinny, grouped by age group, top 3 each, DNF excluded, **pinny + time only —
+never names**. It shows "not currently active" when ad-hoc mode is off.
+
+## Data model (roster-less)
+
+`RaceChart` carries two nullable columns (schema **v18**), NULL for normal
+scheduled racing:
+
+| Column | Meaning |
+|--------|---------|
+| `display_pinny` | the raw pinny the coordinator typed (e.g. `"42"`) |
+| `agegroup_classid` | the age group they picked (→ `Classes.classid`) |
+
+One recorded run = one `RaceChart` row `(roundid, heat, lane, racerid NULL,
+display_pinny, agegroup_classid, finishtime)`. No `RegistrationInfo`/`Roster` row
+is needed. Ranking groups by `agegroup_classid` with `MIN(finishtime)` — best
+single time, order-independent (a later slow run can never overwrite a faster
+best). See `inc/adhoc-standings.inc`.
+
+## Timer integration (no firmware/Python change)
+
+`inc/json-current-racers.inc` `LEFT JOIN`s the roster (so roster-less rows survive)
+and emits `carnumber = COALESCE(RaceChart.display_pinny, RegistrationInfo.carnumber)`.
+The race server already reads that `carnumber` field as the lane pinny
+(`derbyapi.py` aliases it to `racerid`), so finish-timer assignment, the start
+gate, and the `FINISHED` result write all work unchanged. `write-heat-results.inc`
+is lane-keyed and racerid-independent, so results land on the right row with no
+racer.
+
+## Race server (Python)
+
+**Leave `DERBYNET_DB_PATH` UNSET on the Pi** (its current state — enforced by a
+comment in `derbyrace.service`). The server then runs in HTTP-API mode and routes
+every read/write through PHP, which resolves the marker per request and so follows
+ad-hoc mode correctly. If `DERBYNET_DB_PATH` is ever set, the server caches one
+SQLite connection at startup and never re-resolves the marker — ad-hoc heats would
+be written into the official DB and corrupt it. Re-enable only after `derbyRace.py`
+is taught to poll the marker and reconnect on change.
+
+## Deployment checklist
+
+Everything ships with the code **except two one-time manual steps on each Pi**
+(marked ⚠️), unchanged from before. Nothing needs a new library or composer.
+
+### Code (deploys normally via image/rsync/git)
+- `website/inc/{db-marker,adhoc,adhoc-standings}.inc`
+- `website/ajax/action.adhoc.{mode,heat}.inc`, `website/ajax/query.poll.coordinator.inc`
+- `website/index.php`, `website/coordinator.php`, `website/js/coordinator-adhoc.js`
+- `website/sql/sqlite/schema.inc` + `website/sql/sqlite/update-schema.inc` (schema **v18**)
+- `website/kiosks/adhoc-leaderboard.kiosk`
+- `testing/test-adhoc-rosterless.php` (offline test)
+
+### Schema upgrade
+Fresh DBs (image setup) get the v18 columns directly from `schema.inc`. **Existing
+event DBs** gain them via the idempotent `ALTER TABLE` in `update-schema.inc` when
+the schema upgrade runs — confirm the upgrade has applied before using ad-hoc
+(`SELECT 1 FROM pragma_table_info('RaceChart') WHERE name='display_pinny'`).
+
+### ⚠️ 1. Make `config-database.inc` marker-aware (Pi-local, gitignored)
+`website/local/config-database.inc` is not version-controlled, so it must read the
+marker. Required form (resolves the active DB, exposes `$official_db_path`):
 
 ```php
 <?php
 $official_db_path = '/var/lib/derbynet/2025/test2/derbynet.sqlite3'; // your event DB
 $GLOBALS['official_db_path'] = $official_db_path;
-
 $db_path = $official_db_path;
 $marker_inc = dirname(__FILE__) . '/../inc/db-marker.inc';
 if (@is_file($marker_inc)) {
@@ -93,95 +139,65 @@ if (@is_file($marker_inc)) {
   }
 }
 $homedir = dirname($db_path);
-$db_connection_string = 'sqlite:' . $db_path;
-$db = new PDO($db_connection_string, '', '', array());
+$db = new PDO('sqlite:' . $db_path, '', '', array());
 $db->setAttribute(PDO::ATTR_CASE, PDO::CASE_LOWER);
 ?>
 ```
+It fail-safes to official, so making this change while ad-hoc is unused is harmless.
 
-The marker file must be writable by the web user (`www-data`) — create it
-group-writable (e.g. owned by `derbynet:www-data`, mode `0664`), like the existing
-cloud-sync trigger. Override its location in tests with
-`DERBYNET_ACTIVE_DB_MARKER`.
+### ⚠️ 2. Create the marker file, writable by the web user
+```sh
+sudo install -o derbynet -g www-data -m 0664 /dev/null /var/lib/derbynet/active-db
+```
+(Default path `/var/lib/derbynet/active-db`; override with `DERBYNET_ACTIVE_DB_MARKER`.)
 
-## Operator workflow
+### Already true in any working install (verify, don't re-do)
+- **PHP `pdo_sqlite`** (the test also needs it in the CLI).
+- **Event directory writable by the web user** — `adhoc_build()` creates
+  `adhoc.sqlite3` beside the official DB (same dir DerbyNet already writes to).
+- **`RaceInfo.lane_count` set** and real finish timers on the track.
+- **Race-control permission** (`CONTROL_RACE_PERMISSION`) for the operator.
 
-Open **`/adhoc.php`** on a tablet (needs the race-control permission):
+## Cloud twin — DEFERRED (follow-up)
 
-1. **Build & Switch to Ad-Hoc** — rebuilds `adhoc.sqlite3` from the current
-   official roster and flips the marker. Only **checked-in** racers
-   (`passedinspection = 1`) are loaded; they keep their official pinny.
-2. **Enter the 3 pinnies** at the line (Lane 1/2/3) and tap **Arm Heat**. Fewer
-   than 3 is fine (bye lanes). An unknown or duplicate pinny aborts the arm so no
-   kid is silently dropped.
-3. Run the cars — the real timers record the heat exactly as in official racing.
-   After the heat finishes, racing turns off automatically; enter the next group
-   and **Arm Heat** again. Each arm is a new heat, so kids can run repeatedly.
-4. **End & Back to Official** — stops ad-hoc racing and clears the marker. The rig
-   is back on the official DB; official standings are untouched.
-
-The public leaderboard is the **`adhoc-leaderboard`** kiosk: best single time per
-racer, grouped by age group, top 3 each, DNF excluded. It shows **pinny + age
-group only — never names** (public PII rule). It refreshes on the standard kiosk
-cadence and shows "not currently active" when ad-hoc mode is off.
-
-### Policy: rebuild each session
-
-"Build & Switch" overwrites `adhoc.sqlite3` every time — a fresh roster mirror
-(including new check-ins) and a clean results pool. The file is kept between
-sessions but the next build replaces it.
-
-## How it works under the hood
-
-- One synthetic **Ad-Hoc Open** class + one round hold the whole mixed-age racing
-  pool. Racing is keyed by `(roundid, heat)`, so the timer flow is unchanged.
-- Ranking ignores that synthetic class and groups by each racer's **real**
-  `RegistrationInfo.classid` (their age group) via the result's `racerid`.
-- Scoring is `RaceInfo.scoring = 2` (`MIN(finishtime)`), the existing best-single-
-  time mode.
-- Heat formation reuses the pull-forward INSERT pattern; arming reuses
-  `set_current_heat()` + `set_racing_state()`. When a heat finishes with no next
-  heat pre-scheduled, the normal `advance_heat` path simply turns racing off — the
-  marshal's next arm re-enables it.
-
-## Race server (Python)
-
-No race-server change is required on the current Pi image: `derbyrace.service` does
-not set `DERBYNET_DB_PATH`, so the server is DB-agnostic — it reads round/heat from
-the coordinator poll and writes results via the HTTP API, both of which go through
-PHP and therefore honor the marker.
-
-**Deferred enhancement (only if the direct-DB fast path is enabled):** if
-`DERBYNET_DB_PATH` is ever set so the server writes SQLite directly, its cached
-connection would point at the wrong file after a mode flip. The fix is to have the
-server's main loop poll the marker each tick and reconnect on change (close +
-reopen `self.db`, reset `roundid/heatid`). Until then, leave `DERBYNET_DB_PATH`
-unset so results route through PHP.
+The data model is cloud-ready (ordinary tables), but ad-hoc results do **not**
+currently reach the cloud twin: `cloud-sync.sh` auto-detects and pushes
+`derbynet.sqlite3` **by name**, and it does not honor the active-db marker — so
+during ad-hoc mode the cloud keeps showing the (frozen) official DB. Surfacing
+ad-hoc on the twin needs `cloud-sync.sh` to push the **marker-resolved active DB**
+(so the twin mirrors whatever the rig is live on). That is an **outward-facing**
+change (it changes what public spectators see during ad-hoc, and the public-stats
+schedule pages have no schedule in ad-hoc mode), so it is intentionally **not** in
+this change. Pi-local ad-hoc is fully functional without it.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `website/inc/db-marker.inc` | Resolve/set the active-DB marker (allowlisted, fail-safe) |
-| `website/local/config-database.inc` | Marker-aware DB selection (Pi-local) |
-| `website/inc/adhoc.inc` | `adhoc_build()`, path/mode/pinny helpers |
-| `website/ajax/action.adhoc.mode.inc` | Turn ad-hoc mode on/off (build + flip marker) |
-| `website/ajax/action.adhoc.heat.inc` | Form a heat from entered pinnies + arm |
-| `website/inc/adhoc-standings.inc` | Top-N-per-age-group best-time query + renderer |
-| `website/kiosks/adhoc-leaderboard.kiosk` | Public leaderboard kiosk |
-| `website/adhoc.php`, `website/js/adhoc.js`, `website/css/adhoc.css` | Marshal page |
+| `inc/db-marker.inc` | Resolve/set the active-DB marker (allowlisted, atomic, fail-safe) |
+| `inc/adhoc.inc` | `adhoc_build()` (fresh-from-schema), `adhoc_age_groups()`, `adhoc_arm_heat()`, mode/path helpers |
+| `inc/adhoc-standings.inc` | Roster-less top-N-per-age-group best-time query + renderer |
+| `ajax/action.adhoc.mode.inc` | Turn ad-hoc mode on/off (build + flip marker) |
+| `ajax/action.adhoc.heat.inc` | Lock in a heat from coordinator pinny + age-group entry |
+| `ajax/query.poll.coordinator.inc` | Adds `active_db_mode` so the dashboard flags ad-hoc |
+| `inc/json-current-racers.inc` | LEFT JOIN + `COALESCE(display_pinny, carnumber)` for the timer path |
+| `index.php` | Coordinator-gated "Ad-Hoc Racing" enable/exit button |
+| `coordinator.php`, `js/coordinator-adhoc.js` | AD-HOC strip, Ad-Hoc Heat card + lock-in modal |
+| `kiosks/adhoc-leaderboard.kiosk` | Public per-age-group best-times kiosk |
+| `sql/sqlite/schema.inc`, `update-schema.inc` | `RaceChart.display_pinny` + `agegroup_classid` (v18) |
 
 ## Verification
 
-- **`php testing/test-adhoc-mode.php`** — offline functional test (no server/Docker;
-  needs PHP CLI with `pdo_sqlite`). Builds a throwaway official DB from the real
-  schema and drives the real code: marker resolve/set + allowlist (incl. fail-safe
-  on a dangling marker, non-`.sqlite3`, and path-traversal), `adhoc_build()`
-  (roster mirror excludes not-checked-in racers), `adhoc_resolve_pinny()`,
-  `adhoc_leaderboard_groups()`/`adhoc_write_leaderboard()` (best-of scoring, DNF
-  exclusion, per-age-group top-N, pinny-only/no-names), and official-DB isolation.
-  31 checks, all passing.
-- `php -l` on all PHP files; `node --check website/js/adhoc.js`.
-- End-to-end on the Pi (dress rehearsal): Build & Switch, arm a heat with real
-  pinnies, run cars, confirm the leaderboard updates, then End and confirm the
-  official standings are unchanged.
+- **`php testing/test-adhoc-rosterless.php`** — offline functional test (no
+  server/Docker; needs PHP CLI with `pdo_sqlite`). Proves `adhoc_build()` is
+  fresh-not-copied and roster-less, the new columns, atomic marker, roster-less
+  arm (incl. bye-lane physical-lane preservation + all-or-nothing validation),
+  per-age-group `MIN` standings (DNF excluded, top-N, no names), and official-DB
+  isolation. Exit 0 = pass, 2 = skipped (no driver).
+- `php -l` on all PHP files; `node --check website/js/coordinator-adhoc.js`.
+- End-to-end with **faked timers** (local Docker, no hardware): enable from the
+  main menu, lock a heat on the coordinator page, then POST
+  `action=timer-message&message=STARTED` and `…&message=FINISHED&lane1=…&lane2=…`
+  (the exact payload the race server sends) — or use the coordinator Manual
+  Results modal — and confirm the leaderboard updates and the official DB is
+  unchanged after **Exit Ad-Hoc**.

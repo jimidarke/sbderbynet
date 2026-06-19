@@ -15,16 +15,23 @@ function json_current_racers(&$now_running, $name_style, $photo_render, $photo_r
   $use_subgroups = use_subgroups();
   $time_format = get_finishtime_formatting_string();
 
+  // LEFT JOINs (not INNER) so roster-less ad-hoc rows — racerid NULL, no matching
+  // RegistrationInfo/Ranks — still appear. For those the pinny comes from
+  // RaceChart.display_pinny (the coordinator-typed number); for normal scheduled
+  // racing it comes from RegistrationInfo.carnumber. The race server reads this
+  // 'carnumber' field as the lane pinny (derbyapi aliases it to racerid), so no
+  // Python change is needed. display_pinny exists only at schema >= 18.
   $stmt = $db->prepare('SELECT lane, RegistrationInfo.racerid,'
-                       .' carnumber, lastname, firstname, carname, rank,'
+                       .(schema_version() >= 18
+                         ? ' COALESCE(RaceChart.display_pinny, RegistrationInfo.carnumber) AS carnumber,'
+                         : ' RegistrationInfo.carnumber AS carnumber,')
+                       .' lastname, firstname, carname, rank,'
                        .' finishtime, finishplace, imagefile, '
                        .(schema_version() >= 2 ? 'carphoto' : "'' AS carphoto").', '
                        .(schema_version() >= PARTITION_SCHEMA ? ' note' : "'' AS note")
-                       .' FROM '
-                       .inner_join('RaceChart', 'RegistrationInfo',
-                                   'RaceChart.racerid = RegistrationInfo.racerid',
-                                   'Ranks',
-                                   'RegistrationInfo.rankid = Ranks.rankid')
+                       .' FROM RaceChart'
+                       .' LEFT JOIN RegistrationInfo ON RaceChart.racerid = RegistrationInfo.racerid'
+                       .' LEFT JOIN Ranks ON RegistrationInfo.rankid = Ranks.rankid'
                        .' WHERE roundid = :roundid'
                        .' AND heat = :heat'
                        .' ORDER BY lane');

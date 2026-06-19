@@ -46,12 +46,30 @@ function dn_resolve_active_db($official_path) {
 }
 
 // Point the marker at $path (an absolute DB path, or '' to clear → official).
-// Returns true on success.
+// Returns true on success. Writes ATOMICALLY (temp file + fsync + rename) so a
+// crash or concurrent reader can never observe a half-written / truncated marker
+// (which would silently fail-safe to official and hide the switch).
 function dn_set_active_db($path) {
   $marker = dn_db_marker_path();
-  if ($path === '' || $path === null) {
-    return @file_put_contents($marker, "\n") !== false;
+  $content = ($path === '' || $path === null) ? "\n" : ($path . "\n");
+  $tmp = $marker . '.tmp';
+
+  $fh = @fopen($tmp, 'wb');
+  if ($fh === false) {
+    // Could not create the temp file (e.g. dir perms) — fall back to a direct
+    // write rather than failing the switch outright.
+    return @file_put_contents($marker, $content) !== false;
   }
-  return @file_put_contents($marker, $path . "\n") !== false;
+  $ok = @fwrite($fh, $content);
+  if ($ok !== false) {
+    @fflush($fh);
+    if (function_exists('fsync')) { @fsync($fh); }
+  }
+  @fclose($fh);
+  if ($ok === false || !@rename($tmp, $marker)) {
+    @unlink($tmp);
+    return false;
+  }
+  return true;
 }
 ?>

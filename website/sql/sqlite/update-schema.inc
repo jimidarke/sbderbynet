@@ -281,6 +281,22 @@ if (schema_version() < 17) {
   $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '17')";
 }
 
+if (schema_version() < 18) {
+  error_log("Updating to schema version 18 - Adding RaceChart.display_pinny + agegroup_classid (roster-less ad-hoc)...");
+
+  $dp = read_single_value("SELECT COUNT(*) FROM pragma_table_info('RaceChart') WHERE name='display_pinny'");
+  if (!$dp) {
+    $updates[] = "ALTER TABLE RaceChart ADD COLUMN display_pinny VARCHAR(20)";
+  }
+  $ag = read_single_value("SELECT COUNT(*) FROM pragma_table_info('RaceChart') WHERE name='agegroup_classid'");
+  if (!$ag) {
+    $updates[] = "ALTER TABLE RaceChart ADD COLUMN agegroup_classid INTEGER";
+  }
+
+  $updates[] = "DELETE FROM RaceInfo WHERE itemkey = 'schema'";
+  $updates[] = "INSERT INTO RaceInfo(itemkey, itemvalue) VALUES('schema', '18')";
+}
+
 // For each new schema version, copy the DELETE and INSERT for schema version
 
 return $updates;

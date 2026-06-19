@@ -12,6 +12,7 @@ require_once('inc/json-rounds.inc');
 require_once('inc/json-timer-state.inc');
 require_once('inc/name-mangler.inc');
 require_once('inc/racing-state.inc');
+require_once('inc/adhoc.inc');
 
 // Device status is used by the coordinator to show the status of the timer
 require_once('inc/json-device-status.inc');
@@ -26,6 +27,8 @@ json_out('current-heat', json_current_heat($now_running));
 // so the server's numeric comparison is type-safe. (json-current-racers only
 // returns POPULATED lanes, so it can't convey the physical count on its own.)
 json_out('race_info', array('lane_count' => (int)get_lane_count()));
+// Which database the rig is live on, so the dashboard/kiosks can flag ad-hoc mode.
+json_out('active_db_mode', adhoc_mode_active() ? 'adhoc' : 'official');
 json_out('racers', json_current_racers($now_running, FULL_NAME, /* photos */ false));
 json_out('timer-state', json_timer_state());
 json_out('replay-state', json_replay());

@@ -17,6 +17,13 @@ Environment="DERBY_DEBUG=false"
 # default fails with ECONNREFUSED. Match the satellite services explicitly.
 Environment="MQTT_BROKER=192.168.100.10"
 Environment="DERBYNET_API_HOST=127.0.0.1"
+# DO NOT set DERBYNET_DB_PATH here. Left unset, the race server runs in HTTP-API
+# mode: every read/write goes through PHP, which resolves the active-db marker
+# per request and therefore follows ad-hoc mode correctly. If DERBYNET_DB_PATH is
+# set, derbyRace.py caches ONE SQLite connection at startup and never re-resolves
+# the marker, so ad-hoc heats would be written into the OFFICIAL database and
+# corrupt it. Re-enable only after derbyRace.py is taught to poll the marker and
+# reconnect on change. See docs/ADHOC.md ("Race server").
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=derbyrace

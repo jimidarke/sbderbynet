@@ -6,10 +6,18 @@ session_write_close();
 require_once('inc/banner.inc');
 require_once('inc/partitions.inc');
 require_once('inc/scenes.inc');
+require_once('inc/adhoc.inc');
 
 //require_permission(SET_UP_PERMISSION);  // TODO: What's the correct permission? 
 
 $warn_no_timer = warn_no_timer();
+
+// Ad-hoc racing: the strip/card/modal below render only while the live DB is the
+// ad-hoc DB. The per-pinny age-group choices come from the event's real Classes
+// (seeded into the ad-hoc DB at build time).
+$adhoc_active = adhoc_mode_active();
+$adhoc_age_groups = $adhoc_active ? adhoc_age_groups() : array();
+$adhoc_nlanes = get_lane_count();
 
 ?><!DOCTYPE html>
 <html>
@@ -30,6 +38,7 @@ $warn_no_timer = warn_no_timer();
   <script type="text/javascript" src="js/modal.js"></script>
   <script type="text/javascript" src="js/coordinator-controls.js"></script>
   <script type="text/javascript" src="js/coordinator-poll.js"></script>
+  <script type="text/javascript" src="js/coordinator-adhoc.js"></script>
 
   <!-- As of 28-03-2025 -->
   <!-- <script type="text/javascript" src="js/fake-timer.js"></script> -->  
@@ -85,11 +94,34 @@ $warn_no_timer = warn_no_timer();
       -webkit-appearance: none;
       margin: 0;
     }
+
+    /* Ad-hoc racing */
+    .adhoc-active-strip {
+      display: flex; align-items: center; gap: 12px;
+      background: #b35900; color: #fff;
+      padding: 8px 16px; font-weight: bold;
+    }
+    .adhoc-active-strip__text { flex: 1; }
+    .adhoc-card__hint, .adhoc-modal__hint { color: #555; font-size: 0.9em; }
+    .adhoc-entry-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+    .adhoc-entry-table th, .adhoc-entry-table td { padding: 6px 8px; text-align: left; }
+    .adhoc-entry-lane { font-weight: bold; width: 3em; }
+    .adhoc-pinny-input { width: 5em; font-size: 1.2em; text-align: center; }
+    .adhoc-age-select { font-size: 1.1em; }
+    .adhoc-error { color: #b00; font-weight: bold; margin: 6px 0; }
   </style>
 </head>
 
 <body>
   <?php make_banner('Race Dashboard'); ?>
+
+  <?php if ($adhoc_active) { ?>
+  <div id="adhoc-active-strip" class="adhoc-active-strip">
+    <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#heat"/></svg>
+    <span class="adhoc-active-strip__text">AD-HOC RACING ACTIVE &mdash; official results are not being recorded.</span>
+    <input type="button" class="adhoc-active-strip__exit" value="Exit Ad-Hoc" onclick="adhoc_exit();" />
+  </div>
+  <?php } ?>
 
   <div class="double_control_column">
     <div id="not-racing-warning" class="hidden">
@@ -142,6 +174,22 @@ $warn_no_timer = warn_no_timer();
         </div>
         </div>
       </section>
+
+      <?php if ($adhoc_active && have_permission(CONTROL_RACE_PERMISSION)) { ?>
+      <section class="cc-card cc-card--adhoc control_group" id="adhoc-card">
+        <header class="cc-card__head">
+          <svg class="cc-icon" aria-hidden="true"><use href="img/coord-icons.svg#heat"/></svg>
+          <h3 class="cc-card__title">Ad-Hoc Heat</h3>
+          <span class="cc-card__badge cc-badge--neutral">AD-HOC</span>
+        </header>
+        <div class="cc-card__body">
+          <p class="adhoc-card__hint">Type the pinnies at the line and pick each one's age group, then lock the heat.</p>
+          <div class="block_buttons">
+            <input type="button" id="adhoc_setup_button" value="Set Up Next Group" onclick="on_adhoc_setup_click();" />
+          </div>
+        </div>
+      </section>
+      <?php } ?>
 
       <div id="add-new-rounds-button" class="cc-add-new-rounds hidden">
         <input type="button" value="Add New Rounds" onclick="show_choose_new_round_modal()" />
@@ -367,6 +415,37 @@ $warn_no_timer = warn_no_timer();
       <input type="button" value="Cancel" onclick='close_modal("#manual_results_modal");' />
     </form>
   </div>
+
+  <?php if ($adhoc_active) { ?>
+  <div id='manual_heat_modal' class="modal_dialog hidden block_buttons">
+    <form>
+      <input type="hidden" name="action" value="adhoc.heat" />
+      <h3 class="adhoc-modal__title">Set Up Ad-Hoc Heat</h3>
+      <p class="adhoc-modal__hint">Enter the pinnies at the line and pick each one's age group. Leave a lane blank for a bye.</p>
+      <table class="adhoc-entry-table">
+        <thead><tr><th>Lane</th><th>Pinny</th><th>Age Group</th></tr></thead>
+        <tbody>
+          <?php for ($i = 1; $i <= $adhoc_nlanes; $i++) { ?>
+          <tr>
+            <td class="adhoc-entry-lane"><?php echo $i; ?></td>
+            <td><input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                       class="adhoc-pinny-input" name="pinny<?php echo $i; ?>" /></td>
+            <td><select class="adhoc-age-select" name="agegroup<?php echo $i; ?>">
+                  <option value="">&mdash; age group &mdash;</option>
+                  <?php foreach ($adhoc_age_groups as $g) { ?>
+                  <option value="<?php echo (int)$g['classid']; ?>"><?php echo htmlspecialchars($g['class']); ?></option>
+                  <?php } ?>
+                </select></td>
+          </tr>
+          <?php } ?>
+        </tbody>
+      </table>
+      <div id="adhoc_lock_error" class="adhoc-error hidden"></div>
+      <input type="submit" id="adhoc_lock_button" value="Lock In Heat &amp; Race" />
+      <input type="button" value="Cancel" onclick='close_modal("#manual_heat_modal");' />
+    </form>
+  </div>
+  <?php } ?>
 
   <div id='replay_settings_modal' class="modal_dialog hidden block_buttons">
     <form>

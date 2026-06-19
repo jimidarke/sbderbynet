@@ -89,6 +89,13 @@ array(
 ."  `completed` TIMESTAMP, "
 ."  `ignoretime` TINYINT(1) DEFAULT 0, "
 ."  `masterheat` INTEGER DEFAULT 0"
+.(expected_schema_version() < 18 ? "" :
+  // Roster-less ad-hoc racing: a self-describing result row carries the pinny the
+  // coordinator typed (display_pinny) and the age group they picked
+  // (agegroup_classid), so NO RegistrationInfo row is needed.  Both NULL for
+  // normal scheduled racing (which keys on racerid).  See docs/ADHOC.md.
+  ",  `display_pinny` VARCHAR(20)"
+  .",  `agegroup_classid` INTEGER")
 .")",
 make_index("RaceChart", "chartnumber"),
 make_index("RaceChart", "classid"),

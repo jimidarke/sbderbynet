@@ -2,8 +2,9 @@
 // Turn ad-hoc racing mode on or off by re-pointing the whole rig at a separate
 // SQLite file (see inc/adhoc.inc / inc/db-marker.inc / docs/ADHOC.md).
 //
-//   mode=on  : (re)build adhoc.sqlite3 from the official roster, then flip the
-//              active-DB marker to it. The very next request opens the ad-hoc DB.
+//   mode=on  : (re)build adhoc.sqlite3 FRESH from the schema (no roster, no
+//              schedule — just the event's age groups), then flip the active-DB
+//              marker to it. The very next request opens the ad-hoc DB.
 //   mode=off : stop any ad-hoc racing, then clear the marker → back to official.
 //
 // We do NOT append a coordinator poll here: the marker flip takes effect on the
@@ -24,10 +25,10 @@ if (!have_permission(CONTROL_RACE_PERMISSION)) {
         json_failure('marker-write', 'Built ad-hoc DB but could not write the active-DB marker ('
                      . dn_db_marker_path() . '). Check filesystem permissions.');
       } else {
-        derby_log_info("Ad-hoc mode ON: built {$info['path']} with {$info['racers']} racers, "
+        derby_log_info("Ad-hoc mode ON: built {$info['path']} with {$info['agegroups']} age group(s), "
                        . "round {$info['roundid']}");
         json_out('adhoc', array('mode' => 'on',
-                                'racers' => $info['racers'],
+                                'agegroups' => $info['agegroups'],
                                 'roundid' => $info['roundid'],
                                 'path' => $info['path']));
         json_success();
