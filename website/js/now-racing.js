@@ -57,9 +57,7 @@ var Lineup = {
   // elements identifying the new heat's contestants.
   process_new_lineup: function(data, row_height) {
     var current = data["current-heat"];
-    if (data.hasOwnProperty('timer-trouble')) {
-      Overlay.show('#timer_overlay');
-    } else if (!current["now_racing"] && this.ok_to_change()) {
+    if (!current["now_racing"] && this.ok_to_change()) {
       Overlay.show('#paused_overlay');
     } else if (data["current-reschedule"]) {
       Overlay.show('#reschedule_overlay');
@@ -130,58 +128,23 @@ var Lineup = {
 
         FontAdjuster.reset();
         // Clear old results
-        $('[data-lane] .carnumber').text('');
-        $('[data-lane] .photo').empty();
+        $('[data-lane] .carnumber').empty();
         $('[data-lane] .name').text('');
         // Use color instead of opacity for lane colors compatibility (upstream v11.0)
         $('[data-lane] .time').css({color: 'rgba(0,0,0,0)'}).text(zero);
         $('[data-lane] .speed').css({color: 'rgba(0,0,0,0)'}).text('200.0');
-        $('[data-lane] .place span').text('');
-        $('[data-lane] .photo img').remove();
+        $('[data-lane] .place span').css('visibility', '').empty();
         for (var i = 0; i < racers.length; ++i) {
           var r = racers[i];
           var lane = r.lane;
           $('[data-lane="' + lane + '"] .lane').text(lane);
           $('[data-lane="' + lane + '"] .name').html('<div></div>');
           $('[data-lane="' + lane + '"] .name div').text(r.name);
-          if (r.hasOwnProperty('photo') && r.photo != '') {
-            $('[data-lane="' + lane + '"] .photo').html(
-              $('<img/>')
-                .attr('src', r.photo)
-                .css('max-height', row_height)
-            );
-          }
 
-          // if (r.hasOwnProperty('carname') && r.carname != '') {
-          //   $('[data-lane="' + lane + '"] .name').append($("<div class='carname'/>").text(r.carname));
-          // }
-          // if (r.hasOwnProperty('note') && r.note != '') {
-          //   $('[data-lane="' + lane + '"] .name').append($("<div class='subtitle'/>").text(r.note));
-          // }
-
-          $('[data-lane="' + lane + '"] .carnumber').text(pinnyDisplay(r.carnumber));
-        }
-      } else if (racers.length > 0) {
-
-        // Same heat, but possibly updated photo paths
-        for (var i = 0; i < racers.length; ++i) {
-          var r = racers[i];
-          var lane = r.lane;
-          if (r.hasOwnProperty('photo') && r.photo != '') {
-            if ($('[data-lane="' + lane + '"] .photo img').length == 0) {
-              // A window resize, below, may have removed the <img/> element on an interim basis
-              $('[data-lane="' + lane + '"] .photo').html(
-                $('<img/>')
-                  .attr('src', r.photo)
-                  .css('max-height', row_height)
-              );
-            }
-            if (r.photo != $('[data-lane="' + lane + '"] .photo img').attr('src')) {
-              $('[data-lane="' + lane + '"] .photo img').attr('src', r.photo);
-            }
-          } else {
-            $('[data-lane="' + lane + '"] .photo').empty();
-          }
+          // Car number as a compact warm badge (keeps a 4-digit pinny from
+          // squeezing the racer name out of view).
+          $('[data-lane="' + lane + '"] .carnumber')
+            .html($('<span class="car-badge"/>').text(pinnyDisplay(r.carnumber)));
         }
       }
     }
@@ -236,12 +199,13 @@ var FlyerAnimation = {
   // object -- it passes around all the state it needs.
   animate_flyers: function(place, place_to_lane, completed) {
     if (place >= place_to_lane.length) {
-      // Use color instead of opacity for lane colors compatibility (upstream v11.0)
-      $('.place').css({color: ''});  // Reset to inherit
-      $('.flying').animate({opacity: 0}, 1000);  // Keep opacity for flying elements
+      // Reveal the static medals now that the flyers have landed.
+      $('.place span').css('visibility', '');
+      $('.flying').animate({opacity: 0}, 1000);  // Fade the flyers out
       completed();
     } else {
       var flyer = $('#place' + place);
+      flyer.html(placeBadgeHtml(place));  // fly a medal in, not a bare number
       var target = $('[data-lane="' + place_to_lane[place] + '"] .place');
       if (target.length > 0) {
         var border = parseInt(target.css('border-top-width'));
@@ -276,27 +240,32 @@ var FlyerAnimation = {
   }
 };
 
+// Render a finishing place as a CSS medal badge (1st/2nd/3rd) or an ordinal
+// pill (4th+). Components live in css/kiosks.css; no emoji-font dependency.
+function placeBadgeHtml(place) {
+  var p = parseInt(place, 10);
+  if (!p || p < 1) return '';
+  if (p === 1) return '<span class="medal medal--gold">1</span>';
+  if (p === 2) return '<span class="medal medal--silver">2</span>';
+  if (p === 3) return '<span class="medal medal--bronze">3</span>';
+  var v = p % 100;
+  var s = ['th', 'st', 'nd', 'rd'];
+  var ord = s[(v - 20) % 10] || s[v] || s[0];
+  return '<span class="place-pill">' + p + '<sup>' + ord + '</sup></span>';
+}
+
 var g_row_height;
 $(function() {
   Poller.build_request = function(roundid, heat) {
-    // TODO It shouldn't be necessary to send row-height to the server;
-    // instead just construct a racer photo URL from the returned racerid.
+    // The photo column was removed (name-forward layout); send row-height 0 so
+    // the server skips photo rendering.
     g_row_height = 0;
-    var photo_cells = $('td.photo');
-    var border = parseInt(photo_cells.css('border-bottom-width'));
-
-    if (photo_cells.length > 0) {
-      // Position of the first td.photo may get adjusted
-      g_row_height =
-        Math.floor(($(window).height() - photo_cells.position().top) / photo_cells.length) - border;
-    }
-
     return {
       query: 'poll',
-      values: 'current-heat,heat-results,precision,racers,timer-state,timer-trouble,current-reschedule',
+      values: 'current-heat,heat-results,precision,racers,timer-state,current-reschedule',
       roundid: roundid,
       heat: heat,
-      'row-height': g_row_height 
+      'row-height': g_row_height
     };
   };
 });
@@ -319,10 +288,12 @@ function process_polling_result(data) {
       $('[data-lane="' + lane + '"] .time')
         .css({color: ''})  // Reset to inherit color
         .text(Number.parseFloat(hr.time).toFixed(precision));
+      // Hide the static medal until the flyer lands. Use visibility (not a
+      // transparent text colour) so the CSS-drawn disc isn't affected.
       if (FlyerAnimation.ok_to_animate) {
-        $('[data-lane="' + lane + '"] .place').css({color: 'rgba(0,0,0,0)'});
+        $('[data-lane="' + lane + '"] .place span').css('visibility', 'hidden');
       }
-      $('[data-lane="' + lane + '"] .place span').text(place);
+      $('[data-lane="' + lane + '"] .place span').html(placeBadgeHtml(place));
       if (hr.speed != '') {
         $('[data-lane="' + lane + '"] .speed')
           .css({color: ''})  // Reset to inherit color
@@ -354,10 +325,6 @@ function process_polling_result(data) {
 // the margin on the "flyer" elements.  The flyer height and width will be set
 // when the animation actually runs.
 function resize_table() {
-  // Since images have a fixed size, they can cause the table to be too tall for
-  // the new window size.  We temporarily remove the photos and rely on
-  // process_new_heat, above, to repopulate with different-sized photos.
-  $("table td.photo").empty();
   $("table").css({height: $(window).height() - 60});
 
   var place = $('[data-lane="1"] .place');
@@ -390,21 +357,18 @@ function updateRaceStatusDisplay(data) {
   var ts = data && data["timer-state"];
   var msg = ts && ts.message ? String(ts.message) : "";
 
-  if (data && data["timer-trouble"]) {
-    state = "fault";
-    label = "Check Timer";
-  } else if (data && data["current-heat"] && data["current-heat"]["now_racing"] === false) {
+  if (data && data["current-heat"] && data["current-heat"]["now_racing"] === false) {
     state = "paused";
-    label = "Paused";
+    label = "⏸ Paused";
   } else if (msg.indexOf("Race") === 0) {
     state = "racing";
-    label = "Racing";
+    label = "🏁 Racing";
   } else if (msg.indexOf("Staging") === 0) {
     state = "staging";
-    label = "Staging";
-  } else if (msg) {
-    label = msg;
+    label = "🚦 Staging";
   }
+  // Otherwise stay idle/"Ready" — never echo raw timer-status messages
+  // (e.g. "NOT CONNECTED") on the audience board.
 
   if (bar.getAttribute("data-state") !== state) {
     bar.setAttribute("data-state", state);

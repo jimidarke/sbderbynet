@@ -45,7 +45,8 @@ html, body, table { margin: 0; padding: 0; }
     1.5rem,
     calc((100vh - var(--banner-h) - var(--status-bar-h) - 6vh)
          / (var(--nlanes, 4) + 0.6) / 1.4),
-    14rem
+    6.5rem /* ceiling capped so big names fit (and em-sized badges/medals
+              can't overflow 100vw) on a 3-lane board */
   );
   font-variant-numeric: tabular-nums;
 }
@@ -104,14 +105,18 @@ html, body, table { margin: 0; padding: 0; }
 #main-table td.carnumber {
   font-weight: 700;
   color: var(--ink);
+  white-space: nowrap;
 }
-#main-table td.photo img {
-  display: block;
-  margin: 0 auto;
-  max-height: 100%;
-  max-width: 100%;
-  object-fit: contain;
-}
+/* Car number is rendered inside a .car-badge pill; keep it from dominating
+   the row at large cell fonts. Colour it by lane for a playful, cohesive look
+   (matches the on-deck board). */
+#main-table td.carnumber .car-badge { font-size: 0.72em; color: #fff; }
+#main-table tr[data-lane="1"] td.carnumber .car-badge { background: #d62828; }
+#main-table tr[data-lane="2"] td.carnumber .car-badge { background: #1d7874; }
+#main-table tr[data-lane="3"] td.carnumber .car-badge { background: #f3a712; color: #2a1a00; }
+#main-table tr[data-lane="4"] td.carnumber .car-badge { background: #4361ee; }
+#main-table tr[data-lane="5"] td.carnumber .car-badge { background: #6a4c93; }
+#main-table tr[data-lane="6"] td.carnumber .car-badge { background: #2f9e44; }
 
 /* Identity guardrail — long racer names truncate, never wrap.
    max-width:1px is the standard hack for ellipsis inside an auto-layout
@@ -119,11 +124,11 @@ html, body, table { margin: 0; padding: 0; }
 #main-table td.name {
   text-align: left;
   padding-left: 0.4em;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 1px;
+  width: 100%;    /* greedy: the name column absorbs all the slack */
 }
 #main-table td.name > div {
   white-space: nowrap;
@@ -144,6 +149,12 @@ html, body, table { margin: 0; padding: 0; }
   font-weight: 700;
   color: var(--accent);
 }
+/* Keep the medal/pill comfortably within a lane row, and size the flyer to
+   match the static badge it hands off to. */
+#main-table td.place .medal,
+#main-table td.place .place-pill,
+.flying .medal,
+.flying .place-pill { font-size: 0.6em; }
 
 #main-table td.test-only {
   color: #fffd38;
@@ -155,22 +166,18 @@ html, body, table { margin: 0; padding: 0; }
 #main-table td.test-only img { max-width: 50%; }
 
 /* ---- Flying place numbers --------------------------------------------- */
+/* The flyer is now transparent and just carries a medal/pill that glides in
+   and hands off to the static badge in the place cell. */
 .flying {
   position: fixed;
-  background-color: var(--accent);
-  color: #fff;
   left: -5em;
   top: -5em;
   width: 3em;
-  text-align: center;
-  padding: 13px;
-  display: table;
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
   font-weight: 700;
-}
-.flying span {
-  display: table-cell;
-  vertical-align: middle;
 }
 
 /* ---- Overlays --------------------------------------------------------- */
@@ -191,17 +198,6 @@ html, body, table { margin: 0; padding: 0; }
 }
 .overlay_foreground img { max-width: 60%; height: auto; }
 
-#timer_overlay {
-  color: var(--state-fault);
-  font-weight: bold;
-}
-#timer_overlay p {
-  background: white;
-  border-radius: 8px;
-  padding: 0.4em 0.8em;
-  margin-top: 0.6em;
-  font-size: clamp(2rem, 6vh, 5rem);
-}
 #reschedule_overlay p {
   color: var(--state-fault);
   font-size: clamp(2rem, 6vh, 5rem);

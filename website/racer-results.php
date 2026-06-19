@@ -45,7 +45,7 @@ if (isset($as_kiosk)) {
 ?>
 <script type="text/javascript" src="js/common-update.js"></script>
 <?php if (isset($as_kiosk)) { ?>
-<script type="text/javascript" src="js/results-by-racer-paginator.js"></script>
+<script type="text/javascript" src="js/results-by-racer-scroller.js"></script>
 <?php } else { ?>
 <script type="text/javascript" src="js/results-by-racer-update.js"></script>
 <?php } ?>
@@ -72,9 +72,12 @@ if (!$limit_to_roundid && !isset($as_kiosk)) {
 if (isset($as_kiosk)) {
 ?>
 <div id="rr-stage" class="rr-stage" data-state="loading">
+  <div id="rr-round" class="rr-round"></div>
+  <div class="rr-scroll-viewport">
+    <div id="rr-scroll-track" class="rr-scroll-track"></div>
+  </div>
   <div class="rr-empty">Waiting for results…</div>
 </div>
-<div id="rr-pageindicator" class="rr-pageindicator" aria-hidden="true"></div>
 <?php require_once('inc/ajax-failure.inc'); ?>
 </body>
 </html>

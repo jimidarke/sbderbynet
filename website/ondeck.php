@@ -34,6 +34,8 @@ require_once('inc/schema_version.inc');
       $lane_colors_str = read_raceinfo('lane-colors', '');
       echo $lane_colors_str ? json_encode(explode(',', $lane_colors_str)) : '[]';
     ?>;
+    // How long to celebrate a just-finished heat (medals) before advancing.
+    var g_ondeck_linger_ms = <?php echo read_raceinfo('ondeck-linger-ms', 10000); ?>;
   </script>
   <script type="text/javascript" src="js/ondeck.js"></script>
   <?php if (isset($as_kiosk)) {
@@ -52,6 +54,12 @@ require_once('inc/schema_version.inc');
 
 <body class="<?php echo isset($as_kiosk) ? 'kiosk' : ''; ?>">
   <?php make_banner('Racers On Deck', isset($as_kiosk) ? '' : 'index.php'); ?>
+
+  <div id="ondeck-header">
+    <span class="od-flag">🏁</span>
+    <span class="od-pill od-pill--round" id="od-round-pill"></span>
+    <span class="od-pill od-pill--group" id="od-group-pill" style="display:none"></span>
+  </div>
 
   <div class="schedule-wrapper">
     <table id="schedule" class="main_table curgroup">

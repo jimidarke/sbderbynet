@@ -55,12 +55,18 @@ make_scene(2, 'Opening', 'kiosks/flag.kiosk',
 make_scene(3, 'Check-In', 'kiosks/slideshow.kiosk',
            'kiosks/please-check-in.kiosk', 'kiosks/welcome.kiosk'),
 
-make_scene(4, 'Racing', 'kiosks/now-racing.kiosk',
-           'kiosks/ondeck.kiosk', 'kiosks/results-by-racer.kiosk'),
+// Racing: on-deck on the start-line TV + registration monitor, now-racing on
+// the bottom-of-hill / DJ screen.
+make_scene(4, 'Racing', 'kiosks/ondeck.kiosk',
+           'kiosks/ondeck.kiosk', 'kiosks/now-racing.kiosk'),
 
-make_scene(5, 'Awards', 'kiosks/award-presentations.kiosk', '', ''),
+// Results: final placements scroll on all three before intermission.
+make_scene(5, 'Results', 'kiosks/results-by-racer.kiosk',
+           'kiosks/results-by-racer.kiosk', 'kiosks/results-by-racer.kiosk'),
 
-make_scene(6, 'Wrap-Up', 'kiosks/standings.kiosk',
+make_scene(6, 'Awards', 'kiosks/award-presentations.kiosk', '', ''),
+
+make_scene(7, 'Wrap-Up', 'kiosks/standings.kiosk',
            'kiosks/derbynet.kiosk', 'local/kiosks/feedback.kiosk')
 
 );

@@ -1,25 +1,34 @@
-/* results-by-racer kiosk — paginated card layout.
-   Body shell, font stack, and ellipsis guardrails come from css/kiosks.css.
-   This file only defines the card grid and pagination visuals.
-   The legacy server-rendered admin styles below (body.rr-admin) are kept
-   intact so the non-kiosk admin view continues to render identically. */
+/* results-by-racer kiosk — placement-ordered seamless scroll.
+   Body shell, font stack, and ellipsis guardrails come from css/kiosks.css;
+   the shared medal / place-pill components live there too. This file defines
+   the scroll viewport, result rows, and per-heat chips. The legacy server-
+   rendered admin styles below (body.rr-admin) are kept intact so the non-kiosk
+   admin view continues to render identically. */
 
 /* ===== Kiosk view ======================================================== */
 
-/* Background tint specific to the paginator (slightly cooler than the
-   default kiosk surface) — body.kiosk supplies the rest of the shell. */
 body.kiosk.rr-kiosk { background: var(--surface-alt); }
 
 .rr-stage {
   position: relative;
-  padding: 1.6vh 2vw;
+  display: flex;
+  flex-direction: column;
+  padding: 1.2vh 2vw;
   height: calc(100vh - var(--banner-h));
   box-sizing: border-box;
   overflow: hidden;
 }
-.rr-stage .rr-empty {
+.rr-round {
+  flex: 0 0 auto;
+  font-weight: 800;
+  color: var(--brand);
+  font-size: clamp(1rem, 3vh, 2.2rem);
+  padding: 0.2vh 0 1vh;
+  letter-spacing: 0.02em;
+}
+.rr-empty {
   display: flex;
-  height: 100%;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   color: var(--ink-faint, #99a1ad);
@@ -28,187 +37,101 @@ body.kiosk.rr-kiosk { background: var(--surface-alt); }
   letter-spacing: 0.04em;
 }
 
-.rr-page {
-  position: absolute;
-  inset: 1.6vh 2vw;
-  display: grid;
-  grid-auto-rows: 1fr;
-  gap: 1.4vh;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  pointer-events: none;
-}
-.rr-page.is-current {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* ----- Card -------------------------------------------------------------- */
-.rr-card {
-  display: grid;
-  grid-template-columns: minmax(22ch, 1.2fr) minmax(18ch, 1fr) minmax(28ch, 1.4fr);
-  align-items: center;
-  background: var(--surface, #fff);
-  border-radius: 10px;
-  border: 1px solid var(--rule, rgba(0,0,0,0.12));
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+/* Scroll viewport clips the moving track (no scrollbar). */
+.rr-scroll-viewport {
+  position: relative;
+  flex: 1 1 auto;
   overflow: hidden;
-  min-height: 0;
 }
-.rr-card.is-changed {
-  outline: 3px solid var(--accent, #d49b00);
-  outline-offset: -3px;
+.rr-scroll-track { will-change: transform; }   /* promote to a GPU layer */
+@keyframes rr-scroll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(calc(-1 * var(--rr-shift, 0px))); }
+}
+.rr-scroll-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1vh;
+  padding-bottom: 1.1vh;   /* matches the gap so the two copies tile seamlessly */
 }
 
-/* Identity column ---------------------------------------------------------- */
-.rr-card .rr-identity {
+/* ----- Result row -------------------------------------------------------- */
+.rr-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns:
+    clamp(64px, 8vw, 130px)     /* place   */
+    clamp(78px, 8vw, 160px)     /* pinny   */
+    minmax(0, 1fr)              /* name    */
+    clamp(96px, 10vw, 200px)    /* score   */
+    minmax(0, 1.5fr);           /* heats   */
   align-items: center;
   gap: 0 1.2vw;
+  min-height: clamp(58px, 12vh, 120px);
   padding: 1vh 1.4vw;
-  height: 100%;
+  box-sizing: border-box;
+  background: var(--surface, #fff);
+  border: 1px solid var(--rule, rgba(0,0,0,0.12));
   border-left: 8px solid var(--brand, #023882);
-  background: var(--brand-soft, #e6ecf6);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 3px 10px rgba(0,0,0,0.05);
 }
-.rr-card .rr-photo {
-  grid-row: span 2;
-  width: clamp(56px, 9vh, 110px);
-  height: clamp(56px, 9vh, 110px);
-  border-radius: 50%;
-  background: #fff center/cover no-repeat;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px var(--rule);
-  flex-shrink: 0;
+/* The winner's card gets a warm gold glow, echoing the spectator podium. */
+.rr-row.is-first {
+  border-left-color: var(--podium-gold, #f5b301);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 6px 22px rgba(245,179,1,0.22);
 }
-.rr-card .rr-photo.no-photo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--brand, #023882);
-  font-weight: 700;
-  font-size: clamp(1.4rem, 3.2vh, 3rem);
-  background: #fff;
+/* The one-row gap between loop repeats. */
+.rr-spacer {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
-.rr-card .rr-car {
-  font-size: clamp(2.2rem, 5.5vh, 5.5rem);
+
+.rr-place { display: flex; align-items: center; justify-content: center; }
+.rr-place .medal { font-size: clamp(1.6rem, 5vh, 3.4rem); }
+.rr-place .place-pill { font-size: clamp(1.1rem, 3vh, 2rem); }
+
+.rr-pinny {
+  font-size: clamp(1.4rem, 4.4vh, 3.2rem);
   font-weight: 800;
   color: var(--brand, #023882);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1;
 }
-.rr-card .rr-name {
-  font-size: clamp(1rem, 2.6vh, 2.4rem);
-  font-weight: 500;
+.rr-name {
+  font-size: clamp(1rem, 3vh, 2.4rem);
+  font-weight: 600;
   color: var(--ink, #0f1c2e);
-  line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
-
-/* Stats column ------------------------------------------------------------ */
-.rr-card .rr-stats {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.4vh;
-  padding: 1vh 1.4vw;
-  border-right: 1px solid var(--rule);
-  height: 100%;
-  box-sizing: border-box;
-}
-.rr-card .rr-best {
-  font-size: clamp(2rem, 6vh, 6rem);
+.rr-score {
+  font-size: clamp(1.4rem, 4.4vh, 3.2rem);
   font-weight: 800;
   color: var(--accent, #d49b00);
   font-variant-numeric: tabular-nums;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-.rr-card .rr-best-label,
-.rr-card .rr-avg-label {
-  font-size: clamp(0.7rem, 1.5vh, 1rem);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-muted, #5a6675);
-  font-weight: 600;
-}
-.rr-card .rr-avg {
-  font-size: clamp(1rem, 2.4vh, 2rem);
-  font-weight: 600;
-  color: var(--ink, #0f1c2e);
-  font-variant-numeric: tabular-nums;
-}
-.rr-card .rr-progress {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-  font-size: clamp(0.8rem, 1.8vh, 1.2rem);
-  color: var(--ink-muted, #5a6675);
-}
-.rr-card .rr-progress .rr-dot {
-  width: 0.7em;
-  height: 0.7em;
-  border-radius: 50%;
-  background: var(--rule-strong, rgba(0,0,0,0.28));
-  display: inline-block;
-}
-.rr-card .rr-progress .rr-dot.is-done {
-  background: var(--state-race, #2f9e44);
-}
-
-/* Runs column ------------------------------------------------------------- */
-.rr-card .rr-runs {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 1vh 1.4vw;
-  height: 100%;
-  box-sizing: border-box;
-}
-.rr-card .rr-run {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: baseline;
-  gap: 0 0.8em;
-  padding: 0.25vh 0;
-  border-bottom: 1px solid var(--rule);
-  font-size: clamp(1.1rem, 2.6vh, 2.4rem);
-}
-.rr-card .rr-run:last-child { border-bottom: 0; }
-.rr-card .rr-run .rr-run-label {
-  color: var(--ink-muted, #5a6675);
-  font-weight: 500;
-  font-size: 0.65em;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.rr-card .rr-run .rr-run-time {
   text-align: right;
-  font-variant-numeric: tabular-nums;
+}
+.rr-heats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5vh 0.6vw;
+  overflow: hidden;
+}
+.rr-chip {
+  font-size: clamp(0.8rem, 2vh, 1.4rem);
   font-weight: 700;
-  color: var(--ink, #0f1c2e);
-}
-.rr-card .rr-run.is-best .rr-run-time { color: var(--accent, #d49b00); }
-.rr-card .rr-run.is-pending .rr-run-time { color: var(--ink-faint, #99a1ad); font-weight: 500; }
-
-/* Page indicator ---------------------------------------------------------- */
-.rr-pageindicator {
-  position: fixed;
-  right: 2vw;
-  bottom: 1.6vh;
-  background: rgba(15,28,46,0.78);
-  color: #fff;
-  border-radius: 999px;
-  padding: 0.5vh 1.2vw;
-  font-size: clamp(0.8rem, 1.8vh, 1.1rem);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-  display: none;
+  background: var(--surface-alt, #f4f6fa);
+  color: var(--ink, #0f1c2e);
+  border: 1px solid var(--rule, rgba(0,0,0,0.12));
+  border-radius: 999px;
+  padding: 0.2vh 0.8vw;
+  white-space: nowrap;
 }
-.rr-pageindicator.is-visible { display: block; }
+.rr-chip--best { background: var(--accent, #d49b00); color: #1a1100; border-color: var(--accent, #d49b00); }
+.rr-chip--pending { color: var(--ink-faint, #99a1ad); }
 
 /* ===== Admin (non-kiosk) view — preserved legacy styles ================== */
 

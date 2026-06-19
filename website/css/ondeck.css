@@ -17,25 +17,13 @@
 .pre_group_title { text-align: center; }
 .group_title {  }
 
-.curgroup .group_title,
-.curgroup .pre_group_title {
-  border: 5px solid var(--brand, #023882);
-  background-color: var(--accent, #F7D117);
-}
+/* (Old group-divider + cramped blue heat-th rules removed — the kiosk heat
+   column is styled in the schedule section below.) */
 
-.curgroup .d0 th,
-.curgroup .d1 th {
-  background-color: var(--brand, #023882);
-  color: #ffffff;
-  width: 4vh;
-}
-
-/* ---- Heat rows --------------------------------------------------------- */
+/* ---- Heat rows (kiosk current-heat highlight is defined in the schedule
+   section below) -------------------------------------------------------- */
 tr {
   border: 0px solid black;
-}
-.curheat {
-  border: 10px solid black;
 }
 
 td.in_prev {
@@ -113,58 +101,165 @@ th.nrows4 img         { margin-top: 102px; }
 /* ---- Excluding finished heats / extending on-deck (2025) ------------- */
 .finished-heat.hidden-heat { display: none; }
 
+/* ---- Header band ------------------------------------------------------ */
+/* Round + group chips below the banner, on a warm racing band. Height is
+   single-sourced via --od-header-h (kiosks.css) so the schedule math agrees. */
+#ondeck-header {
+  height: var(--od-header-h, 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fff6ea 0%, #ffe7c6 100%);
+  border-bottom: 3px solid var(--heat-now-edge, #f4a300);
+}
+.od-flag { font-size: clamp(1.4rem, 4.4vh, 2.8rem); line-height: 1; }
+.od-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 56vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.28em 1em;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: clamp(1rem, 2.8vh, 2rem);
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.od-pill--round { background: var(--brand, #023882); color: #fff; box-shadow: 0 2px 7px rgba(2,56,130,0.30); }
+.od-pill--group { background: var(--heat-now-edge, #f4a300); color: #2a1a00; box-shadow: 0 2px 7px rgba(244,163,0,0.35); }
+
 /* ---- Schedule (kiosk) layout ----------------------------------------- */
-/* Wrapper sits below the banner. body.kiosk handles the no-scroll outer
-   shell; we just compute available height for this stage. */
+/* A normal table with a fixed height: table rows auto-distribute to fill the
+   stage. (The old flex-on-table layout left the bottom half of the screen
+   empty.) Each heat reads as a card via row backgrounds + rounded ends. */
 .schedule-wrapper {
-  height: calc(100vh - var(--banner-h));
+  height: calc(100vh - var(--banner-h) - var(--od-header-h, 64px));
   overflow: hidden;
+  box-sizing: border-box;
+  padding: 0.7vh 1vw;
+  background: var(--heat-up, #f6f8fc);
 }
-
 #schedule {
-  width: auto;
+  width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  border-collapse: collapse;
-  margin-left: 10px;
-  margin-right: 30px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0 0.6vh;   /* vertical gap -> each heat reads as a card */
+  margin: 0;
 }
 
-#schedule tr.heat_row {
-  display: flex;
-  flex-direction: row;
-  flex: 1 1 auto;
-  justify-content: center;
-  align-items: center;
-}
+/* Card backgrounds live on the cells (separate-border table) so the heat
+   badge + lane cells read as one continuous card. */
+#schedule tr.heat_row th,
+#schedule tr.heat_row td.chart { background: var(--surface, #fff); }
+#schedule tr.heat_row.d1 th,
+#schedule tr.heat_row.d1 td.chart { background: #fff8e9; }
 
-#schedule td.chart,
+/* Heat-number badge column. */
 #schedule th {
-  flex: 1 1 auto;
-  min-width: 50px;
-  overflow: hidden;
+  width: 10vw;
+  vertical-align: middle;
   text-align: center;
-  padding: 5px;
-  display: flex;
-  flex-direction: column;
+  font-size: clamp(0.9rem, 2.6vh, 1.8rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--brand, #023882);
+  border-radius: 14px 0 0 14px;
+  border-right: 3px solid var(--heat-up, #f6f8fc);
+}
+#schedule th.masterheat { width: 6vw; font-size: clamp(1rem, 3vh, 2.4rem); }
+
+/* Racer cell — lane-coloured car badge over the name, vertically centered. */
+#schedule td.chart {
+  vertical-align: middle;
+  text-align: center;
+  padding: 0.5vh 0.5vw;
+  border-right: 3px solid var(--heat-up, #f6f8fc);
+  overflow: hidden;
+}
+#schedule td.chart:last-child { border-right: 0; border-radius: 0 14px 14px 0; }
+
+#schedule td.chart .car {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  min-width: 2.6em;
+  padding: 0.08em 0.45em;
+  border-radius: 0.45em;
+  background: var(--brand, #023882);
+  color: #fff;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1rem, 3vh, 2.4rem);
+  line-height: 1.1;
 }
-#schedule td.chart {
-  border: 1px solid var(--rule, rgba(0, 0, 0, 0.12));
-  padding: 4px;
-}
+#schedule td.chart.lane_1 .car { background: #d62828; }
+#schedule td.chart.lane_2 .car { background: #1d7874; }
+#schedule td.chart.lane_3 .car { background: #f3a712; color: #2a1a00; }
+#schedule td.chart.lane_4 .car { background: #4361ee; }
+#schedule td.chart.lane_5 .car { background: #6a4c93; }
+#schedule td.chart.lane_6 .car { background: #2f9e44; }
 
-#schedule td.chart .racer,
-#schedule td.chart .car {
-  font-size: 1.5vw;
-  text-align: center;
-  line-height: 1.2;
+#schedule td.chart .racer {
+  font-weight: 700;
+  color: var(--ink, #0f1c2e);
+  font-size: clamp(0.95rem, 2.9vh, 2.3rem);
+  line-height: 1.15;
+  margin-top: 0.4vh;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
-#schedule td.chart .time {
-  font-size: 1.2vw;
-  text-align: center;
-  line-height: 1.2;
+#schedule td.chart .time { display: none; }   /* on-deck shows medals, not times */
+
+/* Current heat = the "up next" hero — bright card ringed in gold. */
+#schedule tr.heat_row.curheat th,
+#schedule tr.heat_row.curheat td.chart {
+  background: var(--heat-now, #fff2c7);
+  box-shadow: inset 0 4px 0 var(--heat-now-edge, #f4a300),
+              inset 0 -4px 0 var(--heat-now-edge, #f4a300);
+}
+#schedule tr.heat_row.curheat th {
+  color: #b25900;
+  box-shadow: inset 0 4px 0 var(--heat-now-edge, #f4a300),
+              inset 0 -4px 0 var(--heat-now-edge, #f4a300),
+              inset 7px 0 0 var(--heat-now-edge, #f4a300);
+}
+#schedule tr.heat_row.curheat td.chart:last-child {
+  box-shadow: inset 0 4px 0 var(--heat-now-edge, #f4a300),
+              inset 0 -4px 0 var(--heat-now-edge, #f4a300),
+              inset -7px 0 0 var(--heat-now-edge, #f4a300);
+}
+#schedule tr.heat_row.curheat th::before { content: "🏁 "; }
+
+/* ---- Finished-heat celebration (medals, ~10s linger) ----------------- */
+#schedule tr.heat_row.finished-reveal th,
+#schedule tr.heat_row.finished-reveal td.chart { background: var(--heat-done, #e8f7ec); }
+#schedule tr.heat_row.finished-reveal th { box-shadow: inset 6px 0 0 var(--podium-gold, #f5b301); }
+#schedule tr.heat_row.finished-reveal .time { display: none !important; }
+
+/* Medal slot lives in every cell but is collapsed until the reveal. Only
+   opacity/transform animate (GPU-friendly on the Pi). */
+#schedule td.chart .medal-slot {
+  height: 0;
+  margin-top: 0;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+#schedule td.chart .medal-slot .medal,
+#schedule td.chart .medal-slot .place-pill { font-size: clamp(1.4rem, 3.6vh, 2.8rem); }
+#schedule tr.heat_row.finished-reveal td.chart .medal-slot {
+  height: auto;
+  margin-top: 0.4vh;
+  opacity: 1;
+  transform: scale(1);
 }

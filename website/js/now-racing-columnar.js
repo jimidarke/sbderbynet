@@ -15,7 +15,7 @@ $(function() {
   Poller.build_request = function(roundid, heat) {
     return  {query: 'poll',
              values: 'best-times,current-heat,heat-results,precision,racers,' +
-             'timer-trouble,current-reschedule',
+             'current-reschedule',
              'head-size': g_column_width + 'x' + g_racer_photo_height,
              'car-size': g_column_width + 'x' + g_car_photo_height,
              roundid: roundid,
@@ -121,9 +121,7 @@ function update_best_times(best_times) {
 function process_polling_result(data) {
   var current_heat = data["current-heat"];
 
-  if (data.hasOwnProperty('timer-trouble')) {
-    Overlay.show('#timer_overlay');
-  } else if (!current_heat["now_racing"] && g_result_animator.ok_to_change()) {
+  if (!current_heat["now_racing"] && g_result_animator.ok_to_change()) {
     Overlay.show('#paused_overlay');
   } else if (data["current-reschedule"]) {
     Overlay.show('#reschedule_overlay');

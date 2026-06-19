@@ -92,10 +92,6 @@ for ($lane = 1; $lane <= $nlanes; ++$lane) {
 <div id="paused_overlay" class="overlay_foreground">
  <img src="img/pause.png"/>
 </div>
-<div id="timer_overlay" class="overlay_foreground">
- <img src="img/timer-red.png"/>
- <p>Check timer.</p>
-</div>
 <div id="reschedule_overlay" class="overlay_foreground">
  <img src="img/warning-icon.png"/>
  <p>Schedule adjustment needed.</p>

@@ -70,6 +70,9 @@ function json_ondeck(&$now_running) {
                                   : ($use_points
                                      ? 'z'.ordinal($row['finishplace'])
                                      : 'z'.sprintf($time_format, $row['finishtime']))),
+                     // Finishing place (1=first) once the heat is complete, so the
+                     // on-deck board can show medals without re-ranking. null until run.
+                     'place' => (empty($row['completed']) ? null : intval($row['finishplace'])),
                      'carphoto' => $render->url_elements_for_row($row)
       );
   }

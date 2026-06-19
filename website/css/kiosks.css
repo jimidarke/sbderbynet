@@ -17,6 +17,7 @@
 :root {
   --banner-h:    64px;        /* matches global.css .banner { height: 64px; } */
   --status-bar-h: 6vh;        /* used by kiosks that show the race-state bar */
+  --od-header-h: 64px;        /* on-deck round/group pill bar height (single source) */
 
   --rule:        rgba(0, 0, 0, 0.12);
   --rule-strong: rgba(0, 0, 0, 0.28);
@@ -33,6 +34,17 @@
   --state-race:   #2f9e44;
   --state-pause:  #6c757d;
   --state-fault:  #c92a2a;
+
+  /* Podium + heat-state colours, echoing the public spectator pages
+     (installer/docker-cloud/stats-gen/template-*.html) for semi-consistency.
+     Used by the shared medal component and the on-deck / results kiosks. */
+  --podium-gold:   #f5b301;
+  --podium-silver: #9aa3ad;
+  --podium-bronze: #c97d3b;
+  --heat-now:      #fff2c7;   /* active heat row */
+  --heat-now-edge: #f4a300;   /* active heat left edge */
+  --heat-done:     #e8f7ec;   /* just-finished heat row */
+  --heat-up:       #f6f8fc;   /* upcoming heat row */
 }
 
 /* ---- Body shell -------------------------------------------------------- */
@@ -157,6 +169,68 @@ body.kiosk .aside { display: none; }
 .kiosk-card.is-changed {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
+}
+
+/* ---- Placement medals / pills (shared by on-deck, now-racing, results) -
+   CSS-drawn discs — no images, no emoji-font dependency (race-day Pi
+   Chromium may lack a colour-emoji font). Sized in em so each consumer
+   scales the badge via its own container font-size. Podium colours match
+   the public spectator pages. */
+.medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #3a2c00;
+  border: 0.1em solid rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 0.08em 0.16em rgba(255, 255, 255, 0.55),
+              0 0.05em 0.15em rgba(0, 0, 0, 0.30);
+}
+.medal--gold   { background: radial-gradient(circle at 35% 30%, #fff3b0, var(--podium-gold) 72%); }
+.medal--silver { background: radial-gradient(circle at 35% 30%, #ffffff, var(--podium-silver) 72%); color: #243140; }
+.medal--bronze { background: radial-gradient(circle at 35% 30%, #ffd9a8, var(--podium-bronze) 72%); color: #fff; }
+
+/* Ordinal pill for 4th+ place. */
+.place-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  height: 1.4em;
+  padding: 0 0.45em;
+  border-radius: 999px;
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.place-pill sup,
+.place-pill .ord { font-size: 0.6em; }
+.place-pill--unplaced {
+  background: transparent;
+  color: var(--ink-faint);
+  border: 1px solid var(--rule);
+}
+
+/* Compact car-number badge (warm pill) — keeps a 4-digit pinny from
+   crowding adjacent columns. */
+.car-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2em;
+  padding: 0.1em 0.4em;
+  border-radius: 0.4em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: var(--brand-soft);
+  color: var(--brand);
 }
 
 /* ---- Typography helpers ------------------------------------------------ */

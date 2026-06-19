@@ -19,6 +19,47 @@ function handle_photo_click(img) {
 var g_img_max_width_px;
 var g_img_max_height_px;
 
+// ---- Finished-heat celebration state ------------------------------------
+// Module-scoped so the linger timeout can advance the transition baseline on
+// completion (poll_for_chart reads/writes these).
+var g_current_heat = null;
+var g_next_heat = null;
+var g_linger_active = false;   // true while a finished heat is celebrated
+var g_pending_json = null;     // freshest poll data captured during a linger
+
+// Render a finishing place as CSS medal/pill markup. Component lives in
+// css/kiosks.css; no emoji-font dependency (Pi-safe).
+function ondeck_medal_markup(place) {
+  var p = parseInt(place, 10);
+  if (!p || p < 1) return '';
+  if (p === 1) return '<span class="medal medal--gold">1</span>';
+  if (p === 2) return '<span class="medal medal--silver">2</span>';
+  if (p === 3) return '<span class="medal medal--bronze">3</span>';
+  var v = p % 100, s = ['th', 'st', 'nd', 'rd'];
+  var ord = s[(v - 20) % 10] || s[v] || s[0];
+  return '<span class="place-pill">' + p + '<sup>' + ord + '</sup></span>';
+}
+
+// Fill the round + group/class pills from the current poll. Cheap, and only
+// touches the header bar, so it's safe on every poll (including during a linger).
+function update_header_pills(json) {
+  var ch = json['current-heat'];
+  var roundid = ch && ch['roundid'];
+  var round_name = '';
+  if (json['rounds']) {
+    for (var i = 0; i < json['rounds'].length; ++i) {
+      if (json['rounds'][i]['roundid'] == roundid) {
+        round_name = json['rounds'][i]['name'];
+        break;
+      }
+    }
+  }
+  $('#od-round-pill').text(round_name || '');
+  var cls = ch && ch['class'];
+  if (cls) { $('#od-group-pill').text(cls).show(); }
+  else { $('#od-group-pill').hide(); }
+}
+
 // function repopulate_schedule(json) {
 //   var nlanes = g_nlanes;
 //   var interleaved = json['current-heat']['use_master_sched'];
@@ -265,13 +306,6 @@ function repopulate_schedule(json) {
     const roundid = cell0.roundid;
     const heat = cell0.heat;
 
-    if (!interleaved && rowno === 0) {
-      $("<tr/>").appendTo('table#schedule')
-        .append($("<th class='divider'/>")
-        .attr('colspan', nlanes + 1)
-        .text(rounds_map[roundid]['name']));
-    }
-
     var row = $("<tr/>").appendTo("table#schedule");
     ++rowno;
     row.addClass('heat_row')
@@ -311,6 +345,8 @@ function repopulate_schedule(json) {
         .append($('<div/>').addClass('racer').text(cell['name']))
         .append($('<div/>').addClass('time').text(cell['result'].substring(1))
                 .css('display', cell['result'] ? 'block' : 'none'));
+      // Empty medal slot — invisible until a finished-heat reveal fills it.
+      td.append($("<div class='medal-slot'/>"));
 
       var photo_div = $("<div/>").addClass('ondeck_photo').appendTo(td);
       if (g_show_car_photos && cell['carphoto']) {
@@ -506,30 +542,67 @@ function animate_next_heat() {
 }
 
 
-function update_schedule(json, current_heat, next_heat) {
+function update_schedule(json) {
+  var current_heat = g_current_heat;
+  var next_heat = g_next_heat;
   if (current_heat &&
       json['current-heat']['use_master_sched'] == current_heat['use_master_sched'] &&
       json['current-heat']['roundid'] == current_heat['roundid'] &&
       json['current-heat']['heat'] == current_heat['heat'] &&
       json['ondeck']['chart'].length == $("table#schedule td.chart").length) {
     // No change, do nothing
-  } else if (json['current-heat']['roundid'] == next_heat['roundid'] &&
+  } else if (next_heat &&
+             json['current-heat']['roundid'] == next_heat['roundid'] &&
              json['current-heat']['heat'] == next_heat['heat']) {
-    // Populate the results for the just-completed heat.
-    var cur_roundid = current_heat['roundid'];
-    var cur_heat = current_heat['heat'];
-    var chart = json['ondeck']['chart'];
-    for (var res = 0; res < chart.length; ++res) {
-      if (chart[res]['roundid'] == cur_roundid &&
-          chart[res]['heat'] == cur_heat) {
-        $(".curheat .resultid_" + chart[res]['resultid'] + " .time").text(chart[res]['result'].substring(1));
-      }
-    }
-    animate_next_heat();
+    // The current heat just finished and we advanced to the next one:
+    // celebrate it with medals, linger, then advance.
+    reveal_finished_then_advance(json, current_heat['roundid'], current_heat['heat']);
   } else {
     repopulate_schedule(json);
     scroll_to_current_heat();
   }
+}
+
+// Reveal CSS medals on the just-finished heat row, hold it for a linger, then
+// drop it and advance. While the linger runs, poll_for_chart stashes fresh
+// data in g_pending_json and leaves the table + baseline untouched.
+function reveal_finished_then_advance(json, fin_roundid, fin_heat) {
+  var $row = $("#heat_" + fin_roundid + "_" + fin_heat);
+  if ($row.length === 0) {
+    // Finished heat isn't on screen (scrolled past before finishing) — just advance.
+    repopulate_schedule(json);
+    scroll_to_current_heat();
+    g_current_heat = json['current-heat'];
+    g_next_heat = json['ondeck']['next'];
+    return;
+  }
+
+  // Fill medal slots on the finished row from this poll's place values.
+  var chart = json['ondeck']['chart'];
+  for (var i = 0; i < chart.length; ++i) {
+    var c = chart[i];
+    if (c['roundid'] == fin_roundid && c['heat'] == fin_heat) {
+      $row.find(".resultid_" + c['resultid'] + " .medal-slot")
+          .html(ondeck_medal_markup(c['place']));
+    }
+  }
+
+  g_linger_active = true;
+  g_pending_json = json;
+  $row.addClass('finished-reveal');
+  scroll_to_current_heat();
+
+  var linger = (typeof g_ondeck_linger_ms !== 'undefined') ? g_ondeck_linger_ms : 10000;
+  setTimeout(function() {
+    $row.removeClass('finished-reveal');
+    var applyJson = g_pending_json || json;
+    g_linger_active = false;
+    g_pending_json = null;
+    repopulate_schedule(applyJson);   // finished heat filtered out by is_heat_finished
+    scroll_to_current_heat();
+    g_current_heat = applyJson['current-heat'];
+    g_next_heat = applyJson['ondeck']['next'];
+  }, linger);
 }
 
 function scroll_to_current_heat() {
@@ -554,8 +627,6 @@ $(function() {
   // Whenever an interval comes around and we're still processing the last one,
   // just skip a cycle.
   var running = false;
-  var current_heat;
-  var next_heat;
   var interval;
 
   function poll_for_chart() {
@@ -565,32 +636,47 @@ $(function() {
              {type: 'GET',
               data: {query: 'poll',
                      values: 'ondeck,rounds,current-heat,current-reschedule'},
+              error: function() { running = false; },
               success: function(json) {
+                running = false;
+
+                // Always honour a race-end signal, even mid-linger.
+                if (json["cease"]) {
+                  clearInterval(interval);
+                  window.location.href = '../index.php';
+                  return;
+                }
+
+                // Header pills are cheap and don't touch the schedule table.
+                update_header_pills(json);
+
+                // While celebrating a finished heat, stash the freshest data
+                // and leave the table (and the transition baseline) alone.
+                if (g_linger_active) {
+                  g_pending_json = json;
+                  return;
+                }
+
                 if (g_resized) {
-                  if (json["cease"]) {
-                    clearInterval(interval);
-                    window.location.href = '../index.php';
-                    return;
-                  }
                   g_resized = false;
                   repopulate_schedule(json);
-
                   setTimeout(() => {
                     // Trigger reflow after resize
                     $(".curheat, .nextheat").each(function() {
                       $(this).css("width", "100%");
                     });
                   }, 100);
-                  
-                  current_heat = json['current-heat'];
-                  next_heat = json['ondeck']['next'];
                   scroll_to_current_heat();
                 } else {
-                  update_schedule(json, current_heat, next_heat);
+                  update_schedule(json);   // may begin a linger
                 }
-                current_heat = json['current-heat'];
-                next_heat = json['ondeck']['next'];
-                running = false;
+
+                // Don't advance the transition baseline if a linger just began;
+                // its completion sets the baseline to the post-advance state.
+                if (!g_linger_active) {
+                  g_current_heat = json['current-heat'];
+                  g_next_heat = json['ondeck']['next'];
+                }
               }
              });
     }

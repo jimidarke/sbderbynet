@@ -4,6 +4,7 @@ require_once('inc/autoadvance.inc');
 require_once('inc/ordinals.inc');
 
 require_once('inc/rounds.inc');
+require_once('inc/standings.inc');   // sql_scoring_expression()
 
 $now_running = get_running_round();
 
@@ -133,12 +134,68 @@ foreach ($summary_stmt as $row) {
   unset($s);
 }
 
+// ---------------------------------------------------------------------------
+// score + place — reuse the canonical scoring expression from standings.inc so
+// the kiosk number matches the official round standings. One row per racer over
+// finished results, with the same filters standings uses (passedinspection,
+// exclude, finish-present). sql_scoring_expression honors the 'scoring' setting
+// (0=average all, 1=drop slowest, 2=fastest) and use-points.
+// ---------------------------------------------------------------------------
+$scoring_expr = sql_scoring_expression('finishtime', 'finishplace');
+$score_sql =
+   'SELECT RaceChart.racerid AS racerid, '.$scoring_expr.' AS score'
+  .' FROM RaceChart'
+  .' INNER JOIN RegistrationInfo ON RegistrationInfo.racerid = RaceChart.racerid'
+  .' INNER JOIN Roster ON Roster.racerid = RaceChart.racerid'
+  .'                  AND Roster.roundid = RaceChart.roundid'
+  .' WHERE RaceChart.roundid = :roundid'
+  .'   AND passedinspection = 1 AND exclude = 0'
+  .'   AND (finishtime IS NOT NULL OR finishplace IS NOT NULL)'
+  .' GROUP BY RaceChart.racerid';
+$score_stmt = $db->prepare($score_sql);
+$score_stmt->execute(array(':roundid' => $roundid));
+
+$scored = array();   // racerid => float score
+foreach ($score_stmt as $r) {
+  if ($r['score'] !== null) $scored[(int)$r['racerid']] = (float)$r['score'];
+}
+
+// Rank ascending (lower score = better = 1st). Tie when score equals the
+// previous emitted score (asort means $sc >= last, so <= reduces to ==),
+// mirroring StandingsTracker exactly (competition ranking 1,1,3).
+asort($scored);
+$place_by_racer = array();
+$rank = 0; $last_place = 0; $last_score = null;
+foreach ($scored as $rid => $sc) {
+  $rank++;
+  if ($last_score !== null && $sc <= $last_score) {
+    $place_by_racer[$rid] = $last_place;
+  } else {
+    $place_by_racer[$rid] = $rank;
+    $last_place = $rank;
+  }
+  $last_score = $sc;
+}
+
 $summary_out = array();
 foreach ($summaries as $rid => $s) {
   if ($s['runs_done'] > 0) {
     $s['avg_ms'] = (int)round($s['_sum_ms'] / $s['runs_done']);
   }
   unset($s['_sum_ms']);
+
+  if (isset($scored[$rid])) {
+    $sc = $scored[$rid];
+    $s['score']     = $sc;                       // numeric, for client sort/tiebreak
+    $s['place']     = $place_by_racer[$rid];     // 1 = first
+    $s['score_str'] = $use_points
+                        ? rtrim(rtrim(sprintf('%.2f', $sc), '0'), '.')  // avg place, e.g. "2.5"
+                        : sprintf($time_format_plain, $sc);             // plain (no 'x' prefix)
+  } else {
+    $s['score']     = null;
+    $s['place']     = null;       // no finished runs → unplaced → client sorts to top (worst)
+    $s['score_str'] = '--';
+  }
   $summary_out[] = $s;
 }
 
