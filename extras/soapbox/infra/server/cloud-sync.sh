@@ -146,6 +146,30 @@ do_one_push() {
         return 2
     fi
 
+    # ---- active-DB marker (ad-hoc mode) -------------------------------------
+    # Mirror the selection the PHP rig makes in inc/db-marker.inc: in ad-hoc
+    # ("come-as-you-are") mode the rig races into a SEPARATE sibling *.sqlite3
+    # (adhoc.sqlite3) named by the marker file, leaving the official DB frozen.
+    # Push whatever the rig is live on so the cloud twin mirrors it; the cloud
+    # render auto-detects ad-hoc from RaceInfo.adhoc-mode. Fail-safe: any
+    # malformed / out-of-bounds / missing marker keeps the official DB (same
+    # allowlist as the PHP side — sibling of the official DB, .sqlite3, no `..`).
+    local MARKER CAND OFFICIAL_DIR CAND_DIR
+    MARKER="${ACTIVE_DB_MARKER:-/var/lib/derbynet/active-db}"
+    if [ -r "$MARKER" ]; then
+        CAND=$(tr -d '\r\000' < "$MARKER" 2>/dev/null | head -n1)
+        CAND="${CAND#"${CAND%%[![:space:]]*}"}"   # strip leading whitespace
+        CAND="${CAND%"${CAND##*[![:space:]]}"}"    # strip trailing whitespace
+        case "$CAND" in *..*) CAND="" ;; esac      # no path traversal
+        if [ -n "$CAND" ] && [ "${CAND%.sqlite3}" != "$CAND" ] && [ -f "$CAND" ]; then
+            OFFICIAL_DIR=$(cd "$(dirname "$DB_PATH")" 2>/dev/null && pwd || true)
+            CAND_DIR=$(cd "$(dirname "$CAND")" 2>/dev/null && pwd || true)
+            if [ -n "$OFFICIAL_DIR" ] && [ "$CAND_DIR" = "$OFFICIAL_DIR" ]; then
+                DB_PATH="$CAND"
+            fi
+        fi
+    fi
+
     # ---- snapshot -----------------------------------------------------------
     # .backup is WAL-safe and does not lock the main DB. Tiny CPU cost; runs in
     # tens of milliseconds for typical race-day DB sizes (< 10 MB).

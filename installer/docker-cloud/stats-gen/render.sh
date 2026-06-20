@@ -82,6 +82,8 @@ ROUND_ID=""
 HEAT_NOW=""
 STATE=""
 CLASS_ID=""
+ADHOC_MODE=""
+ADHOC_ROUNDID=""
 if [ -f "$DB" ]; then
     while IFS='	' read -r k v; do
         case "$k" in
@@ -89,9 +91,11 @@ if [ -f "$DB" ]; then
             Heat) HEAT_NOW="$v" ;;
             NowRacingState) STATE="$v" ;;
             ClassID) CLASS_ID="$v" ;;
+            adhoc-mode) ADHOC_MODE="$v" ;;
+            adhoc-roundid) ADHOC_ROUNDID="$v" ;;
         esac
     done <<EOF
-$(sql "SELECT itemkey, itemvalue FROM RaceInfo WHERE itemkey IN ('RoundID','Heat','NowRacingState','ClassID');" || true)
+$(sql "SELECT itemkey, itemvalue FROM RaceInfo WHERE itemkey IN ('RoundID','Heat','NowRacingState','ClassID','adhoc-mode','adhoc-roundid');" || true)
 EOF
 fi
 
@@ -124,6 +128,112 @@ if [ -n "$CLASS_NAME" ] && [ -n "$ROUND_DISPLAY" ]; then
     ROUND_DISPLAY="$(esc "$CLASS_NAME"), $ROUND_DISPLAY"
 elif [ -n "$CLASS_NAME" ]; then
     ROUND_DISPLAY="$(esc "$CLASS_NAME")"
+fi
+
+# Nav-bar labels. In ad-hoc mode the public surface is relabeled: there is no
+# "Schedule", so the landing page becomes a chronological "Recent races" feed
+# and the results page becomes the "Leaderboard". Normal rostered events keep
+# the originals. Substituted into every template's nav (+ My-Races detail) below.
+if [ "$ADHOC_MODE" = "1" ]; then
+    NAV_SCHEDULE_LBL="Recent races"
+    NAV_RECENT_LBL="Leaderboard"
+else
+    NAV_SCHEDULE_LBL="Schedule"
+    NAV_RECENT_LBL="Recent results"
+fi
+
+# ---- 2b. Ad-hoc leaderboard --------------------------------------------------
+# When the rig is in ad-hoc ("come-as-you-are") mode the synced DB is the
+# separate adhoc.sqlite3 (the Pi cloud-sync honors the active-db marker). It has
+# NO roster and NO schedule — racing is scored as best single time, top 3 per
+# age group (mirrors website/inc/adhoc-standings.inc and the adhoc-leaderboard
+# kiosk). We render that board into BOTH public landing slots (schedule +
+# recent) below, since the per-heat schedule and My-Races surfaces don't apply
+# roster-less. Pinny + age-group label only — never a name (PII rule).
+ADHOC_BODY=""
+if [ "$ADHOC_MODE" = "1" ]; then
+    ROUND_DISPLAY="Ad-Hoc Racing"
+    RID_FILTER=""
+    if [ -n "$ADHOC_ROUNDID" ] && [ "$ADHOC_ROUNDID" != "0" ]; then
+        RID_FILTER="AND rc.roundid = $ADHOC_ROUNDID"
+    fi
+    # Best single time per (age group, pinny); ordered by group then time. Top-3
+    # cap and medal/place decoration happen in the awk pass. DNF rows (finishtime
+    # >= 99.999 sentinel) and ignored times are excluded in SQL.
+    ADHOC_BODY=$(
+        sql "SELECT c.sortorder, c.class, rc.display_pinny,
+                    MIN(rc.finishtime) AS best_time
+               FROM RaceChart rc
+               JOIN Classes c ON c.classid = rc.agegroup_classid
+              WHERE rc.agegroup_classid IS NOT NULL
+                AND rc.display_pinny IS NOT NULL
+                AND rc.finishtime IS NOT NULL AND rc.finishtime < 99.999
+                AND COALESCE(rc.ignoretime, 0) = 0
+                $RID_FILTER
+              GROUP BY rc.agegroup_classid, c.class, c.sortorder, rc.display_pinny
+              ORDER BY c.sortorder, c.class, best_time ASC,
+                       CAST(rc.display_pinny AS INTEGER) ASC;" 2>/dev/null \
+        | awk -F'\t' '
+            function esc(s){ gsub(/&/,"\\&amp;",s); gsub(/</,"\\&lt;",s); gsub(/>/,"\\&gt;",s); return s }
+            function flush(){ if (open) printf "</tbody></table></section>\n" }
+            BEGIN { pso=""; pcls=""; open=0; rank=0 }
+            {
+                so=$1; cls=$2; pinny=$3; t=$4;
+                if (so != pso || cls != pcls) {        # new age-group card
+                    flush();
+                    pso=so; pcls=cls; rank=0; open=1;
+                    printf "<section class=\"heat\"><h3>%s</h3><table class=\"recent\"><thead><tr><th>Place</th><th>Pinny</th><th>Best</th></tr></thead><tbody>\n", esc(cls);
+                }
+                rank++;
+                if (rank > 3) next;                    # top 3 per group
+                # Zero-pad pinny to 4 digits so spectators Ctrl+F their kid.
+                pinny_display = (pinny == "" ? "----" : sprintf("%04d", pinny));
+                if (rank == 1)      medal = "🥇 ";
+                else if (rank == 2) medal = "🥈 ";
+                else if (rank == 3) medal = "🥉 ";
+                else                medal = "";
+                # Times tracked to 0.1s, capped at 99.9 for column-width safety.
+                tcap = (t+0 > 99.9 ? 99.9 : t+0);
+                printf "<tr><td class=\"r\">%s#%d</td><td class=\"p\">%s</td><td class=\"t\">%.1fs</td></tr>\n",
+                       medal, rank, pinny_display, tcap;
+            }
+            END { flush() }'
+    )
+    if [ -z "$ADHOC_BODY" ]; then
+        ADHOC_BODY='<p class="empty">No times yet — let'"'"'s race!</p>'
+    fi
+
+    # Chronological "Recent races" feed for the landing page (schedule.html):
+    # EVERY completed run since the start, newest first. Roster-less — the pinny
+    # is the stored 4-digit display_pinny, emitted VERBATIM (no octal-prone
+    # re-pad). DNF sentinel (>=99.999) -> "DNF"; ignored runs -> "void".
+    ADHOC_FEED=$(
+        sql "SELECT rc.heat,
+                    printf('%04d', CAST(rc.display_pinny AS INTEGER)) AS pinny4,
+                    COALESCE(c.class,''),
+                    COALESCE(rc.finishtime,''), COALESCE(rc.ignoretime,0)
+               FROM RaceChart rc
+               LEFT JOIN Classes c ON c.classid = rc.agegroup_classid
+              WHERE rc.display_pinny IS NOT NULL AND rc.display_pinny != ''
+                AND rc.completed IS NOT NULL AND rc.completed != ''
+                $RID_FILTER
+              ORDER BY rc.completed DESC, rc.resultid DESC;" 2>/dev/null \
+        | awk -F'\t' '
+            function esc(s){ gsub(/&/,"\\&amp;",s); gsub(/</,"\\&lt;",s); gsub(/>/,"\\&gt;",s); return s }
+            {
+                heat=$1; pinny=$2; cls=$3; t=$4; ign=$5;
+                pcell = (pinny == "" ? "----" : pinny);   # SQL-padded to 4 digits
+                if (ign == "1")          { timecell = "void" }
+                else if (t == "")        { timecell = "—" }
+                else if (t+0 >= 99.999)   { timecell = "DNF" }
+                else { tcap = (t+0 > 99.9 ? 99.9 : t+0); timecell = sprintf("%.1fs", tcap) }
+                printf "<tr><td class=\"h\">%s</td><td class=\"p\">%s</td><td class=\"g\">%s</td><td class=\"t\">%s</td></tr>\n",
+                       heat, esc(pcell), esc(cls), timecell;
+            }'
+    )
+    if [ -z "$ADHOC_FEED" ]; then
+        ADHOC_FEED='<tr><td colspan="4" class="empty">No runs yet — let'"'"'s race!</td></tr>'
+    fi
 fi
 
 # ---- 3. Schedule rows for current round --------------------------------------
@@ -264,6 +374,97 @@ mkdir -p "$BODIES_DIR"
 
 # Shared header values (don't vary per racer) — sed-escaped once.
 UPDATED_SUB=$(sed_subst_escape "$GEN_AT")
+NAV_S_SUB=$(sed_subst_escape "$(esc "$NAV_SCHEDULE_LBL")")
+NAV_R_SUB=$(sed_subst_escape "$(esc "$NAV_RECENT_LBL")")
+
+if [ "$ADHOC_MODE" = "1" ]; then
+    # ---- 5-adhoc. Roster-less My-Races: one page per CAPTURED pinny ----------
+    # No roster exists in ad-hoc, so build a page for every distinct display_pinny
+    # that has a completed run, listing that pinny's runs (heat, age group, time)
+    # with its single best run flagged. Filename + displayed pinny are the stored
+    # 4-digit string used VERBATIM, so the keypad's me/<pinny>.html lookup hits
+    # and the octal zero-pad trap is sidestepped entirely.
+    ADHOC_NORESULTS="$TMP_DIR/.me_adhoc_noresults"
+    printf '%s\n' '<div class="checkback"><p class="empty">No runs recorded for this pinny yet.</p></div>' > "$ADHOC_NORESULTS"
+    RID_FILTER=""
+    if [ -n "$ADHOC_ROUNDID" ] && [ "$ADHOC_ROUNDID" != "0" ]; then
+        RID_FILTER="AND rc.roundid = $ADHOC_ROUNDID"
+    fi
+
+    # Body fragments: one .body per pinny. Rows are buffered in awk so the single
+    # fastest run can be medal-flagged; query is pinny-contiguous so exactly one
+    # output file is open at a time (busybox-awk FD discipline, as in 5a).
+    sql "SELECT printf('%04d', CAST(rc.display_pinny AS INTEGER)) AS pinny4,
+                COALESCE(c.class,''), rc.heat,
+                COALESCE(rc.finishtime,''), COALESCE(rc.ignoretime,0)
+           FROM RaceChart rc
+           LEFT JOIN Classes c ON c.classid = rc.agegroup_classid
+          WHERE rc.display_pinny IS NOT NULL AND rc.display_pinny != ''
+            AND rc.completed IS NOT NULL AND rc.completed != ''
+            $RID_FILTER
+          ORDER BY pinny4, rc.completed ASC, rc.resultid ASC;" 2>/dev/null \
+        | awk -F'\t' -v outdir="$BODIES_DIR" '
+            function esc(s){ gsub(/&/,"\\&amp;",s); gsub(/</,"\\&lt;",s); gsub(/>/,"\\&gt;",s); return s }
+            function flush_racer(   i, klass, mark) {
+                if (cur == "") return;
+                fn = sprintf("%s/%s.body", outdir, cur);
+                printf "<section class=\"rnd\"><h3>Ad-Hoc Runs</h3><table class=\"me\"><thead><tr><th>Heat</th><th>Age group</th><th>Time</th></tr></thead><tbody>\n" > fn;
+                for (i = 1; i <= n; i++) {
+                    klass = (i == besti ? "done" : "");
+                    mark  = (i == besti ? " 🥇" : "");
+                    printf "<tr class=\"%s\"><td class=\"h\">%s</td><td class=\"g\">%s</td><td class=\"t\">%s%s</td></tr>\n", klass, heats[i], groups[i], cells[i], mark > fn;
+                }
+                printf "</tbody></table></section>\n" > fn;
+                if (bestval < 99999) printf "<p class=\"me-best\">Best time: %.1fs</p>\n", (bestval > 99.9 ? 99.9 : bestval) > fn;
+                close(fn);
+            }
+            BEGIN { cur = ""; n = 0; besti = 0; bestval = 99999 }
+            {
+                pinny=$1; cls=$2; heat=$3; t=$4; ign=$5;
+                if (pinny != cur) { flush_racer(); cur = pinny; n = 0; besti = 0; bestval = 99999 }
+                n++;
+                heats[n] = heat; groups[n] = esc(cls);
+                if (ign == "1")          { cells[n] = "void" }
+                else if (t == "")        { cells[n] = "—" }
+                else if (t+0 >= 99.999)   { cells[n] = "DNF" }
+                else {
+                    tcap = (t+0 > 99.9 ? 99.9 : t+0); cells[n] = sprintf("%.1fs", tcap);
+                    if (t+0 < bestval) { bestval = t+0; besti = n }
+                }
+            }
+            END { flush_racer() }' || true
+
+    # Wrap each captured pinny's fragment in the detail template (pinny verbatim).
+    sql "SELECT printf('%04d', CAST(rc.display_pinny AS INTEGER)) AS pinny4,
+                COALESCE(MAX(c.class),'')
+           FROM RaceChart rc
+           LEFT JOIN Classes c ON c.classid = rc.agegroup_classid
+          WHERE rc.display_pinny IS NOT NULL AND rc.display_pinny != ''
+            AND rc.completed IS NOT NULL AND rc.completed != ''
+            $RID_FILTER
+          GROUP BY pinny4
+          ORDER BY pinny4;" 2>/dev/null \
+        | while IFS='	' read -r pinny grp; do
+            [ -n "$pinny" ] || continue
+            PINNY_SUB=$(sed_subst_escape "$(esc "$pinny")")
+            GROUP_SUB=$(sed_subst_escape "$(esc "$grp")")
+            STATUS_SUB=$(sed_subst_escape "Ad-Hoc Racing")
+            if [ -f "$BODIES_DIR/$pinny.body" ]; then
+                body_file="$BODIES_DIR/$pinny.body"
+            else
+                body_file="$ADHOC_NORESULTS"
+            fi
+            sed -e "s|{{PINNY}}|$PINNY_SUB|g" \
+                -e "s|{{GROUP}}|$GROUP_SUB|g" \
+                -e "s|{{STATUS}}|$STATUS_SUB|g" \
+                -e "s|{{UPDATED}}|$UPDATED_SUB|g" \
+                -e "s|{{VERSION}}|$VERSION|g" \
+                -e "s|{{NAV_SCHEDULE}}|$NAV_S_SUB|g" \
+                -e "s|{{NAV_RECENT}}|$NAV_R_SUB|g" \
+                -e "/__STATSGEN_PAYLOAD__/{ r $body_file" -e "d; }" \
+                "$SELF_DIR/template-me-detail.html" > "$ME_DIR/$pinny.html"
+        done
+else
 
 # ---- 5a. Body fragments for all racers, all rounds (single awk pass) --------
 # NOW-highlight matches on roundid (not the round number, which repeats across
@@ -363,7 +564,17 @@ sql "SELECT reg.carnumber, reg.classid, COALESCE(c.class,'')
       ORDER BY reg.carnumber;" 2>/dev/null \
     | while IFS='	' read -r carnumber classid classname; do
         [ -n "$carnumber" ] || continue
-        p4=$(printf "%04d" "$carnumber" 2>/dev/null || echo "$carnumber")
+        # Canonical 4-digit pinny. A bare `printf "%04d" 0066` is parsed as OCTAL
+        # (-> 0054; 0089 errors), corrupting the me/<pinny>.html filename. Strip
+        # leading zeros to force decimal, then re-pad — and dash has no `10#`.
+        # This matches the awk %04d body-fragment names in 5a so lookups hit.
+        if printf '%s' "$carnumber" | grep -qE '^[0-9]+$'; then
+            cnum=$(printf '%s' "$carnumber" | sed 's/^0*//')
+            [ -n "$cnum" ] || cnum=0
+            p4=$(printf '%04d' "$cnum")
+        else
+            p4="$carnumber"
+        fi
         PINNY_SUB=$(sed_subst_escape "$p4")
         GROUP_SUB=$(sed_subst_escape "$(esc "$classname")")
 
@@ -394,9 +605,12 @@ sql "SELECT reg.carnumber, reg.classid, COALESCE(c.class,'')
             -e "s|{{STATUS}}|$STATUS_SUB|g" \
             -e "s|{{UPDATED}}|$UPDATED_SUB|g" \
             -e "s|{{VERSION}}|$VERSION|g" \
+            -e "s|{{NAV_SCHEDULE}}|$NAV_S_SUB|g" \
+            -e "s|{{NAV_RECENT}}|$NAV_R_SUB|g" \
             -e "/__STATSGEN_PAYLOAD__/{ r $body_file" -e "d; }" \
             "$SELF_DIR/template-me-detail.html" > "$ME_DIR/$p4.html"
     done
+fi
 
 # Notfound page — rendered regardless of round state so the keypad's fallback
 # always lands somewhere friendly.
@@ -425,12 +639,27 @@ render_template() {
     heatnow_sub=$(sed_subst_escape "${HEAT_NOW:-—}")
     state_sub=$(sed_subst_escape "${STATE:-0}")
     updated_sub=$(sed_subst_escape "$GEN_AT")
+    # Nav labels + page chrome. Plain-text values are HTML-escaped; THEAD_ROW is
+    # literal markup so it is only sed-escaped. Tokens absent from a template are
+    # simply no-ops, so myraces/feedback (nav only) are unaffected by title/h1.
+    nav_sched_sub=$(sed_subst_escape "$(esc "${NAV_SCHEDULE_LBL:-Schedule}")")
+    nav_recent_sub=$(sed_subst_escape "$(esc "${NAV_RECENT_LBL:-Recent results}")")
+    page_title_sub=$(sed_subst_escape "$(esc "${PAGE_TITLE:-}")")
+    page_h1_sub=$(sed_subst_escape "$(esc "${PAGE_H1:-}")")
+    foot_sub=$(sed_subst_escape "$(esc "${FOOT_NOTE:-}")")
+    thead_sub=$(sed_subst_escape "${THEAD_ROW:-}")
 
     sed -e "s|{{ROUND}}|$round_sub|g" \
         -e "s|{{HEAT_NOW}}|$heatnow_sub|g" \
         -e "s|{{STATE}}|$state_sub|g" \
         -e "s|{{UPDATED}}|$updated_sub|g" \
         -e "s|{{VERSION}}|$VERSION|g" \
+        -e "s|{{NAV_SCHEDULE}}|$nav_sched_sub|g" \
+        -e "s|{{NAV_RECENT}}|$nav_recent_sub|g" \
+        -e "s|{{PAGE_TITLE}}|$page_title_sub|g" \
+        -e "s|{{PAGE_H1}}|$page_h1_sub|g" \
+        -e "s|{{FOOT_NOTE}}|$foot_sub|g" \
+        -e "s|{{THEAD_ROW}}|$thead_sub|g" \
         -e "/$SUB_MARK/{ r $payload_file" -e "d; }" \
         "$template" > "$out"
 }
@@ -452,8 +681,28 @@ if [ "$SPLASH_ON" = "1" ]; then
             -e "s|{{VERSION}}|$VERSION|g" \
             "$SELF_DIR/template-splash.html" > "$TMP_DIR/$slot.html"
     done
+elif [ "$ADHOC_MODE" = "1" ]; then
+    # Ad-hoc: landing page (schedule.html) = chronological "Recent races" feed,
+    # rendered into the SCHEDULE template (its payload slot is inside the <table>,
+    # so it takes the <tr> feed rows). Results page (recent.html) = best-times
+    # "Leaderboard", rendered into the RECENT template (top-level slot takes the
+    # <section> cards). Nav labels were set above; ROUND_DISPLAY = "Ad-Hoc Racing".
+    PAGE_TITLE="Recent Races"; PAGE_H1="🏁 Recent Races"
+    THEAD_ROW='<th>Heat</th><th>Pinny</th><th>Age group</th><th>Time</th>'
+    FOOT_NOTE="all runs, newest first"
+    render_template "$SELF_DIR/template-schedule.html" "$TMP_DIR/schedule.html" ADHOC_FEED
+
+    PAGE_TITLE="Leaderboard"; PAGE_H1="🏆 Leaderboard"
+    FOOT_NOTE="best time per racer · top 3 per age group"
+    render_template "$SELF_DIR/template-recent.html" "$TMP_DIR/recent.html" ADHOC_BODY
 else
+    PAGE_TITLE="Race Schedule"; PAGE_H1="🏁 Race Schedule"
+    THEAD_ROW='<th>Heat</th><th>Lane</th><th>Pinny</th><th>Status</th><th>Time</th>'
+    FOOT_NOTE="last 2 + current + upcoming heats"
     render_template "$SELF_DIR/template-schedule.html" "$TMP_DIR/schedule.html" SCHEDULE_BODY
+
+    PAGE_TITLE="Recent Results"; PAGE_H1="🏆 Recent Results"
+    FOOT_NOTE="most recent completed heats"
     render_template "$SELF_DIR/template-recent.html"   "$TMP_DIR/recent.html"   RECENT_BODY
 fi
 render_template "$SELF_DIR/template-myraces.html"  "$TMP_DIR/myraces.html"  EMPTY_BODY
