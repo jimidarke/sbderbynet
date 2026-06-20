@@ -35,6 +35,14 @@ if (isset($_GET['page'])) {
   // (Thank you, https://chocapikk.com !)
   $self = dirname(realpath($_SERVER['SCRIPT_FILENAME']));
   $page = realpath($self.'/'.$_GET['page']);
+  // Shorthand: allow a bare kiosk name (e.g. ?page=adhoc-leaderboard) by
+  // resolving it under kiosks/ with an optional .kiosk extension.
+  if ($page === false) $page = realpath($self.'/kiosks/'.$_GET['page']);
+  if ($page === false) $page = realpath($self.'/kiosks/'.$_GET['page'].'.kiosk');
+  // If still unresolved, fall back safely. CRITICAL: a false $page makes the
+  // dirname() walk below spin forever (dirname('') never hits the break
+  // conditions) → 30s CPU loop → HTTP 500. The path-validation loop still runs.
+  if ($page === false) $page = $self.'/kiosks/identify.kiosk';
   $kiosks_dir = $self.DIRECTORY_SEPARATOR.'kiosks';
   for ($i = 1; true; ++$i) {
     $dir = dirname($page, $i);

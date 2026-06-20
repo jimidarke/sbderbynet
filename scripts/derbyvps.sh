@@ -332,6 +332,22 @@ cmd_deploy() {
     sudo chmod 777 /opt/derbynet/production/public-stats /opt/derbynet/production/public-stats/tokens
   "
 
+  # The audience-feedback log (website/feedback-submit.php appends to
+  # <data>/feedback/feedback.jsonl in the bind-mounted data dir) is written by the
+  # derbynet-web php-fpm user. Provision the dir 0777 and any existing log 0666 so
+  # writes succeed regardless of that user's uid — a web-image rebuild can shift
+  # the uid and otherwise leaves the pre-existing (old-uid-owned) dir+file
+  # unwritable, which surfaces as 'write_failed' 500s on submit. Re-applied every
+  # deploy so it self-heals. Append-only, non-sensitive forensic log.
+  info "ensuring audience-feedback dir is writable"
+  ssh_logged "
+    sudo mkdir -p /opt/derbynet/production/data/feedback
+    sudo chmod 777 /opt/derbynet/production/data/feedback
+    if sudo test -f /opt/derbynet/production/data/feedback/feedback.jsonl; then
+      sudo chmod 666 /opt/derbynet/production/data/feedback/feedback.jsonl
+    fi
+  "
+
   # derbynet-stats-gen refuses to start without a token. Mint one on first
   # deploy so postflight sees 5 containers running. Operator can rotate later
   # via 'stats-token rotate' for race-day. Detects "missing OR empty" and
