@@ -38,7 +38,7 @@ $adhoc_nlanes = get_lane_count();
   <script type="text/javascript" src="js/modal.js"></script>
   <script type="text/javascript" src="js/coordinator-controls.js"></script>
   <script type="text/javascript" src="js/coordinator-poll.js"></script>
-  <script type="text/javascript" src="js/coordinator-adhoc.js"></script>
+  <script type="text/javascript" src="js/coordinator-adhoc.js?v=<?php echo @filemtime(__DIR__.'/js/coordinator-adhoc.js'); ?>"></script>
 
   <!-- As of 28-03-2025 -->
   <!-- <script type="text/javascript" src="js/fake-timer.js"></script> -->  
@@ -103,12 +103,28 @@ $adhoc_nlanes = get_lane_count();
     }
     .adhoc-active-strip__text { flex: 1; }
     .adhoc-card__hint, .adhoc-modal__hint { color: #555; font-size: 0.9em; }
-    .adhoc-entry-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-    .adhoc-entry-table th, .adhoc-entry-table td { padding: 6px 8px; text-align: left; }
-    .adhoc-entry-lane { font-weight: bold; width: 3em; }
-    .adhoc-pinny-input { width: 5em; font-size: 1.2em; text-align: center; }
-    .adhoc-age-select { font-size: 1.1em; }
+    /* Ad-hoc heat entry: one clean flex row per lane. No transforms (they break
+       alignment); native radios sized with width/height + accent-color. */
+    .adhoc-modal__title { margin: 0 0 4px; }
+    .adhoc-entry { margin: 12px 0; }
+    .adhoc-lane-row {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 10px 20px;
+      padding: 14px 4px; border-bottom: 1px solid #dfe3e9;
+    }
+    .adhoc-lane-row:last-child { border-bottom: none; }
+    .adhoc-lane-label { font-weight: bold; font-size: 1.2em; min-width: 4em; }
+    .adhoc-pinny-input { width: 5em; font-size: 1.4em; text-align: center; padding: 8px; }
+    .adhoc-age-options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
+    .adhoc-radio { display: inline-flex; align-items: center; gap: 9px; font-size: 1.25em; padding: 6px 2px; cursor: pointer; user-select: none; }
+    .adhoc-radio input { width: 1.35em; height: 1.35em; accent-color: #b35900; margin: 0; flex: none; cursor: pointer; }
     .adhoc-error { color: #b00; font-weight: bold; margin: 6px 0; }
+    #manual_heat_modal { box-sizing: border-box; width: 92vw; max-width: 680px; }
+    #manual_heat_modal * { box-sizing: border-box; }
+    @media (max-width: 480px) {
+      #manual_heat_modal { padding: 14px; }
+      .adhoc-lane-row { gap: 8px 14px; padding: 12px 2px; }
+      .adhoc-radio { font-size: 1.15em; }
+    }
   </style>
 </head>
 
@@ -422,24 +438,24 @@ $adhoc_nlanes = get_lane_count();
       <input type="hidden" name="action" value="adhoc.heat" />
       <h3 class="adhoc-modal__title">Set Up Ad-Hoc Heat</h3>
       <p class="adhoc-modal__hint">Enter the pinnies at the line and pick each one's age group. Leave a lane blank for a bye.</p>
-      <table class="adhoc-entry-table">
-        <thead><tr><th>Lane</th><th>Pinny</th><th>Age Group</th></tr></thead>
-        <tbody>
-          <?php for ($i = 1; $i <= $adhoc_nlanes; $i++) { ?>
-          <tr>
-            <td class="adhoc-entry-lane"><?php echo $i; ?></td>
-            <td><input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
-                       class="adhoc-pinny-input" name="pinny<?php echo $i; ?>" /></td>
-            <td><select class="adhoc-age-select" name="agegroup<?php echo $i; ?>">
-                  <option value="">&mdash; age group &mdash;</option>
-                  <?php foreach ($adhoc_age_groups as $g) { ?>
-                  <option value="<?php echo (int)$g['classid']; ?>"><?php echo htmlspecialchars($g['class']); ?></option>
-                  <?php } ?>
-                </select></td>
-          </tr>
-          <?php } ?>
-        </tbody>
-      </table>
+      <div class="adhoc-entry">
+        <?php for ($i = 1; $i <= $adhoc_nlanes; $i++) { ?>
+        <div class="adhoc-lane-row">
+          <span class="adhoc-lane-label">Lane <?php echo $i; ?></span>
+          <input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                 class="adhoc-pinny-input" name="pinny<?php echo $i; ?>" placeholder="Pinny" />
+          <div class="adhoc-age-options">
+            <?php foreach ($adhoc_age_groups as $g) {
+                    $short = preg_replace('/^\s*ages?\s+/i', '', $g['class']); ?>
+            <label class="adhoc-radio" title="<?php echo htmlspecialchars($g['class']); ?>">
+              <input type="radio" class="adhoc-age-radio" name="agegroup<?php echo $i; ?>"
+                     value="<?php echo (int)$g['classid']; ?>" /><span><?php echo htmlspecialchars($short); ?></span>
+            </label>
+            <?php } ?>
+          </div>
+        </div>
+        <?php } ?>
+      </div>
       <div id="adhoc_lock_error" class="adhoc-error hidden"></div>
       <input type="submit" id="adhoc_lock_button" value="Lock In Heat &amp; Race" />
       <input type="button" value="Cancel" onclick='close_modal("#manual_heat_modal");' />

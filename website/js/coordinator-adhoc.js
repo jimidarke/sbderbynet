@@ -7,7 +7,7 @@
 // Open the "set up next group" modal: clear prior entries + error, then show it.
 function on_adhoc_setup_click() {
   $("#manual_heat_modal .adhoc-pinny-input").val("");
-  $("#manual_heat_modal .adhoc-age-select").val("");
+  $("#manual_heat_modal .adhoc-age-radio").prop("checked", false);
   $("#adhoc_lock_error").addClass("hidden").text("");
   show_modal("#manual_heat_modal", function (event) {
     return on_adhoc_lock_submit();
@@ -26,24 +26,28 @@ function on_adhoc_lock_submit() {
   var seen = {};
   var count = 0;
   var bad = null;
-  $("#manual_heat_modal tbody tr").each(function () {
-    var pinny = $.trim($(this).find(".adhoc-pinny-input").val());
-    var age = $(this).find(".adhoc-age-select").val();
+  $("#manual_heat_modal .adhoc-lane-row").each(function () {
+    var $inp = $(this).find(".adhoc-pinny-input");
+    var pinny = $.trim($inp.val());
+    var age = $(this).find(".adhoc-age-radio:checked").val();
     if (pinny === "") return;                 // blank lane = bye
     if (!/^\d+$/.test(pinny) || parseInt(pinny, 10) <= 0) {
       bad = "Pinny '" + pinny + "' is not a number.";
       return;
     }
+    // Zero-pad left to 4 digits (66 -> 0066); leave longer values untouched.
+    if (pinny.length < 4) { pinny = ("0000" + pinny).slice(-4); }
+    $inp.val(pinny);                          // write back so the POST sends the padded value
     if (!age) {
-      bad = "Pinny " + parseInt(pinny, 10) + ": choose an age group.";
+      bad = "Pinny " + pinny + ": choose an age group.";
       return;
     }
-    var key = String(parseInt(pinny, 10));
-    if (seen[key]) {
-      bad = "Pinny " + key + " entered twice in one heat.";
+    // Dedup on the padded string so leading zeros stay distinct.
+    if (seen[pinny]) {
+      bad = "Pinny " + pinny + " entered twice in one heat.";
       return;
     }
-    seen[key] = true;
+    seen[pinny] = true;
     count++;
   });
 
