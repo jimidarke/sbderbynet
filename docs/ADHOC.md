@@ -158,17 +158,24 @@ sudo install -o derbynet -g www-data -m 0664 /dev/null /var/lib/derbynet/active-
 - **`RaceInfo.lane_count` set** and real finish timers on the track.
 - **Race-control permission** (`CONTROL_RACE_PERMISSION`) for the operator.
 
-## Cloud twin — DEFERRED (follow-up)
+## Cloud twin — SHIPPED (commit 1192599a, 2026-06-19)
 
-The data model is cloud-ready (ordinary tables), but ad-hoc results do **not**
-currently reach the cloud twin: `cloud-sync.sh` auto-detects and pushes
-`derbynet.sqlite3` **by name**, and it does not honor the active-db marker — so
-during ad-hoc mode the cloud keeps showing the (frozen) official DB. Surfacing
-ad-hoc on the twin needs `cloud-sync.sh` to push the **marker-resolved active DB**
-(so the twin mirrors whatever the rig is live on). That is an **outward-facing**
-change (it changes what public spectators see during ad-hoc, and the public-stats
-schedule pages have no schedule in ad-hoc mode), so it is intentionally **not** in
-this change. Pi-local ad-hoc is fully functional without it.
+Ad-hoc now reaches the QR-linked spectator pages. `cloud-sync.sh` honors the
+active-db marker (same allowlist + fail-safe as `inc/db-marker.inc`), pushing the
+marker-resolved `adhoc.sqlite3` while the rig is in ad-hoc mode. `render.sh`
+auto-detects `RaceInfo.adhoc-mode` and rebuilds the public surface roster-less:
+
+- **Recent races** (schedule landing): every run since start, newest first.
+- **Leaderboard** (recent.html): best single time, top 3 per age group
+  (mirrors `inc/adhoc-standings.inc`).
+- **My Races**: one page per captured pinny, built from `display_pinny`.
+
+Nav/title/footer are relabeled ad-hoc-only via template placeholders; normal
+rostered events render byte-identically. Pinny zero-padding is decimal-safe
+everywhere (SQLite `printf` for ad-hoc, leading-zero strip for the roster path)
+— a bare shell `printf "%04d"` parses leading-zero pinnies as octal and corrupts
+`me/<pinny>.html` filenames. **No PII**: pinny + time only, never racer names.
+See [PUBLIC_STATS.md](PUBLIC_STATS.md).
 
 ## Files
 
@@ -201,3 +208,32 @@ this change. Pi-local ad-hoc is fully functional without it.
   (the exact payload the race server sends) — or use the coordinator Manual
   Results modal — and confirm the leaderboard updates and the official DB is
   unchanged after **Exit Ad-Hoc**.
+
+## Edge cases & hardening backlog (practice-day-default candidate)
+
+Ad-hoc was a success at the 2026-06-20 Friday practice and is a candidate to
+become the **default mode for practice days**. The data-isolation design is
+solid (separate `adhoc.sqlite3`, atomic marker, fail-safe to official, no PII on
+the cloud). The remaining items are **operator-error catches**, not data-safety
+bugs — worth hardening before making ad-hoc the default, since practice days mean
+frequent mode-switching by less-rehearsed operators. None are shipped yet; each
+needs code verification before implementation.
+
+| # | Case | Status today | Risk | Suggested hardening | Effort |
+|---|------|--------------|------|---------------------|--------|
+| 1 | **Enable ad-hoc while an official heat is armed/racing** | GAP — `action.adhoc.mode.inc` builds + flips the marker unconditionally | Marker flips immediately; the next result write lands in the ad-hoc DB instead of the official heat | Before `adhoc_build()`, refuse (or confirm) if `get_racing_state()` is non-zero or an official round has results | S |
+| 2 | **Exit ad-hoc while an ad-hoc heat is armed/racing** | PARTIAL — exit stops racing state but gives no warning | Marker flips back to official; an in-flight ad-hoc heat is orphaned and its timer result is misrouted | In `coordinator-adhoc.js` exit, check poll `NowRacingState`; confirm "A heat is armed — exit anyway?" | M |
+| 3 | **Oversized pinny (e.g. `999999999`)** | GAP — server regex `^[0-9]+$` accepts any length | `display_pinny` stored full-width breaks the 4-digit `pinny_display()` assumption on kiosk + cloud | Cap at 4 digits / reject `> 9999` in both `coordinator-adhoc.js` and `adhoc_arm_heat()` | S |
+| 4 | **Timer fires for a bye/unknown lane** | GAP — `write-heat-results.inc` silently ignores lanes with no RaceChart row | Silent data loss; operator never learns a time was dropped | Warn (`derby_log_warn`) when a reported lane has no entry for the heat | S |
+| 5 | **Same pinny re-entered under a different age group** | PARTIAL — allowed (legit for re-runs), no warning | Splits one car's results across two age-group leaderboards | On arm, warn if `display_pinny` previously raced under a different `agegroup_classid` | M |
+| 6 | **Duplicate POST / browser refresh mid-heat-setup** | PARTIAL — arm increments the heat counter, so a re-POST mints a duplicate heat | Stray empty/duplicate heat in the feed | Idempotency token on the heat-setup form, or dedup identical consecutive arms | M |
+| 7 | **Pinny collides with a real roster car number** | PARTIAL — roster-less model means no DB conflict, but the same printed number can mean two cars | Operator/ spectator confusion if a roster pinny re-enters as an ad-hoc pinny | Optional: warn if `display_pinny` matches any official `RegistrationInfo.carnumber` | S |
+
+**Confirmed already-handled** (no action): non-numeric pinny rejected, `0000`/blank
+rejected, leading-zero normalization, duplicate-in-same-heat dedup, byes / fewer
+racers than lanes, single-racer heat, zero-racers rejected, DNF excluded from the
+leaderboard, ties stably ordered, re-run a heat (reinstate), server restart
+mid-ad-hoc (marker + counters persist), kiosk + cloud surfacing, PII scrubbed.
+
+**Recommended order for practice-day-default:** #1 → #3 → #4 first (all small,
+high-value safety/clarity catches), then #2 and #5 (operator-confirm polish).

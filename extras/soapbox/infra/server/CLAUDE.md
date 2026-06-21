@@ -10,7 +10,7 @@ This is the hub of the hardware layer. Finish timers and start timers publish ev
 
 ## Key Files
 
-- `derbyRace.py` — Main entry point (v0.8.2). Race state machine, lane time management with thread locks, MQTT message routing
+- `derbyRace.py` — Main entry point (v0.9.3). Race state machine, lane time management with thread locks, MQTT message routing
 - `derbyapi.py` — DerbyNet HTTP API client for schedule queries and result submission
 - `derbydb.py` — Direct SQLite database access (bypasses HTTP for race-critical writes)
 - `derbyTime.py` — Time synchronization service

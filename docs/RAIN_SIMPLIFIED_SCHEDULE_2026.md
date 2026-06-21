@@ -1,12 +1,13 @@
-# Rain-Day Simplified Schedule — 2026 (PENDING CONFIRMATION)
+# Rain-Day Simplified Schedule — 2026 (CONFIG SHIPPED — NOT RUN)
 
-**Status:** 🟡 Proposed — pending coordinator sign-off. **No config or code changes made yet.**
+**Status:** ✅ Config shipped (commit `febb532d`, 2026-06-19):
+`website/inc/elimination-configs/soapbox-derby-elimination-rainday.json`.
+The 2026 race day (2026-06-21) was ultimately **rain-cancelled** — only Friday
+practice (2026-06-20) ran — so this bracket was **never used in competition**.
+Retained as a validated, ready-to-use artifact for a future rained-out event.
 **Created:** 2026-06-17
-**Driver:** Rain forecast for race day; coordinator wants a simpler schedule with the
+**Driver:** Rain forecast for race day; coordinator wanted a simpler schedule with the
 same elimination structure to reduce time on the hill.
-
-This is a planning tracker, not an implemented change. When confirmed, the only
-build artifact is **one new elimination config file** (see "Implementation path").
 
 ---
 
@@ -94,7 +95,12 @@ Prelims dominate (116 of 126 heats).
 
 ---
 
-## Implementation path (when confirmed — NOT done yet)
+## Implementation path (DONE — config shipped `febb532d`)
+
+The build below was executed and shipped as
+`soapbox-derby-elimination-rainday.json`. Kept here as the record of what the
+config contains; the one open item is the final simulator/sandbox validation +
+coordinator sign-off, which never happened because the event was rain-cancelled.
 
 1. Clone `website/inc/elimination-configs/soapbox-derby-elimination-dropslowest.json`
    to a new rain-day config file.

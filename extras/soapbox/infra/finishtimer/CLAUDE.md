@@ -10,7 +10,7 @@ One finish timer per lane. Each publishes finish events to MQTT, which the Race 
 
 ## Key Files
 
-- `files/finishtimer.py` — Main service (v0.8.0). GPIO monitoring, MQTT pub/sub, LED/display control
+- `files/finishtimer.py` — Main service (v0.9.0). GPIO monitoring, MQTT pub/sub, LED/display control
 - `setup.sh` — Service installation script
 - `sync.sh` — File synchronization to Pi
 - `board.txt` — DerbyNet PCB v1 hardware pinout specification

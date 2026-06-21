@@ -1,9 +1,14 @@
 # Race Simulation Validation Report — June 2026
 
 **Goal:** validate the full results pipeline (MQTT timers → race-server →
-DB → elimination advancement → standings → awards) before the live-broadcast
-race day on 2026-06-22, across hundreds of simulated tournament variants,
+DB → elimination advancement → standings → awards) ahead of the scheduled
+race day on 2026-06-21, across hundreds of simulated tournament variants,
 and assess drop-slowest-then-average as an alternative scoring method.
+
+> **Outcome (2026-06-21):** race day was rain-cancelled; only Friday practice
+> (2026-06-20) ran, so the elimination pipeline was not exercised in live
+> competition. The 7 fixes below remain validated by simulation and are in
+> `master`, ready for the next event.
 
 **System:** `testing/simulator/` (`simctl`) — seeded, reproducible
 full-tournament variants against cloud-twin tenants cloned from

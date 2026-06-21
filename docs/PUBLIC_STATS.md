@@ -1,14 +1,22 @@
 # Public Spectator Pages — Operator Runbook
 
-> **Active token (do NOT rotate until 2026-06-22):**
+> **Active token (do NOT rotate until 2026-06-29):**
 > `bea32bfcdd26bedf8303cc33`
 >
 > This is the auto-minted token from the first deploy. The QR has already
 > been distributed to spectators during testing and they've been showing
-> it off; rotating mid-event would invalidate every scan they've taken.
-> Keep stable through race day on 2026-06-21 + the day after for any
-> lingering "what was that URL?" lookups. Rotate after June 22 if the
-> next event wants a fresh one.
+> it off; rotating would invalidate every scan they've taken.
+>
+> **Update (2026-06-21):** race day was rain-cancelled (only the Friday
+> 2026-06-20 practice ran). Per owner decision the spectator page is being
+> **kept live as-is — do NOT rotate or take down** for ~another week. Lock
+> extended to **2026-06-29** (was 2026-06-22). Two other actions would also
+> take results offline — avoid them too until then: `derbyvps.sh shutdown`,
+> and **exiting ad-hoc mode on the Pi while it is still cloud-syncing** (that
+> clears the marker → next sync pushes the empty official DB over the ad-hoc
+> results; power the Pi off instead to freeze the last render). Revisit the
+> rotation decision when the next event is scheduled. See
+> `project_live_token_locked.md` in Claude memory.
 
 Three prerendered HTML surfaces served from the cloud-twin, behind an
 obfuscated token URL. Designed for race-day spectators viewing on phones via
@@ -371,6 +379,26 @@ Generator runs as a non-root `stats` user, reads `derbynet.sqlite3` read-only,
 writes its tmp directory inside `/out/tokens/.tmp.*` then `mv`s into place
 (atomic per-file). No PHP, no DB writes, no MQTT — fully decoupled from the
 race-control surface.
+
+## Ad-hoc mode on the spectator pages
+
+When the rig is in ad-hoc ("come-as-you-are") mode, the spectator pages adapt
+automatically (shipped in commit `1192599a`). `cloud-sync.sh` honors the
+active-db marker and pushes the marker-resolved `adhoc.sqlite3` (same allowlist
++ fail-safe as `inc/db-marker.inc`), and `render.sh` detects `RaceInfo.adhoc-mode`
+and rebuilds the surface roster-less:
+
+- **Recent races** (schedule landing): every run since start, newest first.
+- **Leaderboard** (recent.html): best single time, top 3 per age group
+  (mirrors `inc/adhoc-standings.inc`).
+- **My Races**: one page per captured pinny, built from `display_pinny`.
+
+Nav/title/footer are relabeled ad-hoc-only via template placeholders; normal
+rostered events render byte-identically. Pinny zero-padding is decimal-safe
+everywhere (SQLite `printf` for ad-hoc; leading-zero strip for the roster path —
+a bare shell `printf "%04d"` would parse a leading-zero pinny as octal). **No
+PII**: pinny + time only, never racer names. Full feature spec in
+[ADHOC.md](ADHOC.md).
 
 ## Architecture notes
 

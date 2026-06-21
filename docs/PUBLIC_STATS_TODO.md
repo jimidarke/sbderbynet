@@ -1,9 +1,10 @@
 # Public-Stats Spectator Pages — Improvement Backlog
 
 Captured 2026-05-22 after the v0.10.1 deploy (`feat(public-stats): My Races
-pinny lookup + spectator UI polish`). Pages live behind the locked token
-through 2026-06-22; see [PUBLIC_STATS.md](PUBLIC_STATS.md) for the current
-architecture.
+pinny lookup + spectator UI polish`). Pages live behind the locked token; the
+2026-06-21 race day was rain-cancelled but the page is being kept live as-is
+(no rotation) per owner decision — see [PUBLIC_STATS.md](PUBLIC_STATS.md) for
+the current architecture and rotation status.
 
 The system today (since the 2026-06-15 event-driven rework): race events on
 the Pi request a push (single-flight + one coalesced catch-up; 30 s timer as
@@ -130,5 +131,6 @@ sub-second and mobile data plummet.
   load-bearing for the no-rate-limit posture; do not undo it.
 - PII expansion — pinny-only on every public-stats surface (see
   `feedback_public_stats_no_pii.md` in Claude memory). This is locked.
-- Token rotation before 2026-06-22 — QR already distributed (see
+- Token rotation before 2026-06-29 (lock extended; race rain-cancelled but the
+  audience page is being kept live another week) — QR already distributed (see
   `project_live_token_locked.md` in Claude memory).
